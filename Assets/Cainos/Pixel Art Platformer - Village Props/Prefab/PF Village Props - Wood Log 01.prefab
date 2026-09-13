@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: -5802929625297403922}
   - component: {fileID: 3419511804961857517}
   - component: {fileID: 1810126827742337949}
+  - component: {fileID: 4959970586597024578}
   m_Layer: 0
   m_Name: PF Village Props - Wood Log 01
   m_TagString: Untagged
@@ -34,6 +35,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &982056747370159614
 SpriteRenderer:
@@ -93,6 +95,7 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
+  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
 --- !u!50 &-5802929625297403922
@@ -122,6 +125,8 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 0
+--- !u!60 &4959970586597024578
+PolygonCollider2D:
 --- !u!114 &3419511804961857517
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -170,8 +175,7 @@ BoxCollider2D:
     m_Bits: 4294967295
   m_IsTrigger: 1
   m_UsedByEffector: 0
-  m_CompositeOperation: 0
-  m_CompositeOrder: 0
+  m_UsedByComposite: 0
   m_Offset: {x: 0, y: 0.09375}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
@@ -184,3 +188,18 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 2.9375, y: 0.6875}
   m_EdgeRadius: 0
+  m_Points:
+    m_Paths:
+    - - {x: -0.09320444, y: 0.18754596}
+      - {x: -0.5279017, y: 0.2496327}
+      - {x: -0.808991, y: 0.21858448}
+      - {x: -1.3698561, y: 0.21991012}
+      - {x: -1.4378867, y: 0.14930761}
+      - {x: -1.4353148, y: -0.097482085}
+      - {x: -1.3706295, y: -0.15483817}
+      - {x: -0.9680912, y: -0.18582848}
+      - {x: 0.9108961, y: -0.18945703}
+      - {x: 1.3775365, y: -0.18657786}
+      - {x: 1.4364978, y: -0.09949}
+      - {x: 1.4364978, y: 0.121674865}
+      - {x: 1.3820609, y: 0.18686254}

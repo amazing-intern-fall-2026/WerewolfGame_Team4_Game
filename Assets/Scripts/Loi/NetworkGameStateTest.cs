@@ -1,65 +1,36 @@
+using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkGameStateTest : MonoBehaviour
 {
+    [Header("Network Game Timer")]
+    [SerializeField] private NetworkGameTimer timer;
+
     private void Update()
     {
-        if (NetworkGameManager.Instance == null)
+        if (timer == null)
             return;
 
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.Lobby
-            );
-        }
+        if (NetworkManager.Singleton == null)
+            return;
 
-        if (Input.GetKeyDown(KeyCode.Alpha2))
+        // Hiển thị thông tin mỗi khoảng 1 giây
+        if (Time.frameCount % 60 == 0)
         {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.RoleReveal
-            );
-        }
+            NetworkGameManager gameManager =
+                FindAnyObjectByType<NetworkGameManager>();
 
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.Night
-            );
-        }
+            if (gameManager == null)
+                return;
 
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.Morning
-            );
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha5))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.Discussion
-            );
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha6))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.Voting
-            );
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha7))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.Resolve
-            );
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha8))
-        {
-            NetworkGameManager.Instance.ChangeGameState(
-                GameState.GameOver
+            Debug.Log(
+                "Player " +
+                NetworkManager.Singleton.LocalClientId +
+                " | State: " +
+                gameManager.CurrentState.Value +
+                " | Timer: " +
+                timer.TimeRemaining.Value.ToString("F1") +
+                " giây"
             );
         }
     }

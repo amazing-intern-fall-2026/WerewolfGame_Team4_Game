@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 26a8acd3e5d98ea4091dcdb5f9735ed7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Tiles/Props/Background.prefab
+  uploadId: 752810

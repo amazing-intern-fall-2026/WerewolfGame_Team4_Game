@@ -61,34 +61,15 @@ public class SceneLoader : MonoBehaviour
 
         isLeaving = true;
 
-        if (NetworkManager.Singleton == null)
-        {
-            LoadMainMenu();
-            return;
-        }
+        Debug.Log("Đang Leave Lobby...");
 
-        // HOST
-        if (NetworkManager.Singleton.IsHost)
+        if (NetworkManager.Singleton != null)
         {
-            Debug.Log("HOST đang Leave Lobby.");
-
             NetworkManager.Singleton.Shutdown();
-
-            StartCoroutine(LoadMainMenuAfterShutdown());
         }
-        // CLIENT
-        else if (NetworkManager.Singleton.IsClient)
-        {
-            Debug.Log("CLIENT đang Leave Lobby.");
 
-            NetworkManager.Singleton.Shutdown();
-
-            StartCoroutine(LoadMainMenuAfterShutdown());
-        }
-        else
-        {
-            LoadMainMenu();
-        }
+        // Chuyển Host về MainMenu ngay
+        SceneManager.LoadScene("MainMenu");
     }
 
     // =========================================================
@@ -97,51 +78,20 @@ public class SceneLoader : MonoBehaviour
 
     private void OnClientDisconnected(ulong clientId)
     {
-        if (NetworkManager.Singleton == null)
-            return;
-
-        // Không xử lý lại nếu người chơi đã chủ động Leave
         if (isLeaving)
             return;
 
-        // Kiểm tra có phải chính Client này bị disconnect không
+        if (NetworkManager.Singleton == null)
+            return;
+
         if (clientId == NetworkManager.Singleton.LocalClientId)
         {
-            Debug.Log("CLIENT bị disconnect khỏi Host.");
+            Debug.Log("Client bị disconnect khỏi Host.");
 
             isLeaving = true;
 
-            StartCoroutine(LoadMainMenuAfterDisconnect());
+            SceneManager.LoadScene("MainMenu");
         }
-    }
-
-    // =========================================================
-    // LOAD MAIN MENU SAU KHI SHUTDOWN
-    // =========================================================
-
-    private IEnumerator LoadMainMenuAfterShutdown()
-    {
-        // Chờ NetworkManager xử lý Shutdown
-        yield return null;
-
-        yield return new WaitForEndOfFrame();
-
-        LoadMainMenu();
-    }
-
-    // =========================================================
-    // LOAD MAIN MENU SAU KHI BỊ HOST DISCONNECT
-    // =========================================================
-
-    private IEnumerator LoadMainMenuAfterDisconnect()
-    {
-        Debug.Log("Đang chuyển Client về MainMenu...");
-
-        yield return null;
-
-        yield return new WaitForEndOfFrame();
-
-        LoadMainMenu();
     }
 
     // =========================================================
