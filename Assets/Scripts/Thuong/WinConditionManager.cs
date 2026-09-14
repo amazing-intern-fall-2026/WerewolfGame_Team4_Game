@@ -1,47 +1,27 @@
-using Unity.VisualScripting;
 using UnityEngine;
-
 public class WinConditionManager : MonoBehaviour
 {
     public static WinConditionManager Instance;
-    private void Awake()
+    [SerializeField, Min(1)] private int maxDay = 7;
+    [SerializeField] private bool useEliminationWin = false;
+    private void Awake() { Instance = this; }
+    public void CheckWinCondition() { CheckWinCondition(false); }
+    public void CheckWinCondition(bool dayFinished)
     {
-        Instance = this;
-    }
-    public bool CheckWin()
-    {
-        int monster = 0;
-        int villager = 0;
-
-        foreach (PlayerData player in PlayerManger.Instance.players)
+        var game = GameManager.Instance;
+        if (game == null || game.currentState == GameState.GameOver) return;
+        if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
+        { game.VillagerWin(); return; }
+        if (dayFinished && game.currentDay >= maxDay)
+        { game.WerewolfWin(); return; }
+        if (!useEliminationWin || PlayerManger.Instance == null || PlayerManger.Instance.players.Count == 0) return;
+        int monsters = 0, others = 0;
+        foreach (var player in PlayerManger.Instance.players)
         {
-            if (!player.isAlive)
-                continue;
-            if (player.faction == FactionType.Monster)
-            {
-                monster++;
-            }
-            else if (player.faction == FactionType.Villager)
-            {
-                villager++;
-            }
+            if (!player.isAlive) continue;
+            if (player.faction == FactionType.Monster) monsters++; else others++;
         }
-        if (monster == 0)
-        {
-            Debug.Log(" Villager Win ");
-
-            GameManager.Instance.EndGame();
-
-            return true;
-        }
-        if (monster >= villager)
-        {
-            Debug.Log(" Monster Win ");
-
-            GameManager.Instance.EndGame();
-
-            return true;
-        }
-        return false;
+        if (monsters == 0) game.VillagerWin();
+        else if (monsters >= others) game.WerewolfWin();
     }
 }

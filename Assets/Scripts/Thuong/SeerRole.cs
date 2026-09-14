@@ -10,6 +10,7 @@ public class SeerRole : BaseRole
     public override void UseNightAbility(int TargetID)
     {
         PlayerData target = PlayerManger.Instance.GetplayerByID(TargetID);
+        if (target == null || !target.isAlive) return;
         Debug.Log("Seer Checked : "+target.playerName+target.roleType);
     }
 }

@@ -6,7 +6,7 @@ public class RoleManger : MonoBehaviour
 {
     public static RoleManger Instance;
 
-    public Dictionary<int, BaseRole> playerRoles =
+    [System.NonSerialized] public Dictionary<int, BaseRole> playerRoles =
         new Dictionary<int, BaseRole>();
 
 
@@ -22,17 +22,12 @@ public class RoleManger : MonoBehaviour
             new List<PlayerData>(PlayerManger.Instance.players);
 
         Shuffle(list);
-
-        CreateRole(RoleType.DogSprit, list[0]);
-        CreateRole(RoleType.Mayor, list[1]);
-        CreateRole(RoleType.Seer, list[2]);
-        CreateRole(RoleType.VillageGuardian, list[3]);
-        CreateRole(RoleType.Idiot, list[4]);
-
-        // Những player còn lại là Villager
-        for (int i = 5; i < list.Count; i++)
+        playerRoles.Clear();
+        RoleType[] roles = { RoleType.DogSprit, RoleType.Mayor, RoleType.Seer, RoleType.VillageGuardian, RoleType.Idiot };
+        for (int i = 0; i < list.Count; i++)
         {
-            CreateRole(RoleType.Villager, list[i]);
+            list[i].votPower = 1;
+            CreateRole(i < roles.Length ? roles[i] : RoleType.Villager, list[i]);
         }
     }
 

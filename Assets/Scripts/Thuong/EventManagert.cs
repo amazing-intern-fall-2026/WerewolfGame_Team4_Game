@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class EventManagert
+public class EventManagert : MonoBehaviour
 {
     public static EventManagert Instance;
 

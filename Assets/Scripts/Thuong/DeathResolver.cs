@@ -24,11 +24,14 @@ public class DeathResolver:MonoBehaviour
         {
             return false;
         }
-        if (target.status.isProtected)
+        if (target.status.isProtected && cause == DeathCause.Monster)
         { 
             target.status.isProtected = false;
             return false;
         }
+        target.isAlive = false;
+        if (RoleManger.Instance != null && RoleManger.Instance.playerRoles.TryGetValue(targetID, out var role))
+            role.OnDeath();
         return true;
     }
 }

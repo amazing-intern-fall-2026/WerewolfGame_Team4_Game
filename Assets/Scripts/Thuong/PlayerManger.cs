@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -12,6 +11,7 @@ public class PlayerManger : MonoBehaviour
     public void Awake()
     {
         Instance = this;
+        if (players.Count == 0) CreateTestPlayer(5);
     }
     public void CreateTestPlayer(int amount)
     {
@@ -34,7 +34,6 @@ public class PlayerManger : MonoBehaviour
     private void Start()
     {
 
-        CreateTestPlayer(5);
 
 
         foreach (PlayerData player in players)
@@ -46,5 +45,13 @@ public class PlayerManger : MonoBehaviour
                 " | Vote Power: " + player.votPower
             );
         }
+    }
+
+    public void LockPlayers() { SetMovement(false); }
+    public void UnlockPlayers() { SetMovement(true); }
+    private void SetMovement(bool value)
+    {
+        foreach (var movement in FindObjectsByType<Assets.Scripts.Thuong.PlayerMovement>())
+            movement.SetCanMove(value);
     }
 }
