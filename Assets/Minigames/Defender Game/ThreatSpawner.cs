@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class DefenderGameManager : MonoBehaviour
+public class ThreatSpawner : MonoBehaviour
 {
     [SerializeField] private GameObject threatPrefab;
     [SerializeField] private float spawnRadius = 8f;
