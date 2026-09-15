@@ -7,6 +7,7 @@ TagManager:
   - Scythe
   - Wheat
   - ChopZone
+  - Shield
   layers:
   - Default
   - TransparentFX
