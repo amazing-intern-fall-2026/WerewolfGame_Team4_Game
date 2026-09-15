@@ -24,9 +24,9 @@ public class WheatObstacle : MonoBehaviour
         if (isCut) return;
 
         float speed = fallbackSpeed;
-        if (GameManager.Instance != null && GameManager.Instance.GameSpeed > 0)
+        if (WheatHarvestGameManager.Instance != null && WheatHarvestGameManager.Instance.GameSpeed > 0)
         {
-            speed = GameManager.Instance.GameSpeed;
+            speed = WheatHarvestGameManager.Instance.GameSpeed;
         }
 
         transform.Translate(Vector3.left * speed * Time.deltaTime, Space.World);
@@ -47,8 +47,8 @@ public class WheatObstacle : MonoBehaviour
         }
         else if (other.CompareTag("Player"))
         {
-            if (GameManager.Instance != null)
-                GameManager.Instance.TriggerGameOver();
+            if (WheatHarvestGameManager.Instance != null)
+                WheatHarvestGameManager.Instance.TriggerGameOver();
         }
     }
 
@@ -56,8 +56,8 @@ public class WheatObstacle : MonoBehaviour
     {
         isCut = true;
 
-        if (GameManager.Instance != null)
-            GameManager.Instance.AddScore(10);
+        if (WheatHarvestGameManager.Instance != null)
+            WheatHarvestGameManager.Instance.AddScore(10);
 
         if (col != null) col.enabled = false;
         if (spriteRenderer != null) spriteRenderer.enabled = false;
