@@ -23,7 +23,7 @@ public class PhaseManager : MonoBehaviour
 
     private IEnumerator RoleRevealRoutine()
     {
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.RoleReveal);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.RoleReveal);
         Debug.Log("[GameFlow] ROLE REVEAL");
         yield return new WaitForSeconds(5);
         StartDay();
@@ -36,8 +36,8 @@ public class PhaseManager : MonoBehaviour
 
     private IEnumerator DayRoutine()
     {
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.DayStart);
-        Debug.Log("[GameFlow] DAY " + (GameManager.Instance != null ? GameManager.Instance.currentDay : 1));
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.DayStart);
+        Debug.Log("[GameFlow] DAY " + (GameRoleManager.Instance != null ? GameRoleManager.Instance.currentDay : 1));
         yield return new WaitForSeconds(2);
         StartDiscussion();
     }
@@ -49,7 +49,7 @@ public class PhaseManager : MonoBehaviour
 
     private IEnumerator DiscussionRoutine()
     {
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.Discussion);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.Discussion);
         Debug.Log("[GameFlow] DISCUSSION START");
         yield return new WaitForSeconds(10); // Thời gian thảo luận (test 10s)
         StartVoting();
@@ -62,11 +62,11 @@ public class PhaseManager : MonoBehaviour
 
     private IEnumerator VotingRoutine()
     {
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.Voting);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.Voting);
         Debug.Log("[GameFlow] VOTING START");
         yield return new WaitForSeconds(10);
 
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.ResolveVote);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.ResolveVote);
         Debug.Log("[GameFlow] RESOLVING VOTES...");
         yield return new WaitForSeconds(3);
 
@@ -86,11 +86,11 @@ public class PhaseManager : MonoBehaviour
 
     private IEnumerator NightRoutine()
     {
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.Night);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.Night);
         Debug.Log("[GameFlow] NIGHT START");
         yield return new WaitForSeconds(15);
 
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.ResolveNight);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.ResolveNight);
         Debug.Log("[GameFlow] RESOLVING NIGHT...");
 
         if (NightResolver.Instance != null)
@@ -105,13 +105,13 @@ public class PhaseManager : MonoBehaviour
             yield break;
         }
 
-        if (GameManager.Instance != null) GameManager.Instance.currentDay++;
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.currentDay++;
         StartDay();
     }
 
     private void EndGame()
     {
-        if (GameManager.Instance != null) GameManager.Instance.SetPhase(GamePhase.GameOver);
+        if (GameRoleManager.Instance != null) GameRoleManager.Instance.SetPhase(GamePhase.GameOver);
         Debug.Log("[GameFlow] GAME OVER!");
     }
 }
