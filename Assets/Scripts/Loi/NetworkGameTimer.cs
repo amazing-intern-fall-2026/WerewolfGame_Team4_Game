@@ -31,30 +31,30 @@ public class NetworkGameTimer : NetworkBehaviour
             TimeRemaining.Value = 0;
     }
 
-    public void SetTimerForState(GameState state)
+    public void SetTimerForState(NetworkGameState state)
     {
         if (!IsServer)
             return;
 
         switch (state)
         {
-            case GameState.Night:
+            case NetworkGameState.Night:
                 TimeRemaining.Value = nightTime;
                 break;
 
-            case GameState.Morning:
+            case NetworkGameState.Morning:
                 TimeRemaining.Value = morningTime;
                 break;
 
-            case GameState.Discussion:
+            case NetworkGameState.Discussion:
                 TimeRemaining.Value = discussionTime;
                 break;
 
-            case GameState.Voting:
+            case NetworkGameState.Voting:
                 TimeRemaining.Value = votingTime;
                 break;
 
-            case GameState.Resolve:
+            case NetworkGameState.Resolve:
                 TimeRemaining.Value = resolveTime;
                 break;
 
