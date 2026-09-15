@@ -1,7 +1,6 @@
-public enum GameState
+public enum NetworkGameState
 {
     Lobby,
-    RoleReveal,
     Night,
     Morning,
     Discussion,
