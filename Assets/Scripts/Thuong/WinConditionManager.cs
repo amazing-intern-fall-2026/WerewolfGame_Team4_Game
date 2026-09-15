@@ -8,7 +8,7 @@ public class WinConditionManager : MonoBehaviour
     public void CheckWinCondition() { CheckWinCondition(false); }
     public void CheckWinCondition(bool dayFinished)
     {
-        var game = GameManager.Instance;
+        var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
         if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
         { game.VillagerWin(); return; }

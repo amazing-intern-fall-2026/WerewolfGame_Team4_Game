@@ -19,7 +19,7 @@ public class VoteManger : MonoBehaviour
     }
     public bool TryVote(int voterID, int targetID)
     {
-        if (GameManager.Instance == null || GameManager.Instance.currentState != GameState.Voting ||
+        if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Voting ||
             PlayerManger.Instance == null) return false;
         var voter = PlayerManger.Instance.GetplayerByID(voterID);
         var target = PlayerManger.Instance.GetplayerByID(targetID);

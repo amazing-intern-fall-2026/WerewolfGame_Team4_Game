@@ -30,9 +30,9 @@ public class TaskManager : MonoBehaviour
     }
     public void CompleteTask(TaskData task)
     {
-        if (GameManager.Instance == null || GameManager.Instance.currentState != GameState.Day ||
+        if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Day ||
             task == null || !currentTasks.Contains(task) || !completed.Add(task)) return;
         progress = Mathf.Clamp(progress + Mathf.Max(0, task.progressValue), 0, 100);
-        if (progress >= 100) GameManager.Instance.VillagerWin();
+        if (progress >= 100) GameRoleManager.Instance.VillagerWin();
     }
 }
