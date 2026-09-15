@@ -2,9 +2,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
-public class GameManager : MonoBehaviour
+public class WheatHarvestGameManager : MonoBehaviour
 {
-    public static GameManager Instance { get; private set; }
+    public static WheatHarvestGameManager Instance { get; private set; }
 
     [Header("Game Pace")]
     [SerializeField] private float baseSpeed = 6f;

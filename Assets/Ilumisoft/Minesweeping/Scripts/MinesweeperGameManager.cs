@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Ilumisoft.Minesweeping
 {
-    public class GameManager : MonoBehaviour, ITileClickListener
+    public class MinesweeperGameManager : MonoBehaviour, ITileClickListener
     {
         [SerializeField]
         GameObject levelCompleteUI = null;
