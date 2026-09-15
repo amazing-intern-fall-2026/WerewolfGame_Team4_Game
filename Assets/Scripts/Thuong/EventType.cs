@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum EventType
+public enum GameEventType
 {
     None,
 
