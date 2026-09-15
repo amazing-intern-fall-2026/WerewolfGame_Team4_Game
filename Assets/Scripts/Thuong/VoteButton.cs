@@ -20,8 +20,8 @@ public class VoteButton : MonoBehaviour
     {
         var voter = PlayerManger.Instance?.GetplayerByID(voterID);
         var target = PlayerManger.Instance?.GetplayerByID(targetID);
-        button.interactable = GameManager.Instance != null &&
-            GameManager.Instance.currentState == GameState.Voting &&
+        button.interactable = GameRoleManager.Instance != null &&
+            GameRoleManager.Instance.currentState == GameState.Voting &&
             voter != null && target != null && voter.isAlive && target.isAlive && !voter.hasVoted;
     }
     public void CastVote()

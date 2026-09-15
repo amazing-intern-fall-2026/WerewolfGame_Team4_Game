@@ -6463,7 +6463,7 @@ GameObject:
   - component: {fileID: 1735911012}
   - component: {fileID: 1735911013}
   m_Layer: 0
-  m_Name: GameManager
+  m_Name: GameRoleManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6495,7 +6495,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 762a95cfb6ff13444a05d3630012937e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  m_EditorClassIdentifier: Assembly-CSharp::GameRoleManager
   currentState: 0
   currentPhase: 0
   currentDay: 1

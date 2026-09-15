@@ -30,7 +30,7 @@ public class GameHUD : MonoBehaviour
 
     private void Update()
     {
-        var game = GameManager.Instance;
+        var game = GameRoleManager.Instance;
         var tasks = TaskManager.Instance;
         if (game == null || tasks == null) return;
         if (progressSlider != null)

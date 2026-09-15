@@ -11,9 +11,9 @@ public class DayTimer : MonoBehaviour
     private void Update()
     {
         if (!running) return;
-        if (GameManager.Instance == null || GameManager.Instance.currentState != GameState.Day)
+        if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Day)
         { running = false; return; }
         TimeRemaining = Mathf.Max(0, TimeRemaining - Time.deltaTime);
-        if (TimeRemaining <= 0) { running = false; GameManager.Instance.EndDay(); }
+        if (TimeRemaining <= 0) { running = false; GameRoleManager.Instance.EndDay(); }
     }
 }

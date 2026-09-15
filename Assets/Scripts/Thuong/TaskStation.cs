@@ -11,8 +11,8 @@ public class TaskStation : MonoBehaviour
     private void Update()
     {
         var tasks = TaskManager.Instance;
-        bool available = tasks != null && task != null && GameManager.Instance != null &&
-            GameManager.Instance.currentState == GameState.Day &&
+        bool available = tasks != null && task != null && GameRoleManager.Instance != null &&
+            GameRoleManager.Instance.currentState == GameState.Day &&
             tasks.currentTasks.Contains(task) && !tasks.IsCompleted(task);
         if (marker != null && marker != gameObject) marker.SetActive(available);
         if (!available || player == null || Keyboard.current == null) return;

@@ -1,8 +1,8 @@
 using UnityEngine;
 
-public class GameManager : MonoBehaviour
+public class GameRoleManager : MonoBehaviour
 {
-    public static GameManager Instance;
+    public static GameRoleManager Instance;
     public GameState currentState;
     public GamePhase currentPhase;
     public int currentDay = 1;
@@ -26,7 +26,7 @@ public class GameManager : MonoBehaviour
             NightManager.Instance == null || VoteManger.Instance == null || DeathResolver.Instance == null ||
             WinConditionManager.Instance == null)
         {
-            Debug.LogError("GameManager: missing gameplay managers. See Docs/UNITY_SETUP_VI.md.");
+            Debug.LogError("GameRoleManager: missing gameplay managers. See Docs/UNITY_SETUP_VI.md.");
             enabled = false;
             return;
         }

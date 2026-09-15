@@ -27,7 +27,7 @@ namespace Assets.Scripts.Thuong
 
         private void FixedUpdate()
         {
-            if (!canMove || !IsAlive || (GameManager.Instance != null && GameManager.Instance.currentState != GameState.Day))
+            if (!canMove || !IsAlive || (GameRoleManager.Instance != null && GameRoleManager.Instance.currentState != GameState.Day))
             {
                 rb.linearVelocity = Vector2.zero;
                 return;
