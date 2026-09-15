@@ -26,11 +26,11 @@ public class PlayerController : NetworkBehaviour
 
     [Header("Role")]
     public NetworkVariable<PlayerRole> Role =
-    new NetworkVariable<PlayerRole>(
-        PlayerRole.Villager,
-        NetworkVariableReadPermission.Owner,
-        NetworkVariableWritePermission.Server
-    );
+        new NetworkVariable<PlayerRole>(
+            PlayerRole.Villager,
+            NetworkVariableReadPermission.Owner,
+            NetworkVariableWritePermission.Server
+        );
 
     private void Awake()
     {
@@ -49,7 +49,7 @@ public class PlayerController : NetworkBehaviour
         );
 
         // Server tự thiết lập trạng thái cho Player
-        // dựa trên GameState hiện tại
+        // dựa trên NetworkGameState hiện tại
         if (IsServer)
         {
             ApplyStateFromGameState();
@@ -106,28 +106,28 @@ public class PlayerController : NetworkBehaviour
         if (State.Value != PlayerState.Alive)
             return false;
 
-        // Không tìm thấy GameManager → không cho di chuyển
+        // Không tìm thấy NetworkGameManager
         if (NetworkGameManager.Instance == null)
             return false;
 
-        GameState currentGameState =
+        NetworkGameState currentGameState =
             NetworkGameManager.Instance.CurrentState.Value;
 
         switch (currentGameState)
         {
-            case GameState.Morning:
+            case NetworkGameState.Morning:
                 return true;
 
-            case GameState.Night:
+            case NetworkGameState.Night:
                 return false;
 
-            case GameState.Discussion:
+            case NetworkGameState.Discussion:
                 return false;
 
-            case GameState.Voting:
+            case NetworkGameState.Voting:
                 return false;
 
-            case GameState.Resolve:
+            case NetworkGameState.Resolve:
                 return false;
 
             default:
@@ -136,7 +136,7 @@ public class PlayerController : NetworkBehaviour
     }
 
     // =========================================================
-    // TỰ ĐỘNG ĐỔI PLAYER STATE THEO GAME STATE
+    // TỰ ĐỘNG ĐỔI PLAYER STATE THEO NETWORK GAME STATE
     // =========================================================
 
     public void ApplyStateFromGameState()
@@ -148,12 +148,12 @@ public class PlayerController : NetworkBehaviour
         if (NetworkGameManager.Instance == null)
             return;
 
-        GameState currentGameState =
+        NetworkGameState currentGameState =
             NetworkGameManager.Instance.CurrentState.Value;
 
         switch (currentGameState)
         {
-            case GameState.Night:
+            case NetworkGameState.Night:
 
                 // Người đã chết không trở thành Sleeping
                 if (State.Value == PlayerState.Alive)
@@ -163,7 +163,7 @@ public class PlayerController : NetworkBehaviour
 
                 break;
 
-            case GameState.Morning:
+            case NetworkGameState.Morning:
 
                 // Chỉ đánh thức người đang Sleeping
                 if (State.Value == PlayerState.Sleeping)
