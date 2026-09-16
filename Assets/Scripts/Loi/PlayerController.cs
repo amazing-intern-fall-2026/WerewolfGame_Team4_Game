@@ -17,6 +17,8 @@ public class PlayerController : NetworkBehaviour
     private Rigidbody2D rb;
     private Vector2 movement;
 
+    private NetworkPlayerStateSync networkState;
+
     public NetworkVariable<PlayerState> State =
         new NetworkVariable<PlayerState>(
             PlayerState.Alive,
@@ -35,6 +37,7 @@ public class PlayerController : NetworkBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        networkState = GetComponent<NetworkPlayerStateSync>();
     }
 
     public override void OnNetworkSpawn()
@@ -102,34 +105,35 @@ public class PlayerController : NetworkBehaviour
 
     private bool CanMove()
     {
-        // Không phải Alive → không được di chuyển
-        if (State.Value != PlayerState.Alive)
+        // Không tìm thấy NetworkPlayerStateSync
+        if (networkState == null)
             return false;
 
-        // Không tìm thấy NetworkGameManager
-        if (NetworkGameManager.Instance == null)
+        // Chỉ Alive mới được di chuyển
+        if (networkState.State.Value != NetworkPlayerStateType.Alive)
             return false;
 
-        NetworkGameState currentGameState =
-            NetworkGameManager.Instance.CurrentState.Value;
+        // Không có NetworkPhaseSync
+        if (NetworkPhaseSync.Instance == null)
+            return false;
 
-        switch (currentGameState)
+        GamePhase phase =
+            NetworkPhaseSync.Instance.CurrentPhase.Value;
+
+        switch (phase)
         {
-            case NetworkGameState.Morning:
+            case GamePhase.DayStart:
+            case GamePhase.Event:
+            case GamePhase.Task:
+            case GamePhase.Discussion:
                 return true;
 
-            case NetworkGameState.Night:
-                return false;
-
-            case NetworkGameState.Discussion:
-                return false;
-
-            case NetworkGameState.Voting:
-                return false;
-
-            case NetworkGameState.Resolve:
-                return false;
-
+            case GamePhase.Voting:
+            case GamePhase.ResolveVote:
+            case GamePhase.Night:
+            case GamePhase.ResolveNight:
+            case GamePhase.RoleReveal:
+            case GamePhase.GameOver:
             default:
                 return false;
         }
