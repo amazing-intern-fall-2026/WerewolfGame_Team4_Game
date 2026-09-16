@@ -34,12 +34,12 @@ public class RoleManger : MonoBehaviour
 
     private void CreateRole(RoleType type, PlayerData player)
     {
-        BaseRole role = null;
+        BaseRole role;
 
         switch (type)
         {
-            case RoleType.Villager:
-                role = new VillagerRole(player);
+            case RoleType.DogSprit:
+                role = new DogSpirit(player);
                 break;
 
             case RoleType.Mayor:
@@ -54,37 +54,24 @@ public class RoleManger : MonoBehaviour
                 role = new GuardianRole(player);
                 break;
 
-            case RoleType.DogSprit:
-                role = new DogSpirit(player);
-                break;
-
             case RoleType.Idiot:
                 role = new IdiotRole(player);
                 break;
+
+            case RoleType.Villager:
+                role = new VillagerRole(player);
+                break;
+
+            default:
+                Debug.LogError("Chưa có class xử lý role: " + type);
+                return;
         }
 
-
-        if (role == null)
-        {
-            Debug.LogError("Không tạo được role: " + type);
-            return;
-        }
-
-
-        // Gán dữ liệu role cho PlayerData
         player.roleType = type;
         player.faction = role.faction;
-
-        // Lưu instance role theo Player ID
         playerRoles[player.playerID] = role;
 
-        Debug.Log(
-            player.playerName +
-            " nhận role: " +
-            type +
-            " | Phe: " +
-            role.faction
-        );
+        role.OnGameStart();
     }
 
 

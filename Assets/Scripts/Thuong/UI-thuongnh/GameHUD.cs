@@ -20,12 +20,96 @@ public class GameHUD : MonoBehaviour
     public TMP_Text votingStatusText;
     public int localVoterID;
 
+    private void ConfigureSingleLineText(TMP_Text label)
+    {
+        if (label == null)
+            return;
+
+        float originalSize = Mathf.Max(1f, label.fontSize);
+
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.enableAutoSizing = true;
+        label.fontSizeMax = originalSize;
+        label.fontSizeMin = Mathf.Min(originalSize, 18f);
+        label.overflowMode = TextOverflowModes.Ellipsis;
+    }
+
     private void Start()
     {
-        // Backwards compatible with the existing prototype scene.
-        if (meetingPanel == null) return;
-        if (meetingTitle == null) meetingTitle = meetingPanel.transform.Find("Title")?.GetComponent<TMP_Text>();
-        if (votingStatusText == null) votingStatusText = meetingPanel.transform.Find("Hint")?.GetComponent<TMP_Text>();
+        // Phải chạy trước return của meetingPanel.
+        ConfigureSingleLineText(phaseText);
+        ConfigureSingleLineText(timerText);
+
+        // Giữ phần tìm reference của prototype hiện có.
+        if (meetingPanel == null)
+            return;
+
+        if (meetingTitle == null)
+        {
+            meetingTitle = meetingPanel.transform
+                .Find("Title")?.GetComponent<TMP_Text>();
+        }
+
+        if (votingStatusText == null)
+        {
+            votingStatusText = meetingPanel.transform
+                .Find("Hint")?.GetComponent<TMP_Text>();
+        }
+    }
+
+    private string BuildDayLabel(int day)
+    {
+        string dayLabel = $"Ngày {day}";
+        EventManagert events = EventManagert.Instance;
+
+        if (events == null)
+            return dayLabel;
+
+        GameEventType todayEvent = events.GetEventForDay(day);
+
+        if (todayEvent == GameEventType.None)
+            return dayLabel;
+
+        return dayLabel + "-" + EventManagert.GetDisplayName(todayEvent);
+    }
+
+    private void RefreshDayAndTimer(GameRoleManager game)
+    {
+        if (game == null)
+            return;
+
+        if (phaseText != null)
+            phaseText.text = BuildDayLabel(game.currentDay);
+
+        float seconds = game.currentState == GameState.Day &&
+                        DayTimer.Instance != null
+            ? DayTimer.Instance.TimeRemaining
+            : game.PhaseTimeRemaining;
+
+        if (timerText != null)
+        {
+            int remainingSeconds = Mathf.CeilToInt(Mathf.Max(0f, seconds));
+            timerText.text = $"{GetCompactPhaseName(game.currentPhase)} | {remainingSeconds}s";
+        }
+    }
+
+    private static string GetCompactPhaseName(GamePhase phase)
+    {
+        // The existing timer occupies a narrow section of the prototype HUD.
+        switch (phase)
+        {
+            case GamePhase.RoleReveal: return "Role";
+            case GamePhase.DayStart: return "Day";
+            case GamePhase.Task: return "Task";
+            case GamePhase.Event: return "Event";
+            case GamePhase.Discussion: return "Talk";
+            case GamePhase.Voting: return "Vote";
+            case GamePhase.ResolveVote: return "Count";
+            case GamePhase.Night: return "Night";
+            case GamePhase.ResolveNight: return "Dawn";
+            case GamePhase.GameOver: return "End";
+            default: return "Phase";
+        }
     }
 
     private void Update()
@@ -48,10 +132,7 @@ public class GameHUD : MonoBehaviour
         }
         if (dailyProgressText != null)
             dailyProgressText.text = $"Trong ngày: {tasks.CompletedToday}/{tasks.currentTasks.Count} — {tasks.DailyProgress:0}%";
-        if (phaseText != null) phaseText.text = $"Ngày {game.currentDay} — {game.currentPhase}";
-        float seconds = game.currentState == GameState.Day && DayTimer.Instance != null
-            ? DayTimer.Instance.TimeRemaining : game.PhaseTimeRemaining;
-        if (timerText != null) timerText.text = $"{Mathf.CeilToInt(seconds)}s";
+        RefreshDayAndTimer(game);
         if (taskListText != null)
         {
             var text = new StringBuilder("NHIỆM VỤ\n");

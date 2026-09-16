@@ -3,6 +3,7 @@ public class WinConditionManager : MonoBehaviour
 {
     public static WinConditionManager Instance;
     [SerializeField, Min(1)] private int maxDay = 7;
+    public int MaxDay => maxDay;
     [SerializeField] private bool useEliminationWin = false;
     private void Awake() { Instance = this; }
     public void CheckWinCondition() { CheckWinCondition(false); }
@@ -25,3 +26,4 @@ public class WinConditionManager : MonoBehaviour
         else if (monsters >= others) game.WerewolfWin();
     }
 }
+

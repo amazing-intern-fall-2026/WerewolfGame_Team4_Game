@@ -19,19 +19,50 @@ public class GameRoleManager : MonoBehaviour
     }
     private void OnDestroy() { if (Instance == this) Instance = null; }
     private void Start() { BeginGame(); }
+    private EventManagert PrepareEventManager()
+    {
+        if (EventManagert.Instance != null)
+            return EventManagert.Instance;
+
+        // Các manager gameplay của prototype phải nằm trên object đang active.
+        // AddComponent gọi Awake và thiết lập Instance khi object đang active.
+        return gameObject.AddComponent<EventManagert>();
+    }
     public void BeginGame()
     {
-        if (started) return;
-        if (TaskManager.Instance == null || DayTimer.Instance == null || PlayerManger.Instance == null ||
-            NightManager.Instance == null || VoteManger.Instance == null || DeathResolver.Instance == null ||
+        if (started)
+            return;
+
+        if (TaskManager.Instance == null ||
+            DayTimer.Instance == null ||
+            PlayerManger.Instance == null ||
+            NightManager.Instance == null ||
+            VoteManger.Instance == null ||
+            DeathResolver.Instance == null ||
             WinConditionManager.Instance == null)
         {
-            Debug.LogError("GameRoleManager: missing gameplay managers. See Docs/UNITY_SETUP_VI.md.");
+            Debug.LogError("GameRoleManager: missing gameplay managers.");
             enabled = false;
             return;
         }
+
+        EventManagert events = PrepareEventManager();
+
         started = true;
-        if (RoleManger.Instance != null) RoleManger.Instance.AssignRole();
+
+        if (RoleManger.Instance != null)
+            RoleManger.Instance.AssignRole();
+
+        bool hasEventSchedule = events.InitializeForMatch(
+            WinConditionManager.Instance.MaxDay);
+
+        if (!hasEventSchedule)
+        {
+            // Lỗi phần debug không ngăn flow gameplay hiện có chạy tiếp.
+            Debug.LogWarning(
+                "[Event Debug] Ván tiếp tục nhưng chưa có lịch event.");
+        }
+
         StartDay();
     }
     private void Update()
@@ -66,11 +97,17 @@ public class GameRoleManager : MonoBehaviour
     }
     public void StartDay()
     {
-        if (!started || currentState == GameState.GameOver) return;
+        if (!started || currentState == GameState.GameOver)
+            return;
+
         SetPhase(GamePhase.DayStart);
         PlayerManger.Instance.UnlockPlayers();
         TaskManager.Instance.StartNewDay();
         DayTimer.Instance.StartTimer();
+
+        // Chỉ kiểm tra/log lịch đã tạo, tuyệt đối không random ở đây.
+        if (EventManagert.Instance != null)
+            EventManagert.Instance.NotifyDayStarted(currentDay);
     }
     public void EndDay()
     {
@@ -111,3 +148,4 @@ public class GameRoleManager : MonoBehaviour
         Debug.Log(winner + " Win");
     }
 }
+
