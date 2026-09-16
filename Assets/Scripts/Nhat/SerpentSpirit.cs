@@ -1,10 +1,10 @@
 using UnityEngine;
 
-public class SerepentSpirit : BaseRole
+public class SerpentSpirit : BaseRole
 {
-    public SerepentSpirit(PlayerData owner) : base(owner)
+    public SerpentSpirit(PlayerData owner) : base(owner)
     {
-        roleType = RoleType.SerepentSpirit;
+        roleType = RoleType.SerpentSpirit;
         faction = FactionType.Monster;
     }
 

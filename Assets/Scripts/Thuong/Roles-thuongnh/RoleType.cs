@@ -6,7 +6,7 @@ public enum RoleType
     DogSprit,
     WhiteHound,
 
-    SerepentSpirit,
+    SerpentSpirit,
 
     Ogre,
 

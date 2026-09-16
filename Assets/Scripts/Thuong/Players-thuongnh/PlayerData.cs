@@ -17,5 +17,7 @@ public class PlayerData
 
     public bool hasUseNightAction;
 
+    public int serpentNightCount;
+
     public PlayerStatus status = new PlayerStatus();
 }

@@ -18,6 +18,8 @@ public class NightManager : MonoBehaviour
         {
             player.status.isProtected = false;
             player.hasUseNightAction = false;
+            if (player.roleType == RoleType.SerpentSpirit)
+                player.serpentNightCount++;
         }
     }
     public void SetMonsterTarget(int id)

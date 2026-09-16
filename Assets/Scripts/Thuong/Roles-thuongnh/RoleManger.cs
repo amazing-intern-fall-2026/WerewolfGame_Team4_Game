@@ -23,7 +23,7 @@ public class RoleManger : MonoBehaviour
 
         Shuffle(list);
         playerRoles.Clear();
-        RoleType[] roles = { RoleType.DogSprit, RoleType.Mayor, RoleType.Seer, RoleType.VillageGuardian, RoleType.Idiot };
+        RoleType[] roles = { RoleType.DogSprit, RoleType.Mayor, RoleType.Seer, RoleType.VillageGuardian, RoleType.Idiot, RoleType.SerpentSpirit };
         for (int i = 0; i < list.Count; i++)
         {
             list[i].votPower = 1;
@@ -40,6 +40,10 @@ public class RoleManger : MonoBehaviour
         {
             case RoleType.DogSprit:
                 role = new DogSpirit(player);
+                break;
+
+            case RoleType.SerpentSpirit:
+                role = new SerpentSpirit(player);
                 break;
 
             case RoleType.Mayor:
