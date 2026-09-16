@@ -96,7 +96,7 @@ public static class ThuongPrototypeBuilder
         player.AddComponent<PrototypeControls>();
 
         var systems = new GameObject("Systems").transform;
-        var game = Manager<GameManager>(systems);
+        var game = Manager<GameRoleManager>(systems);
         game.nightDuration = 5; game.discussionDuration = 8; game.votingDuration = 10;
         Manager<PlayerManger>(systems);
         Manager<RoleManger>(systems);

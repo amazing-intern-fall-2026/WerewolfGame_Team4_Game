@@ -47,7 +47,7 @@ public static class ThuongPrototypeChecks
             if (!EditorApplication.isPlaying) return;
             EditorApplication.Step();
             if (now < next) return;
-            var game = GameManager.Instance;
+            var game = GameRoleManager.Instance;
             var player = UnityEngine.Object.FindAnyObjectByType<PrototypeControls>();
             Require(game != null && player != null, $"Scene gameplay components (game={game != null}, player={player != null})");
             var tasks = TaskManager.Instance;

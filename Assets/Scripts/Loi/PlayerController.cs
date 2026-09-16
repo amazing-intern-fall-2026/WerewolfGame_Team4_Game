@@ -11,14 +11,13 @@ public enum PlayerState
 
 public class PlayerController : NetworkBehaviour
 {
+    [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
 
     private Rigidbody2D rb;
     private Vector2 movement;
 
-    // =========================
-    // PLAYER STATE
-    // =========================
+    private NetworkPlayerStateSync networkState;
 
     public NetworkVariable<PlayerState> State =
         new NetworkVariable<PlayerState>(
@@ -27,13 +26,18 @@ public class PlayerController : NetworkBehaviour
             NetworkVariableWritePermission.Server
         );
 
-    // =========================
-    // UNITY
-    // =========================
+    [Header("Role")]
+    public NetworkVariable<PlayerRole> Role =
+        new NetworkVariable<PlayerRole>(
+            PlayerRole.Villager,
+            NetworkVariableReadPermission.Owner,
+            NetworkVariableWritePermission.Server
+        );
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        networkState = GetComponent<NetworkPlayerStateSync>();
     }
 
     public override void OnNetworkSpawn()
@@ -46,16 +50,19 @@ public class PlayerController : NetworkBehaviour
             " Spawned | State = " +
             State.Value
         );
+
+        // Server tự thiết lập trạng thái cho Player
+        // dựa trên NetworkGameState hiện tại
+        if (IsServer)
+        {
+            ApplyStateFromGameState();
+        }
     }
 
-    private void OnDestroy()
+    public override void OnNetworkDespawn()
     {
         State.OnValueChanged -= OnStateChanged;
     }
-
-    // =========================
-    // UPDATE
-    // =========================
 
     private void Update()
     {
@@ -69,9 +76,12 @@ public class PlayerController : NetworkBehaviour
             ToggleStateServerRpc();
         }
 
-        // Chỉ Alive mới được di chuyển
-        if (State.Value != PlayerState.Alive)
+        // Kiểm tra Player có được di chuyển hay không
+        if (!CanMove())
+        {
+            movement = Vector2.zero;
             return;
+        }
 
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
@@ -79,16 +89,12 @@ public class PlayerController : NetworkBehaviour
         movement = movement.normalized;
     }
 
-    // =========================
-    // MOVEMENT
-    // =========================
-
     private void FixedUpdate()
     {
         if (!IsOwner)
             return;
 
-        if (State.Value != PlayerState.Alive)
+        if (!CanMove())
             return;
 
         rb.MovePosition(
@@ -97,9 +103,85 @@ public class PlayerController : NetworkBehaviour
         );
     }
 
-    // =========================
-    // CLIENT → SERVER
-    // =========================
+    private bool CanMove()
+    {
+        // Không tìm thấy NetworkPlayerStateSync
+        if (networkState == null)
+            return false;
+
+        // Chỉ Alive mới được di chuyển
+        if (networkState.State.Value != NetworkPlayerStateType.Alive)
+            return false;
+
+        // Không có NetworkPhaseSync
+        if (NetworkPhaseSync.Instance == null)
+            return false;
+
+        GamePhase phase =
+            NetworkPhaseSync.Instance.CurrentPhase.Value;
+
+        switch (phase)
+        {
+            case GamePhase.DayStart:
+            case GamePhase.Event:
+            case GamePhase.Task:
+            case GamePhase.Discussion:
+                return true;
+
+            case GamePhase.Voting:
+            case GamePhase.ResolveVote:
+            case GamePhase.Night:
+            case GamePhase.ResolveNight:
+            case GamePhase.RoleReveal:
+            case GamePhase.GameOver:
+            default:
+                return false;
+        }
+    }
+
+    // =========================================================
+    // TỰ ĐỘNG ĐỔI PLAYER STATE THEO NETWORK GAME STATE
+    // =========================================================
+
+    public void ApplyStateFromGameState()
+    {
+        // Chỉ Server được thay đổi NetworkVariable
+        if (!IsServer)
+            return;
+
+        if (NetworkGameManager.Instance == null)
+            return;
+
+        NetworkGameState currentGameState =
+            NetworkGameManager.Instance.CurrentState.Value;
+
+        switch (currentGameState)
+        {
+            case NetworkGameState.Night:
+
+                // Người đã chết không trở thành Sleeping
+                if (State.Value == PlayerState.Alive)
+                {
+                    State.Value = PlayerState.Sleeping;
+                }
+
+                break;
+
+            case NetworkGameState.Morning:
+
+                // Chỉ đánh thức người đang Sleeping
+                if (State.Value == PlayerState.Sleeping)
+                {
+                    State.Value = PlayerState.Alive;
+                }
+
+                break;
+        }
+    }
+
+    // =========================================================
+    // TEST ĐỔI STATE BẰNG PHÍM K
+    // =========================================================
 
     [ServerRpc]
     private void ToggleStateServerRpc()
@@ -120,9 +202,9 @@ public class PlayerController : NetworkBehaviour
         }
     }
 
-    // =========================
+    // =========================================================
     // STATE CHANGED
-    // =========================
+    // =========================================================
 
     private void OnStateChanged(
         PlayerState oldState,

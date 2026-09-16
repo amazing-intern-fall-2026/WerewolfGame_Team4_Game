@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 44ac7db977c91674498956f471bd6127
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Scene Loader.prefab
+  uploadId: 752810

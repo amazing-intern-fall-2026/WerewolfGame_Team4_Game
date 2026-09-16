@@ -19,7 +19,7 @@ Mở scene theo chế độ Single, không nạp thêm các scene gameplay khác
 
 Ví dụ hoàn thành 2/4 nhiệm vụ: thanh ngày 50%, tổng ván +20%. Sang ngày mới thanh ngày về 0%, tổng giữ nguyên. Thanh ngày 100% không tự kết thúc ván; thanh tổng 100% mới thắng.
 - Bảng họp và năm nút vote, bảng kết quả.
-- GameManager, PlayerManger, RoleManger, TaskManager, DayTimer, NightManager, VoteManger, DeathResolver, WinConditionManager.
+- GameRoleManager, PlayerManger, RoleManger, TaskManager, DayTimer, NightManager, VoteManger, DeathResolver, WinConditionManager.
 
 Mặc định: ngày 45 giây → đêm 5 giây → thảo luận 8 giây → vote 10 giây.
 Đạt tổng 100% thì dân thắng; hết ngày 7 chưa đủ thì sói thắng.

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 319d3fdf295963b40a8d3587e8a662cd
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Game Camera.prefab
+  uploadId: 752810

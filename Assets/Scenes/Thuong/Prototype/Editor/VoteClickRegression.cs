@@ -41,7 +41,7 @@ public static class VoteClickRegression
                 field.SetValue(null, component);
             }
             PlayerManger.Instance.CreateTestPlayer(5);
-            GameManager.Instance.currentState = GameState.Voting;
+            GameRoleManager.Instance.currentState = GameState.Voting;
             VoteManger.Instance.StartVote();
             var hud = components.OfType<GameHUD>().Single();
             hud.meetingPanel.SetActive(true);
