@@ -8,6 +8,8 @@ TagManager:
   - Wheat
   - ChopZone
   - Shield
+  - Basket
+  - Ground
   layers:
   - Default
   - TransparentFX

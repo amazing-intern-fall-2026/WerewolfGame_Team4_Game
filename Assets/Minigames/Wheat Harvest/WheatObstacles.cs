@@ -53,17 +53,22 @@ public class WheatObstacle : MonoBehaviour
     }
 
     private void CutDown()
+{
+    isCut = true;
+
+    if (WheatHarvestGameManager.Instance != null)
+        WheatHarvestGameManager.Instance.AddScore(10);
+
+    if (col != null) col.enabled = false;
+    if (spriteRenderer != null) spriteRenderer.enabled = false;
+
+    // Trigger the burst only here:
+    if (cutParticles != null) 
     {
-        isCut = true;
-
-        if (WheatHarvestGameManager.Instance != null)
-            WheatHarvestGameManager.Instance.AddScore(10);
-
-        if (col != null) col.enabled = false;
-        if (spriteRenderer != null) spriteRenderer.enabled = false;
-        if (cutParticles != null) cutParticles.Play();
-
-        float delay = cutParticles != null ? cutParticles.main.duration : 0.05f;
-        Destroy(gameObject, delay);
+        cutParticles.Play();
     }
+
+    float delay = (cutParticles != null) ? cutParticles.main.duration : 0.05f;
+    Destroy(gameObject, delay);
+}
 }
