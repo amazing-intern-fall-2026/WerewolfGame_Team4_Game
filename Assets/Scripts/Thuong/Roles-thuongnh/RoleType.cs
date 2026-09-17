@@ -15,6 +15,7 @@ public enum RoleType
     Mayor,
     Seer,
     VillageGuardian,
+    Hunter,
 
     Shaman,
 

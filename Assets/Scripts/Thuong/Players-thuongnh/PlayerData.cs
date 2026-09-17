@@ -27,5 +27,7 @@ public class PlayerData
 
     public bool isWhiteHoundAwakened;
 
+    public bool isCursed;
+
     public PlayerStatus status = new PlayerStatus();
 }
