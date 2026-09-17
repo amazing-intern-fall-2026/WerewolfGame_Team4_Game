@@ -32,6 +32,8 @@ public class DeathResolver:MonoBehaviour
         target.isAlive = false;
         if (RoleManger.Instance != null && RoleManger.Instance.playerRoles.TryGetValue(targetID, out var role))
             role.OnDeath();
+
+        LoverManager.Instance?.LoverDied(target);
         return true;
     }
 }

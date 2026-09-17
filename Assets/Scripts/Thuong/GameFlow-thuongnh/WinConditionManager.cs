@@ -14,7 +14,11 @@ public class WinConditionManager : MonoBehaviour
         if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
         { game.VillagerWin(); return; }
         if (dayFinished && game.currentDay >= maxDay)
-        { game.WerewolfWin(); return; }
+        {
+            if (LivingLoversExist()) game.LoversWin();
+            else game.WerewolfWin();
+            return;
+        }
         if (!useEliminationWin || PlayerManger.Instance == null || PlayerManger.Instance.players.Count == 0) return;
         int monsters = 0, others = 0;
         foreach (var player in PlayerManger.Instance.players)
@@ -22,8 +26,30 @@ public class WinConditionManager : MonoBehaviour
             if (!player.isAlive) continue;
             if (player.faction == FactionType.Monster) monsters++; else others++;
         }
-        if (monsters == 0) game.VillagerWin();
+        if (monsters == 0)
+        {
+            if (LivingLoversExist()) game.LoversWin();
+            else game.VillagerWin();
+        }
         else if (monsters >= others) game.WerewolfWin();
+    }
+
+    private bool LivingLoversExist()
+    {
+        if (PlayerManger.Instance == null)
+            return false;
+
+        foreach (var player in PlayerManger.Instance.players)
+        {
+            if (player == null || !player.isAlive || player.loverID == -1)
+                continue;
+
+            PlayerData lover = PlayerManger.Instance.GetplayerByID(player.loverID);
+            if (lover != null && lover.isAlive && lover.loverID == player.playerID)
+                return true;
+        }
+
+        return false;
     }
 }
 
