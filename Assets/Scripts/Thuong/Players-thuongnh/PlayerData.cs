@@ -19,5 +19,13 @@ public class PlayerData
 
     public int serpentNightCount;
 
+    public bool hasHunterTrap;
+
+    public int hunterTargetID = -1;
+
+    public int loverID = -1;
+
+    public bool isWhiteHoundAwakened;
+
     public PlayerStatus status = new PlayerStatus();
 }
