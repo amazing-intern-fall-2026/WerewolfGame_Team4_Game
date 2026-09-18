@@ -8,8 +8,9 @@ public class DogSpirit:BaseRole
         faction = FactionType.Monster;
 
     }
-    public override void UseNightAbility(int TargetID)
+    public override string UseNightAbility(int TargetID)
     {
        NightManager.Instance.SetMonsterTarget(TargetID);
+       return "Đã chọn mục tiêu để tấn công.";
     }
 }

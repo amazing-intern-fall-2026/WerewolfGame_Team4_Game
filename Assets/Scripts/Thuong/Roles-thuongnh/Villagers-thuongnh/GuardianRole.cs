@@ -8,13 +8,14 @@ public class GuardianRole:BaseRole
         roleType = RoleType.VillageGuardian;
         faction = FactionType.Villager;
     }
-    public override void UseNightAbility(int TargetID)
+    public override string UseNightAbility(int TargetID)
     {
         if (TargetID == lastTarget)
         {
-            return;
+            return string.Empty;
         }
         lastTarget= TargetID;
         NightManager.Instance.SetProtectedTarget(TargetID);
+        return "Đã chọn người chơi để bảo vệ.";
     }
 }
