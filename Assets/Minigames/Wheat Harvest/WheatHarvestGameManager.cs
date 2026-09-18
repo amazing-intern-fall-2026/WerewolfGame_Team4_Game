@@ -25,21 +25,15 @@ public class WheatHarvestGameManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance == null) Instance = this;
+        else { Destroy(gameObject); return; }
 
         GameSpeed = baseSpeed > 0 ? baseSpeed : 6f;
     }
 
     private void Start()
     {
+        AlignSpawnPointToScreen();
         SetNextSpawnTime();
     }
 
@@ -51,10 +45,8 @@ public class WheatHarvestGameManager : MonoBehaviour
             return;
         }
 
-        // Gradually ramp up world movement speed
         GameSpeed += speedRamp * Time.deltaTime;
 
-        // Spawn timer
         timer += Time.deltaTime;
         if (timer >= nextSpawnTime)
         {
@@ -64,13 +56,20 @@ public class WheatHarvestGameManager : MonoBehaviour
         }
     }
 
+    private void AlignSpawnPointToScreen()
+    {
+        Camera cam = Camera.main;
+        if (cam == null || spawnPoint == null) return;
+
+        // Position spawn point just beyond the right edge of the screen
+        float screenRightEdge = cam.ViewportToWorldPoint(new Vector3(1f, 0f, 0f)).x;
+        spawnPoint.position = new Vector3(screenRightEdge + 2f, spawnPoint.position.y, 0f);
+    }
+
     private void CheckRestartInput()
     {
-        // Touch screen tap (Mobile)
         bool touched = Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame;
-        // Mouse click (Editor fallback)
         bool clicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
-        // Keyboard space (Desktop fallback)
         bool space = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
 
         if (touched || clicked || space)
@@ -88,7 +87,6 @@ public class WheatHarvestGameManager : MonoBehaviour
     private void SpawnWheat()
     {
         if (wheatPrefab == null || spawnPoint == null) return;
-
         Instantiate(wheatPrefab, spawnPoint.position, Quaternion.identity);
     }
 
@@ -96,11 +94,13 @@ public class WheatHarvestGameManager : MonoBehaviour
     {
         if (IsGameOver) return;
         Score += amount;
+        Debug.Log($"Score: {Score}");
     }
 
     public void TriggerGameOver()
     {
         IsGameOver = true;
         GameSpeed = 0f;
+        Debug.Log($"GAME OVER! Final Score: {Score}");
     }
 }
