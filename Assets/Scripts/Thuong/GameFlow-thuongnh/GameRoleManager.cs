@@ -30,6 +30,8 @@ public class GameRoleManager : MonoBehaviour
     }
     public void BeginGame()
     {
+        Debug.Log("GAMEROLEMANAGER: BeginGame() chạy");
+
         if (started)
             return;
 
