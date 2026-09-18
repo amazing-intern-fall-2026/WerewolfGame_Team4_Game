@@ -103,6 +103,7 @@ public class GameRoleManager : MonoBehaviour
             return;
 
         SetPhase(GamePhase.DayStart);
+        RoleManger.Instance?.NotifyDayStart();
         PlayerManger.Instance.UnlockPlayers();
         TaskManager.Instance.StartNewDay();
         DayTimer.Instance.StartTimer();
@@ -124,6 +125,7 @@ public class GameRoleManager : MonoBehaviour
     {
         if (currentState != GameState.Discussion) return;
         SetPhase(GamePhase.Voting);
+        RoleManger.Instance?.NotifyVoteStart();
         VoteManger.Instance.StartVote();
         PhaseTimeRemaining = votingDuration;
     }

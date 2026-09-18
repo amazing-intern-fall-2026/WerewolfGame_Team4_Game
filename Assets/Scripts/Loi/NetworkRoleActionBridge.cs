@@ -121,6 +121,11 @@ public class NetworkRoleActionBridge : MonoBehaviour
             + ")"
         );
 
-        role.UseNightAbility(targetID);
+        if (!roleManager.UseNightAbility(requesterID, targetID))
+        {
+            Debug.LogWarning(
+                "ROLE ACTION BRIDGE: Action bị từ chối bởi game flow."
+            );
+        }
     }
 }

@@ -160,9 +160,10 @@ public class PlayerController : NetworkBehaviour
             case NetworkGameState.Night:
 
                 // Người đã chết không trở thành Sleeping
-                if (State.Value == PlayerState.Alive)
+                if (networkState != null &&
+                    networkState.State.Value == NetworkPlayerStateType.Alive)
                 {
-                    State.Value = PlayerState.Sleeping;
+                    networkState.SetSleeping();
                 }
 
                 break;
@@ -170,9 +171,10 @@ public class PlayerController : NetworkBehaviour
             case NetworkGameState.Morning:
 
                 // Chỉ đánh thức người đang Sleeping
-                if (State.Value == PlayerState.Sleeping)
+                if (networkState != null &&
+                    networkState.State.Value == NetworkPlayerStateType.Sleeping)
                 {
-                    State.Value = PlayerState.Alive;
+                    networkState.SetAlive();
                 }
 
                 break;

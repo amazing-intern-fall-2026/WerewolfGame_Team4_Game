@@ -58,6 +58,41 @@ public class NetworkPlayerStateSync : NetworkBehaviour
         State.Value = newState;
     }
 
+    public void SetSleeping()
+    {
+        if (State.Value == NetworkPlayerStateType.Alive)
+            SetState(NetworkPlayerStateType.Sleeping);
+    }
+
+    public void SetAlive()
+    {
+        if (State.Value == NetworkPlayerStateType.Sleeping)
+            SetState(NetworkPlayerStateType.Alive);
+    }
+
+    public static void SyncGameplayAliveState(int playerID, bool isAlive)
+    {
+        if (NetworkManager.Singleton == null ||
+            !NetworkManager.Singleton.IsServer)
+            return;
+
+        if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(
+                (ulong)playerID, out NetworkClient client) ||
+            client.PlayerObject == null)
+            return;
+
+        NetworkPlayerStateSync stateSync =
+            client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+
+        if (stateSync == null)
+            return;
+
+        if (isAlive)
+            stateSync.SetState(NetworkPlayerStateType.Alive);
+        else
+            stateSync.KillPlayer();
+    }
+
     // Server cho Player chết
     public void KillPlayer()
     {

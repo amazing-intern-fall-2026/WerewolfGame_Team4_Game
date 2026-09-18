@@ -31,6 +31,48 @@ public class RoleManger : MonoBehaviour
         }
     }
 
+    public void NotifyDayStart()
+    {
+        NotifyAliveRoles(role => role.OnDayStart());
+    }
+
+    public void NotifyNightStart()
+    {
+        NotifyAliveRoles(role => role.OnNightStart());
+    }
+
+    public void NotifyVoteStart()
+    {
+        NotifyAliveRoles(role => role.OnVotStart());
+    }
+
+    public bool UseNightAbility(int playerID, int targetID)
+    {
+        if (GameRoleManager.Instance == null ||
+            GameRoleManager.Instance.currentState != GameState.Nigt ||
+            !playerRoles.TryGetValue(playerID, out BaseRole role) ||
+            role.owner == null || !role.owner.isAlive ||
+            role.owner.hasUseNightAction)
+            return false;
+
+        PlayerData target = PlayerManger.Instance?.GetplayerByID(targetID);
+        if (target == null || !target.isAlive)
+            return false;
+
+        role.UseNightAbility(targetID);
+        role.owner.hasUseNightAction = true;
+        return true;
+    }
+
+    private void NotifyAliveRoles(System.Action<BaseRole> callback)
+    {
+        foreach (BaseRole role in playerRoles.Values)
+        {
+            if (role?.owner != null && role.owner.isAlive)
+                callback(role);
+        }
+    }
+
 
     private void CreateRole(RoleType type, PlayerData player)
     {
