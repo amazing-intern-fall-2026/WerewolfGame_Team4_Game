@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(AudioSource))]
 public class PlayerAttack : MonoBehaviour
 {
     [Header("Hitbox")]
@@ -12,28 +13,50 @@ public class PlayerAttack : MonoBehaviour
     [Header("Visual Feedback")]
     [SerializeField] private GameObject slashVfx;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip slashSfx;
+    [SerializeField] [Range(0f, 0.3f)] private float pitchVariation = 0.08f;
+
+    [Header("Screen Positioning")]
+    [Range(0.05f, 0.4f)]
+    [SerializeField] private float screenLeftMarginPercent = 0.15f;
+
+    private AudioSource audioSource;
     private bool canAttack = true;
+
+    private void Awake()
+    {
+        audioSource = GetComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 0f; // 2D Audio
+    }
 
     private void Start()
     {
-        if (slashCollider != null)
-            slashCollider.enabled = false;
+        PositionPlayerToScreen();
 
-        if (slashVfx != null)
-            slashVfx.SetActive(false);
+        if (slashCollider != null) slashCollider.enabled = false;
+        if (slashVfx != null) slashVfx.SetActive(false);
+    }
+
+    private void PositionPlayerToScreen()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        Vector3 targetWorldPos = cam.ViewportToWorldPoint(new Vector3(screenLeftMarginPercent, 0f, 0f));
+        transform.position = new Vector3(targetWorldPos.x, transform.position.y, transform.position.z);
     }
 
     private void Update()
     {
-        // 1. Mobile screen tap
-        bool touchedScreen = Touchscreen.current != null && 
-                             Touchscreen.current.primaryTouch.press.wasPressedThisFrame;
+        if (WheatHarvestGameManager.Instance != null && WheatHarvestGameManager.Instance.IsGameOver) return;
 
-        // 2. Editor / Desktop click fallback
-        bool mouseClicked = Mouse.current != null && 
-                            Mouse.current.leftButton.wasPressedThisFrame;
+        bool touchedScreen = Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame;
+        bool mouseClicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+        bool spacePressed = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
 
-        if ((touchedScreen || mouseClicked) && canAttack)
+        if ((touchedScreen || mouseClicked || spacePressed) && canAttack)
         {
             StartCoroutine(PerformSlash());
         }
@@ -43,6 +66,12 @@ public class PlayerAttack : MonoBehaviour
     {
         canAttack = false;
 
+        if (audioSource != null && slashSfx != null)
+        {
+            audioSource.pitch = Random.Range(1f - pitchVariation, 1f + pitchVariation);
+            audioSource.PlayOneShot(slashSfx);
+        }
+
         if (slashCollider != null) slashCollider.enabled = true;
         if (slashVfx != null) slashVfx.SetActive(true);
 
@@ -51,7 +80,9 @@ public class PlayerAttack : MonoBehaviour
         if (slashCollider != null) slashCollider.enabled = false;
         if (slashVfx != null) slashVfx.SetActive(false);
 
-        yield return new WaitForSeconds(slashCooldown - slashActiveTime);
+        float remainingCooldown = Mathf.Max(0.01f, slashCooldown - slashActiveTime);
+        yield return new WaitForSeconds(remainingCooldown);
+
         canAttack = true;
     }
 }

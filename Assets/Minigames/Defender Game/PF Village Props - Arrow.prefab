@@ -183,3 +183,11 @@ MonoBehaviour:
   speed: 4
   target: {fileID: 0}
   angleOffset: 0
+  blockSounds:
+  - {fileID: 8300000, guid: 5a9eae51b9213fd49b6a0134b5582136, type: 3}
+  - {fileID: 8300000, guid: 777ebbf8ca765da46a7b42ac91eb9ea7, type: 3}
+  - {fileID: 8300000, guid: b28e08af70d9073408309cb34c511d96, type: 3}
+  - {fileID: 8300000, guid: bccac75a5be8ac449aaf59e1b04812ac, type: 3}
+  - {fileID: 8300000, guid: 11f8595f6f8c06243827fe136ee8864c, type: 3}
+  - {fileID: 8300000, guid: 675f098203152e3438b6fde9b2a96446, type: 3}
+  blockVolume: 1

@@ -2,10 +2,15 @@ using UnityEngine;
 
 public class Threat : MonoBehaviour
 {
+    [Header("Movement & Target")]
     [SerializeField] private float speed = 4f;
     [SerializeField] private Transform target;
     [SerializeField] private float angleOffset = -90f;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip[] blockSounds; // Array of sound clips
+    [Range(0f, 1f)]
+    [SerializeField] private float blockVolume = 1f;
 
     void Start()
     {
@@ -14,15 +19,12 @@ public class Threat : MonoBehaviour
 
     void Update()
     {
-        // Move steadily toward the center
-        transform.position = Vector2.MoveTowards(transform.position, Vector2.zero, speed * Time.deltaTime);
         Vector3 targetPos = target != null ? target.position : Vector3.zero;
-        
-        // Move toward the target
+
+        // Move toward target position
         transform.position = Vector2.MoveTowards(transform.position, targetPos, speed * Time.deltaTime);
 
-        // If the player can move, keep calling this in Update().
-        // If the player is static at (0,0), you only need to call it once in Start().
+        // Keep pointing towards the target
         RotateTowardsTarget();
     }
 
@@ -30,8 +32,9 @@ public class Threat : MonoBehaviour
     {
         if (collision.CompareTag("Shield"))
         {
+            PlayRandomBlockSound();
+
             // Successfully blocked
-            // Trigger deflect VFX/SFX, add score
             Destroy(gameObject);
         }
         else if (collision.CompareTag("Player"))
@@ -42,10 +45,25 @@ public class Threat : MonoBehaviour
         }
     }
 
+    private void PlayRandomBlockSound()
+    {
+        if (blockSounds != null && blockSounds.Length > 0)
+        {
+            // Pick a random clip from the array
+            int randomIndex = Random.Range(0, blockSounds.Length);
+            AudioClip clipToPlay = blockSounds[randomIndex];
+
+            if (clipToPlay != null)
+            {
+                AudioSource.PlayClipAtPoint(clipToPlay, transform.position, blockVolume);
+            }
+        }
+    }
+
     private void RotateTowardsTarget()
     {
         Vector3 targetPos = target != null ? target.position : Vector3.zero;
-        
+
         // 1. Get the direction vector from the arrow to the player
         Vector2 direction = (targetPos - transform.position).normalized;
 
@@ -55,5 +73,4 @@ public class Threat : MonoBehaviour
         // 3. Apply the angle to the Z-axis with the sprite offset
         transform.rotation = Quaternion.Euler(0f, 0f, angle + angleOffset);
     }
-    
 }
