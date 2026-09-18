@@ -30,6 +30,8 @@ public class GameRoleManager : MonoBehaviour
     }
     public void BeginGame()
     {
+        Debug.Log("GAMEROLEMANAGER: BeginGame() chạy");
+
         if (started)
             return;
 
@@ -101,6 +103,7 @@ public class GameRoleManager : MonoBehaviour
             return;
 
         SetPhase(GamePhase.DayStart);
+        RoleManger.Instance?.NotifyDayStart();
         PlayerManger.Instance.UnlockPlayers();
         TaskManager.Instance.StartNewDay();
         DayTimer.Instance.StartTimer();
@@ -122,6 +125,7 @@ public class GameRoleManager : MonoBehaviour
     {
         if (currentState != GameState.Discussion) return;
         SetPhase(GamePhase.Voting);
+        RoleManger.Instance?.NotifyVoteStart();
         VoteManger.Instance.StartVote();
         PhaseTimeRemaining = votingDuration;
     }
@@ -137,6 +141,7 @@ public class GameRoleManager : MonoBehaviour
     }
     public void VillagerWin() { EndGame("Villagers"); }
     public void WerewolfWin() { EndGame("Werewolves"); }
+    public void LoversWin() { EndGame("Lovers"); }
     private void EndGame(string winner)
     {
         if (currentState == GameState.GameOver) return;

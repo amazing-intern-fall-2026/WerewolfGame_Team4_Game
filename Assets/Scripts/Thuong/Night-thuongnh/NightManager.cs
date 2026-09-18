@@ -14,6 +14,7 @@ public class NightManager : MonoBehaviour
     {
         montserTarget = -1;
         protectedTarget = -1;
+        RoleManger.Instance?.NotifyNightStart();
         foreach (var player in PlayerManger.Instance.players)
         {
             player.status.isProtected = false;
