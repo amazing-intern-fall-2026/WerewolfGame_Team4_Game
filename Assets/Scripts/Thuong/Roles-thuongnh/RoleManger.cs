@@ -6,7 +6,8 @@ public class RoleManger : MonoBehaviour
 {
     public static RoleManger Instance;
 
-    [System.NonSerialized] public Dictionary<int, BaseRole> playerRoles =
+    [System.NonSerialized]
+    public Dictionary<int, BaseRole> playerRoles =
         new Dictionary<int, BaseRole>();
 
 
@@ -28,6 +29,15 @@ public class RoleManger : MonoBehaviour
         {
             list[i].votPower = 1;
             CreateRole(i < roles.Length ? roles[i] : RoleType.Villager, list[i]);
+        }
+        foreach (var pair in playerRoles)
+        {
+            Debug.Log(
+                "ROLE ASSIGN | Player "
+                + pair.Key
+                + " → "
+                + pair.Value.roleType
+            );
         }
     }
 
