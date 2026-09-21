@@ -1,18 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 
 public class WoodGameManager : MonoBehaviour
 {
     [Header("Spawning")]
     [SerializeField] private GameObject logPrefab;
-    [SerializeField] private Transform spawnPoint; // Off-screen left (e.g., X = -10, Y = 0, Z = 0)
+    [SerializeField] private Transform spawnPoint;
     [SerializeField] private float spawnInterval = 1.5f;
 
-    [Header("Hit Target")]
-    [SerializeField] private Transform targetCenter; // ChopZone center (0, 0, 0)
-    [SerializeField] private Text scoreText;         // UI Text component
+    [Header("Chop Reference")]
+    [SerializeField] private Transform targetCenter; // Target center marker (X = 0)
+
+    [Header("UI Feedback")]
+    [SerializeField] private TextMeshProUGUI scoreText;
+    [SerializeField] private GameObject judgmentPrefab; // Prefab with JudgmentText.cs
+    [SerializeField] private Transform judgmentSpawnPos;
+
+    [Header("Tolerance Thresholds")]
+    [SerializeField] private float perfectThreshold = 0.20f;
+    [SerializeField] private float greatThreshold = 0.50f;
+    [SerializeField] private float okThreshold = 0.90f;
 
     private readonly List<Log> activeLogs = new List<Log>();
     private int score = 0;
@@ -24,7 +33,6 @@ public class WoodGameManager : MonoBehaviour
 
     private void Update()
     {
-        // Works for both mouse click and mobile touch
         if (Input.GetMouseButtonDown(0))
         {
             HandleChop();
@@ -38,54 +46,78 @@ public class WoodGameManager : MonoBehaviour
             if (logPrefab != null && spawnPoint != null)
             {
                 GameObject newLog = Instantiate(logPrefab, spawnPoint.position, Quaternion.identity);
-                Log logComponent = newLog.GetComponent<Log>();
-
-                if (logComponent != null)
-                {
-                    activeLogs.Add(logComponent);
-                }
+                Log logComp = newLog.GetComponent<Log>();
+                if (logComp != null) activeLogs.Add(logComp);
             }
-
             yield return new WaitForSeconds(spawnInterval);
         }
     }
 
     private void HandleChop()
     {
-        // Remove null references from logs that despawned
         activeLogs.RemoveAll(l => l == null);
 
-        // Find the first log currently inside the target zone
         Log targetLog = activeLogs.Find(l => l.isInChopZone && !l.isCut);
 
         if (targetLog != null)
         {
-            float targetX = targetCenter != null ? targetCenter.position.x : 0f;
-            float offset = Mathf.Abs(targetLog.transform.position.x - targetX);
+            float centerX = targetCenter != null ? targetCenter.position.x : 0f;
+            float distance = Mathf.Abs(targetLog.transform.position.x - centerX);
 
-            if (offset < 0.35f)
+            if (distance <= perfectThreshold)
             {
-                score += 100; // Perfect chop
+                score += 300;
+                SpawnJudgment("PERFECT!", new Color(1f, 0.84f, 0f)); // Gold
+            }
+            else if (distance <= greatThreshold)
+            {
+                score += 150;
+                SpawnJudgment("GREAT!", new Color(0.2f, 0.9f, 0.3f)); // Green
+            }
+            else if (distance <= okThreshold)
+            {
+                score += 50;
+                SpawnJudgment("OK", new Color(0.3f, 0.7f, 1f)); // Blue
             }
             else
             {
-                score += 50;  // Good chop
+                score += 10;
+                SpawnJudgment("EARLY / LATE", new Color(0.7f, 0.7f, 0.7f)); // Gray
             }
 
             activeLogs.Remove(targetLog);
-            targetLog.Cut();
+            targetLog.CutAtPosition(centerX);
             UpdateUI();
         }
         else
         {
-            Debug.Log("Swing and a miss!");
+            SpawnJudgment("MISS", new Color(0.9f, 0.2f, 0.2f)); // Red
         }
     }
 
     public void MissLog()
     {
         activeLogs.RemoveAll(l => l == null);
-        Debug.Log("Log escaped!");
+        SpawnJudgment("MISS", new Color(0.9f, 0.2f, 0.2f));
+    }
+
+    private void SpawnJudgment(string text, Color color)
+    {
+        if (judgmentPrefab == null) return;
+
+        Vector3 pos = judgmentSpawnPos != null 
+            ? judgmentSpawnPos.position 
+            : (targetCenter != null ? targetCenter.position + Vector3.up * 1.5f : Vector3.up * 1.5f);
+
+        // Spawn inside Canvas or in world space depending on prefab type
+        Transform parentCanvas = FindFirstObjectByType<Canvas>()?.transform;
+        GameObject jObj = Instantiate(judgmentPrefab, pos, Quaternion.identity, parentCanvas);
+        
+        JudgmentText jText = jObj.GetComponent<JudgmentText>();
+        if (jText != null)
+        {
+            jText.Setup(text, color);
+        }
     }
 
     private void UpdateUI()
