@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
+[RequireComponent(typeof(AudioSource))]
 public class WoodGameManager : MonoBehaviour
 {
     [Header("Spawning")]
@@ -18,13 +19,27 @@ public class WoodGameManager : MonoBehaviour
     [SerializeField] private GameObject judgmentPrefab; // Prefab with JudgmentText.cs
     [SerializeField] private Transform judgmentSpawnPos;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip chopSound;       // Axe blade / impact sound
+    [SerializeField] private AudioClip woodBreakSound;  // Wood splinter / breaking sound
+    [SerializeField] private AudioClip missSound;       // Optional: Swing whoosh / miss sound
+    [Range(0f, 1f)] [SerializeField] private float soundVolume = 1f;
+
     [Header("Tolerance Thresholds")]
     [SerializeField] private float perfectThreshold = 0.20f;
     [SerializeField] private float greatThreshold = 0.50f;
     [SerializeField] private float okThreshold = 0.90f;
 
     private readonly List<Log> activeLogs = new List<Log>();
+    private AudioSource audioSource;
     private int score = 0;
+
+    private void Awake()
+    {
+        audioSource = GetComponent<AudioSource>();
+        // Ensure background music or loop isn't turned on accidentally
+        audioSource.playOnAwake = false;
+    }
 
     private void Start()
     {
@@ -64,6 +79,9 @@ public class WoodGameManager : MonoBehaviour
             float centerX = targetCenter != null ? targetCenter.position.x : 0f;
             float distance = Mathf.Abs(targetLog.transform.position.x - centerX);
 
+            // Play the cutting audio clips together
+            PlayCutAudio();
+
             if (distance <= perfectThreshold)
             {
                 score += 300;
@@ -91,7 +109,27 @@ public class WoodGameManager : MonoBehaviour
         }
         else
         {
+            if (missSound != null)
+            {
+                audioSource.PlayOneShot(missSound, soundVolume * 0.6f);
+            }
             SpawnJudgment("MISS", new Color(0.9f, 0.2f, 0.2f)); // Red
+        }
+    }
+
+    private void PlayCutAudio()
+    {
+        // Slight pitch variation makes rapid chops feel less repetitive
+        audioSource.pitch = Random.Range(0.95f, 1.05f);
+
+        if (chopSound != null)
+        {
+            audioSource.PlayOneShot(chopSound, soundVolume);
+        }
+
+        if (woodBreakSound != null)
+        {
+            audioSource.PlayOneShot(woodBreakSound, soundVolume);
         }
     }
 
@@ -109,7 +147,6 @@ public class WoodGameManager : MonoBehaviour
             ? judgmentSpawnPos.position 
             : (targetCenter != null ? targetCenter.position + Vector3.up * 1.5f : Vector3.up * 1.5f);
 
-        // Spawn inside Canvas or in world space depending on prefab type
         Transform parentCanvas = FindFirstObjectByType<Canvas>()?.transform;
         GameObject jObj = Instantiate(judgmentPrefab, pos, Quaternion.identity, parentCanvas);
         

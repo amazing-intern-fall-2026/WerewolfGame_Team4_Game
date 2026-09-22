@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 4c23e10880714588a09ec2378ab5376a
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonSearchablePopupField.cs
+  uploadId: 963964

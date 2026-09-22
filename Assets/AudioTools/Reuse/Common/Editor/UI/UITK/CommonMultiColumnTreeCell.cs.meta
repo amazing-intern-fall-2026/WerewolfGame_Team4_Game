@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: d7986deae93924e25b28ea516d4b3d01
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonMultiColumnTreeCell.cs
+  uploadId: 963964

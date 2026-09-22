@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 0a214a6d1c4b4c58af6307988b06d831
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonTabbedPane.cs
+  uploadId: 963964

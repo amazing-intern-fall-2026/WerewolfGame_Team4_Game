@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: b679705184c4d4ce1aedd060603c5640
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonPaginationControl.cs
+  uploadId: 963964

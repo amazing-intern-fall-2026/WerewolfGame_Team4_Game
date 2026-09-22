@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 837431acc3574a359ae16f3842458a62
+timeCreated: 1783848912
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonScrollViewState.cs
+  uploadId: 963964

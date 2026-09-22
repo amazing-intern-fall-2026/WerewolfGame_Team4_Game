@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 6b7fc9b2dcbdb4b6eb35e24358dc0888
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/Utils/TimedCache.cs
+  uploadId: 963964
