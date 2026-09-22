@@ -59,7 +59,7 @@ public class RoleManger : MonoBehaviour
     public bool UseNightAbility(int playerID, int targetID)
     {
         if (GameRoleManager.Instance == null ||
-            GameRoleManager.Instance.currentState != GameState.Nigt ||
+            GameRoleManager.Instance.currentState != GameState.Night ||
             !playerRoles.TryGetValue(playerID, out BaseRole role) ||
             role.owner == null || !role.owner.isAlive ||
             role.owner.hasUseNightAction)

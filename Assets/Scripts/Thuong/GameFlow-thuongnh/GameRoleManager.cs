@@ -72,7 +72,7 @@ public class GameRoleManager : MonoBehaviour
         if (!started || currentState == GameState.GameOver || currentState == GameState.Day) return;
         PhaseTimeRemaining = Mathf.Max(0, PhaseTimeRemaining - Time.deltaTime);
         if (PhaseTimeRemaining > 0) return;
-        if (currentState == GameState.Nigt)
+        if (currentState == GameState.Night)
         {
             NightManager.Instance.ResolveNight();
             WinConditionManager.Instance.CheckWinCondition();
@@ -90,7 +90,7 @@ public class GameRoleManager : MonoBehaviour
         switch (phase)
         {
             case GamePhase.DayStart: case GamePhase.Task: currentState = GameState.Day; break;
-            case GamePhase.Night: case GamePhase.ResolveNight: currentState = GameState.Nigt; break;
+            case GamePhase.Night: case GamePhase.ResolveNight: currentState = GameState.Night; break;
             case GamePhase.Discussion: currentState = GameState.Discussion; break;
             case GamePhase.Voting: currentState = GameState.Voting; break;
             case GamePhase.ResolveVote: currentState = GameState.VotingResult; break;
