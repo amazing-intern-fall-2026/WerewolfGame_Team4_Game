@@ -44,11 +44,25 @@ public class NetworkPhaseTest : NetworkBehaviour
             return;
         }
 
+        if (GameRoleManager.Instance == null)
+        {
+            Debug.LogError(
+                "NETWORK PHASE TEST: Không tìm thấy GameRoleManager!"
+            );
+            return;
+        }
+
+        // Đồng bộ Phase của Dev2 Gameplay
+        GameRoleManager.Instance.SetPhase(phase);
+
+        // Đồng bộ Phase Network
         NetworkPhaseSync.Instance.CurrentPhase.Value = phase;
 
         Debug.Log(
             "NETWORK TEST: Server → "
             + phase
+            + " | GameState = "
+            + GameRoleManager.Instance.currentState
         );
     }
 }
