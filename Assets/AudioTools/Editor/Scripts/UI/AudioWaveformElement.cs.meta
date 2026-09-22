@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 404a4e90b4f7541299201027aa0eeebd
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Editor/Scripts/UI/AudioWaveformElement.cs
+  uploadId: 963964

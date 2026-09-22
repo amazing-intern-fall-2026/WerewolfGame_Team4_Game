@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: f8f71f331274743a783840b812968de5
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Editor/Scripts/UI/AudioEditSession.cs
+  uploadId: 963964

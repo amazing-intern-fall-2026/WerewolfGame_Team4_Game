@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 521ea508aa9503441b32b7797c572542
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Runtime/UnityUtils.cs
+  uploadId: 963964

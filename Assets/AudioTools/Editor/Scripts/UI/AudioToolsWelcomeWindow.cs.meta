@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: d1a730b720e7d4f98af2c36f2ae271a8
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Editor/Scripts/UI/AudioToolsWelcomeWindow.cs
+  uploadId: 963964

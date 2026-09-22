@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 5521b3b1fc33c4ad1ae7522b0954ff79
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/SearchablePopupWindow.cs
+  uploadId: 963964

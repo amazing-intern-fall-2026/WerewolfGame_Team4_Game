@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 0d3e5cbab3ff4dc587f2da62d66085c3
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/Utils/Imaging/ImageUtils+OptionalBackend.cs
+  uploadId: 963964

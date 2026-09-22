@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: ff8c374e852d44e70a108749ace44d61
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/NameWindow.cs
+  uploadId: 963964
