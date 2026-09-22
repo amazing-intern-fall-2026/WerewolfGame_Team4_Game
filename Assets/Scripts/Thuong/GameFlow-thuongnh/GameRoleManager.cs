@@ -142,6 +142,10 @@ public class GameRoleManager : MonoBehaviour
     public void VillagerWin() { EndGame("Villagers"); }
     public void WerewolfWin() { EndGame("Werewolves"); }
     public void LoversWin() { EndGame("Lovers"); }
+    public void WhiteWolfWin() { EndGame("White Wolf"); }
+    public void KillerWin() { EndGame("Killer"); }
+    public void MadmanWin() { EndGame("Madman"); }
+    public void FoxSpiritWin() { EndGame("Fox Spirit"); }
     private void EndGame(string winner)
     {
         if (currentState == GameState.GameOver) return;

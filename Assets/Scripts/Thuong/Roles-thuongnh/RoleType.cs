@@ -2,39 +2,40 @@ using UnityEngine;
 
 public enum RoleType
 {
-    //Monster
+    // Monster / Werewolf side
     DogSprit,
+    DogSpirit = DogSprit,
     WhiteHound,
+    WhiteWolf = WhiteHound,
+    RedNosedHound = WhiteHound,
+    WolfCub = DogSprit,
+    WolfBoss = DogSprit,
 
     SerpentSpirit,
-
     Ogre,
 
-    //Villager
+    // Villager side
     Villager,
     Mayor,
     Seer,
     VillageGuardian,
     Hunter,
-
     Shaman,
-
     WeaverOffate,
-
+    WeaverOfFate = WeaverOffate,
     Idiot,
-
     Cursed,
-
     Brat,
-
     TuongMaster,
-
     Magistrate,
 
-    //Third organize
+    // Third party / special
     Madman,
+    Jester = Madman,
+    Lover = Madman,
     FoxSpirit,
+    Piper = FoxSpirit,
     Killer,
-
+    SerialKiller = Killer,
     DeathHerald
-}   
+} 

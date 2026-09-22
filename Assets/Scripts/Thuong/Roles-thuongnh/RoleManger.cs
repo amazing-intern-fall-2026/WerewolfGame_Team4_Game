@@ -19,17 +19,29 @@ public class RoleManger : MonoBehaviour
 
     public void AssignRole()
     {
-        List<PlayerData> list =
-            new List<PlayerData>(PlayerManger.Instance.players);
+        if (PlayerManger.Instance == null || PlayerManger.Instance.players == null || PlayerManger.Instance.players.Count == 0)
+        {
+            Debug.LogWarning("RoleManger: chưa có player nào để gán role.");
+            return;
+        }
 
+        List<PlayerData> list = new List<PlayerData>(PlayerManger.Instance.players);
         Shuffle(list);
         playerRoles.Clear();
-        RoleType[] roles = { RoleType.DogSprit, RoleType.Mayor, RoleType.Seer, RoleType.VillageGuardian, RoleType.Idiot, RoleType.SerpentSpirit };
+
+        List<RoleType> rolePool = BuildRolePool(list.Count);
+
         for (int i = 0; i < list.Count; i++)
         {
             list[i].votPower = 1;
-            CreateRole(i < roles.Length ? roles[i] : RoleType.Villager, list[i]);
+            list[i].hasUseNightAction = false;
+            list[i].hasVoted = false;
+            list[i].isAlive = true;
+
+            RoleType roleType = i < rolePool.Count ? rolePool[i] : RoleType.Villager;
+            CreateRole(roleType, list[i]);
         }
+
         foreach (var pair in playerRoles)
         {
             Debug.Log(
@@ -39,6 +51,53 @@ public class RoleManger : MonoBehaviour
                 + pair.Value.roleType
             );
         }
+    }
+
+    private List<RoleType> BuildRolePool(int playerCount)
+    {
+        var roles = new List<RoleType>();
+
+        if (playerCount >= 5 && playerCount <= 8)
+        {
+            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Seer);
+
+            while (roles.Count < playerCount)
+                roles.Add(RoleType.Villager);
+
+            return roles;
+        }
+
+        // 12 người theo spec:
+        // 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
+        if (playerCount == 12)
+        {
+            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.SerpentSpirit);
+            roles.Add(RoleType.Ogre);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Villager);
+            roles.Add(RoleType.Mayor);
+            roles.Add(RoleType.Seer);
+            roles.Add(RoleType.VillageGuardian);
+            roles.Add(RoleType.Shaman);
+            roles.Add(RoleType.WhiteHound);
+            return roles;
+        }
+
+        // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
+        roles.Add(RoleType.DogSprit);
+        roles.Add(RoleType.Seer);
+
+        for (int i = 2; i < playerCount; i++)
+            roles.Add(RoleType.Villager);
+
+        return roles;
     }
 
     public void NotifyDayStart()
@@ -91,11 +150,24 @@ public class RoleManger : MonoBehaviour
         switch (type)
         {
             case RoleType.DogSprit:
+            case RoleType.DogSpirit:
                 role = new DogSpirit(player);
+                break;
+
+            case RoleType.WhiteHound:
+            case RoleType.WhiteWolf:
+            case RoleType.RedNosedHound:
+            case RoleType.WolfCub:
+            case RoleType.WolfBoss:
+                role = new WhiteHound(player);
                 break;
 
             case RoleType.SerpentSpirit:
                 role = new SerpentSpirit(player);
+                break;
+
+            case RoleType.Ogre:
+                role = new Ogre(player);
                 break;
 
             case RoleType.Mayor:
@@ -110,8 +182,51 @@ public class RoleManger : MonoBehaviour
                 role = new GuardianRole(player);
                 break;
 
+            case RoleType.Hunter:
+                role = new HunterRole(player);
+                break;
+
+            case RoleType.Shaman:
+                role = new ShamanRole(player);
+                break;
+
+            case RoleType.WeaverOffate:
+            case RoleType.WeaverOfFate:
+                role = new WeaverOfFateRole(player);
+                break;
+
             case RoleType.Idiot:
                 role = new IdiotRole(player);
+                break;
+
+            case RoleType.Cursed:
+                role = new CursedRole(player);
+                break;
+
+            case RoleType.Brat:
+                role = new BratRole(player);
+                break;
+
+            case RoleType.Madman:
+            case RoleType.Jester:
+            case RoleType.Lover:
+                role = new MadmanRole(player);
+                break;
+
+            case RoleType.FoxSpirit:
+            case RoleType.Piper:
+                role = new FoxSpiritRole(player);
+                break;
+
+            case RoleType.Killer:
+            case RoleType.SerialKiller:
+                role = new KillerRole(player);
+                break;
+
+            case RoleType.TuongMaster:
+            case RoleType.Magistrate:
+            case RoleType.DeathHerald:
+                role = new VillagerRole(player);
                 break;
 
             case RoleType.Villager:
