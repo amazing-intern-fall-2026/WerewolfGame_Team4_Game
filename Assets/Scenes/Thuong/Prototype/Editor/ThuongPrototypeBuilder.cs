@@ -98,11 +98,11 @@ public static class ThuongPrototypeBuilder
         var systems = new GameObject("Systems").transform;
         var game = Manager<GameRoleManager>(systems);
         game.nightDuration = 5; game.discussionDuration = 8; game.votingDuration = 10;
-        Manager<PlayerManger>(systems);
-        Manager<RoleManger>(systems);
+        Manager<PlayerManager>(systems);
+        Manager<RoleManager>(systems);
         var tasks = Manager<TaskManager>(systems);
         Manager<DayTimer>(systems).dayDuration = 45;
-        Manager<NightManager>(systems); Manager<VoteManger>(systems);
+        Manager<NightManager>(systems); Manager<VoteManager>(systems);
         Manager<DeathResolver>(systems); Manager<WinConditionManager>(systems);
 
         string[] names = { "Lấy nước", "Thu hoạch", "Sửa rào", "Gom củi", "Dọn kho", "Thắp đèn" };

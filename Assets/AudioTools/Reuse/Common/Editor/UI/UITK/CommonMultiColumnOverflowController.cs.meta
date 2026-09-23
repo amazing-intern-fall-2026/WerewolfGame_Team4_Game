@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: e22f396f19b043fe91edc8bac34af373
+timeCreated: 1783800000
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonMultiColumnOverflowController.cs
+  uploadId: 963964

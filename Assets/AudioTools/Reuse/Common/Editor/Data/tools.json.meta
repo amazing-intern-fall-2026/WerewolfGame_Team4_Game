@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3dc3c8ff542e9b343a573421f95c3fe9
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/Data/tools.json
+  uploadId: 963964

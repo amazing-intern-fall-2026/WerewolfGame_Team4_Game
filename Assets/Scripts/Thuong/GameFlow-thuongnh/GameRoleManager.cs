@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class GameRoleManager : MonoBehaviour
 {
@@ -19,14 +19,14 @@ public class GameRoleManager : MonoBehaviour
     }
     private void OnDestroy() { if (Instance == this) Instance = null; }
     private void Start() { BeginGame(); }
-    private EventManagert PrepareEventManager()
+    private EventManager PrepareEventManager()
     {
-        if (EventManagert.Instance != null)
-            return EventManagert.Instance;
+        if (EventManager.Instance != null)
+            return EventManager.Instance;
 
         // Các manager gameplay của prototype phải nằm trên object đang active.
         // AddComponent gọi Awake và thiết lập Instance khi object đang active.
-        return gameObject.AddComponent<EventManagert>();
+        return gameObject.AddComponent<EventManager>();
     }
     public void BeginGame()
     {
@@ -37,9 +37,9 @@ public class GameRoleManager : MonoBehaviour
 
         if (TaskManager.Instance == null ||
             DayTimer.Instance == null ||
-            PlayerManger.Instance == null ||
+            PlayerManager.Instance == null ||
             NightManager.Instance == null ||
-            VoteManger.Instance == null ||
+            VoteManager.Instance == null ||
             DeathResolver.Instance == null ||
             WinConditionManager.Instance == null)
         {
@@ -48,12 +48,12 @@ public class GameRoleManager : MonoBehaviour
             return;
         }
 
-        EventManagert events = PrepareEventManager();
+        EventManager events = PrepareEventManager();
 
         started = true;
 
-        if (RoleManger.Instance != null)
-            RoleManger.Instance.AssignRole();
+        if (RoleManager.Instance != null)
+            RoleManager.Instance.AssignRole();
 
         bool hasEventSchedule = events.InitializeForMatch(
             WinConditionManager.Instance.MaxDay);
@@ -103,20 +103,20 @@ public class GameRoleManager : MonoBehaviour
             return;
 
         SetPhase(GamePhase.DayStart);
-        RoleManger.Instance?.NotifyDayStart();
-        PlayerManger.Instance.UnlockPlayers();
+        RoleManager.Instance?.NotifyDayStart();
+        PlayerManager.Instance.UnlockPlayers();
         TaskManager.Instance.StartNewDay();
         DayTimer.Instance.StartTimer();
 
         // Chỉ kiểm tra/log lịch đã tạo, tuyệt đối không random ở đây.
-        if (EventManagert.Instance != null)
-            EventManagert.Instance.NotifyDayStarted(currentDay);
+        if (EventManager.Instance != null)
+            EventManager.Instance.NotifyDayStarted(currentDay);
     }
     public void EndDay()
     {
         if (!started || currentState != GameState.Day) return;
         DayTimer.Instance.StopTimer();
-        PlayerManger.Instance.LockPlayers();
+        PlayerManager.Instance.LockPlayers();
         SetPhase(GamePhase.Night);
         NightManager.Instance.StartNight();
         PhaseTimeRemaining = nightDuration;
@@ -125,15 +125,15 @@ public class GameRoleManager : MonoBehaviour
     {
         if (currentState != GameState.Discussion) return;
         SetPhase(GamePhase.Voting);
-        RoleManger.Instance?.NotifyVoteStart();
-        VoteManger.Instance.StartVote();
+        RoleManager.Instance?.NotifyVoteStart();
+        VoteManager.Instance.StartVote();
         PhaseTimeRemaining = votingDuration;
     }
     public void FinishVoting()
     {
         if (currentState != GameState.Voting) return;
         SetPhase(GamePhase.ResolveVote);
-        VoteManger.Instance.ResolveVote();
+        VoteManager.Instance.ResolveVote();
         WinConditionManager.Instance.CheckWinCondition(true);
         if (currentState == GameState.GameOver) return;
         currentDay++;
@@ -153,8 +153,9 @@ public class GameRoleManager : MonoBehaviour
         SetPhase(GamePhase.GameOver);
         PhaseTimeRemaining = 0;
         DayTimer.Instance?.StopTimer();
-        PlayerManger.Instance?.LockPlayers();
+        PlayerManager.Instance?.LockPlayers();
         Debug.Log(winner + " Win");
     }
 }
+
 

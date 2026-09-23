@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 63799e27800947aeb4c8233cfe83c266
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonPreviewSurface.cs
+  uploadId: 963964

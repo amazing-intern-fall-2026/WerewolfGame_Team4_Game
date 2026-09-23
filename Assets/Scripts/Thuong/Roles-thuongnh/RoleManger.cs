@@ -7,25 +7,22 @@ public class RoleManger : MonoBehaviour
     public static RoleManger Instance;
 
     [System.NonSerialized]
-    public Dictionary<int, BaseRole> playerRoles =
-        new Dictionary<int, BaseRole>();
-
+    public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
 
     private void Awake()
     {
         Instance = this;
     }
 
-
     public void AssignRole()
     {
-        if (PlayerManger.Instance == null || PlayerManger.Instance.players == null || PlayerManger.Instance.players.Count == 0)
+        if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
         {
             Debug.LogWarning("RoleManger: chưa có player nào để gán role.");
             return;
         }
 
-        List<PlayerData> list = new List<PlayerData>(PlayerManger.Instance.players);
+        List<PlayerData> list = new List<PlayerData>(PlayerManager.Instance.players);
         Shuffle(list);
         playerRoles.Clear();
 
@@ -33,7 +30,7 @@ public class RoleManger : MonoBehaviour
 
         for (int i = 0; i < list.Count; i++)
         {
-            list[i].votPower = 1;
+            list[i].votePower = 1;
             list[i].hasUseNightAction = false;
             list[i].hasVoted = false;
             list[i].isAlive = true;
@@ -44,12 +41,7 @@ public class RoleManger : MonoBehaviour
 
         foreach (var pair in playerRoles)
         {
-            Debug.Log(
-                "ROLE ASSIGN | Player "
-                + pair.Key
-                + " → "
-                + pair.Value.roleType
-            );
+            Debug.Log("ROLE ASSIGN | Player " + pair.Key + " → " + pair.Value.roleType);
         }
     }
 
@@ -59,7 +51,7 @@ public class RoleManger : MonoBehaviour
 
         if (playerCount >= 5 && playerCount <= 8)
         {
-            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.DogSpirit);
             roles.Add(RoleType.Villager);
             roles.Add(RoleType.Villager);
             roles.Add(RoleType.Villager);
@@ -71,11 +63,9 @@ public class RoleManger : MonoBehaviour
             return roles;
         }
 
-        // 12 người theo spec:
-        // 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
         if (playerCount == 12)
         {
-            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.DogSpirit);
             roles.Add(RoleType.SerpentSpirit);
             roles.Add(RoleType.Ogre);
             roles.Add(RoleType.Villager);
@@ -90,8 +80,7 @@ public class RoleManger : MonoBehaviour
             return roles;
         }
 
-        // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
-        roles.Add(RoleType.DogSprit);
+        roles.Add(RoleType.DogSpirit);
         roles.Add(RoleType.Seer);
 
         for (int i = 2; i < playerCount; i++)
@@ -112,7 +101,7 @@ public class RoleManger : MonoBehaviour
 
     public void NotifyVoteStart()
     {
-        NotifyAliveRoles(role => role.OnVotStart());
+        NotifyAliveRoles(role => role.OnVoteStart());
     }
 
     public bool UseNightAbility(int playerID, int targetID)
@@ -124,7 +113,7 @@ public class RoleManger : MonoBehaviour
             role.owner.hasUseNightAction)
             return false;
 
-        PlayerData target = PlayerManger.Instance?.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         if (target == null || !target.isAlive)
             return false;
 
@@ -142,14 +131,12 @@ public class RoleManger : MonoBehaviour
         }
     }
 
-
     private void CreateRole(RoleType type, PlayerData player)
     {
         BaseRole role;
 
         switch (type)
         {
-            case RoleType.DogSprit:
             case RoleType.DogSpirit:
                 role = new DogSpirit(player);
                 break;
@@ -190,7 +177,6 @@ public class RoleManger : MonoBehaviour
                 role = new ShamanRole(player);
                 break;
 
-            case RoleType.WeaverOffate:
             case RoleType.WeaverOfFate:
                 role = new WeaverOfFateRole(player);
                 break;
@@ -245,17 +231,15 @@ public class RoleManger : MonoBehaviour
         role.OnGameStart();
     }
 
-
     private void Shuffle(List<PlayerData> list)
     {
         for (int i = 0; i < list.Count; i++)
         {
             int random = Random.Range(i, list.Count);
-
             PlayerData temp = list[i];
-
             list[i] = list[random];
             list[random] = temp;
         }
     }
 }
+

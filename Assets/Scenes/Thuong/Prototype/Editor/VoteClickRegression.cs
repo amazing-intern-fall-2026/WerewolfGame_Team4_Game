@@ -40,9 +40,9 @@ public static class VoteClickRegression
                 if (!previous.ContainsKey(field)) previous[field] = field.GetValue(null);
                 field.SetValue(null, component);
             }
-            PlayerManger.Instance.CreateTestPlayer(5);
+            PlayerManager.Instance.CreateTestPlayer(5);
             GameRoleManager.Instance.currentState = GameState.Voting;
-            VoteManger.Instance.StartVote();
+            VoteManager.Instance.StartVote();
             var hud = components.OfType<GameHUD>().Single();
             hud.meetingPanel.SetActive(true);
             hud.resultPanel.SetActive(false);
@@ -74,15 +74,15 @@ public static class VoteClickRegression
             if (receiver != button.gameObject)
                 throw new Exception("Vote blocked by " + hits[0].gameObject.name);
             ExecuteEvents.Execute(receiver, pointer, ExecuteEvents.pointerClickHandler);
-            if (!PlayerManger.Instance.GetplayerByID(0).hasVoted) throw new Exception("Pointer click did not register vote.");
-            VoteManger.Instance.StartVote();
+            if (!PlayerManager.Instance.GetplayerByID(0).hasVoted) throw new Exception("Pointer click did not register vote.");
+            VoteManager.Instance.StartVote();
             button.SendMessage("OnDisable");
             button.SendMessage("OnEnable");
             ExecuteEvents.Execute(receiver, pointer, ExecuteEvents.pointerClickHandler);
-            if (!PlayerManger.Instance.GetplayerByID(0).hasVoted)
+            if (!PlayerManager.Instance.GetplayerByID(0).hasVoted)
                 throw new Exception("Re-enabled button lost its click handler.");
-            if (VoteManger.Instance.TryVote(0, 2)) throw new Exception("Duplicate vote accepted.");
-            if (VoteManger.Instance.GetVotedTarget(0) != 1) throw new Exception("Selected target not preserved.");
+            if (VoteManager.Instance.TryVote(0, 2)) throw new Exception("Duplicate vote accepted.");
+            if (VoteManager.Instance.GetVotedTarget(0) != 1) throw new Exception("Selected target not preserved.");
             File.WriteAllText("Logs/vote-click-result.txt",
                 "PASS: UI raycast, Button pointer click, re-enable listener, duplicate rejection and selected-target feedback.");
         }
