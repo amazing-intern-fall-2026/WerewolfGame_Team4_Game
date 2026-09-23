@@ -3,14 +3,12 @@ using UnityEngine;
 public enum RoleType
 {
     // Monster / Werewolf side
-    DogSprit,
-    DogSpirit = DogSprit,
+    DogSpirit,
     WhiteHound,
-    WhiteWolf = WhiteHound,
-    RedNosedHound = WhiteHound,
-    WolfCub = DogSprit,
-    WolfBoss = DogSprit,
-
+    WhiteWolf,
+    RedNosedHound,
+    WolfCub,
+    WolfBoss,
     SerpentSpirit,
     Ogre,
 
@@ -21,8 +19,7 @@ public enum RoleType
     VillageGuardian,
     Hunter,
     Shaman,
-    WeaverOffate,
-    WeaverOfFate = WeaverOffate,
+    WeaverOfFate,
     Idiot,
     Cursed,
     Brat,
@@ -31,11 +28,11 @@ public enum RoleType
 
     // Third party / special
     Madman,
-    Jester = Madman,
-    Lover = Madman,
+    Jester,
+    Lover,
     FoxSpirit,
-    Piper = FoxSpirit,
+    Piper,
     Killer,
-    SerialKiller = Killer,
+    SerialKiller,
     DeathHerald
-} 
+}

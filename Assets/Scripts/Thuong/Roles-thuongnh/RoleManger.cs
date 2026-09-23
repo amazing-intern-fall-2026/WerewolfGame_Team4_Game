@@ -7,15 +7,12 @@ public class RoleManger : MonoBehaviour
     public static RoleManger Instance;
 
     [System.NonSerialized]
-    public Dictionary<int, BaseRole> playerRoles =
-        new Dictionary<int, BaseRole>();
-
+    public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
 
     private void Awake()
     {
         Instance = this;
     }
-
 
     public void AssignRole()
     {
@@ -44,12 +41,7 @@ public class RoleManger : MonoBehaviour
 
         foreach (var pair in playerRoles)
         {
-            Debug.Log(
-                "ROLE ASSIGN | Player "
-                + pair.Key
-                + " → "
-                + pair.Value.roleType
-            );
+            Debug.Log($"ROLE ASSIGN | Player {pair.Key} → {pair.Value.roleType}");
         }
     }
 
@@ -59,7 +51,7 @@ public class RoleManger : MonoBehaviour
 
         if (playerCount >= 5 && playerCount <= 8)
         {
-            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.DogSpirit);
             roles.Add(RoleType.Villager);
             roles.Add(RoleType.Villager);
             roles.Add(RoleType.Villager);
@@ -71,11 +63,10 @@ public class RoleManger : MonoBehaviour
             return roles;
         }
 
-        // 12 người theo spec:
-        // 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
+        // 12 người: 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
         if (playerCount == 12)
         {
-            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.DogSpirit);
             roles.Add(RoleType.SerpentSpirit);
             roles.Add(RoleType.Ogre);
             roles.Add(RoleType.Villager);
@@ -90,8 +81,8 @@ public class RoleManger : MonoBehaviour
             return roles;
         }
 
-        // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
-        roles.Add(RoleType.DogSprit);
+        // Default: 1 sói + 1 tiên tri + dân làng
+        roles.Add(RoleType.DogSpirit);
         roles.Add(RoleType.Seer);
 
         for (int i = 2; i < playerCount; i++)
@@ -142,14 +133,12 @@ public class RoleManger : MonoBehaviour
         }
     }
 
-
     private void CreateRole(RoleType type, PlayerData player)
     {
         BaseRole role;
 
         switch (type)
         {
-            case RoleType.DogSprit:
             case RoleType.DogSpirit:
                 role = new DogSpirit(player);
                 break;
@@ -190,7 +179,6 @@ public class RoleManger : MonoBehaviour
                 role = new ShamanRole(player);
                 break;
 
-            case RoleType.WeaverOffate:
             case RoleType.WeaverOfFate:
                 role = new WeaverOfFateRole(player);
                 break;
@@ -223,13 +211,10 @@ public class RoleManger : MonoBehaviour
                 role = new KillerRole(player);
                 break;
 
+            case RoleType.Villager:
             case RoleType.TuongMaster:
             case RoleType.Magistrate:
             case RoleType.DeathHerald:
-                role = new VillagerRole(player);
-                break;
-
-            case RoleType.Villager:
                 role = new VillagerRole(player);
                 break;
 
@@ -245,15 +230,12 @@ public class RoleManger : MonoBehaviour
         role.OnGameStart();
     }
 
-
     private void Shuffle(List<PlayerData> list)
     {
         for (int i = 0; i < list.Count; i++)
         {
             int random = Random.Range(i, list.Count);
-
             PlayerData temp = list[i];
-
             list[i] = list[random];
             list[random] = temp;
         }
