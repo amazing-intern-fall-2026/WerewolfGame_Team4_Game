@@ -39,7 +39,7 @@ public class NetworkPlayerVote : NetworkBehaviour
     private void RequestVote(int targetID)
     {
         Debug.Log(
-            "VOTE TEST | Player "
+            "VOTE TEST | Client "
             + OwnerClientId
             + " → Vote Player "
             + targetID
@@ -53,7 +53,12 @@ public class NetworkPlayerVote : NetworkBehaviour
         int targetID,
         ServerRpcParams rpcParams = default)
     {
-        int voterID = (int)OwnerClientId;
+        ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+        Debug.Log(
+            "NETWORK VOTE DEBUG | SenderClientId = "
+            + senderClientId
+        );
 
         if (GameRoleManager.Instance == null)
         {
@@ -79,6 +84,38 @@ public class NetworkPlayerVote : NetworkBehaviour
             return;
         }
 
+        // DEBUG: in toàn bộ PlayerData mà SERVER đang có
+        if (PlayerManager.Instance.players == null)
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE DEBUG: PlayerManager.players = NULL"
+            );
+            return;
+        }
+
+        Debug.Log(
+            "NETWORK VOTE DEBUG | Server có "
+            + PlayerManager.Instance.players.Count
+            + " PlayerData"
+        );
+
+        foreach (PlayerData player in PlayerManager.Instance.players)
+        {
+            if (player == null)
+                continue;
+
+            Debug.Log(
+                "PLAYER DATA | ID = "
+                + player.playerID
+                + " | Name = "
+                + player.playerName
+                + " | Alive = "
+                + player.isAlive
+            );
+        }
+
+        int voterID = (int)senderClientId;
+
         PlayerData voter =
             PlayerManager.Instance.GetplayerByID(voterID);
 
@@ -90,6 +127,8 @@ public class NetworkPlayerVote : NetworkBehaviour
             Debug.LogWarning(
                 "NETWORK VOTE: Không tìm thấy Voter Player "
                 + voterID
+                + " | SenderClientId = "
+                + senderClientId
             );
             return;
         }
@@ -105,7 +144,7 @@ public class NetworkPlayerVote : NetworkBehaviour
 
         Debug.Log(
             "VOTER CHECK | Player "
-            + voterID
+            + voter.playerID
             + " | Alive = "
             + voter.isAlive
             + " | HasVoted = "
@@ -116,7 +155,7 @@ public class NetworkPlayerVote : NetworkBehaviour
 
         Debug.Log(
             "TARGET CHECK | Player "
-            + targetID
+            + target.playerID
             + " | Alive = "
             + target.isAlive
         );
@@ -129,17 +168,16 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (!success)
         {
             Debug.LogWarning(
-                "NETWORK VOTE: ❌ Vote không hợp lệ | Player "
+                "NETWORK VOTE: Vote không hợp lệ | Player "
                 + voterID
                 + " → "
                 + targetID
             );
-
             return;
         }
 
         Debug.Log(
-            "NETWORK VOTE: ✅ Vote hợp lệ | Player "
+            "NETWORK VOTE: Vote hợp lệ | Player "
             + voterID
             + " → "
             + targetID
