@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -145,8 +145,8 @@ public class GameHUD : MonoBehaviour
         if (meetingTitle != null) meetingTitle.text = game.currentState == GameState.Voting ? "BỎ PHIẾU" : "THẢO LUẬN";
         if (votingStatusText != null)
         {
-            var voter = PlayerManger.Instance?.GetplayerByID(localVoterID);
-            int chosen = VoteManger.Instance != null ? VoteManger.Instance.GetVotedTarget(localVoterID) : -1;
+            var voter = PlayerManager.Instance?.GetplayerByID(localVoterID);
+            int chosen = VoteManager.Instance != null ? VoteManager.Instance.GetVotedTarget(localVoterID) : -1;
             if (game.currentState == GameState.Discussion)
                 votingStatusText.text = $"Chờ {Mathf.CeilToInt(game.PhaseTimeRemaining)}s để bắt đầu bỏ phiếu.";
             else if (voter == null) votingStatusText.text = "Không tìm thấy dữ liệu người bỏ phiếu.";
@@ -161,3 +161,4 @@ public class GameHUD : MonoBehaviour
             game.Winner == "Villagers" ? "DÂN LÀNG THẮNG" : "MA SÓI THẮNG";
     }
 }
+

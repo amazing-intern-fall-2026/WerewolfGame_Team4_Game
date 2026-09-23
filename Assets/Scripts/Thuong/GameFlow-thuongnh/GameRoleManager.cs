@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class GameRoleManager : MonoBehaviour
 {
@@ -37,9 +37,9 @@ public class GameRoleManager : MonoBehaviour
 
         if (TaskManager.Instance == null ||
             DayTimer.Instance == null ||
-            PlayerManger.Instance == null ||
+            PlayerManager.Instance == null ||
             NightManager.Instance == null ||
-            VoteManger.Instance == null ||
+            VoteManager.Instance == null ||
             DeathResolver.Instance == null ||
             WinConditionManager.Instance == null)
         {
@@ -52,8 +52,8 @@ public class GameRoleManager : MonoBehaviour
 
         started = true;
 
-        if (RoleManger.Instance != null)
-            RoleManger.Instance.AssignRole();
+        if (RoleManager.Instance != null)
+            RoleManager.Instance.AssignRole();
 
         bool hasEventSchedule = events.InitializeForMatch(
             WinConditionManager.Instance.MaxDay);
@@ -103,8 +103,8 @@ public class GameRoleManager : MonoBehaviour
             return;
 
         SetPhase(GamePhase.DayStart);
-        RoleManger.Instance?.NotifyDayStart();
-        PlayerManger.Instance.UnlockPlayers();
+        RoleManager.Instance?.NotifyDayStart();
+        PlayerManager.Instance.UnlockPlayers();
         TaskManager.Instance.StartNewDay();
         DayTimer.Instance.StartTimer();
 
@@ -116,7 +116,7 @@ public class GameRoleManager : MonoBehaviour
     {
         if (!started || currentState != GameState.Day) return;
         DayTimer.Instance.StopTimer();
-        PlayerManger.Instance.LockPlayers();
+        PlayerManager.Instance.LockPlayers();
         SetPhase(GamePhase.Night);
         NightManager.Instance.StartNight();
         PhaseTimeRemaining = nightDuration;
@@ -125,15 +125,15 @@ public class GameRoleManager : MonoBehaviour
     {
         if (currentState != GameState.Discussion) return;
         SetPhase(GamePhase.Voting);
-        RoleManger.Instance?.NotifyVoteStart();
-        VoteManger.Instance.StartVote();
+        RoleManager.Instance?.NotifyVoteStart();
+        VoteManager.Instance.StartVote();
         PhaseTimeRemaining = votingDuration;
     }
     public void FinishVoting()
     {
         if (currentState != GameState.Voting) return;
         SetPhase(GamePhase.ResolveVote);
-        VoteManger.Instance.ResolveVote();
+        VoteManager.Instance.ResolveVote();
         WinConditionManager.Instance.CheckWinCondition(true);
         if (currentState == GameState.GameOver) return;
         currentDay++;
@@ -153,8 +153,9 @@ public class GameRoleManager : MonoBehaviour
         SetPhase(GamePhase.GameOver);
         PhaseTimeRemaining = 0;
         DayTimer.Instance?.StopTimer();
-        PlayerManger.Instance?.LockPlayers();
+        PlayerManager.Instance?.LockPlayers();
         Debug.Log(winner + " Win");
     }
 }
+
 

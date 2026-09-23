@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class CursedRole : BaseRole
 {
@@ -10,7 +10,7 @@ public class CursedRole : BaseRole
 
     public override void UseNightAbility(int TargetID)
     {
-        PlayerData target = PlayerManger.Instance.GetplayerByID(TargetID);
+        PlayerData target = PlayerManager.Instance.GetplayerByID(TargetID);
 
         if (target == null || !target.isAlive)
             return;

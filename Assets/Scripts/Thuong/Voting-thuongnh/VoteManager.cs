@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 public class VoteManager : MonoBehaviour
 {
@@ -11,7 +11,7 @@ public class VoteManager : MonoBehaviour
     {
         votes.Clear();
         choices.Clear();
-        foreach (var player in PlayerManger.Instance.players) player.hasVoted = false;
+        foreach (var player in PlayerManager.Instance.players) player.hasVoted = false;
     }
     public void Vote(int voterID, int targetID)
     {
@@ -20,14 +20,14 @@ public class VoteManager : MonoBehaviour
     public bool TryVote(int voterID, int targetID)
     {
         if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Voting ||
-            PlayerManger.Instance == null) return false;
-        var voter = PlayerManger.Instance.GetplayerByID(voterID);
-        var target = PlayerManger.Instance.GetplayerByID(targetID);
+            PlayerManager.Instance == null) return false;
+        var voter = PlayerManager.Instance.GetplayerByID(voterID);
+        var target = PlayerManager.Instance.GetplayerByID(targetID);
         if (voter == null || target == null || !voter.isAlive || !target.isAlive || voter.hasVoted) return false;
         voter.hasVoted = true;
         choices[voterID] = targetID;
         if (!votes.ContainsKey(targetID)) votes[targetID] = 0;
-        votes[targetID] += Mathf.Max(1, voter.votPower);
+        votes[targetID] += Mathf.Max(1, voter.votePower);
         return true;
     }
     public void ResolveVote()
@@ -43,3 +43,4 @@ public class VoteManager : MonoBehaviour
         if (!tied && target >= 0) DeathResolver.Instance.TryKillPlayer(target, DeathCause.Vote);
     }
 }
+

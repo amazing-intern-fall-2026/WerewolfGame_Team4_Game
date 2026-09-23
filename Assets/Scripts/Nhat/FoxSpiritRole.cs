@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class FoxSpiritRole : BaseRole
@@ -16,7 +16,7 @@ public class FoxSpiritRole : BaseRole
         if (owner == null || !owner.isAlive)
             return;
 
-        PlayerData target = PlayerManger.Instance?.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         if (target == null || !target.isAlive)
             return;
 
@@ -29,3 +29,4 @@ public class FoxSpiritRole : BaseRole
         return charmedPlayers.Contains(targetID);
     }
 }
+

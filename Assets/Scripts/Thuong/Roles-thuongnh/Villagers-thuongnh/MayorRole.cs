@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class MayorRole:BaseRole
 {
@@ -7,6 +7,7 @@ public class MayorRole:BaseRole
         roleType = RoleType.Mayor;
         faction = FactionType.Villager;
 
-        owner.votPower = 2;
+        owner.votePower = 2;
     }
 }
+

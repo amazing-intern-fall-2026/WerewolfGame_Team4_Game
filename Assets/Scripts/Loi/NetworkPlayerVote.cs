@@ -1,4 +1,4 @@
-using Unity.Netcode;
+﻿using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkPlayerVote : NetworkBehaviour
@@ -72,28 +72,28 @@ public class NetworkPlayerVote : NetworkBehaviour
             return;
         }
 
-        if (VoteManger.Instance == null)
+        if (VoteManager.Instance == null)
         {
             Debug.LogWarning(
-                "NETWORK VOTE: Không tìm thấy VoteManger!"
+                "NETWORK VOTE: Không tìm thấy VoteManager!"
             );
             return;
         }
 
         // Kiểm tra PlayerManager
-        if (PlayerManger.Instance == null)
+        if (PlayerManager.Instance == null)
         {
             Debug.LogWarning(
-                "NETWORK VOTE: Không tìm thấy PlayerManger!"
+                "NETWORK VOTE: Không tìm thấy PlayerManager!"
             );
             return;
         }
 
         PlayerData voter =
-            PlayerManger.Instance.GetplayerByID(voterID);
+            PlayerManager.Instance.GetplayerByID(voterID);
 
         PlayerData target =
-            PlayerManger.Instance.GetplayerByID(targetID);
+            PlayerManager.Instance.GetplayerByID(targetID);
 
         Debug.Log(
             "VOTER CHECK | " +
@@ -102,7 +102,7 @@ public class NetworkPlayerVote : NetworkBehaviour
                 : "Voter " + voterID +
                   " | Alive = " + voter.isAlive +
                   " | HasVoted = " + voter.hasVoted +
-                  " | VotePower = " + voter.votPower)
+                  " | VotePower = " + voter.votePower)
         );
 
         Debug.Log(
@@ -114,7 +114,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         );
 
         // Gọi Dev2 VoteManager
-        bool success = VoteManger.Instance.TryVote(
+        bool success = VoteManager.Instance.TryVote(
             voterID,
             targetID
         );
