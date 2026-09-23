@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "WerewolfGame.slnx"
+    "dotnet.defaultSolution": "WerewolfGame_Team4_Game.slnx"
 }
