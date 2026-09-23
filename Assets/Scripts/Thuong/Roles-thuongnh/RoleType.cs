@@ -3,13 +3,13 @@ using UnityEngine;
 public enum RoleType
 {
     // Monster / Werewolf side
-    DogSprit,
-    DogSpirit = DogSprit,
+    DogSpirit,
+    DogSprit = DogSpirit,
     WhiteHound,
     WhiteWolf = WhiteHound,
     RedNosedHound = WhiteHound,
-    WolfCub = DogSprit,
-    WolfBoss = DogSprit,
+    WolfCub = DogSpirit,
+    WolfBoss = DogSpirit,
 
     SerpentSpirit,
     Ogre,

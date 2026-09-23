@@ -59,7 +59,7 @@ public class RoleManger : MonoBehaviour
 
         if (playerCount >= 5 && playerCount <= 8)
         {
-            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.DogSpirit);
             roles.Add(RoleType.Villager);
             roles.Add(RoleType.Villager);
             roles.Add(RoleType.Villager);
@@ -75,7 +75,7 @@ public class RoleManger : MonoBehaviour
         // 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
         if (playerCount == 12)
         {
-            roles.Add(RoleType.DogSprit);
+            roles.Add(RoleType.DogSpirit);
             roles.Add(RoleType.SerpentSpirit);
             roles.Add(RoleType.Ogre);
             roles.Add(RoleType.Villager);
@@ -91,7 +91,7 @@ public class RoleManger : MonoBehaviour
         }
 
         // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
-        roles.Add(RoleType.DogSprit);
+        roles.Add(RoleType.DogSpirit);
         roles.Add(RoleType.Seer);
 
         for (int i = 2; i < playerCount; i++)
@@ -149,16 +149,11 @@ public class RoleManger : MonoBehaviour
 
         switch (type)
         {
-            case RoleType.DogSprit:
             case RoleType.DogSpirit:
                 role = new DogSpirit(player);
                 break;
 
             case RoleType.WhiteHound:
-            case RoleType.WhiteWolf:
-            case RoleType.RedNosedHound:
-            case RoleType.WolfCub:
-            case RoleType.WolfBoss:
                 role = new WhiteHound(player);
                 break;
 
@@ -191,7 +186,6 @@ public class RoleManger : MonoBehaviour
                 break;
 
             case RoleType.WeaverOffate:
-            case RoleType.WeaverOfFate:
                 role = new WeaverOfFateRole(player);
                 break;
 
@@ -208,18 +202,14 @@ public class RoleManger : MonoBehaviour
                 break;
 
             case RoleType.Madman:
-            case RoleType.Jester:
-            case RoleType.Lover:
                 role = new MadmanRole(player);
                 break;
 
             case RoleType.FoxSpirit:
-            case RoleType.Piper:
                 role = new FoxSpiritRole(player);
                 break;
 
             case RoleType.Killer:
-            case RoleType.SerialKiller:
                 role = new KillerRole(player);
                 break;
 

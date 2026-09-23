@@ -4,7 +4,7 @@ public class DogSpirit:BaseRole
 {
     public DogSpirit(PlayerData owner) : base(owner)
     {
-        roleType = RoleType.DogSprit;
+        roleType = RoleType.DogSpirit;
         faction = FactionType.Monster;
 
     }
