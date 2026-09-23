@@ -55,15 +55,6 @@ public class NetworkPlayerVote : NetworkBehaviour
     {
         int voterID = (int)OwnerClientId;
 
-        Debug.Log(
-            "========== NETWORK VOTE DEBUG ==========\n" +
-            "Voter ID      = " + voterID + "\n" +
-            "Target ID     = " + targetID + "\n" +
-            "GameState     = " + GameRoleManager.Instance?.currentState + "\n" +
-            "GamePhase     = " + GameRoleManager.Instance?.currentPhase + "\n" +
-            "NetworkPhase  = " + NetworkPhaseSync.Instance?.CurrentPhase.Value
-        );
-
         if (GameRoleManager.Instance == null)
         {
             Debug.LogWarning(
@@ -95,22 +86,40 @@ public class NetworkPlayerVote : NetworkBehaviour
         PlayerData target =
             PlayerManager.Instance.GetplayerByID(targetID);
 
+        if (voter == null)
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Không tìm thấy Voter Player "
+                + voterID
+            );
+            return;
+        }
+
+        if (target == null)
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Không tìm thấy Target Player "
+                + targetID
+            );
+            return;
+        }
+
         Debug.Log(
-            "VOTER CHECK | " +
-            (voter == null
-                ? "Voter NULL"
-                : "Voter " + voterID +
-                  " | Alive = " + voter.isAlive +
-                  " | HasVoted = " + voter.hasVoted +
-                  " | VotePower = " + voter.votePower)
+            "VOTER CHECK | Player "
+            + voterID
+            + " | Alive = "
+            + voter.isAlive
+            + " | HasVoted = "
+            + voter.hasVoted
+            + " | VotePower = "
+            + voter.votePower
         );
 
         Debug.Log(
-            "TARGET CHECK | " +
-            (target == null
-                ? "Target NULL"
-                : "Target " + targetID +
-                  " | Alive = " + target.isAlive)
+            "TARGET CHECK | Player "
+            + targetID
+            + " | Alive = "
+            + target.isAlive
         );
 
         // Gọi Dev2 VoteManager
@@ -136,10 +145,6 @@ public class NetworkPlayerVote : NetworkBehaviour
             + voterID
             + " → "
             + targetID
-        );
-
-        Debug.Log(
-            "========================================="
         );
     }
 }
