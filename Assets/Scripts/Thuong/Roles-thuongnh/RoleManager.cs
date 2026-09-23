@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public class RoleManger : MonoBehaviour
+public class RoleManager : MonoBehaviour
 {
-    public static RoleManger Instance;
+    public static RoleManager Instance;
 
     [System.NonSerialized]
     public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
@@ -16,13 +16,13 @@ public class RoleManger : MonoBehaviour
 
     public void AssignRole()
     {
-        if (PlayerManger.Instance == null || PlayerManger.Instance.players == null || PlayerManger.Instance.players.Count == 0)
+        if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
         {
-            Debug.LogWarning("RoleManger: chưa có player nào để gán role.");
+            Debug.LogWarning("RoleManager: chưa có player nào để gán role.");
             return;
         }
 
-        List<PlayerData> list = new List<PlayerData>(PlayerManger.Instance.players);
+        List<PlayerData> list = new List<PlayerData>(PlayerManager.Instance.players);
         Shuffle(list);
         playerRoles.Clear();
 
@@ -30,7 +30,7 @@ public class RoleManger : MonoBehaviour
 
         for (int i = 0; i < list.Count; i++)
         {
-            list[i].votPower = 1;
+            list[i].votePower = 1;
             list[i].hasUseNightAction = false;
             list[i].hasVoted = false;
             list[i].isAlive = true;
@@ -81,8 +81,8 @@ public class RoleManger : MonoBehaviour
             return roles;
         }
 
-        // Default: 1 sói + 1 tiên tri + dân làng
-        roles.Add(RoleType.DogSpirit);
+        // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
+        roles.Add(RoleType.DogSprit);
         roles.Add(RoleType.Seer);
 
         for (int i = 2; i < playerCount; i++)
@@ -103,7 +103,7 @@ public class RoleManger : MonoBehaviour
 
     public void NotifyVoteStart()
     {
-        NotifyAliveRoles(role => role.OnVotStart());
+        NotifyAliveRoles(role => role.OnVoteStart());
     }
 
     public bool UseNightAbility(int playerID, int targetID)
@@ -115,7 +115,7 @@ public class RoleManger : MonoBehaviour
             role.owner.hasUseNightAction)
             return false;
 
-        PlayerData target = PlayerManger.Instance?.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         if (target == null || !target.isAlive)
             return false;
 

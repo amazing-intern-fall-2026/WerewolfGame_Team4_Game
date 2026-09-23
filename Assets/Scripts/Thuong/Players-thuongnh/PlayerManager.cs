@@ -1,1 +1,1 @@
-// Player data manager is PlayerManger.cs; movement is PlayerMovement.cs.
+﻿// Player data manager is PlayerManager.cs; movement is PlayerMovement.cs.

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class DeathResolver:MonoBehaviour
 {
@@ -10,7 +10,7 @@ public class DeathResolver:MonoBehaviour
     }
     public bool TryKillPlayer(int targetID, DeathCause cause)
     { 
-        PlayerData target =PlayerManger.Instance.GetplayerByID(targetID);
+        PlayerData target =PlayerManager.Instance.GetplayerByID(targetID);
 
         if (target == null)
         { 
@@ -31,10 +31,11 @@ public class DeathResolver:MonoBehaviour
         }
         target.isAlive = false;
         NetworkPlayerStateSync.SyncGameplayAliveState(targetID, false);
-        if (RoleManger.Instance != null && RoleManger.Instance.playerRoles.TryGetValue(targetID, out var role))
+        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(targetID, out var role))
             role.OnDeath();
 
         LoverManager.Instance?.LoverDied(target);
         return true;
     }
 }
+

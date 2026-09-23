@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class NetworkRoleActionBridge : MonoBehaviour
 {
@@ -25,27 +25,22 @@ public class NetworkRoleActionBridge : MonoBehaviour
         );
 
         // =========================================
-        // 1. Tìm RoleManger của Dev2
+        // 1. Tìm RoleManager của Dev2
         // =========================================
-
-        RoleManger roleManager = RoleManger.Instance;
+        RoleManager roleManager = RoleManager.Instance;
 
         if (roleManager == null)
         {
-            roleManager = FindFirstObjectByType<RoleManger>();
+            roleManager = FindFirstObjectByType<RoleManager>();
         }
 
         if (roleManager == null)
         {
             Debug.LogWarning(
-                "ROLE ACTION BRIDGE: Không tìm thấy RoleManger!"
+                "ROLE ACTION BRIDGE: Không tìm thấy RoleManager!"
             );
             return;
         }
-
-        // =========================================
-        // 2. Kiểm tra playerRoles
-        // =========================================
 
         if (roleManager.playerRoles == null ||
             roleManager.playerRoles.Count == 0)
@@ -55,15 +50,11 @@ public class NetworkRoleActionBridge : MonoBehaviour
             );
 
             Debug.Log(
-                "ROLE ACTION BRIDGE: Gọi RoleManger.AssignRole()"
+                "ROLE ACTION BRIDGE: Gọi RoleManager.AssignRole()"
             );
 
             roleManager.AssignRole();
         }
-
-        // =========================================
-        // 3. Tìm Role của Player
-        // =========================================
 
         if (!roleManager.playerRoles.TryGetValue(
             requesterID,
@@ -83,10 +74,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
             + role.roleType
         );
 
-        // =========================================
-        // 4. Tìm NightManager
-        // =========================================
-
         NightManager nightManager = NightManager.Instance;
 
         if (nightManager == null)
@@ -98,7 +85,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 NightManager.Instance = nightManager;
 
                 Debug.Log(
-                    "ROLE ACTION BRIDGE | Đã tìm thấy và gán NightManager.Instance"
+                    "ROLE ACTION BRIDGE | Đã tìm thấy NightManager"
                 );
             }
         }
@@ -110,10 +97,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
             );
             return;
         }
-
-        // =========================================
-        // 5. Gọi Ability của Role
-        // =========================================
 
         Debug.Log(
             "ROLE ACTION BRIDGE | UseNightAbility("

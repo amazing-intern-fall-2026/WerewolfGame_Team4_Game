@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class LoverManager : MonoBehaviour
 {
@@ -11,14 +11,14 @@ public class LoverManager : MonoBehaviour
 
     public void MakeLovers(int playerAID, int playerBID)
     {
-        if (PlayerManger.Instance == null)
+        if (PlayerManager.Instance == null)
             return;
 
         PlayerData playerA =
-            PlayerManger.Instance.GetplayerByID(playerAID);
+            PlayerManager.Instance.GetplayerByID(playerAID);
 
         PlayerData playerB =
-            PlayerManger.Instance.GetplayerByID(playerBID);
+            PlayerManager.Instance.GetplayerByID(playerBID);
 
         if (playerA == null || playerB == null || playerAID == playerBID)
             return;
@@ -39,11 +39,11 @@ public class LoverManager : MonoBehaviour
     public void LoverDied(PlayerData deadPlayer)
     {
         if (deadPlayer == null || deadPlayer.loverID == -1 ||
-            PlayerManger.Instance == null || DeathResolver.Instance == null)
+            PlayerManager.Instance == null || DeathResolver.Instance == null)
             return;
 
         PlayerData lover =
-            PlayerManger.Instance.GetplayerByID(deadPlayer.loverID);
+            PlayerManager.Instance.GetplayerByID(deadPlayer.loverID);
 
         if (lover == null)
             return;

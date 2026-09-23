@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class NightManager : MonoBehaviour
 {
@@ -21,9 +21,9 @@ public class NightManager : MonoBehaviour
         killerTarget = -1;
         evilNightCount++;
 
-        RoleManger.Instance?.NotifyNightStart();
+        RoleManager.Instance?.NotifyNightStart();
 
-        foreach (var player in PlayerManger.Instance.players)
+        foreach (var player in PlayerManager.Instance.players)
         {
             player.status.isProtected = false;
             player.hasUseNightAction = false;
@@ -52,14 +52,14 @@ public class NightManager : MonoBehaviour
         PlayerData protectedPlayer = null;
         if (protectedTarget != -1)
         {
-            protectedPlayer = PlayerManger.Instance.GetplayerByID(protectedTarget);
+            protectedPlayer = PlayerManager.Instance.GetplayerByID(protectedTarget);
             if (protectedPlayer != null && protectedPlayer.isAlive)
                 protectedPlayer.status.isProtected = true;
         }
 
         if (monsterTarget != -1)
         {
-            PlayerData target = PlayerManger.Instance.GetplayerByID(monsterTarget);
+            PlayerData target = PlayerManager.Instance.GetplayerByID(monsterTarget);
             if (target != null && target.isAlive && (protectedPlayer == null || target.playerID != protectedPlayer.playerID))
             {
                 DeathResolver.Instance.TryKillPlayer(monsterTarget, DeathCause.Monster);
@@ -68,7 +68,7 @@ public class NightManager : MonoBehaviour
 
         if (killerTarget != -1 && evilNightCount % 2 == 0)
         {
-            PlayerData killerTargetPlayer = PlayerManger.Instance.GetplayerByID(killerTarget);
+            PlayerData killerTargetPlayer = PlayerManager.Instance.GetplayerByID(killerTarget);
             if (killerTargetPlayer != null && killerTargetPlayer.isAlive)
             {
                 if (protectedPlayer == null || killerTargetPlayer.playerID != protectedPlayer.playerID)
@@ -76,7 +76,7 @@ public class NightManager : MonoBehaviour
             }
         }
 
-        foreach (var player in PlayerManger.Instance.players)
+        foreach (var player in PlayerManager.Instance.players)
             player.status.isProtected = false;
 
         monsterTarget = -1;
@@ -84,3 +84,4 @@ public class NightManager : MonoBehaviour
         killerTarget = -1;
     }
 }
+

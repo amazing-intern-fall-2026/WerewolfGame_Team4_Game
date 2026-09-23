@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class ShamanRole : BaseRole
 {
@@ -16,7 +16,7 @@ public class ShamanRole : BaseRole
         if (!hasGoodCharm)
             return;
 
-        PlayerData target = PlayerManger.Instance.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance.GetplayerByID(targetID);
 
         if (target == null || !target.isAlive)
             return;
@@ -31,7 +31,7 @@ public class ShamanRole : BaseRole
         if (!hasBadCharm)
             return;
 
-        PlayerData target = PlayerManger.Instance.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance.GetplayerByID(targetID);
 
         if (target == null || !target.isAlive)
             return;

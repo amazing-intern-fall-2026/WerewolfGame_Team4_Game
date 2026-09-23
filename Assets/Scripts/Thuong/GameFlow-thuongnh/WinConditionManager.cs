@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 public class WinConditionManager : MonoBehaviour
 {
     public static WinConditionManager Instance;
@@ -18,7 +18,7 @@ public class WinConditionManager : MonoBehaviour
             return;
         }
 
-        if (PlayerManger.Instance == null || PlayerManger.Instance.players.Count == 0)
+        if (PlayerManager.Instance == null || PlayerManager.Instance.players.Count == 0)
             return;
 
         int aliveMonsters = 0;
@@ -26,7 +26,7 @@ public class WinConditionManager : MonoBehaviour
         int aliveWhiteWolf = 0;
         int aliveThirdParty = 0;
 
-        foreach (var player in PlayerManger.Instance.players)
+        foreach (var player in PlayerManager.Instance.players)
         {
             if (player == null || !player.isAlive) continue;
 
@@ -50,7 +50,7 @@ public class WinConditionManager : MonoBehaviour
         // Madman thắng nếu bị treo cổ ngày đầu tiên
         if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers <= 2 && aliveThirdParty == 1)
         {
-            if (PlayerManger.Instance.players.Exists(p => p != null && p.roleType == RoleType.Madman && p.isAlive == true))
+            if (PlayerManager.Instance.players.Exists(p => p != null && p.roleType == RoleType.Madman && p.isAlive == true))
             {
                 game.MadmanWin();
                 return;
@@ -60,7 +60,7 @@ public class WinConditionManager : MonoBehaviour
         // Sát nhân thắng nếu chỉ còn sát nhân và 2 dân làng
         if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers <= 2)
         {
-            if (PlayerManger.Instance.players.Exists(p => p != null && p.roleType == RoleType.Killer && p.isAlive))
+            if (PlayerManager.Instance.players.Exists(p => p != null && p.roleType == RoleType.Killer && p.isAlive))
             {
                 game.KillerWin();
                 return;
@@ -89,15 +89,15 @@ public class WinConditionManager : MonoBehaviour
 
     private bool LivingLoversExist()
     {
-        if (PlayerManger.Instance == null)
+        if (PlayerManager.Instance == null)
             return false;
 
-        foreach (var player in PlayerManger.Instance.players)
+        foreach (var player in PlayerManager.Instance.players)
         {
             if (player == null || !player.isAlive || player.loverID == -1)
                 continue;
 
-            PlayerData lover = PlayerManger.Instance.GetplayerByID(player.loverID);
+            PlayerData lover = PlayerManager.Instance.GetplayerByID(player.loverID);
             if (lover != null && lover.isAlive && lover.loverID == player.playerID)
                 return true;
         }
@@ -105,4 +105,5 @@ public class WinConditionManager : MonoBehaviour
         return false;
     }
 }
+
 
