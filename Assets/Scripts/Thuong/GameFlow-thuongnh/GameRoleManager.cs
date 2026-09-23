@@ -19,14 +19,14 @@ public class GameRoleManager : MonoBehaviour
     }
     private void OnDestroy() { if (Instance == this) Instance = null; }
     private void Start() { BeginGame(); }
-    private EventManagert PrepareEventManager()
+    private EventManager PrepareEventManager()
     {
-        if (EventManagert.Instance != null)
-            return EventManagert.Instance;
+        if (EventManager.Instance != null)
+            return EventManager.Instance;
 
         // Các manager gameplay của prototype phải nằm trên object đang active.
         // AddComponent gọi Awake và thiết lập Instance khi object đang active.
-        return gameObject.AddComponent<EventManagert>();
+        return gameObject.AddComponent<EventManager>();
     }
     public void BeginGame()
     {
@@ -48,7 +48,7 @@ public class GameRoleManager : MonoBehaviour
             return;
         }
 
-        EventManagert events = PrepareEventManager();
+        EventManager events = PrepareEventManager();
 
         started = true;
 
@@ -109,8 +109,8 @@ public class GameRoleManager : MonoBehaviour
         DayTimer.Instance.StartTimer();
 
         // Chỉ kiểm tra/log lịch đã tạo, tuyệt đối không random ở đây.
-        if (EventManagert.Instance != null)
-            EventManagert.Instance.NotifyDayStarted(currentDay);
+        if (EventManager.Instance != null)
+            EventManager.Instance.NotifyDayStarted(currentDay);
     }
     public void EndDay()
     {

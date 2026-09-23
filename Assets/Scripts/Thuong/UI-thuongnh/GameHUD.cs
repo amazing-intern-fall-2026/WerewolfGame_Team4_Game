@@ -60,7 +60,7 @@ public class GameHUD : MonoBehaviour
     private string BuildDayLabel(int day)
     {
         string dayLabel = $"Ngày {day}";
-        EventManagert events = EventManagert.Instance;
+        EventManager events = EventManager.Instance;
 
         if (events == null)
             return dayLabel;
@@ -70,7 +70,7 @@ public class GameHUD : MonoBehaviour
         if (todayEvent == GameEventType.None)
             return dayLabel;
 
-        return dayLabel + "-" + EventManagert.GetDisplayName(todayEvent);
+        return dayLabel + "-" + EventManager.GetDisplayName(todayEvent);
     }
 
     private void RefreshDayAndTimer(GameRoleManager game)

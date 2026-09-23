@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class EventManagert : MonoBehaviour
+public class EventManager : MonoBehaviour
 {
-    public static EventManagert Instance { get; private set; }
+    public static EventManager Instance { get; private set; }
 
     public GameEventType SelectedEvent { get; private set; }
         = GameEventType.None;
