@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
-public class VoteManger : MonoBehaviour
+public class VoteManager : MonoBehaviour
 {
-    public static VoteManger Instance;
+    public static VoteManager Instance;
     private readonly Dictionary<int, int> votes = new Dictionary<int, int>();
     private readonly Dictionary<int, int> choices = new Dictionary<int, int>();
     public int GetVotedTarget(int voterID) => choices.TryGetValue(voterID, out var target) ? target : -1;

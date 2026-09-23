@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public class RoleManger : MonoBehaviour
+public class RoleManager : MonoBehaviour
 {
-    public static RoleManger Instance;
+    public static RoleManager Instance;
 
     [System.NonSerialized]
     public Dictionary<int, BaseRole> playerRoles =
@@ -19,13 +19,13 @@ public class RoleManger : MonoBehaviour
 
     public void AssignRole()
     {
-        if (PlayerManger.Instance == null || PlayerManger.Instance.players == null || PlayerManger.Instance.players.Count == 0)
+        if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
         {
-            Debug.LogWarning("RoleManger: chưa có player nào để gán role.");
+            Debug.LogWarning("RoleManager: chưa có player nào để gán role.");
             return;
         }
 
-        List<PlayerData> list = new List<PlayerData>(PlayerManger.Instance.players);
+        List<PlayerData> list = new List<PlayerData>(PlayerManager.Instance.players);
         Shuffle(list);
         playerRoles.Clear();
 
@@ -33,7 +33,7 @@ public class RoleManger : MonoBehaviour
 
         for (int i = 0; i < list.Count; i++)
         {
-            list[i].votPower = 1;
+            list[i].votePower = 1;
             list[i].hasUseNightAction = false;
             list[i].hasVoted = false;
             list[i].isAlive = true;
@@ -112,7 +112,7 @@ public class RoleManger : MonoBehaviour
 
     public void NotifyVoteStart()
     {
-        NotifyAliveRoles(role => role.OnVotStart());
+        NotifyAliveRoles(role => role.OnVoteStart());
     }
 
     public bool UseNightAbility(int playerID, int targetID)
@@ -124,7 +124,7 @@ public class RoleManger : MonoBehaviour
             role.owner.hasUseNightAction)
             return false;
 
-        PlayerData target = PlayerManger.Instance?.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         if (target == null || !target.isAlive)
             return false;
 
@@ -154,6 +154,10 @@ public class RoleManger : MonoBehaviour
                 break;
 
             case RoleType.WhiteHound:
+            case RoleType.WhiteWolf:
+            case RoleType.RedNosedHound:
+            case RoleType.WolfCub:
+            case RoleType.WolfBoss:
                 role = new WhiteHound(player);
                 break;
 
@@ -185,7 +189,7 @@ public class RoleManger : MonoBehaviour
                 role = new ShamanRole(player);
                 break;
 
-            case RoleType.WeaverOffate:
+            case RoleType.WeaverOfFate:
                 role = new WeaverOfFateRole(player);
                 break;
 
@@ -202,14 +206,18 @@ public class RoleManger : MonoBehaviour
                 break;
 
             case RoleType.Madman:
+            case RoleType.Jester:
+            case RoleType.Lover:
                 role = new MadmanRole(player);
                 break;
 
             case RoleType.FoxSpirit:
+            case RoleType.Piper:
                 role = new FoxSpiritRole(player);
                 break;
 
             case RoleType.Killer:
+            case RoleType.SerialKiller:
                 role = new KillerRole(player);
                 break;
 

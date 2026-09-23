@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerManger : MonoBehaviour
+public class PlayerManager : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
 
-    public static PlayerManger Instance;
+    public static PlayerManager Instance;
 
     public List<PlayerData> players = new List<PlayerData>();
     public void Awake()

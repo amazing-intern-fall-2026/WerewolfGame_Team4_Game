@@ -15,7 +15,7 @@ public class BaseRole
     public virtual void OnDayStart() { }
     public virtual void OnNightStart() { }
     public virtual void UseNightAbility(int TargetID) { }
-    public virtual void OnVotStart() { }
+    public virtual void OnVoteStart() { }
     public virtual void OnDeath() { }
     public virtual bool checkSpecialWin()
     {

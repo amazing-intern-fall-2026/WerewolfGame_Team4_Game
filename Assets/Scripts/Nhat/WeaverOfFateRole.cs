@@ -4,7 +4,7 @@ public class WeaverOfFateRole : BaseRole
 {
     public WeaverOfFateRole(PlayerData owner) : base(owner)
     {
-        roleType = RoleType.WeaverOffate;
+        roleType = RoleType.WeaverOfFate;
         faction = FactionType.Villager;
     }
 
