@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public class RoleManager : MonoBehaviour
+public class RoleManger : MonoBehaviour
 {
-    public static RoleManager Instance;
+    public static RoleManger Instance;
 
     [System.NonSerialized]
     public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
@@ -18,7 +18,7 @@ public class RoleManager : MonoBehaviour
     {
         if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
         {
-            Debug.LogWarning("RoleManager: chưa có player nào để gán role.");
+            Debug.LogWarning("RoleManger: chưa có player nào để gán role.");
             return;
         }
 
@@ -41,7 +41,7 @@ public class RoleManager : MonoBehaviour
 
         foreach (var pair in playerRoles)
         {
-            Debug.Log($"ROLE ASSIGN | Player {pair.Key} → {pair.Value.roleType}");
+            Debug.Log("ROLE ASSIGN | Player " + pair.Key + " → " + pair.Value.roleType);
         }
     }
 
@@ -63,7 +63,6 @@ public class RoleManager : MonoBehaviour
             return roles;
         }
 
-        // 12 người: 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
         if (playerCount == 12)
         {
             roles.Add(RoleType.DogSpirit);
@@ -81,7 +80,6 @@ public class RoleManager : MonoBehaviour
             return roles;
         }
 
-        // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
         roles.Add(RoleType.DogSpirit);
         roles.Add(RoleType.Seer);
 
@@ -211,10 +209,13 @@ public class RoleManager : MonoBehaviour
                 role = new KillerRole(player);
                 break;
 
-            case RoleType.Villager:
             case RoleType.TuongMaster:
             case RoleType.Magistrate:
             case RoleType.DeathHerald:
+                role = new VillagerRole(player);
+                break;
+
+            case RoleType.Villager:
                 role = new VillagerRole(player);
                 break;
 
@@ -241,3 +242,4 @@ public class RoleManager : MonoBehaviour
         }
     }
 }
+
