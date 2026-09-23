@@ -912,9 +912,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 898446912}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fd03ad9b803a5e940b43f53cc21b77e8, type: 3}
+  m_Script: {fileID: 11500000, guid: c31b78d8a7e54c74ab384f0dd924ebbf, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerManger
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
   players: []
 --- !u!1 &1006838783
 GameObject:
@@ -1074,9 +1074,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1289738439}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9730d4c7523e92047a5390d8d05dd5bd, type: 3}
+  m_Script: {fileID: 11500000, guid: d4a23fcd732a37c44b951a1ddff96143, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoteManger
+  m_EditorClassIdentifier: Assembly-CSharp::VoteManager
 --- !u!1 &1459289546
 GameObject:
   m_ObjectHideFlags: 0
