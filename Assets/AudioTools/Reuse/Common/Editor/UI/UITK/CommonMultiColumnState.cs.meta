@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: d80656d04ba1421b89883429456d85fc
+timeCreated: 1783780000
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/UI/UITK/CommonMultiColumnState.cs
+  uploadId: 963964

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class NetworkRoleActionBridge : MonoBehaviour
 {
@@ -24,6 +24,9 @@ public class NetworkRoleActionBridge : MonoBehaviour
             + targetID
         );
 
+        // =========================================
+        // 1. Tìm RoleManager của Dev2
+        // =========================================
         RoleManager roleManager = RoleManager.Instance;
 
         if (roleManager == null)
@@ -44,6 +47,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
         {
             Debug.LogWarning(
                 "ROLE ACTION BRIDGE: playerRoles đang rỗng!"
+            );
+
+            Debug.Log(
+                "ROLE ACTION BRIDGE: Gọi RoleManager.AssignRole()"
             );
 
             roleManager.AssignRole();
@@ -97,6 +104,11 @@ public class NetworkRoleActionBridge : MonoBehaviour
             + ")"
         );
 
-        role.UseNightAbility(targetID);
+        if (!roleManager.UseNightAbility(requesterID, targetID))
+        {
+            Debug.LogWarning(
+                "ROLE ACTION BRIDGE: Action bị từ chối bởi game flow."
+            );
+        }
     }
 }

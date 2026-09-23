@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class HunterRole : BaseRole
 {
@@ -24,7 +24,7 @@ public class HunterRole : BaseRole
             return;
 
         PlayerData target =
-            PlayerManger.Instance.GetplayerByID(targetID);
+            PlayerManager.Instance.GetplayerByID(targetID);
 
         if (target == null || !target.isAlive)
             return;

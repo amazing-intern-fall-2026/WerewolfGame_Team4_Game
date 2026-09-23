@@ -1,6 +1,3 @@
-<<<<<<< Updated upstream
-// Player data manager is PlayerManger.cs; movement is PlayerMovement.cs.
-=======
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
@@ -20,13 +17,6 @@ public class PlayerManager : MonoBehaviour
         }
 
         Instance = this;
-
-        Debug.Log(
-            "PLAYER MANAGER AWAKE | Scene = "
-            + gameObject.scene.name
-            + " | Active = "
-            + gameObject.activeInHierarchy
-        );
     }
 
     private void OnDestroy()
@@ -102,4 +92,4 @@ public class PlayerManager : MonoBehaviour
         }
     }
 }
->>>>>>> Stashed changes
+

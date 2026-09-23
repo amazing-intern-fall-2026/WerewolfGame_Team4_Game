@@ -1,4 +1,4 @@
-using Unity.Netcode;
+﻿using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkPlayerVote : NetworkBehaviour
@@ -76,10 +76,11 @@ public class NetworkPlayerVote : NetworkBehaviour
             return;
         }
 
+        // Kiểm tra PlayerManager
         if (PlayerManager.Instance == null)
         {
             Debug.LogWarning(
-                "NETWORK VOTE: Không tìm thấy PlayerManger!"
+                "NETWORK VOTE: Không tìm thấy PlayerManager!"
             );
             return;
         }
@@ -160,6 +161,7 @@ public class NetworkPlayerVote : NetworkBehaviour
             + target.isAlive
         );
 
+        // Gọi Dev2 VoteManager
         bool success = VoteManager.Instance.TryVote(
             voterID,
             targetID

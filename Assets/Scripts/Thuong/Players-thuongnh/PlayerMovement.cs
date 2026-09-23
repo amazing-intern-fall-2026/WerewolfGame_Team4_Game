@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Assets.Scripts.Thuong
@@ -9,8 +9,8 @@ namespace Assets.Scripts.Thuong
         [Header("Movement")]
         [SerializeField] private float movementSpeed = 3f;
         public int playerID;
-        public bool IsAlive => PlayerManger.Instance == null ||
-            (PlayerManger.Instance.GetplayerByID(playerID)?.isAlive ?? false);
+        public bool IsAlive => PlayerManager.Instance == null ||
+            (PlayerManager.Instance.GetplayerByID(playerID)?.isAlive ?? false);
 
         private Rigidbody2D rb;
         private Animator animator;
@@ -76,3 +76,4 @@ namespace Assets.Scripts.Thuong
     
     }
 }
+

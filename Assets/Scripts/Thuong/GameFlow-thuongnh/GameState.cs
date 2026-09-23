@@ -3,7 +3,7 @@ using UnityEngine;
 public enum GameState
 {
     Day,
-    Nigt,
+    Night,
     Discussion,
     Voting,
     VotingResult,

@@ -111,6 +111,13 @@ MonoBehaviour:
   fallbackSpeed: 6
   cutParticles: {fileID: 666996727205499361}
   spriteRenderer: {fileID: 0}
+  cutSfxVariants:
+  - {fileID: 8300000, guid: d02d53c19486e9643b73d111777992c6, type: 3}
+  - {fileID: 8300000, guid: a89c1f0007a490b41ac48f6bc41a7e2c, type: 3}
+  - {fileID: 8300000, guid: 7a01b9016b5d2ef42bda553c187ae2a1, type: 3}
+  - {fileID: 8300000, guid: 8f3ede5871baf114785d36a0647e612d, type: 3}
+  cutVolume: 0.8
+  pitchVariation: 0.8
 --- !u!50 &6845838647032323491
 Rigidbody2D:
   serializedVersion: 5

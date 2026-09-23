@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(Button))]
@@ -18,16 +18,17 @@ public class VoteButton : MonoBehaviour
     private void OnDisable() { if (button != null) button.onClick.RemoveListener(CastVote); }
     private void Update()
     {
-        var voter = PlayerManger.Instance?.GetplayerByID(voterID);
-        var target = PlayerManger.Instance?.GetplayerByID(targetID);
+        var voter = PlayerManager.Instance?.GetplayerByID(voterID);
+        var target = PlayerManager.Instance?.GetplayerByID(targetID);
         button.interactable = GameRoleManager.Instance != null &&
             GameRoleManager.Instance.currentState == GameState.Voting &&
             voter != null && target != null && voter.isAlive && target.isAlive && !voter.hasVoted;
     }
     public void CastVote()
     {
-        if (VoteManger.Instance != null && VoteManger.Instance.TryVote(voterID, targetID))
+        if (VoteManager.Instance != null && VoteManager.Instance.TryVote(voterID, targetID))
             Debug.Log($"Vote accepted: Player {voterID + 1} -> Player {targetID + 1}");
         Update();
     }
 }
+

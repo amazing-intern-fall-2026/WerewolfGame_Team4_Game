@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 3337c8bd22d7a49c7963a001bcd60d01
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Editor/Scripts/UI/AudioToolsMenuPaths.cs
+  uploadId: 963964

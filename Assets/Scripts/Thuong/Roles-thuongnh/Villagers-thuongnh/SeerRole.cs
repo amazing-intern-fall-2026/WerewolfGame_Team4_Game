@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class SeerRole : BaseRole
 {
@@ -9,8 +9,9 @@ public class SeerRole : BaseRole
     }
     public override void UseNightAbility(int TargetID)
     {
-        PlayerData target = PlayerManger.Instance.GetplayerByID(TargetID);
+        PlayerData target = PlayerManager.Instance.GetplayerByID(TargetID);
         if (target == null || !target.isAlive) return;
         Debug.Log("Seer Checked : "+target.playerName+target.roleType);
     }
 }
+

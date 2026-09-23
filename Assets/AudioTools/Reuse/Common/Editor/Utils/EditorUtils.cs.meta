@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: ffe0afdba41343389e76a1a62dc3925f
+timeCreated: 1770152518
+AssetOrigin:
+  serializedVersion: 1
+  productId: 356424
+  packageName: Audio Tools
+  packageVersion: 1.1.0
+  assetPath: Assets/AudioTools/Reuse/Common/Editor/Utils/EditorUtils.cs
+  uploadId: 963964
