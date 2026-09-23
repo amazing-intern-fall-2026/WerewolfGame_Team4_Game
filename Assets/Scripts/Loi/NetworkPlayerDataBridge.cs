@@ -11,23 +11,28 @@ public class NetworkPlayerDataBridge : NetworkBehaviour
         if (!IsServer)
             return;
 
-        StartCoroutine(WaitForPlayerManager());
+        StartCoroutine(
+            WaitForPlayerManager()
+        );
     }
 
     private IEnumerator WaitForPlayerManager()
     {
         while (!registered)
         {
-            PlayerManager manager = PlayerManager.Instance;
+            PlayerManager manager =
+                PlayerManager.Instance;
 
             if (manager == null)
             {
-                manager = FindFirstObjectByType<PlayerManager>();
+                manager =
+                    FindFirstObjectByType<PlayerManager>();
             }
 
             if (manager != null)
             {
                 RegisterToPlayerManager(manager);
+
                 yield break;
             }
 
@@ -35,12 +40,18 @@ public class NetworkPlayerDataBridge : NetworkBehaviour
         }
     }
 
-    private void RegisterToPlayerManager(PlayerManager manager)
+    private void RegisterToPlayerManager(
+        PlayerManager manager)
     {
         if (registered)
             return;
 
-        int playerID = (int)OwnerClientId;
+        int playerID =
+            (int)OwnerClientId;
+
+        // ==========================================
+        // KIỂM TRA PLAYER ĐÃ TỒN TẠI CHƯA
+        // ==========================================
 
         PlayerData existingPlayer =
             manager.GetplayerByID(playerID);
@@ -48,25 +59,43 @@ public class NetworkPlayerDataBridge : NetworkBehaviour
         if (existingPlayer != null)
         {
             Debug.Log(
-                "NETWORK PLAYER DATA BRIDGE: Player "
+                "NETWORK PLAYER DATA BRIDGE: "
+                + "Player "
                 + playerID
                 + " đã tồn tại."
             );
 
             registered = true;
+
             return;
         }
 
-        PlayerData player = new PlayerData
-        {
-            playerID = playerID,
-            playerName = "Player " + playerID,
-            isAlive = true,
-            votePower = 1,
-            hasVoted = false,
-            hasUseNightAction = false,
-            status = new PlayerStatus()
-        };
+        // ==========================================
+        // TẠO PLAYER DATA
+        // ==========================================
+
+        PlayerData player =
+            new PlayerData
+            {
+                playerID = playerID,
+
+                playerName =
+                    "Player " + playerID,
+
+                isAlive = true,
+
+                votePower = 1,
+
+                hasVoted = false,
+
+                hasUseNightAction = false,
+
+                status = new PlayerStatus()
+            };
+
+        // ==========================================
+        // ĐĂNG KÝ VÀO PLAYER MANAGER
+        // ==========================================
 
         manager.RegisterPlayer(player);
 
