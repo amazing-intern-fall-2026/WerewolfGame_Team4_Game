@@ -12,7 +12,8 @@ public enum PlayerState
 public class PlayerController : NetworkBehaviour
 {
     [Header("Movement")]
-    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField]
+    private float moveSpeed = 5f;
 
     private Rigidbody2D rb;
     private Vector2 movement;
@@ -44,15 +45,6 @@ public class PlayerController : NetworkBehaviour
     {
         State.OnValueChanged += OnStateChanged;
 
-        Debug.Log(
-            "Player " +
-            OwnerClientId +
-            " Spawned | State = " +
-            State.Value
-        );
-
-        // Server tự thiết lập trạng thái cho Player
-        // dựa trên NetworkGameState hiện tại
         if (IsServer)
         {
             ApplyStateFromGameState();
@@ -69,14 +61,6 @@ public class PlayerController : NetworkBehaviour
         if (!IsOwner)
             return;
 
-        // TEST:
-        // Nhấn K để yêu cầu Server đổi trạng thái
-        if (Input.GetKeyDown(KeyCode.K))
-        {
-            ToggleStateServerRpc();
-        }
-
-        // Kiểm tra Player có được di chuyển hay không
         if (!CanMove())
         {
             movement = Vector2.zero;
@@ -105,15 +89,12 @@ public class PlayerController : NetworkBehaviour
 
     private bool CanMove()
     {
-        // Không tìm thấy NetworkPlayerStateSync
         if (networkState == null)
             return false;
 
-        // Chỉ Alive mới được di chuyển
         if (networkState.State.Value != NetworkPlayerStateType.Alive)
             return false;
 
-        // Không có NetworkPhaseSync
         if (NetworkPhaseSync.Instance == null)
             return false;
 
@@ -139,13 +120,8 @@ public class PlayerController : NetworkBehaviour
         }
     }
 
-    // =========================================================
-    // TỰ ĐỘNG ĐỔI PLAYER STATE THEO NETWORK GAME STATE
-    // =========================================================
-
     public void ApplyStateFromGameState()
     {
-        // Chỉ Server được thay đổi NetworkVariable
         if (!IsServer)
             return;
 
@@ -159,9 +135,9 @@ public class PlayerController : NetworkBehaviour
         {
             case NetworkGameState.Night:
 
-                // Người đã chết không trở thành Sleeping
                 if (networkState != null &&
-                    networkState.State.Value == NetworkPlayerStateType.Alive)
+                    networkState.State.Value ==
+                    NetworkPlayerStateType.Alive)
                 {
                     networkState.SetSleeping();
                 }
@@ -170,9 +146,9 @@ public class PlayerController : NetworkBehaviour
 
             case NetworkGameState.Morning:
 
-                // Chỉ đánh thức người đang Sleeping
                 if (networkState != null &&
-                    networkState.State.Value == NetworkPlayerStateType.Sleeping)
+                    networkState.State.Value ==
+                    NetworkPlayerStateType.Sleeping)
                 {
                     networkState.SetAlive();
                 }
@@ -181,44 +157,9 @@ public class PlayerController : NetworkBehaviour
         }
     }
 
-    // =========================================================
-    // TEST ĐỔI STATE BẰNG PHÍM K
-    // =========================================================
-
-    [ServerRpc]
-    private void ToggleStateServerRpc()
-    {
-        Debug.Log(
-            "SERVER: Player " +
-            OwnerClientId +
-            " yêu cầu đổi State"
-        );
-
-        if (State.Value == PlayerState.Alive)
-        {
-            State.Value = PlayerState.Dead;
-        }
-        else
-        {
-            State.Value = PlayerState.Alive;
-        }
-    }
-
-    // =========================================================
-    // STATE CHANGED
-    // =========================================================
-
     private void OnStateChanged(
         PlayerState oldState,
         PlayerState newState)
     {
-        Debug.Log(
-            "Player " +
-            OwnerClientId +
-            " | State: " +
-            oldState +
-            " → " +
-            newState
-        );
     }
 }
