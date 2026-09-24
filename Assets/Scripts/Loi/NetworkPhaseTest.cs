@@ -52,17 +52,20 @@ public class NetworkPhaseTest : NetworkBehaviour
             return;
         }
 
+        Debug.Log(
+            "NETWORK TEST: Đang set Phase → "
+            + phase
+        );
+
         // Đồng bộ Phase của Dev2 Gameplay
         GameRoleManager.Instance.SetPhase(phase);
 
         // Đồng bộ Phase Network
-        NetworkPhaseSync.Instance.CurrentPhase.Value = phase;
+        NetworkPhaseSync.Instance.SetNetworkPhase(phase);
 
         Debug.Log(
             "NETWORK TEST: Server → "
             + phase
-            + " | GameState = "
-            + GameRoleManager.Instance.currentState
         );
     }
 }

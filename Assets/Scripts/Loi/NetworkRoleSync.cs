@@ -1,18 +1,31 @@
+using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkRoleSync : NetworkBehaviour
 {
+    public static NetworkRoleSync LocalInstance;
+
+    public static event Action<RoleType> OnLocalRoleReceived;
+
+    public RoleType LocalRole { get; private set; }
+
     private bool roleSent;
+
+    public override void OnNetworkSpawn()
+    {
+        if (IsOwner)
+        {
+            LocalInstance = this;
+        }
+    }
 
     private void Update()
     {
-        // Chỉ Server xử lý việc lấy Role
         if (!IsServer)
             return;
 
-        // Đã gửi rồi thì không gửi lại
         if (roleSent)
             return;
 
@@ -81,17 +94,21 @@ public class NetworkRoleSync : NetworkBehaviour
         RoleType roleType,
         ClientRpcParams clientRpcParams = default)
     {
-        Debug.Log(
-            "===================================="
-        );
+        LocalRole = roleType;
 
         Debug.Log(
             "NETWORK ROLE SYNC | MY ROLE = "
             + roleType
         );
 
-        Debug.Log(
-            "===================================="
-        );
+        OnLocalRoleReceived?.Invoke(roleType);
+    }
+
+    private void OnDestroy()
+    {
+        if (LocalInstance == this)
+        {
+            LocalInstance = null;
+        }
     }
 }

@@ -12,8 +12,6 @@ public class NetworkPhaseSync : NetworkBehaviour
             NetworkVariableWritePermission.Server
         );
 
-    private GamePhase lastPhase;
-
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -53,19 +51,17 @@ public class NetworkPhaseSync : NetworkBehaviour
         if (GameRoleManager.Instance == null)
             return;
 
-        GamePhase currentPhase =
+        GamePhase dev2Phase =
             GameRoleManager.Instance.currentPhase;
 
-        if (currentPhase == lastPhase)
+        if (CurrentPhase.Value == dev2Phase)
             return;
 
-        lastPhase = currentPhase;
-
-        CurrentPhase.Value = currentPhase;
+        CurrentPhase.Value = dev2Phase;
 
         Debug.Log(
-            "SERVER: Phase changed → "
-            + currentPhase
+            "NETWORK PHASE AUTO SYNC: "
+            + CurrentPhase.Value
         );
     }
 
@@ -74,15 +70,32 @@ public class NetworkPhaseSync : NetworkBehaviour
         if (GameRoleManager.Instance == null)
             return;
 
-        lastPhase =
+        GamePhase initialPhase =
             GameRoleManager.Instance.currentPhase;
 
-        CurrentPhase.Value =
-            lastPhase;
+        CurrentPhase.Value = initialPhase;
 
         Debug.Log(
             "SERVER: Initial Phase → "
-            + lastPhase
+            + initialPhase
+        );
+    }
+
+    public void SetNetworkPhase(GamePhase phase)
+    {
+        if (!IsServer)
+        {
+            Debug.LogWarning(
+                "NETWORK PHASE: Chỉ Server mới được set Phase."
+            );
+            return;
+        }
+
+        CurrentPhase.Value = phase;
+
+        Debug.Log(
+            "NETWORK PHASE: SERVER SET → "
+            + phase
         );
     }
 
