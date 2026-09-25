@@ -10,6 +10,10 @@ public class NetworkSkillUI : MonoBehaviour
     [SerializeField]
     private GameObject inspectButton;
 
+    [Header("VillageGuardian Skill")]
+    [SerializeField]
+    private GameObject protectButton;
+
     [Header("Skill UI")]
     [SerializeField]
     private GameObject skillPanel;
@@ -25,10 +29,15 @@ public class NetworkSkillUI : MonoBehaviour
 
     private bool isDogSpirit;
     private bool isSeer;
+    private bool isVillageGuardian;
 
     private bool isNight;
 
     private bool hasUsedSkill;
+
+    // =========================================
+    // Enable / Disable
+    // =========================================
 
     private void OnEnable()
     {
@@ -48,6 +57,10 @@ public class NetworkSkillUI : MonoBehaviour
             OnNetworkActionResult;
     }
 
+    // =========================================
+    // Start
+    // =========================================
+
     private void Start()
     {
         phaseSync =
@@ -64,6 +77,10 @@ public class NetworkSkillUI : MonoBehaviour
             );
         }
     }
+
+    // =========================================
+    // Update
+    // =========================================
 
     private void Update()
     {
@@ -82,16 +99,22 @@ public class NetworkSkillUI : MonoBehaviour
         bool newIsNight =
             currentPhase == GamePhase.Night;
 
+        // =====================================
+        // Phase thay đổi
+        // =====================================
+
         if (newIsNight != isNight)
         {
             isNight = newIsNight;
 
             if (isNight)
             {
+                // Night mới → cho phép dùng skill lại
                 hasUsedSkill = false;
             }
             else
             {
+                // Không còn Night → đóng Target Panel
                 if (targetPanel != null)
                 {
                     targetPanel.SetActive(false);
@@ -102,6 +125,10 @@ public class NetworkSkillUI : MonoBehaviour
         }
     }
 
+    // =========================================
+    // Role Received
+    // =========================================
+
     private void OnRoleReceived(RoleType role)
     {
         isDogSpirit =
@@ -110,6 +137,9 @@ public class NetworkSkillUI : MonoBehaviour
         isSeer =
             role == RoleType.Seer;
 
+        isVillageGuardian =
+            role == RoleType.VillageGuardian;
+
         Debug.Log(
             "SKILL UI | Role = "
             + role
@@ -117,24 +147,43 @@ public class NetworkSkillUI : MonoBehaviour
             + isDogSpirit
             + " | Seer = "
             + isSeer
+            + " | VillageGuardian = "
+            + isVillageGuardian
         );
 
         UpdateSkillUI();
     }
 
+    // =========================================
+    // Update Skill UI
+    // =========================================
+
     private void UpdateSkillUI()
     {
         bool canUseSkill =
-            (isDogSpirit || isSeer) &&
-            isNight &&
+            (
+                isDogSpirit ||
+                isSeer ||
+                isVillageGuardian
+            )
+            &&
+            isNight
+            &&
             !hasUsedSkill;
+
+        // =====================================
+        // Skill Panel
+        // =====================================
 
         if (skillPanel != null)
         {
             skillPanel.SetActive(canUseSkill);
         }
 
+        // =====================================
         // DogSpirit → ATTACK
+        // =====================================
+
         if (attackButton != null)
         {
             attackButton.SetActive(
@@ -144,7 +193,10 @@ public class NetworkSkillUI : MonoBehaviour
             );
         }
 
+        // =====================================
         // Seer → INSPECT
+        // =====================================
+
         if (inspectButton != null)
         {
             inspectButton.SetActive(
@@ -153,6 +205,23 @@ public class NetworkSkillUI : MonoBehaviour
                 !hasUsedSkill
             );
         }
+
+        // =====================================
+        // VillageGuardian → PROTECT
+        // =====================================
+
+        if (protectButton != null)
+        {
+            protectButton.SetActive(
+                isVillageGuardian &&
+                isNight &&
+                !hasUsedSkill
+            );
+        }
+
+        // =====================================
+        // Không có skill
+        // =====================================
 
         if (!canUseSkill)
         {
@@ -163,9 +232,9 @@ public class NetworkSkillUI : MonoBehaviour
         }
     }
 
-    // =========================
+    // =========================================
     // DOGSPIRIT
-    // =========================
+    // =========================================
 
     public void OnAttackClicked()
     {
@@ -195,9 +264,9 @@ public class NetworkSkillUI : MonoBehaviour
         OpenTargetPanel();
     }
 
-    // =========================
+    // =========================================
     // SEER
-    // =========================
+    // =========================================
 
     public void OnInspectClicked()
     {
@@ -227,6 +296,42 @@ public class NetworkSkillUI : MonoBehaviour
         OpenTargetPanel();
     }
 
+    // =========================================
+    // VILLAGE GUARDIAN
+    // =========================================
+
+    public void OnProtectClicked()
+    {
+        if (!isVillageGuardian)
+        {
+            return;
+        }
+
+        if (!isNight)
+        {
+            Debug.LogWarning(
+                "SKILL UI | Chưa phải Night."
+            );
+
+            return;
+        }
+
+        if (hasUsedSkill)
+        {
+            return;
+        }
+
+        Debug.Log(
+            "SKILL UI | VillageGuardian mở Target Panel."
+        );
+
+        OpenTargetPanel();
+    }
+
+    // =========================================
+    // Open Target Panel
+    // =========================================
+
     private void OpenTargetPanel()
     {
         if (targetListUI != null)
@@ -238,6 +343,10 @@ public class NetworkSkillUI : MonoBehaviour
             targetPanel.SetActive(true);
         }
     }
+
+    // =========================================
+    // Network Action Result
+    // =========================================
 
     private void OnNetworkActionResult(
         bool success,
@@ -266,6 +375,10 @@ public class NetworkSkillUI : MonoBehaviour
         UpdateSkillUI();
     }
 
+    // =========================================
+    // Hide All
+    // =========================================
+
     private void HideAll()
     {
         if (skillPanel != null)
@@ -281,6 +394,11 @@ public class NetworkSkillUI : MonoBehaviour
         if (inspectButton != null)
         {
             inspectButton.SetActive(false);
+        }
+
+        if (protectButton != null)
+        {
+            protectButton.SetActive(false);
         }
 
         if (targetPanel != null)
