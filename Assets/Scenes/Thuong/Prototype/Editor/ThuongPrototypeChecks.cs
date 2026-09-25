@@ -1,11 +1,13 @@
 using System;
 using System.IO;
 using System.Linq;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.UI;
 
 public static class ThuongPrototypeChecks
 {
@@ -60,6 +62,19 @@ public static class ThuongPrototypeChecks
                 EditorApplication.isPaused = false;
                 if (Keyboard.current == null) InputSystem.AddDevice<Keyboard>();
                 InputSystem.onBeforeUpdate += PumpInput;
+                Require(game.currentState == GameState.RoleReveal && game.PhaseTimeRemaining > 0,
+                    "Role reveal starts after random assignment");
+                Require(RoleManager.Instance.playerRoles.ContainsKey(0), "Local player has an assigned role");
+                var roleCanvas = GameObject.Find("Role Ability Canvas");
+                var reveal = roleCanvas != null ? roleCanvas.transform.Find("Role Reveal") : null;
+                Require(reveal != null && reveal.gameObject.activeSelf, "Role card is visible");
+                var card = reveal.Find("Role Card");
+                Require(card.Find("Role portrait and name/Portrait frame/Role portrait PNG")
+                    .GetComponent<Image>().sprite != null, "Role card has a portrait");
+                Require(!string.IsNullOrWhiteSpace(card.Find("Role description/Description")
+                    .GetComponent<TMP_Text>().text), "Role card explains the assigned role");
+                card.Find("Role description/OK").GetComponent<Button>().onClick.Invoke();
+                Require(game.currentState == GameState.Day, "OK starts the first day immediately");
                 Require(tasks.currentTasks.Count == 4, "Four random tasks");
                 Require(UnityEngine.Object.FindObjectsByType<TaskStation>().Length == 6, "Six task stations");
                 Require(UnityEngine.Object.FindAnyObjectByType<GameHUD>().progressSlider != null, "HUD wired");
@@ -114,6 +129,9 @@ public static class ThuongPrototypeChecks
             else if (stage == 5)
             {
                 heldKeys = Array.Empty<Key>();
+                if (game.currentState == GameState.RoleReveal) return;
+                Require(game.currentState == GameState.Day,
+                    "Role card closes automatically after its countdown");
                 Require(game.currentDay == 1 && tasks.progress == 0, "Reload restarts standalone Editor scene");
                 Debug.Log("THUONG_PROTOTYPE_PLAYMODE_PASSED");
                 SessionState.SetBool("ThuongPrototypeCheck", false);
@@ -136,7 +154,7 @@ public static class ThuongPrototypeChecks
     private static void SavePreview()
     {
         var camera = Camera.main;
-        var canvas = UnityEngine.Object.FindAnyObjectByType<Canvas>();
+        var canvas = UnityEngine.Object.FindAnyObjectByType<GameHUD>().GetComponent<Canvas>();
         var rt = new RenderTexture(1600, 900, 24);
         var oldTarget = camera.targetTexture;
         var oldActive = RenderTexture.active;

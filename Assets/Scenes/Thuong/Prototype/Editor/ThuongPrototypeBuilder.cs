@@ -97,8 +97,9 @@ public static class ThuongPrototypeBuilder
 
         var systems = new GameObject("Systems").transform;
         var game = Manager<GameRoleManager>(systems);
-        game.nightDuration = 5; game.discussionDuration = 8; game.votingDuration = 10;
-        Manager<PlayerManager>(systems);
+        game.nightDuration = 20; game.discussionDuration = 8; game.votingDuration = 10;
+        game.roleRevealDuration = 25;
+        Manager<PlayerManager>(systems).prototypeLobbySize = 5;
         Manager<RoleManager>(systems);
         var tasks = Manager<TaskManager>(systems);
         Manager<DayTimer>(systems).dayDuration = 45;
@@ -154,7 +155,7 @@ public static class ThuongPrototypeBuilder
         AddDailyProgress(hud, sidebar);
         Text("Instructions", sidebar, "WASD / Mũi tên: di chuyển\nE: làm nhiệm vụ ở gần\nR: chơi lại\n\nĐiểm sáng = nhiệm vụ hôm nay\nMỗi nhiệm vụ +10%\nĐạt 100% để dân làng thắng",
             new Vector2(.06f,.04f), new Vector2(.96f,.35f), 20, Hex("#ACBFC7"));
-        Text("Footer", canvas.transform, "OFFLINE TEST  /  DAY 45s  →  NIGHT 5s  →  DISCUSS 8s  →  VOTE 10s",
+        Text("Footer", canvas.transform, "OFFLINE TEST  /  DAY 45s  →  NIGHT 20s  →  DISCUSS 8s  →  VOTE 10s",
             new Vector2(.26f,.015f), new Vector2(.985f,.075f), 20, Hex("#ACBFC7"));
         var meeting = Panel("MeetingPanel", canvas.transform, new Vector2(.3f,.19f), new Vector2(.86f,.79f), Hex("#18313E"));
         Text("Title", meeting, "HỌP LÀNG / BỎ PHIẾU", new Vector2(.06f,.82f), new Vector2(.95f,.96f), 32, Hex("#F5CB77"));

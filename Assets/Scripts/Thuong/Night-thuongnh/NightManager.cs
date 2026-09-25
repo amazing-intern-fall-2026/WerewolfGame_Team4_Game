@@ -25,6 +25,7 @@ public class NightManager : MonoBehaviour
 
         foreach (var player in PlayerManager.Instance.players)
         {
+            if (player == null) continue;
             player.status.isProtected = false;
             player.hasUseNightAction = false;
             if (player.roleType == RoleType.SerpentSpirit)
@@ -77,7 +78,7 @@ public class NightManager : MonoBehaviour
         }
 
         foreach (var player in PlayerManager.Instance.players)
-            player.status.isProtected = false;
+            if (player != null) player.status.isProtected = false;
 
         monsterTarget = -1;
         protectedTarget = -1;

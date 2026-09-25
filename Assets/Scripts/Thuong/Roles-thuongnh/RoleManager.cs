@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -23,6 +24,12 @@ public class RoleManager : MonoBehaviour
         }
 
         List<PlayerData> list = new List<PlayerData>(PlayerManager.Instance.players);
+        list.RemoveAll(player => player == null);
+        if (list.Count == 0)
+        {
+            Debug.LogWarning("[ROLE] Lobby chưa có người chơi hợp lệ để phân vai.");
+            return;
+        }
         Shuffle(list);
         playerRoles.Clear();
 
@@ -39,10 +46,7 @@ public class RoleManager : MonoBehaviour
             CreateRole(roleType, list[i]);
         }
 
-        foreach (var pair in playerRoles)
-        {
-            Debug.Log($"ROLE ASSIGN | Player {pair.Key} → {pair.Value.roleType}");
-        }
+        RoleAssignmentDebug.Log(PlayerManager.Instance.players, list.Count, playerRoles);
     }
 
     private List<RoleType> BuildRolePool(int playerCount)
@@ -108,18 +112,52 @@ public class RoleManager : MonoBehaviour
 
     public bool UseNightAbility(int playerID, int targetID)
     {
-        if (GameRoleManager.Instance == null ||
-            GameRoleManager.Instance.currentState != GameState.Night ||
-            !playerRoles.TryGetValue(playerID, out BaseRole role) ||
-            role.owner == null || !role.owner.isAlive ||
-            role.owner.hasUseNightAction)
+        return UseNightAbility(playerID, targetID, out _);
+    }
+
+    public bool UseNightAbility(int playerID, int targetID, out string feedback)
+    {
+        if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Night)
+        {
+            feedback = "Chỉ có thể dùng kỹ năng vào ban đêm.";
             return false;
+        }
+        if (!playerRoles.TryGetValue(playerID, out BaseRole role) ||
+            role.owner == null || role.owner.playerID != playerID)
+        {
+            feedback = "Người chơi chưa được gán Role hợp lệ.";
+            return false;
+        }
+        if (!role.owner.isAlive)
+        {
+            feedback = "Người chơi đã bị loại.";
+            return false;
+        }
+        if (!role.HasNightAbility)
+        {
+            feedback = "Role này không có kỹ năng chủ động ban đêm.";
+            return false;
+        }
+        if (role.owner.hasUseNightAction)
+        {
+            feedback = "Kỹ năng đã được dùng trong đêm này.";
+            return false;
+        }
+        if (playerID == targetID)
+        {
+            feedback = "Không thể chọn chính mình.";
+            return false;
+        }
 
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         if (target == null || !target.isAlive)
+        {
+            feedback = "Mục tiêu không tồn tại hoặc đã bị loại.";
             return false;
+        }
 
-        role.UseNightAbility(targetID);
+        if (!role.TryUseNightAbility(targetID, out feedback))
+            return false;
         role.owner.hasUseNightAction = true;
         return true;
     }
@@ -239,5 +277,27 @@ public class RoleManager : MonoBehaviour
             list[i] = list[random];
             list[random] = temp;
         }
+    }
+}
+
+internal static class RoleAssignmentDebug
+{
+    public static void Log(List<PlayerData> lobbyPlayers, int lobbyCount,
+        Dictionary<int, BaseRole> assignedRoles)
+    {
+        var message = new StringBuilder();
+        message.AppendLine($"[ROLE] Lobby có {lobbyCount} người chơi. Đã phân ngẫu nhiên {assignedRoles.Count} Role:");
+
+        foreach (PlayerData player in lobbyPlayers)
+        {
+            if (player == null || !assignedRoles.ContainsKey(player.playerID))
+                continue;
+
+            string name = string.IsNullOrWhiteSpace(player.playerName)
+                ? $"Player {player.playerID + 1}" : player.playerName;
+            message.AppendLine($"- {name} (ID {player.playerID}): {player.roleType}");
+        }
+
+        Debug.Log(message.ToString().TrimEnd());
     }
 }

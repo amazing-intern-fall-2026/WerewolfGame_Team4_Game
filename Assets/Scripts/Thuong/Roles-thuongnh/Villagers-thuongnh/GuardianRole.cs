@@ -10,11 +10,25 @@ public class GuardianRole:BaseRole
     }
     public override void UseNightAbility(int TargetID)
     {
-        if (TargetID == lastTarget)
+        TryUseNightAbility(TargetID, out _);
+    }
+
+    public override bool TryUseNightAbility(int targetID, out string feedback)
+    {
+        if (targetID == lastTarget)
         {
-            return;
+            feedback = "Không thể bảo vệ cùng một người trong hai đêm liên tiếp.";
+            return false;
         }
-        lastTarget= TargetID;
-        NightManager.Instance.SetProtectedTarget(TargetID);
+        if (NightManager.Instance == null)
+        {
+            feedback = "Không tìm thấy hệ thống xử lý ban đêm.";
+            return false;
+        }
+
+        NightManager.Instance.SetProtectedTarget(targetID);
+        lastTarget = targetID;
+        feedback = $"Đã chọn bảo vệ Player {targetID + 1}.";
+        return true;
     }
 }

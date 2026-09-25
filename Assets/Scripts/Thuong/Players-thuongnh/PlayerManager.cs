@@ -7,6 +7,8 @@ public class PlayerManager : MonoBehaviour
 
     [SerializeField]
     public List<PlayerData> players = new List<PlayerData>();
+    [Header("Offline prototype")]
+    [Min(0)] public int prototypeLobbySize;
 
     private void Awake()
     {
@@ -17,6 +19,10 @@ public class PlayerManager : MonoBehaviour
         }
 
         Instance = this;
+
+        // Chỉ tạo lobby mẫu khi scene prototype chưa có người chơi thật.
+        if (prototypeLobbySize > 0 && (players == null || players.Count == 0))
+            CreateTestPlayer(prototypeLobbySize);
     }
 
     private void OnDestroy()
