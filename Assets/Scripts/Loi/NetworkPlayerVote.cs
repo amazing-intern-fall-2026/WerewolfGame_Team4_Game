@@ -4,8 +4,6 @@ using UnityEngine;
 
 public class NetworkPlayerVote : NetworkBehaviour
 {
-    // Server lưu:
-    // VoterID -> TargetID
     private static readonly Dictionary<int, int> currentChoices =
         new Dictionary<int, int>();
 
@@ -23,7 +21,10 @@ public class NetworkPlayerVote : NetworkBehaviour
         )
             return;
 
-        // TEST KEY
+        // Không cho Player chết điều khiển Vote
+        if (!IsLocalPlayerAlive())
+            return;
+
         if (Input.GetKeyDown(KeyCode.Alpha6))
             SendVote(0);
 
@@ -39,10 +40,6 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha0))
             SendVote(4);
     }
-
-    // =========================
-    // UI GỌI HÀM NÀY
-    // =========================
 
     public void VoteFromUI(int targetID)
     {
@@ -70,15 +67,51 @@ public class NetworkPlayerVote : NetworkBehaviour
             return;
         }
 
+        // =========================
+        // KIỂM TRA PLAYER LOCAL
+        // =========================
+
+        if (!IsLocalPlayerAlive())
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE UI: Player đã chết, không thể Vote!"
+            );
+
+            return;
+        }
+
         SendVote(targetID);
     }
 
-    // =========================
-    // GỬI VOTE
-    // =========================
+    private bool IsLocalPlayerAlive()
+    {
+        NetworkPlayerStateSync stateSync =
+            GetComponent<NetworkPlayerStateSync>();
+
+        if (stateSync == null)
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Không tìm thấy NetworkPlayerStateSync!"
+            );
+
+            return false;
+        }
+
+        return stateSync.State.Value ==
+               NetworkPlayerStateType.Alive;
+    }
 
     private void SendVote(int targetID)
     {
+        if (!IsLocalPlayerAlive())
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Player đã chết, không gửi Vote."
+            );
+
+            return;
+        }
+
         Debug.Log(
             "VOTE | Client "
             + OwnerClientId
@@ -88,10 +121,6 @@ public class NetworkPlayerVote : NetworkBehaviour
 
         RequestVoteServerRpc(targetID);
     }
-
-    // =========================
-    // SERVER NHẬN VOTE
-    // =========================
 
     [ServerRpc]
     private void RequestVoteServerRpc(
@@ -113,17 +142,11 @@ public class NetworkPlayerVote : NetworkBehaviour
         );
 
         // =========================
-        // CHECK NETWORK PHASE
+        // CHECK PHASE
         // =========================
 
         if (NetworkPhaseSync.Instance == null)
-        {
-            Debug.LogWarning(
-                "NETWORK VOTE: Không tìm thấy NetworkPhaseSync!"
-            );
-
             return;
-        }
 
         if (
             NetworkPhaseSync.Instance.CurrentPhase.Value
@@ -138,7 +161,63 @@ public class NetworkPlayerVote : NetworkBehaviour
         }
 
         // =========================
-        // CHECK PLAYER
+        // CHECK NETWORK STATE
+        // =========================
+
+        if (
+            NetworkManager.Singleton == null ||
+            !NetworkManager.Singleton.ConnectedClients.TryGetValue(
+                senderClientId,
+                out NetworkClient voterClient
+            )
+        )
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Không tìm thấy Client của voter!"
+            );
+
+            return;
+        }
+
+        if (voterClient.PlayerObject == null)
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: PlayerObject của voter NULL!"
+            );
+
+            return;
+        }
+
+        NetworkPlayerStateSync voterState =
+            voterClient.PlayerObject.GetComponent<
+                NetworkPlayerStateSync
+            >();
+
+        if (voterState == null)
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Không tìm thấy NetworkPlayerStateSync!"
+            );
+
+            return;
+        }
+
+        if (
+            voterState.State.Value !=
+            NetworkPlayerStateType.Alive
+        )
+        {
+            Debug.LogWarning(
+                "NETWORK VOTE: Player "
+                + voterID
+                + " đã chết → TỪ CHỐI VOTE!"
+            );
+
+            return;
+        }
+
+        // =========================
+        // CHECK PLAYER DATA
         // =========================
 
         if (PlayerManager.Instance == null)
@@ -183,7 +262,9 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (!voter.isAlive)
         {
             Debug.LogWarning(
-                "NETWORK VOTE: Voter đã chết!"
+                "NETWORK VOTE: PlayerData xác nhận Player "
+                + voterID
+                + " đã chết → TỪ CHỐI VOTE!"
             );
 
             return;
@@ -208,7 +289,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         }
 
         // =========================
-        // LƯU / ĐỔI LỰA CHỌN
+        // VOTE / ĐỔI VOTE
         // =========================
 
         if (
@@ -257,16 +338,8 @@ public class NetworkPlayerVote : NetworkBehaviour
             );
         }
 
-        // =========================
-        // ĐỒNG BỘ LẠI VOTE DEV2
-        // =========================
-
         RebuildDev2Votes();
     }
-
-    // =========================
-    // REPLAY TOÀN BỘ VOTE
-    // =========================
 
     private void RebuildDev2Votes()
     {
@@ -292,10 +365,8 @@ public class NetworkPlayerVote : NetworkBehaviour
             "NETWORK VOTE: Đang rebuild toàn bộ vote..."
         );
 
-        // Reset hệ thống vote của Dev2
         VoteManager.Instance.StartVote();
 
-        // Replay toàn bộ lựa chọn hiện tại
         foreach (
             KeyValuePair<int, int> choice
             in currentChoices
@@ -306,6 +377,42 @@ public class NetworkPlayerVote : NetworkBehaviour
 
             int targetID =
                 choice.Value;
+
+            PlayerData voter =
+                PlayerManager.Instance.GetplayerByID(
+                    voterID
+                );
+
+            // Không rebuild vote của Player đã chết
+            if (voter == null || !voter.isAlive)
+            {
+                Debug.Log(
+                    "NETWORK VOTE REBUILD | "
+                    + "Bỏ qua Player "
+                    + voterID
+                    + " vì đã chết."
+                );
+
+                continue;
+            }
+
+            PlayerData target =
+                PlayerManager.Instance.GetplayerByID(
+                    targetID
+                );
+
+            // Không rebuild vote vào Player đã chết
+            if (target == null || !target.isAlive)
+            {
+                Debug.Log(
+                    "NETWORK VOTE REBUILD | "
+                    + "Bỏ qua Target "
+                    + targetID
+                    + " vì đã chết."
+                );
+
+                continue;
+            }
 
             bool success =
                 VoteManager.Instance.TryVote(
@@ -327,10 +434,6 @@ public class NetworkPlayerVote : NetworkBehaviour
             "NETWORK VOTE: Rebuild vote hoàn tất."
         );
     }
-
-    // =========================
-    // RESET KHI VOTING MỚI
-    // =========================
 
     public static void ResetNetworkVotes()
     {
