@@ -1,3 +1,4 @@
+
 using TMPro;
 using UnityEngine;
 
@@ -7,11 +8,9 @@ public class NetworkSeerResultUI : MonoBehaviour
     [SerializeField]
     private GameObject resultPanel;
 
-
     [Header("Result Text")]
     [SerializeField]
     private TextMeshProUGUI resultText;
-
 
     // =========================================
     // Enable
@@ -23,7 +22,6 @@ public class NetworkSeerResultUI : MonoBehaviour
             OnSeerResultReceived;
     }
 
-
     // =========================================
     // Disable
     // =========================================
@@ -34,7 +32,6 @@ public class NetworkSeerResultUI : MonoBehaviour
             OnSeerResultReceived;
     }
 
-
     // =========================================
     // Start
     // =========================================
@@ -43,7 +40,6 @@ public class NetworkSeerResultUI : MonoBehaviour
     {
         HideResult();
     }
-
 
     // =========================================
     // Receive Seer Result
@@ -54,30 +50,34 @@ public class NetworkSeerResultUI : MonoBehaviour
         string playerName,
         RoleType role)
     {
+        bool isDogSpirit =
+            role == RoleType.DogSpirit;
+
         Debug.Log(
             "SEER UI | "
             + playerName
-            + " = "
-            + role
+            + " | Is DogSpirit = "
+            + isDogSpirit
         );
-
 
         if (resultPanel != null)
         {
             resultPanel.SetActive(true);
         }
 
-
         if (resultText != null)
         {
             resultText.text =
                 "INSPECT RESULT\n\n"
                 + playerName
-                + "\n\nROLE: "
-                + role.ToString();
+                + "\n\n"
+                + (
+                    isDogSpirit
+                        ? "DOGSPIRIT"
+                        : "NOT DOGSPIRIT"
+                );
         }
     }
-
 
     // =========================================
     // Hide Result
@@ -91,3 +91,4 @@ public class NetworkSeerResultUI : MonoBehaviour
         }
     }
 }
+
