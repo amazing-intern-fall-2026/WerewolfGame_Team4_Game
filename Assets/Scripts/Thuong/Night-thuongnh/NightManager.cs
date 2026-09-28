@@ -8,6 +8,7 @@ public class NightManager : MonoBehaviour
     private int protectedTarget = -1;
     private int killerTarget = -1;
     private int evilNightCount = 0;
+    public int CurrentNightNumber => evilNightCount;
 
     private void Awake()
     {

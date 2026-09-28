@@ -17,6 +17,11 @@ public class RoleManager : MonoBehaviour
 
     public void AssignRole()
     {
+        AssignRole(Random.Range(0, int.MaxValue));
+    }
+
+    public void AssignRole(int seed)
+    {
         if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
         {
             Debug.LogWarning("RoleManager: chưa có player nào để gán role.");
@@ -30,10 +35,19 @@ public class RoleManager : MonoBehaviour
             Debug.LogWarning("[ROLE] Lobby chưa có người chơi hợp lệ để phân vai.");
             return;
         }
-        Shuffle(list);
+        list.Sort((a, b) => a.playerID.CompareTo(b.playerID));
+        var ids = new HashSet<int>();
+        foreach (PlayerData player in list)
+        {
+            if (ids.Add(player.playerID)) continue;
+            Debug.LogError("[ROLE] Lobby có Player ID trùng: " + player.playerID);
+            return;
+        }
+
+        Shuffle(list, new System.Random(unchecked(seed ^ 0x5f3759df)));
         playerRoles.Clear();
 
-        List<RoleType> rolePool = BuildRolePool(list.Count);
+        List<RoleType> rolePool = RolePoolBuilder.Build(list.Count, seed);
 
         for (int i = 0; i < list.Count; i++)
         {
@@ -42,57 +56,11 @@ public class RoleManager : MonoBehaviour
             list[i].hasVoted = false;
             list[i].isAlive = true;
 
-            RoleType roleType = i < rolePool.Count ? rolePool[i] : RoleType.Villager;
-            CreateRole(roleType, list[i]);
+            CreateRole(rolePool[i], list[i]);
         }
 
+        Debug.Log("[ROLE] Random seed: " + seed);
         RoleAssignmentDebug.Log(PlayerManager.Instance.players, list.Count, playerRoles);
-    }
-
-    private List<RoleType> BuildRolePool(int playerCount)
-    {
-        var roles = new List<RoleType>();
-
-        if (playerCount >= 5 && playerCount <= 8)
-        {
-            roles.Add(RoleType.DogSpirit);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Seer);
-
-            while (roles.Count < playerCount)
-                roles.Add(RoleType.Villager);
-
-            return roles;
-        }
-
-        // 12 người: 3 sói đen + 4 dân + 4 chức năng + 1 phe trắng
-        if (playerCount == 12)
-        {
-            roles.Add(RoleType.DogSpirit);
-            roles.Add(RoleType.SerpentSpirit);
-            roles.Add(RoleType.Ogre);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Villager);
-            roles.Add(RoleType.Mayor);
-            roles.Add(RoleType.Seer);
-            roles.Add(RoleType.VillageGuardian);
-            roles.Add(RoleType.Shaman);
-            roles.Add(RoleType.WhiteHound);
-            return roles;
-        }
-
-        // Mọi trường hợp còn lại: mặc định dân làng + 1 sói + 1 tiên tri
-        roles.Add(RoleType.DogSpirit);
-        roles.Add(RoleType.Seer);
-
-        for (int i = 2; i < playerCount; i++)
-            roles.Add(RoleType.Villager);
-
-        return roles;
     }
 
     public void NotifyDayStart()
@@ -156,7 +124,7 @@ public class RoleManager : MonoBehaviour
             return false;
         }
 
-        if (!role.TryUseNightAbility(targetID, out feedback))
+        if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
         role.owner.hasUseNightAction = true;
         return true;
@@ -173,93 +141,7 @@ public class RoleManager : MonoBehaviour
 
     private void CreateRole(RoleType type, PlayerData player)
     {
-        BaseRole role;
-
-        switch (type)
-        {
-            case RoleType.DogSpirit:
-                role = new DogSpirit(player);
-                break;
-
-            case RoleType.WhiteHound:
-            case RoleType.WhiteWolf:
-            case RoleType.RedNosedHound:
-            case RoleType.WolfCub:
-            case RoleType.WolfBoss:
-                role = new WhiteHound(player);
-                break;
-
-            case RoleType.SerpentSpirit:
-                role = new SerpentSpirit(player);
-                break;
-
-            case RoleType.Ogre:
-                role = new Ogre(player);
-                break;
-
-            case RoleType.Mayor:
-                role = new MayorRole(player);
-                break;
-
-            case RoleType.Seer:
-                role = new SeerRole(player);
-                break;
-
-            case RoleType.VillageGuardian:
-                role = new GuardianRole(player);
-                break;
-
-            case RoleType.Hunter:
-                role = new HunterRole(player);
-                break;
-
-            case RoleType.Shaman:
-                role = new ShamanRole(player);
-                break;
-
-            case RoleType.WeaverOfFate:
-                role = new WeaverOfFateRole(player);
-                break;
-
-            case RoleType.Idiot:
-                role = new IdiotRole(player);
-                break;
-
-            case RoleType.Cursed:
-                role = new CursedRole(player);
-                break;
-
-            case RoleType.Brat:
-                role = new BratRole(player);
-                break;
-
-            case RoleType.Madman:
-            case RoleType.Jester:
-            case RoleType.Lover:
-                role = new MadmanRole(player);
-                break;
-
-            case RoleType.FoxSpirit:
-            case RoleType.Piper:
-                role = new FoxSpiritRole(player);
-                break;
-
-            case RoleType.Killer:
-            case RoleType.SerialKiller:
-                role = new KillerRole(player);
-                break;
-
-            case RoleType.Villager:
-            case RoleType.TuongMaster:
-            case RoleType.Magistrate:
-            case RoleType.DeathHerald:
-                role = new VillagerRole(player);
-                break;
-
-            default:
-                Debug.LogError("Chưa có class xử lý role: " + type);
-                return;
-        }
+        BaseRole role = RoleCatalog.Create(type, player);
 
         player.roleType = type;
         player.faction = role.faction;
@@ -268,14 +150,14 @@ public class RoleManager : MonoBehaviour
         role.OnGameStart();
     }
 
-    private void Shuffle(List<PlayerData> list)
+    private void Shuffle(List<PlayerData> list, System.Random random)
     {
-        for (int i = 0; i < list.Count; i++)
+        for (int i = list.Count - 1; i > 0; i--)
         {
-            int random = Random.Range(i, list.Count);
+            int j = random.Next(i + 1);
             PlayerData temp = list[i];
-            list[i] = list[random];
-            list[random] = temp;
+            list[i] = list[j];
+            list[j] = temp;
         }
     }
 }

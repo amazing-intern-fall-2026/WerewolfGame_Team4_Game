@@ -5,7 +5,8 @@ Mở scene theo chế độ Single, không nạp thêm các scene gameplay khác
 
 ## Điều khiển
 
-- WASD / phím mũi tên / cần trái gamepad: di chuyển nhân vật màu xanh.
+- F1–F12: chọn nhanh nhân vật 1–12; PageDown/PageUp: chuyển lần lượt qua toàn bộ nhân vật.
+- WASD / phím mũi tên / cần trái gamepad: di chuyển nhân vật đang chọn.
 - E: hoàn thành nhiệm vụ khi đứng cách điểm đang sáng không quá 1.3 unit.
 - Chuột: chọn Player trong bảng vote khi phase Voting bắt đầu.
 - R: tải lại scene và chơi từ đầu, kể cả sau khi có kết quả.
@@ -13,22 +14,22 @@ Mở scene theo chế độ Single, không nạp thêm các scene gameplay khác
 ## Đã gắn sẵn
 
 - Map hình khối có nền, đường đi và tường biên.
-- Một nhân vật, Rigidbody2D, collider và input; liên kết PlayerData ID 0.
+- Số nhân vật theo `PlayerManager.prototypeLobbySize` được script test tạo khi Play từ Player gốc, mỗi nhân vật có Rigidbody2D, collider, ID và vai riêng.
 - Sáu task asset và sáu station; mỗi ngày chọn ngẫu nhiên bốn nhiệm vụ, mỗi nhiệm vụ +10%.
 - HUD có hai thanh: tổng tiến độ cả ván ở trên cùng, tiến độ trong ngày trên danh sách nhiệm vụ bên trái; kèm ngày/phase, đồng hồ và hướng dẫn.
 - Khi Play, HUD dùng màu và nhãn rõ cho từng giai đoạn, đồng hồ dạng phút:giây, nhiệm vụ đã xong được tô màu, và thanh hướng dẫn ở cạnh dưới thay đổi theo giai đoạn. Bảng vote và màn hình kết quả cũng hiển thị trạng thái rõ hơn.
 
 Ví dụ hoàn thành 2/4 nhiệm vụ: thanh ngày 50%, tổng ván +20%. Sang ngày mới thanh ngày về 0%, tổng giữ nguyên. Thanh ngày 100% không tự kết thúc ván; thanh tổng 100% mới thắng.
-- Bảng họp và năm nút vote, bảng kết quả.
+- Bảng họp và năm nút mục tiêu vote; Player 6 trở đi chưa có nút mục tiêu trong bảng này.
 - GameRoleManager, PlayerManager, RoleManager, TaskManager, DayTimer, NightManager, VoteManager, DeathResolver, WinConditionManager.
 
 Mặc định: ngày 45 giây → đêm 20 giây → thảo luận 8 giây → vote 10 giây.
 Đạt tổng 100% thì dân thắng; hết ngày 7 chưa đủ thì sói thắng.
 Các giá trị nằm trên object con trong Systems, có thể sửa trong Inspector.
 
-Đây là bản thử offline. Bốn người còn lại chỉ là dữ liệu để thử vote, chưa có AI hoặc nhân vật điều khiển.
-`PlayerManager.prototypeLobbySize` mặc định là 5 trong scene này; có thể đổi trong Inspector để thử số người khác. Khi bắt đầu ván, Console ghi một thông báo `[ROLE]` gồm số người trong lobby local và Role đã phân ngẫu nhiên cho từng người chơi.
-Role được phân ngẫu nhiên; Idiot không chết bởi vote. Mở **ROLE / KỸ NĂNG** ở góc phải để xem Role của Player local. Khi vào đêm, panel tự mở nếu Player local là Dog Spirit, Tiên tri hoặc Bảo vệ làng. Bấm **CHỌN MỤC TIÊU**, chọn một Player còn sống khác mình, hoặc bấm **HỦY / QUAY LẠI** để không dùng kỹ năng. Kết quả thực hiện hiện ngay trong panel.
+Đây là bản thử offline trên một máy. `ThuongFourRoleOfflineTest` gắn trong `Systems` tạo đúng số nhân vật đặt ở `PlayerManager.prototypeLobbySize` trong Inspector. `RoleManager` lấy đúng số người trong lobby, rút ngẫu nhiên từ 17 class Role hiện có ở thư mục Thương và Nhật rồi gán mỗi người một vai. Vai không còn gắn cố định theo Player ID. Chỉ một nhân vật nhận input tại một thời điểm. Xem thêm `TEST_4_VAI_OFFLINE.md`.
+Đổi `PlayerManager.prototypeLobbySize` trước khi Play để tạo đúng số nhân vật mong muốn. Console ghi seed và vai của từng người để có thể kiểm tra lại.
+Mở **ROLE / KỸ NĂNG** ở góc phải để xem Role của Player đang chọn. Khi vào đêm, panel tự mở nếu Player đang chọn có kỹ năng chọn mục tiêu đã nối; sau khi đổi nhân vật trong đêm, bấm nút này để mở panel. Bấm **CHỌN MỤC TIÊU**, chọn một Player còn sống khác mình, hoặc bấm **HỦY / QUAY LẠI** để không dùng kỹ năng. Kết quả thực hiện hiện ngay trong panel.
 Sau khi phân vai, một thẻ giới thiệu Role của Player local hiện trước ngày đầu tiên: ảnh nhân vật và tên Role ở bên trái, mô tả chi tiết ở bên phải. Thẻ tự đóng sau 25 giây (có thể chỉnh `GameRoleManager.roleRevealDuration` trong Inspector), hoặc bấm **OK / BẮT ĐẦU** để vào ngày đầu ngay. Đồng hồ ban ngày chỉ bắt đầu sau khi thẻ đóng.
 Ảnh mặc định dùng `Art/Resources/RoleAbilityIcon.png`. Để dùng ảnh PNG riêng, tạo thư mục `Art/Resources/RolePortraits` rồi thêm sprite đặt tên đúng `RoleType` như `Villager.png`, `Seer.png`, `DogSpirit.png`; để Texture Type là **Sprite (2D and UI)**. Nếu không có ảnh riêng, thẻ dùng ảnh mặc định.
 Tiên tri chỉ nhận kết quả **Dogspirit** hoặc **Không phải Dogspirit**; Role cụ thể của mục tiêu không được hiển thị. Role không có kỹ năng chủ động chỉ hiện mô tả kỹ năng nội tại/thảo luận/bỏ phiếu.

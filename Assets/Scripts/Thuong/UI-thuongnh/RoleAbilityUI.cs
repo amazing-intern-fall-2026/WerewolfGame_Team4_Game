@@ -299,7 +299,9 @@ public class RoleAbilityUI : MonoBehaviour
     private static bool HasActiveAbility(RoleType role)
     {
         return role == RoleType.DogSpirit || role == RoleType.Seer ||
-               role == RoleType.VillageGuardian;
+               role == RoleType.VillageGuardian || role == RoleType.SerpentSpirit ||
+               role == RoleType.Ogre || role == RoleType.Cursed ||
+               role == RoleType.FoxSpirit || role == RoleType.Killer;
     }
 
     private static string RoleName(RoleType role)
@@ -316,6 +318,13 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.Shaman: return "PHÁP SƯ";
             case RoleType.WhiteHound: return "SÓI TRẮNG";
             case RoleType.Idiot: return "KẺ NGỐC";
+            case RoleType.Hunter: return "THỢ SĂN";
+            case RoleType.WeaverOfFate: return "DỆT DUYÊN";
+            case RoleType.Cursed: return "KẺ NGUYỀN";
+            case RoleType.Brat: return "ĐỨA TRẺ";
+            case RoleType.Madman: return "KẺ ĐIÊN";
+            case RoleType.FoxSpirit: return "HỒ LY";
+            case RoleType.Killer: return "SÁT NHÂN";
             default: return role.ToString();
         }
     }
@@ -335,15 +344,29 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.Mayor:
                 return "Bạn thuộc phe Dân Làng. Lá phiếu của bạn có sức nặng gấp đôi khi bỏ phiếu. Hãy hoàn thành nhiệm vụ ban ngày và dùng quyền bỏ phiếu để giúp dân làng tìm Ma Sói.";
             case RoleType.SerpentSpirit:
-                return "Bạn thuộc phe Ma Sói. Khả năng tấn công của Xà Tinh bị giới hạn ở giai đoạn đầu ván; sau đó có thể chọn mục tiêu vào ban đêm. Trong bản thử hiện tại, bảng kỹ năng chưa có nút riêng cho vai trò này.";
+                return "Bạn thuộc phe Ma Sói. Từ đêm thứ ba, có thể chọn một mục tiêu để tấn công.";
             case RoleType.Ogre:
-                return "Bạn thuộc phe Ma Sói và có khả năng chọn mục tiêu tấn công vào ban đêm. Trong bản thử hiện tại, bảng kỹ năng chưa có nút riêng cho vai trò này. Ban ngày, bạn vẫn tham gia thảo luận và bỏ phiếu.";
+                return "Bạn thuộc phe Ma Sói và có thể chọn mục tiêu tấn công vào ban đêm. Ban ngày, bạn vẫn tham gia thảo luận và bỏ phiếu.";
             case RoleType.Shaman:
                 return "Bạn thuộc phe Dân Làng. Pháp Sư có một bùa lợi và một bùa hại để dùng lên người chơi còn sống. Hai thao tác này chưa được đưa lên bảng kỹ năng của bản thử hiện tại.";
             case RoleType.WhiteHound:
                 return "Bạn bắt đầu ở phe Dân Làng. Bản thử hiện tại chưa kích hoạt cơ chế chuyển phe và chưa có nút kỹ năng chủ động riêng cho vai trò này. Hãy theo dõi diễn biến và tham gia bỏ phiếu.";
             case RoleType.Idiot:
                 return "Bạn thuộc phe Dân Làng. Nếu bị loại bởi bỏ phiếu, bạn sẽ sống sót nhờ khả năng đặc biệt. Bạn vẫn có thể hoàn thành nhiệm vụ và tham gia thảo luận.";
+            case RoleType.Hunter:
+                return "Bạn thuộc phe Dân Làng. Khi chết, vai Thợ Săn có thể đặt bẫy; giao diện chọn bẫy chưa được nối trong prototype.";
+            case RoleType.WeaverOfFate:
+                return "Bạn thuộc phe Dân Làng. Vai Dệt Duyên có thể ghép đôi hai người; giao diện ghép đôi chưa được nối trong prototype.";
+            case RoleType.Cursed:
+                return "Bạn thuộc phe Dân Làng. Ban đêm có thể đánh dấu một người chơi bằng lời nguyền.";
+            case RoleType.Brat:
+                return "Bạn thuộc phe Dân Làng. Vai Đứa Trẻ có thao tác nhìn trộm; giao diện của thao tác này chưa được nối trong prototype.";
+            case RoleType.Madman:
+                return "Bạn thuộc phe Trung Lập. Vai này có điều kiện thắng riêng trong logic hiện có của dự án.";
+            case RoleType.FoxSpirit:
+                return "Bạn thuộc phe Trung Lập. Ban đêm có thể mê hoặc một người chơi còn sống.";
+            case RoleType.Killer:
+                return "Bạn thuộc phe Trung Lập. Có thể chọn mục tiêu tấn công vào các đêm chẵn.";
             default:
                 return "Vai trò này chưa có mô tả riêng trong bản thử. Mở ROLE / KỸ NĂNG khi vào ván để xem các thao tác hiện có.";
         }
@@ -382,6 +405,14 @@ public class RoleAbilityUI : MonoBehaviour
                 skillLabel.text = "TẤN CÔNG";
                 descriptionLabel.text = "Chọn một người chơi còn sống để tấn công trong đêm.";
                 break;
+            case RoleType.SerpentSpirit:
+                skillLabel.text = "TẤN CÔNG";
+                descriptionLabel.text = "Có thể tấn công từ đêm thứ ba.";
+                break;
+            case RoleType.Ogre:
+                skillLabel.text = "TẤN CÔNG";
+                descriptionLabel.text = "Chọn một người chơi còn sống để tấn công trong đêm.";
+                break;
             case RoleType.Seer:
                 skillLabel.text = "SOI DOGSPIRIT";
                 descriptionLabel.text = "Chọn một người chơi để biết họ có phải Dogspirit hay không. Không hiển thị Role cụ thể.";
@@ -389,6 +420,18 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.VillageGuardian:
                 skillLabel.text = "BẢO VỆ";
                 descriptionLabel.text = "Chọn một người chơi để bảo vệ trong đêm. Không chọn cùng mục tiêu hai đêm liên tiếp.";
+                break;
+            case RoleType.Cursed:
+                skillLabel.text = "NGUYỀN";
+                descriptionLabel.text = "Đánh dấu một người chơi còn sống bằng lời nguyền.";
+                break;
+            case RoleType.FoxSpirit:
+                skillLabel.text = "MÊ HOẶC";
+                descriptionLabel.text = "Mê hoặc một người chơi còn sống trong đêm.";
+                break;
+            case RoleType.Killer:
+                skillLabel.text = "TẤN CÔNG";
+                descriptionLabel.text = "Chọn một mục tiêu vào các đêm chẵn.";
                 break;
             default:
                 skillLabel.text = "KỸ NĂNG NỘI TẠI";

@@ -50,7 +50,8 @@ public static class ThuongPrototypeChecks
             EditorApplication.Step();
             if (now < next) return;
             var game = GameRoleManager.Instance;
-            var player = UnityEngine.Object.FindAnyObjectByType<PrototypeControls>();
+            var player = UnityEngine.Object.FindObjectsByType<PrototypeControls>()
+                .FirstOrDefault(p => p.GetComponent<Assets.Scripts.Thuong.PlayerMovement>()?.playerID == 0);
             Require(game != null && player != null, $"Scene gameplay components (game={game != null}, player={player != null})");
             var tasks = TaskManager.Instance;
             if (stage == 0)
