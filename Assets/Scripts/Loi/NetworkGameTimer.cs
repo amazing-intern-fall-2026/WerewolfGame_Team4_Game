@@ -3,41 +3,9 @@ using UnityEngine;
 
 public class NetworkGameTimer : NetworkBehaviour
 {
-    [Header("Thời gian từng Phase")]
-
-    [SerializeField]
-    private float roleRevealTime = 5f;
-
+    [Header("DayStart Networking Timer")]
     [SerializeField]
     private float dayStartTime = 10f;
-
-    [SerializeField]
-    private float eventTime = 10f;
-
-    [SerializeField]
-    private float taskTime = 20f;
-
-    // Khớp GameRoleManager của Dev2
-    [SerializeField]
-    private float nightTime = 15f;
-
-    [SerializeField]
-    private float resolveNightTime = 5f;
-
-    // Khớp GameRoleManager của Dev2
-    [SerializeField]
-    private float discussionTime = 30f;
-
-    // Khớp GameRoleManager của Dev2
-    [SerializeField]
-    private float votingTime = 20f;
-
-    [SerializeField]
-    private float resolveVoteTime = 5f;
-
-    [SerializeField]
-    private float gameOverTime = 5f;
-
 
     public NetworkVariable<float> TimeRemaining =
         new NetworkVariable<float>(
@@ -46,27 +14,24 @@ public class NetworkGameTimer : NetworkBehaviour
             NetworkVariableWritePermission.Server
         );
 
-
     private GamePhase lastPhase;
     private bool initialized;
 
-
     public override void OnNetworkSpawn()
     {
-        if (NetworkPhaseSync.Instance != null)
+        if (NetworkPhaseSync.Instance == null)
+            return;
+
+        lastPhase =
+            NetworkPhaseSync.Instance.CurrentPhase.Value;
+
+        initialized = true;
+
+        if (IsServer)
         {
-            lastPhase =
-                NetworkPhaseSync.Instance.CurrentPhase.Value;
-
-            initialized = true;
-
-            if (IsServer)
-            {
-                SetTimerForPhase(lastPhase);
-            }
+            SetupTimerForPhase(lastPhase);
         }
     }
-
 
     private void Update()
     {
@@ -76,26 +41,27 @@ public class NetworkGameTimer : NetworkBehaviour
         if (NetworkPhaseSync.Instance == null)
             return;
 
+        if (GameRoleManager.Instance == null)
+            return;
+
         GamePhase currentPhase =
             NetworkPhaseSync.Instance.CurrentPhase.Value;
 
-
-        // =========================
+        // =====================================
         // PHASE MỚI
-        // =========================
+        // =====================================
 
         if (!initialized)
         {
             initialized = true;
+            lastPhase = currentPhase;
 
-            lastPhase =
-                currentPhase;
+            SetupTimerForPhase(currentPhase);
 
-            SetTimerForPhase(
-                currentPhase
-            );
+            return;
         }
-        else if (currentPhase != lastPhase)
+
+        if (currentPhase != lastPhase)
         {
             Debug.Log(
                 "NETWORK TIMER | Phase đổi: "
@@ -104,129 +70,114 @@ public class NetworkGameTimer : NetworkBehaviour
                 + currentPhase
             );
 
-            lastPhase =
-                currentPhase;
+            lastPhase = currentPhase;
 
-            SetTimerForPhase(
-                currentPhase
-            );
-        }
+            SetupTimerForPhase(currentPhase);
 
-
-        // =========================
-        // ĐẾM NGƯỢC
-        // =========================
-
-        if (TimeRemaining.Value <= 0f)
             return;
-
-        TimeRemaining.Value -=
-            Time.deltaTime;
-
-        if (TimeRemaining.Value < 0f)
-        {
-            TimeRemaining.Value = 0f;
         }
+
+        // =====================================
+        // DAY START
+        // =====================================
+        // DayStart không được GameRoleManager
+        // tự đếm trong Update vì currentState = Day.
+        //
+        // Vì vậy Networking tự đếm DayStart.
+        // =====================================
+
+        if (currentPhase == GamePhase.DayStart)
+        {
+            if (TimeRemaining.Value > 0f)
+            {
+                TimeRemaining.Value -=
+                    Time.deltaTime;
+
+                if (TimeRemaining.Value < 0f)
+                {
+                    TimeRemaining.Value = 0f;
+                }
+            }
+
+            return;
+        }
+
+        // =====================================
+        // CÁC PHASE KHÁC
+        // =====================================
+        // RoleReveal / Night / Discussion / Voting
+        // lấy thời gian trực tiếp từ Dev2.
+        // =====================================
+
+        SyncTimer();
     }
 
-
-    public void SetTimerForPhase(
-        GamePhase phase
-    )
+    private void SetupTimerForPhase(GamePhase phase)
     {
         if (!IsServer)
             return;
 
-        switch (phase)
+        // =====================================
+        // DAY START
+        // =====================================
+
+        if (phase == GamePhase.DayStart)
         {
-            case GamePhase.RoleReveal:
+            TimeRemaining.Value =
+                dayStartTime;
 
-                TimeRemaining.Value =
-                    roleRevealTime;
+            Debug.Log(
+                "NETWORK TIMER | "
+                + "DayStart bắt đầu | "
+                + dayStartTime
+                + " giây"
+            );
 
-                break;
-
-
-            case GamePhase.DayStart:
-
-                TimeRemaining.Value =
-                    dayStartTime;
-
-                break;
-
-
-            case GamePhase.Event:
-
-                TimeRemaining.Value =
-                    eventTime;
-
-                break;
-
-
-            case GamePhase.Task:
-
-                TimeRemaining.Value =
-                    taskTime;
-
-                break;
-
-
-            case GamePhase.Night:
-
-                TimeRemaining.Value =
-                    nightTime;
-
-                break;
-
-
-            case GamePhase.ResolveNight:
-
-                TimeRemaining.Value =
-                    resolveNightTime;
-
-                break;
-
-
-            case GamePhase.Discussion:
-
-                TimeRemaining.Value =
-                    discussionTime;
-
-                break;
-
-
-            case GamePhase.Voting:
-
-                TimeRemaining.Value =
-                    votingTime;
-
-                break;
-
-
-            case GamePhase.ResolveVote:
-
-                TimeRemaining.Value =
-                    resolveVoteTime;
-
-                break;
-
-
-            case GamePhase.GameOver:
-
-                TimeRemaining.Value =
-                    gameOverTime;
-
-                break;
-
-
-            default:
-
-                TimeRemaining.Value =
-                    0f;
-
-                break;
+            return;
         }
 
+        // =====================================
+        // CÁC PHASE KHÁC
+        // =====================================
+
+        SyncTimer();
+    }
+
+    private void SyncTimer()
+    {
+        if (!IsServer)
+            return;
+
+        if (GameRoleManager.Instance == null)
+            return;
+
+        GamePhase currentPhase =
+            GameRoleManager.Instance.currentPhase;
+
+        // DayStart có timer riêng của Networking.
+        if (currentPhase == GamePhase.DayStart)
+            return;
+
+        float dev2Time =
+            GameRoleManager.Instance.PhaseTimeRemaining;
+
+        if (dev2Time < 0f)
+            dev2Time = 0f;
+
+        TimeRemaining.Value =
+            dev2Time;
+    }
+
+    // =====================================
+    // GIỮ HÀM CŨ
+    // =====================================
+
+    public void SetTimerForPhase(GamePhase phase)
+    {
+        if (!IsServer)
+            return;
+
+        SetupTimerForPhase(phase);
 
         Debug.Log(
             "NETWORK TIMER | "
@@ -237,12 +188,11 @@ public class NetworkGameTimer : NetworkBehaviour
         );
     }
 
+    // =====================================
+    // GIỮ HÀM CŨ
+    // =====================================
 
-    // Giữ hàm cũ để không làm
-    // hỏng các script Networking khác.
-    public void SetTimerForState(
-        NetworkGameState state
-    )
+    public void SetTimerForState(NetworkGameState state)
     {
         if (!IsServer)
             return;
@@ -251,11 +201,9 @@ public class NetworkGameTimer : NetworkBehaviour
         {
             case NetworkGameState.Night:
 
-                TimeRemaining.Value =
-                    nightTime;
+                SyncTimer();
 
                 break;
-
 
             case NetworkGameState.Morning:
 
@@ -264,30 +212,23 @@ public class NetworkGameTimer : NetworkBehaviour
 
                 break;
 
-
             case NetworkGameState.Discussion:
 
-                TimeRemaining.Value =
-                    discussionTime;
+                SyncTimer();
 
                 break;
-
 
             case NetworkGameState.Voting:
 
-                TimeRemaining.Value =
-                    votingTime;
+                SyncTimer();
 
                 break;
-
 
             case NetworkGameState.Resolve:
 
-                TimeRemaining.Value =
-                    resolveVoteTime;
+                SyncTimer();
 
                 break;
-
 
             default:
 
@@ -296,7 +237,6 @@ public class NetworkGameTimer : NetworkBehaviour
 
                 break;
         }
-
 
         Debug.Log(
             "SERVER TIMER: "
