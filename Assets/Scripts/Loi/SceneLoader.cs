@@ -26,6 +26,8 @@ public class SceneLoader : MonoBehaviour
 
     private void OnEnable()
     {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
         StartCoroutine(RegisterDisconnectCallback());
     }
 
@@ -36,17 +38,26 @@ public class SceneLoader : MonoBehaviour
 
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -=
+                OnClientDisconnected;
 
-            Debug.Log("SceneLoader đã đăng ký Disconnect Callback.");
+            NetworkManager.Singleton.OnClientDisconnectCallback +=
+                OnClientDisconnected;
+
+            Debug.Log(
+                "SceneLoader đã đăng ký Disconnect Callback."
+            );
         }
     }
 
     private void OnDisable()
     {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -=
+                OnClientDisconnected;
         }
     }
 
@@ -57,7 +68,13 @@ public class SceneLoader : MonoBehaviour
     public void LeaveLobby()
     {
         if (isLeaving)
+        {
+            Debug.LogWarning(
+                "SceneLoader: Đang trong quá trình Leave."
+            );
+
             return;
+        }
 
         isLeaving = true;
 
@@ -65,10 +82,12 @@ public class SceneLoader : MonoBehaviour
 
         if (NetworkManager.Singleton != null)
         {
+            Debug.Log("Shutdown NetworkManager...");
+
             NetworkManager.Singleton.Shutdown();
         }
 
-        // Chuyển Host về MainMenu ngay
+        // Chuyển về MainMenu
         SceneManager.LoadScene("MainMenu");
     }
 
@@ -84,14 +103,39 @@ public class SceneLoader : MonoBehaviour
         if (NetworkManager.Singleton == null)
             return;
 
-        if (clientId == NetworkManager.Singleton.LocalClientId)
-        {
-            Debug.Log("Client bị disconnect khỏi Host.");
+        if (clientId != NetworkManager.Singleton.LocalClientId)
+            return;
 
-            isLeaving = true;
+        Debug.Log(
+            "Client bị disconnect khỏi Host."
+        );
 
-            SceneManager.LoadScene("MainMenu");
-        }
+        isLeaving = true;
+
+        SceneManager.LoadScene("MainMenu");
+    }
+
+    // =========================================================
+    // SCENE ĐÃ LOAD
+    // =========================================================
+
+    private void OnSceneLoaded(
+        Scene scene,
+        LoadSceneMode mode)
+    {
+        if (scene.name != "MainMenu")
+            return;
+
+        Debug.Log(
+            "SceneLoader: Đã về MainMenu."
+        );
+
+        // Cho phép Leave lần tiếp theo
+        isLeaving = false;
+
+        Debug.Log(
+            "SceneLoader: isLeaving = false."
+        );
     }
 
     // =========================================================
