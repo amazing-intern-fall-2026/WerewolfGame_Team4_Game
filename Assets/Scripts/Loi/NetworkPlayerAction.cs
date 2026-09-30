@@ -4,11 +4,19 @@ using UnityEngine;
 
 public class NetworkPlayerAction : NetworkBehaviour
 {
-    public static event Action<NetworkActionEvent> OnNetworkActionAccepted;
+    public static event Action<NetworkActionEvent>
+        OnNetworkActionAccepted;
 
-    public static event Action<bool, string> OnNetworkActionResult;
+    public static event Action<bool, string>
+        OnNetworkActionResult;
 
-    public static event Action<int, string, RoleType> OnSeerResultReceived;
+    public static event Action<int, string, RoleType>
+        OnSeerResultReceived;
+
+
+    // =========================================================
+    // REQUEST ACTION
+    // =========================================================
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestActionServerRpc(
@@ -25,13 +33,22 @@ public class NetworkPlayerAction : NetworkBehaviour
             + targetPlayerId
         );
 
+
+        // =====================================================
+        // NETWORK MANAGER
+        // =====================================================
+
         if (NetworkManager.Singleton == null)
             return;
 
+
+        // =====================================================
+        // TARGET EXIST
+        // =====================================================
+
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                targetPlayerId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(targetPlayerId)
         )
         {
             SendActionResultToClient(
@@ -42,6 +59,11 @@ public class NetworkPlayerAction : NetworkBehaviour
 
             return;
         }
+
+
+        // =====================================================
+        // SELF TARGET
+        // =====================================================
 
         if (requesterClientId == targetPlayerId)
         {
@@ -54,10 +76,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // REQUESTER EXIST
+        // =====================================================
+
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                requesterClientId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(requesterClientId)
         )
         {
             Debug.LogWarning(
@@ -67,10 +93,11 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
         NetworkClient requesterClient =
-            NetworkManager.Singleton.ConnectedClients[
-                requesterClientId
-            ];
+            NetworkManager.Singleton
+                .ConnectedClients[requesterClientId];
+
 
         if (requesterClient.PlayerObject == null)
         {
@@ -83,8 +110,15 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // REQUESTER PLAYER CONTROLLER
+        // =====================================================
+
         PlayerController requester =
-            requesterClient.PlayerObject.GetComponent<PlayerController>();
+            requesterClient.PlayerObject
+                .GetComponent<PlayerController>();
+
 
         if (requester == null)
         {
@@ -97,8 +131,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // REQUESTER STATE
+        // =====================================================
+
         NetworkPlayerStateSync requesterState =
             requester.GetComponent<NetworkPlayerStateSync>();
+
 
         if (requesterState == null)
         {
@@ -110,6 +150,31 @@ public class NetworkPlayerAction : NetworkBehaviour
 
             return;
         }
+
+
+        // =====================================================
+        // HUNTER SPECIAL ACTION
+        // =====================================================
+
+        if (
+            IsHunterSpecialAction(
+                requesterClientId,
+                requesterState
+            )
+        )
+        {
+            HandleHunterAction(
+                requesterClientId,
+                targetPlayerId
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // DEAD / SPECTATING
+        // =====================================================
 
         if (
             requesterState.State.Value ==
@@ -128,6 +193,11 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // PHASE SYNC
+        // =====================================================
+
         if (NetworkPhaseSync.Instance == null)
         {
             SendActionResultToClient(
@@ -139,8 +209,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
         GamePhase currentPhase =
             NetworkPhaseSync.Instance.CurrentPhase.Value;
+
+
+        // =====================================================
+        // NORMAL ACTION = NIGHT ONLY
+        // =====================================================
 
         if (currentPhase != GamePhase.Night)
         {
@@ -155,10 +231,15 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // TARGET CLIENT
+        // =====================================================
+
         NetworkClient targetClient =
-            NetworkManager.Singleton.ConnectedClients[
-                targetPlayerId
-            ];
+            NetworkManager.Singleton
+                .ConnectedClients[targetPlayerId];
+
 
         if (targetClient.PlayerObject == null)
         {
@@ -171,8 +252,15 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // TARGET PLAYER
+        // =====================================================
+
         PlayerController target =
-            targetClient.PlayerObject.GetComponent<PlayerController>();
+            targetClient.PlayerObject
+                .GetComponent<PlayerController>();
+
 
         if (target == null)
         {
@@ -185,8 +273,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // TARGET STATE
+        // =====================================================
+
         NetworkPlayerStateSync targetState =
             target.GetComponent<NetworkPlayerStateSync>();
+
 
         if (targetState == null)
         {
@@ -198,6 +292,11 @@ public class NetworkPlayerAction : NetworkBehaviour
 
             return;
         }
+
+
+        // =====================================================
+        // TARGET DEAD
+        // =====================================================
 
         if (
             targetState.State.Value ==
@@ -216,6 +315,11 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
+        // =====================================================
+        // NORMAL ACTION ACCEPTED
+        // =====================================================
+
         Debug.Log(
             "SERVER: Network Action hợp lệ | Player "
             + requesterClientId
@@ -223,18 +327,236 @@ public class NetworkPlayerAction : NetworkBehaviour
             + targetPlayerId
         );
 
+
         NetworkActionEvent actionEvent =
             new NetworkActionEvent(
                 requesterClientId,
                 targetPlayerId
             );
 
-        OnNetworkActionAccepted?.Invoke(actionEvent);
+
+        OnNetworkActionAccepted?.Invoke(
+            actionEvent
+        );
     }
 
+
     // =========================================================
-    // SERVER → CLIENT
-    // Gửi kết quả Action cuối cùng về đúng Client
+    // HUNTER VALIDATION
+    // =========================================================
+
+    private bool IsHunterSpecialAction(
+        ulong requesterClientId,
+        NetworkPlayerStateSync requesterState)
+    {
+        if (!IsServer)
+            return false;
+
+
+        if (requesterState == null)
+            return false;
+
+
+        // Hunter phải đã chết
+        if (
+            requesterState.State.Value !=
+            NetworkPlayerStateType.Dead
+        )
+        {
+            return false;
+        }
+
+
+        // Phải đang Discussion
+        if (NetworkPhaseSync.Instance == null)
+            return false;
+
+
+        if (
+            NetworkPhaseSync.Instance.CurrentPhase.Value
+            != GamePhase.Discussion
+        )
+        {
+            return false;
+        }
+
+
+        // RoleManager Dev2
+        if (RoleManager.Instance == null)
+            return false;
+
+
+        if (RoleManager.Instance.playerRoles == null)
+            return false;
+
+
+        // Lấy role của Hunter
+        if (
+            !RoleManager.Instance.playerRoles.TryGetValue(
+                (int)requesterClientId,
+                out BaseRole role
+            )
+        )
+        {
+            return false;
+        }
+
+
+        if (role == null)
+            return false;
+
+
+        return role.roleType ==
+               RoleType.Hunter;
+    }
+
+
+    // =========================================================
+    // HUNTER ACTION
+    // =========================================================
+
+    private void HandleHunterAction(
+        ulong requesterClientId,
+        ulong targetPlayerId)
+    {
+        Debug.Log(
+            "HUNTER NETWORK | Hunter "
+            + requesterClientId
+            + " chọn Player "
+            + targetPlayerId
+        );
+
+
+        // =====================================================
+        // ROLE MANAGER
+        // =====================================================
+
+        if (RoleManager.Instance == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy RoleManager!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        if (RoleManager.Instance.playerRoles == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy Player Roles!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // GET ROLE
+        // =====================================================
+
+        if (
+            !RoleManager.Instance.playerRoles.TryGetValue(
+                (int)requesterClientId,
+                out BaseRole role
+            )
+        )
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy Role của Hunter!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        if (role == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Role Hunter không tồn tại!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // CHECK HUNTER
+        // =====================================================
+
+        if (role.roleType != RoleType.Hunter)
+        {
+            SendActionResultToClient(
+                false,
+                "Player này không phải Hunter!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // GET HUNTER ROLE
+        // =====================================================
+
+        HunterRole hunter =
+            role as HunterRole;
+
+
+        if (hunter == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không thể lấy HunterRole!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // CALL DEV2 LOGIC
+        // =====================================================
+
+        hunter.SetTrap(
+            (int)targetPlayerId
+        );
+
+
+        Debug.Log(
+            "HUNTER NETWORK | "
+            + "HunterRole.SetTrap("
+            + targetPlayerId
+            + ")"
+        );
+
+
+        // =====================================================
+        // RESULT
+        // =====================================================
+
+        SendActionResultToClient(
+            true,
+            "Hunter đã chọn Player "
+            + targetPlayerId
+            + "!",
+            requesterClientId
+        );
+    }
+
+
+    // =========================================================
+    // ACTION RESULT
     // =========================================================
 
     public void SendActionResultToClient(
@@ -251,13 +573,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
         if (NetworkManager.Singleton == null)
             return;
 
+
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                clientId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(clientId)
         )
         {
             Debug.LogWarning(
@@ -269,15 +592,21 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
         ClientRpcParams rpcParams =
             new ClientRpcParams
             {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds =
-                        new ulong[] { clientId }
-                }
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new ulong[]
+                            {
+                                clientId
+                            }
+                    }
             };
+
 
         SendActionResultClientRpc(
             success,
@@ -285,6 +614,7 @@ public class NetworkPlayerAction : NetworkBehaviour
             rpcParams
         );
     }
+
 
     [ClientRpc]
     private void SendActionResultClientRpc(
@@ -299,11 +629,13 @@ public class NetworkPlayerAction : NetworkBehaviour
             + message
         );
 
+
         OnNetworkActionResult?.Invoke(
             success,
             message
         );
     }
+
 
     // =========================================================
     // SEER RESULT
@@ -324,13 +656,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
         if (NetworkManager.Singleton == null)
             return;
 
+
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                clientId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(clientId)
         )
         {
             Debug.LogWarning(
@@ -340,15 +673,21 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+
         ClientRpcParams rpcParams =
             new ClientRpcParams
             {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds =
-                        new ulong[] { clientId }
-                }
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new ulong[]
+                            {
+                                clientId
+                            }
+                    }
             };
+
 
         SendSeerResultClientRpc(
             targetPlayerId,
@@ -357,6 +696,7 @@ public class NetworkPlayerAction : NetworkBehaviour
             rpcParams
         );
     }
+
 
     [ClientRpc]
     private void SendSeerResultClientRpc(
@@ -373,6 +713,7 @@ public class NetworkPlayerAction : NetworkBehaviour
             + " | Role = "
             + targetRole
         );
+
 
         OnSeerResultReceived?.Invoke(
             targetPlayerId,

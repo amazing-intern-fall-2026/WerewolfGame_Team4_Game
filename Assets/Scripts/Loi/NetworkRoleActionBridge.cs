@@ -1,10 +1,16 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 using Unity.Netcode;
 
+[DefaultExecutionOrder(-50)]
 public class NetworkRoleActionBridge : MonoBehaviour
 {
     private bool phaseInitialized;
     private GamePhase lastPhase;
+
+    // Đảm bảo Role Lobby chỉ được áp dụng một lần
+    private bool lobbyRolesApplied;
 
     private void OnEnable()
     {
@@ -25,6 +31,19 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         if (!NetworkManager.Singleton.IsServer)
             return;
+
+        // ==========================================
+        // APPLY ROLE TỪ LOBBY
+        // ==========================================
+
+        if (!lobbyRolesApplied)
+        {
+            TryApplyLobbyRoles();
+        }
+
+        // ==========================================
+        // PHASE
+        // ==========================================
 
         if (NetworkPhaseSync.Instance == null)
             return;
@@ -59,6 +78,288 @@ public class NetworkRoleActionBridge : MonoBehaviour
             ResetNightActions();
     }
 
+    // =====================================================
+    // APPLY ROLE SETUP TỪ LOBBY
+    // =====================================================
+
+    private void TryApplyLobbyRoles()
+    {
+        if (!NetworkGameRoleSetup.HasSetup())
+            return;
+
+        RoleManager roleManager =
+            RoleManager.Instance;
+
+        if (roleManager == null)
+            roleManager =
+                FindFirstObjectByType<RoleManager>();
+
+        if (roleManager == null)
+            return;
+
+        PlayerManager playerManager =
+            PlayerManager.Instance;
+
+        if (playerManager == null)
+            playerManager =
+                FindFirstObjectByType<PlayerManager>();
+
+        if (playerManager == null)
+            return;
+
+        if (
+            playerManager.players == null ||
+            playerManager.players.Count == 0
+        )
+        {
+            return;
+        }
+
+        // RoleManager phải AssignRole trước.
+        // Nếu chưa có role thì chờ frame tiếp theo.
+        if (
+            roleManager.playerRoles == null ||
+            roleManager.playerRoles.Count == 0
+        )
+        {
+            return;
+        }
+
+        List<RoleAmountData> roleSetup =
+            NetworkGameRoleSetup.GetRoles();
+
+        if (roleSetup == null || roleSetup.Count == 0)
+        {
+            Debug.LogWarning(
+                "ROLE ACTION BRIDGE | "
+                + "Không có Role Setup từ Lobby."
+            );
+
+            return;
+        }
+
+        int totalRoles = 0;
+
+        foreach (RoleAmountData data in roleSetup)
+        {
+            totalRoles += data.Amount;
+        }
+
+        int playerCount =
+            playerManager.players.Count;
+
+        if (totalRoles != playerCount)
+        {
+            Debug.LogError(
+                "ROLE ACTION BRIDGE | "
+                + "Role Count != Player Count."
+                + " Players = "
+                + playerCount
+                + " | Roles = "
+                + totalRoles
+            );
+
+            return;
+        }
+
+        // ==========================================
+        // BUILD ROLE POOL TỪ LOBBY
+        // ==========================================
+
+        List<RoleType> selectedRoles =
+            new List<RoleType>();
+
+        foreach (RoleAmountData data in roleSetup)
+        {
+            if (data.Amount <= 0)
+                continue;
+
+            for (int i = 0; i < data.Amount; i++)
+            {
+                selectedRoles.Add(
+                    data.Role
+                );
+            }
+        }
+
+        if (selectedRoles.Count != playerCount)
+        {
+            Debug.LogError(
+                "ROLE ACTION BRIDGE | "
+                + "Không thể tạo Role Pool."
+            );
+
+            return;
+        }
+
+        // ==========================================
+        // SORT PLAYER THEO ID
+        // ==========================================
+
+        List<PlayerData> players =
+            new List<PlayerData>(
+                playerManager.players
+            );
+
+        players.RemoveAll(
+            player => player == null
+        );
+
+        players.Sort(
+            (a, b) =>
+                a.playerID.CompareTo(
+                    b.playerID
+                )
+        );
+
+        if (players.Count != playerCount)
+        {
+            Debug.LogError(
+                "ROLE ACTION BRIDGE | "
+                + "Player list không hợp lệ."
+            );
+
+            return;
+        }
+
+        // ==========================================
+        // SHUFFLE ROLE
+        // ==========================================
+
+        ShuffleRoles(
+            selectedRoles
+        );
+
+        // ==========================================
+        // CLEAR ROLE CŨ
+        // ==========================================
+
+        roleManager.playerRoles.Clear();
+
+        // ==========================================
+        // APPLY ROLE MỚI
+        // ==========================================
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerData player =
+                players[i];
+
+            RoleType roleType =
+                selectedRoles[i];
+
+            BaseRole role =
+                RoleCatalog.Create(
+                    roleType,
+                    player
+                );
+
+            if (role == null)
+            {
+                Debug.LogError(
+                    "ROLE ACTION BRIDGE | "
+                    + "Không tạo được Role "
+                    + roleType
+                    + " cho Player "
+                    + player.playerID
+                );
+
+                continue;
+            }
+
+            player.roleType =
+                roleType;
+
+            player.faction =
+                role.faction;
+
+            player.votePower = 1;
+            player.hasUseNightAction = false;
+            player.hasVoted = false;
+            player.isAlive = true;
+
+            roleManager.playerRoles[
+                player.playerID
+            ] = role;
+
+            role.OnGameStart();
+
+            Debug.Log(
+                "ROLE ACTION BRIDGE | "
+                + "Lobby Role Applied | "
+                + "Player "
+                + player.playerID
+                + " → "
+                + roleType
+            );
+        }
+
+        lobbyRolesApplied = true;
+
+        // ==========================================
+        // DEBUG
+        // ==========================================
+
+        Debug.Log(
+            "========================================"
+        );
+
+        Debug.Log(
+            "ROLE ACTION BRIDGE | "
+            + "LOBBY ROLE SETUP APPLIED"
+        );
+
+        foreach (PlayerData player in players)
+        {
+            Debug.Log(
+                "Player "
+                + player.playerID
+                + " → "
+                + player.roleType
+            );
+        }
+
+        Debug.Log(
+            "========================================"
+        );
+    }
+
+    // =====================================================
+    // SHUFFLE ROLE
+    // =====================================================
+
+    private void ShuffleRoles(
+        List<RoleType> roles)
+    {
+        System.Random random =
+            new System.Random();
+
+        for (
+            int i = roles.Count - 1;
+            i > 0;
+            i--
+        )
+        {
+            int j =
+                random.Next(
+                    i + 1
+                );
+
+            RoleType temp =
+                roles[i];
+
+            roles[i] =
+                roles[j];
+
+            roles[j] =
+                temp;
+        }
+    }
+
+    // =====================================================
+    // RESET NIGHT
+    // =====================================================
+
     private void ResetNightActions()
     {
         PlayerManager playerManager =
@@ -71,7 +372,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
         if (playerManager == null)
         {
             Debug.LogWarning(
-                "ROLE ACTION BRIDGE: Không tìm thấy PlayerManager."
+                "ROLE ACTION BRIDGE: "
+                + "Không tìm thấy PlayerManager."
             );
 
             return;
@@ -92,11 +394,16 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
 
         Debug.Log(
-            "ROLE ACTION BRIDGE | RESET NIGHT ACTION | "
+            "ROLE ACTION BRIDGE | "
+            + "RESET NIGHT ACTION | "
             + resetCount
             + " PlayerData"
         );
     }
+
+    // =====================================================
+    // ACTION ACCEPTED
+    // =====================================================
 
     private void OnActionAccepted(
         NetworkActionEvent actionEvent)
@@ -141,6 +448,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
         )
         {
             roleManager.AssignRole();
+
+            // Sau AssignRole(), cố gắng áp dụng
+            // cấu hình Role từ Lobby.
+            TryApplyLobbyRoles();
         }
 
         if (
@@ -310,6 +621,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
     }
 
+    // =====================================================
+    // SEND ACTION RESULT
+    // =====================================================
+
     private void SendResult(
         ulong clientId,
         bool success,
@@ -359,6 +674,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
             clientId
         );
     }
+
+    // =====================================================
+    // SEER RESULT
+    // =====================================================
 
     private void SendSeerResult(
         int requesterID,

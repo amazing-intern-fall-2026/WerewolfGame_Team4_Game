@@ -192,16 +192,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkGameTimer
   ShowTopMostFoldoutHeaderGroup: 1
-  roleRevealTime: 5
   dayStartTime: 10
-  eventTime: 10
-  taskTime: 20
-  nightTime: 30
-  resolveNightTime: 5
-  discussionTime: 60
-  votingTime: 30
-  resolveVoteTime: 5
-  gameOverTime: 5
   TimeRemaining:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -4531,6 +4522,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1837424993}
   m_CullTransparentMesh: 1
+--- !u!1 &1864860199
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1864860200}
+  - component: {fileID: 1864860201}
+  m_Layer: 5
+  m_Name: NetworkHunterDeathUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1864860200
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1864860199}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 960, y: 540}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1864860201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1864860199}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 228307de29289b046be9ef711225036c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkHunterDeathUI
+  targetListUI: {fileID: 1995496460}
+  targetPanel: {fileID: 1995496456}
 --- !u!1 &1870609651
 GameObject:
   m_ObjectHideFlags: 0
@@ -5475,6 +5516,7 @@ SceneRoots:
   - {fileID: 190996789}
   - {fileID: 1459289550}
   - {fileID: 333127460}
+  - {fileID: 1864860200}
   - {fileID: 1509302179}
   - {fileID: 956101592}
   - {fileID: 787678605}
