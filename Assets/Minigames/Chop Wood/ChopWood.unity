@@ -979,6 +979,18 @@ PrefabInstance:
       propertyPath: m_text
       value: 'Score: 0'
       objectReference: {fileID: 0}
+    - target: {fileID: 4789576843938281278, guid: bda92ba57ddddfb46b1cb5151717da6f, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: cc3fc2f9a7565e5458e6c231364c2b7c, type: 2}
+    - target: {fileID: 4789576843938281278, guid: bda92ba57ddddfb46b1cb5151717da6f, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: -3154597880561978936, guid: cc3fc2f9a7565e5458e6c231364c2b7c, type: 2}
+    - target: {fileID: 4789576843938281278, guid: bda92ba57ddddfb46b1cb5151717da6f, type: 3}
+      propertyPath: m_hasFontAssetChanged
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6826096851546583051, guid: bda92ba57ddddfb46b1cb5151717da6f, type: 3}
       propertyPath: m_Name
       value: Score
