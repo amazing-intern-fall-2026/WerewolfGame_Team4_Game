@@ -128,6 +128,10 @@ public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
             PlayerMovement movement = character.GetComponent<PlayerMovement>();
             PrototypeControls controls = character.GetComponent<PrototypeControls>();
             movement.playerID = id;
+            PlayerNameTag.AttachOrCreate(
+                character.transform,
+                PlayerManager.Instance.GetplayerByID(id));
+
             movement.SetCanMove(false);
             controls.enabled = false;
             scenePlayers[id] = movement;
