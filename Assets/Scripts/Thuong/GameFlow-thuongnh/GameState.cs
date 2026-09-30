@@ -7,5 +7,6 @@ public enum GameState
     Discussion,
     Voting,
     VotingResult,
-    GameOver
+    GameOver,
+    RoleReveal
 }

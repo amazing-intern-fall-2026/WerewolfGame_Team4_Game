@@ -30,10 +30,11 @@ public class WinConditionManager : MonoBehaviour
         {
             if (player == null || !player.isAlive) continue;
 
-            if (player.faction == FactionType.Monster)
-                aliveMonsters++;
-            else if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
+            if ((player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) &&
+                player.isWhiteHoundAwakened)
                 aliveWhiteWolf++;
+            else if (player.faction == FactionType.Monster)
+                aliveMonsters++;
             else if (player.roleType == RoleType.Madman || player.roleType == RoleType.FoxSpirit || player.roleType == RoleType.Killer)
                 aliveThirdParty++;
             else

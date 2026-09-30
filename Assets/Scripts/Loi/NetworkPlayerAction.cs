@@ -4,67 +4,61 @@ using UnityEngine;
 
 public class NetworkPlayerAction : NetworkBehaviour
 {
-    // =============================================
-    // NETWORK ACTION EVENT
-    // Dev2 có thể subscribe để nhận Action
-    // =============================================
-
     public static event Action<NetworkActionEvent> OnNetworkActionAccepted;
 
+    public static event Action<bool, string> OnNetworkActionResult;
+
+    public static event Action<int, string, RoleType> OnSeerResultReceived;
 
     [ServerRpc(RequireOwnership = false)]
-    public void RequestActionServerRpc(ulong targetPlayerId)
+    public void RequestActionServerRpc(
+        ulong targetPlayerId,
+        ServerRpcParams rpcParams = default)
     {
+        ulong requesterClientId =
+            rpcParams.Receive.SenderClientId;
+
         Debug.Log(
-            "SERVER: Player " +
-            OwnerClientId +
-            " yêu cầu Action lên Player " +
-            targetPlayerId
+            "SERVER: Player "
+            + requesterClientId
+            + " yêu cầu Action → Player "
+            + targetPlayerId
         );
 
-        // =========================================
-        // 1. Kiểm tra Target tồn tại
-        // =========================================
+        if (NetworkManager.Singleton == null)
+            return;
 
-        if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(targetPlayerId))
+        if (
+            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
+                targetPlayerId
+            )
+        )
         {
-            Debug.LogWarning(
-                "SERVER: Target Player không tồn tại!"
-            );
-
-            SendActionResultClientRpc(
+            SendActionResultToClient(
                 false,
                 "Target Player không tồn tại!",
-                CreateTargetParams()
+                requesterClientId
             );
 
             return;
         }
 
-        // =========================================
-        // 2. Không được Action chính mình
-        // =========================================
-
-        if (OwnerClientId == targetPlayerId)
+        if (requesterClientId == targetPlayerId)
         {
-            Debug.LogWarning(
-                "SERVER: Không thể Action chính mình!"
-            );
-
-            SendActionResultClientRpc(
+            SendActionResultToClient(
                 false,
                 "Không thể Action chính mình!",
-                CreateTargetParams()
+                requesterClientId
             );
 
             return;
         }
 
-        // =========================================
-        // 3. Kiểm tra Player thực hiện Action
-        // =========================================
-
-        if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(OwnerClientId))
+        if (
+            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
+                requesterClientId
+            )
+        )
         {
             Debug.LogWarning(
                 "SERVER: Player gửi request không tồn tại!"
@@ -74,12 +68,16 @@ public class NetworkPlayerAction : NetworkBehaviour
         }
 
         NetworkClient requesterClient =
-            NetworkManager.Singleton.ConnectedClients[OwnerClientId];
+            NetworkManager.Singleton.ConnectedClients[
+                requesterClientId
+            ];
 
         if (requesterClient.PlayerObject == null)
         {
-            Debug.LogWarning(
-                "SERVER: Player Object không tồn tại!"
+            SendActionResultToClient(
+                false,
+                "Player Object không tồn tại!",
+                requesterClientId
             );
 
             return;
@@ -90,59 +88,52 @@ public class NetworkPlayerAction : NetworkBehaviour
 
         if (requester == null)
         {
-            Debug.LogWarning(
-                "SERVER: Không tìm thấy PlayerController!"
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy PlayerController!",
+                requesterClientId
             );
 
             return;
         }
-
-        // =========================================
-        // 4. Lấy State của Player thực hiện Action
-        // =========================================
 
         NetworkPlayerStateSync requesterState =
             requester.GetComponent<NetworkPlayerStateSync>();
 
         if (requesterState == null)
         {
-            Debug.LogWarning(
-                "SERVER: Không tìm thấy NetworkPlayerStateSync của Player!"
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy PlayerState!",
+                requesterClientId
             );
 
             return;
         }
 
-        // =========================================
-        // 5. Player chết / Spectating không được Action
-        // =========================================
-
-        if (requesterState.State.Value == NetworkPlayerStateType.Dead ||
-            requesterState.State.Value == NetworkPlayerStateType.Spectating)
+        if (
+            requesterState.State.Value ==
+                NetworkPlayerStateType.Dead
+            ||
+            requesterState.State.Value ==
+                NetworkPlayerStateType.Spectating
+        )
         {
-            Debug.LogWarning(
-                "SERVER: Player " +
-                OwnerClientId +
-                " không được phép Action vì đã chết!"
-            );
-
-            SendActionResultClientRpc(
+            SendActionResultToClient(
                 false,
                 "Player đã chết, không thể Action!",
-                CreateTargetParams()
+                requesterClientId
             );
 
             return;
         }
-
-        // =========================================
-        // 6. KIỂM TRA GAME PHASE
-        // =========================================
 
         if (NetworkPhaseSync.Instance == null)
         {
-            Debug.LogWarning(
-                "SERVER: Không tìm thấy NetworkPhaseSync!"
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy NetworkPhaseSync!",
+                requesterClientId
             );
 
             return;
@@ -153,44 +144,28 @@ public class NetworkPlayerAction : NetworkBehaviour
 
         if (currentPhase != GamePhase.Night)
         {
-            Debug.LogWarning(
-                "SERVER: Không thể Action ở Phase " +
-                currentPhase
-            );
-
-            SendActionResultClientRpc(
+            SendActionResultToClient(
                 false,
-                "Không thể Action ở Phase " +
-                currentPhase +
-                "!",
-                CreateTargetParams()
+                "Không thể Action ở Phase "
+                + currentPhase
+                + "!",
+                requesterClientId
             );
 
             return;
         }
 
-        Debug.Log(
-            "SERVER: Action được phép ở Phase " +
-            currentPhase
-        );
-
-        // =========================================
-        // 7. Lấy Target Player
-        // =========================================
-
         NetworkClient targetClient =
-            NetworkManager.Singleton.ConnectedClients[targetPlayerId];
+            NetworkManager.Singleton.ConnectedClients[
+                targetPlayerId
+            ];
 
         if (targetClient.PlayerObject == null)
         {
-            Debug.LogWarning(
-                "SERVER: Target Player Object không tồn tại!"
-            );
-
-            SendActionResultClientRpc(
+            SendActionResultToClient(
                 false,
                 "Target Player Object không tồn tại!",
-                CreateTargetParams()
+                requesterClientId
             );
 
             return;
@@ -201,116 +176,115 @@ public class NetworkPlayerAction : NetworkBehaviour
 
         if (target == null)
         {
-            Debug.LogWarning(
-                "SERVER: Không tìm thấy Target PlayerController!"
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy Target PlayerController!",
+                requesterClientId
             );
 
             return;
         }
-
-        // =========================================
-        // 8. Lấy State của Target
-        // =========================================
 
         NetworkPlayerStateSync targetState =
             target.GetComponent<NetworkPlayerStateSync>();
 
         if (targetState == null)
         {
-            Debug.LogWarning(
-                "SERVER: Không tìm thấy NetworkPlayerStateSync của Target!"
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy Target PlayerState!",
+                requesterClientId
             );
 
             return;
         }
 
-        // =========================================
-        // 9. Target chết / Spectating
-        // =========================================
-
-        if (targetState.State.Value == NetworkPlayerStateType.Dead ||
-            targetState.State.Value == NetworkPlayerStateType.Spectating)
+        if (
+            targetState.State.Value ==
+                NetworkPlayerStateType.Dead
+            ||
+            targetState.State.Value ==
+                NetworkPlayerStateType.Spectating
+        )
         {
-            Debug.LogWarning(
-                "SERVER: Target Player " +
-                targetPlayerId +
-                " đã chết!"
-            );
-
-            SendActionResultClientRpc(
+            SendActionResultToClient(
                 false,
                 "Target đã chết!",
-                CreateTargetParams()
+                requesterClientId
             );
 
             return;
         }
 
-        // =========================================
-        // 10. ACTION HỢP LỆ
-        // =========================================
-
         Debug.Log(
-            "SERVER: Action hợp lệ | Player " +
-            OwnerClientId +
-            " → Player " +
-            targetPlayerId
+            "SERVER: Network Action hợp lệ | Player "
+            + requesterClientId
+            + " → Player "
+            + targetPlayerId
         );
-
-        SendActionResultClientRpc(
-            true,
-            "Action hợp lệ!",
-            CreateTargetParams()
-        );
-
-        // =========================================
-        // 11. TẠO NETWORK ACTION EVENT
-        // =========================================
 
         NetworkActionEvent actionEvent =
             new NetworkActionEvent(
-                OwnerClientId,
+                requesterClientId,
                 targetPlayerId
             );
-
-        Debug.Log(
-            "NETWORK ACTION EVENT | Player " +
-            actionEvent.RequesterPlayerId +
-            " → Player " +
-            actionEvent.TargetPlayerId
-        );
-
-        // =========================================
-        // 12. GỬI EVENT CHO HỆ THỐNG
-        // =========================================
 
         OnNetworkActionAccepted?.Invoke(actionEvent);
     }
 
+    // =========================================================
+    // SERVER → CLIENT
+    // Gửi kết quả Action cuối cùng về đúng Client
+    // =========================================================
 
-    // =============================================
-    // Tạo ClientRpcParams
-    // Gửi kết quả về đúng Client
-    // =============================================
-
-    private ClientRpcParams CreateTargetParams()
+    public void SendActionResultToClient(
+        bool success,
+        string message,
+        ulong clientId)
     {
-        return new ClientRpcParams
+        if (!IsServer)
         {
-            Send = new ClientRpcSendParams
+            Debug.LogWarning(
+                "ACTION RESULT: Chỉ Server mới được gửi kết quả!"
+            );
+
+            return;
+        }
+
+        if (NetworkManager.Singleton == null)
+            return;
+
+        if (
+            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
+                clientId
+            )
+        )
+        {
+            Debug.LogWarning(
+                "ACTION RESULT: Client "
+                + clientId
+                + " không tồn tại!"
+            );
+
+            return;
+        }
+
+        ClientRpcParams rpcParams =
+            new ClientRpcParams
             {
-                TargetClientIds = new ulong[]
+                Send = new ClientRpcSendParams
                 {
-                    OwnerClientId
+                    TargetClientIds =
+                        new ulong[] { clientId }
                 }
-            }
-        };
+            };
+
+        SendActionResultClientRpc(
+            success,
+            message,
+            rpcParams
+        );
     }
-
-
-    // =============================================
-    // Server → Client
-    // =============================================
 
     [ClientRpc]
     private void SendActionResultClientRpc(
@@ -319,10 +293,91 @@ public class NetworkPlayerAction : NetworkBehaviour
         ClientRpcParams rpcParams = default)
     {
         Debug.Log(
-            "ACTION RESULT | Success = " +
-            success +
-            " | " +
+            "ACTION RESULT | Success = "
+            + success
+            + " | "
+            + message
+        );
+
+        OnNetworkActionResult?.Invoke(
+            success,
             message
+        );
+    }
+
+    // =========================================================
+    // SEER RESULT
+    // =========================================================
+
+    public void SendSeerResultToClient(
+        int targetPlayerId,
+        string targetPlayerName,
+        RoleType targetRole,
+        ulong clientId)
+    {
+        if (!IsServer)
+        {
+            Debug.LogWarning(
+                "SEER RESULT: Chỉ Server mới được gửi kết quả!"
+            );
+
+            return;
+        }
+
+        if (NetworkManager.Singleton == null)
+            return;
+
+        if (
+            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
+                clientId
+            )
+        )
+        {
+            Debug.LogWarning(
+                "SEER RESULT: Client không tồn tại!"
+            );
+
+            return;
+        }
+
+        ClientRpcParams rpcParams =
+            new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds =
+                        new ulong[] { clientId }
+                }
+            };
+
+        SendSeerResultClientRpc(
+            targetPlayerId,
+            targetPlayerName,
+            targetRole,
+            rpcParams
+        );
+    }
+
+    [ClientRpc]
+    private void SendSeerResultClientRpc(
+        int targetPlayerId,
+        string targetPlayerName,
+        RoleType targetRole,
+        ClientRpcParams rpcParams = default)
+    {
+        Debug.Log(
+            "SEER RESULT | Player "
+            + targetPlayerId
+            + " | "
+            + targetPlayerName
+            + " | Role = "
+            + targetRole
+        );
+
+        OnSeerResultReceived?.Invoke(
+            targetPlayerId,
+            targetPlayerName,
+            targetRole
         );
     }
 }

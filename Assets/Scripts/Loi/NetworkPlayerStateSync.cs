@@ -70,14 +70,17 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             SetState(NetworkPlayerStateType.Alive);
     }
 
-    public static void SyncGameplayAliveState(int playerID, bool isAlive)
+    public static void SyncGameplayAliveState(
+        int playerID,
+        bool isAlive)
     {
         if (NetworkManager.Singleton == null ||
             !NetworkManager.Singleton.IsServer)
             return;
 
         if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(
-                (ulong)playerID, out NetworkClient client) ||
+                (ulong)playerID,
+                out NetworkClient client) ||
             client.PlayerObject == null)
             return;
 
@@ -88,7 +91,9 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             return;
 
         if (isAlive)
-            stateSync.SetState(NetworkPlayerStateType.Alive);
+            stateSync.SetState(
+                NetworkPlayerStateType.Alive
+            );
         else
             stateSync.KillPlayer();
     }
@@ -138,7 +143,8 @@ public class NetworkPlayerStateSync : NetworkBehaviour
         if (State.Value != NetworkPlayerStateType.Dead)
             return;
 
-        State.Value = NetworkPlayerStateType.Spectating;
+        State.Value =
+            NetworkPlayerStateType.Spectating;
 
         Debug.Log(
             "SERVER: Player "
