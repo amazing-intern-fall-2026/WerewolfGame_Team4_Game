@@ -11,23 +11,37 @@ public class LobbyManager : NetworkBehaviour
 
     private NetworkList<ulong> playerIds;
 
+    private NetworkRoleLobbyConfig roleLobbyConfig;
+
+
     private void Awake()
     {
         playerIds = new NetworkList<ulong>();
     }
 
+
     public override void OnNetworkSpawn()
     {
         playerIds.OnListChanged += OnPlayerListChanged;
 
+        FindRoleLobbyConfig();
+
         if (IsServer)
         {
-            NetworkManager.OnClientConnectedCallback += OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            NetworkManager.OnClientConnectedCallback +=
+                OnClientConnected;
 
-            AddPlayer(NetworkManager.LocalClientId);
+            NetworkManager.OnClientDisconnectCallback +=
+                OnClientDisconnected;
 
-            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
+            AddPlayer(
+                NetworkManager.LocalClientId
+            );
+
+            foreach (
+                ulong clientId
+                in NetworkManager.ConnectedClientsIds
+            )
             {
                 AddPlayer(clientId);
             }
@@ -35,60 +49,109 @@ public class LobbyManager : NetworkBehaviour
 
         UpdatePlayerList();
         UpdateStartButton();
+
+        Debug.Log(
+            "LOBBY MANAGER | NetworkRoleLobbyConfig = "
+            + (
+                roleLobbyConfig != null
+                    ? "FOUND"
+                    : "NULL"
+            )
+        );
     }
+
 
     public override void OnNetworkDespawn()
     {
-        playerIds.OnListChanged -= OnPlayerListChanged;
+        playerIds.OnListChanged -=
+            OnPlayerListChanged;
 
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            NetworkManager.OnClientConnectedCallback -=
+                OnClientConnected;
+
+            NetworkManager.OnClientDisconnectCallback -=
+                OnClientDisconnected;
         }
     }
+
+
+    // ==========================================
+    // FIND ROLE CONFIG
+    // ==========================================
+
+    private void FindRoleLobbyConfig()
+    {
+        roleLobbyConfig =
+            FindFirstObjectByType<NetworkRoleLobbyConfig>();
+
+        if (roleLobbyConfig == null)
+        {
+            Debug.LogWarning(
+                "LOBBY MANAGER | Không tìm thấy NetworkRoleLobbyConfig!"
+            );
+
+            return;
+        }
+
+        Debug.Log(
+            "LOBBY MANAGER | Đã tìm thấy NetworkRoleLobbyConfig."
+        );
+
+        Debug.Log(
+            "LOBBY MANAGER | Total Roles = "
+            + roleLobbyConfig.GetTotalRoleAmount()
+        );
+    }
+
 
     // ==========================================
     // PLAYER CONNECTED
     // ==========================================
 
-    private void OnClientConnected(ulong clientId)
+    private void OnClientConnected(
+        ulong clientId)
     {
         if (!IsServer)
             return;
 
         Debug.Log(
-            "Lobby: Player " +
-            clientId +
-            " đã vào Lobby"
+            "Lobby: Player "
+            + clientId
+            + " đã vào Lobby"
         );
 
         AddPlayer(clientId);
     }
 
+
     // ==========================================
     // PLAYER DISCONNECTED
     // ==========================================
 
-    private void OnClientDisconnected(ulong clientId)
+    private void OnClientDisconnected(
+        ulong clientId)
     {
         if (!IsServer)
             return;
 
         Debug.Log(
-            "Lobby: Player " +
-            clientId +
-            " đã rời Lobby"
+            "Lobby: Player "
+            + clientId
+            + " đã rời Lobby"
         );
 
         RemovePlayer(clientId);
     }
 
+
     // ==========================================
     // ADD PLAYER
     // ==========================================
 
-    private void AddPlayer(ulong clientId)
+    private void AddPlayer(
+        ulong clientId)
     {
         if (playerIds.Contains(clientId))
             return;
@@ -96,17 +159,19 @@ public class LobbyManager : NetworkBehaviour
         playerIds.Add(clientId);
 
         Debug.Log(
-            "Đã thêm Player " +
-            clientId +
-            " vào Lobby."
+            "Đã thêm Player "
+            + clientId
+            + " vào Lobby."
         );
     }
+
 
     // ==========================================
     // REMOVE PLAYER
     // ==========================================
 
-    private void RemovePlayer(ulong clientId)
+    private void RemovePlayer(
+        ulong clientId)
     {
         if (!playerIds.Contains(clientId))
             return;
@@ -114,11 +179,12 @@ public class LobbyManager : NetworkBehaviour
         playerIds.Remove(clientId);
 
         Debug.Log(
-            "Đã xóa Player " +
-            clientId +
-            " khỏi Lobby."
+            "Đã xóa Player "
+            + clientId
+            + " khỏi Lobby."
         );
     }
+
 
     // ==========================================
     // PLAYER LIST CHANGED
@@ -131,6 +197,7 @@ public class LobbyManager : NetworkBehaviour
         UpdateStartButton();
     }
 
+
     // ==========================================
     // UPDATE PLAYER LIST UI
     // ==========================================
@@ -140,20 +207,32 @@ public class LobbyManager : NetworkBehaviour
         if (playerListText == null)
             return;
 
-        string text = "PLAYERS\n\n";
+        string text =
+            "PLAYERS\n\n";
 
-        for (int i = 0; i < playerIds.Count; i++)
+        for (
+            int i = 0;
+            i < playerIds.Count;
+            i++
+        )
         {
-            text += "Player " + (i + 1);
+            text +=
+                "Player "
+                + (i + 1);
 
-            if (i < playerIds.Count - 1)
+            if (
+                i <
+                playerIds.Count - 1
+            )
             {
                 text += "\n";
             }
         }
 
-        playerListText.text = text;
+        playerListText.text =
+            text;
     }
+
 
     // ==========================================
     // UPDATE START BUTTON
@@ -165,8 +244,11 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         // Chỉ Host được thấy nút Start
-        startGameButton.SetActive(IsServer);
+        startGameButton.SetActive(
+            IsServer
+        );
     }
+
 
     // ==========================================
     // START GAME
@@ -174,7 +256,7 @@ public class LobbyManager : NetworkBehaviour
 
     public void StartGame()
     {
-        // Chỉ Server/Host được phép Start
+        // Chỉ Server / Host
         if (!IsServer)
         {
             Debug.LogWarning(
@@ -184,7 +266,83 @@ public class LobbyManager : NetworkBehaviour
             return;
         }
 
-        Debug.Log("HOST START GAME!");
+
+        // Kiểm tra Role Config
+        if (roleLobbyConfig == null)
+        {
+            FindRoleLobbyConfig();
+        }
+
+
+        if (roleLobbyConfig == null)
+        {
+            Debug.LogError(
+                "Không thể Start Game: "
+                + "NetworkRoleLobbyConfig không tồn tại!"
+            );
+
+            return;
+        }
+
+
+        // ======================================
+        // CHECK PLAYER / ROLE
+        // ======================================
+
+        int playerCount =
+            playerIds.Count;
+
+        int roleCount =
+            roleLobbyConfig.GetTotalRoleAmount();
+
+
+        Debug.Log(
+            "LOBBY START CHECK | "
+            + "Players = "
+            + playerCount
+            + " | Roles = "
+            + roleCount
+        );
+
+
+        if (playerCount != roleCount)
+        {
+            Debug.LogWarning(
+                "Không thể Start Game! "
+                + "Số Role ("
+                + roleCount
+                + ") phải bằng số Player ("
+                + playerCount
+                + ")."
+            );
+
+            return;
+        }
+
+        // ======================================
+        // SAVE ROLE SETUP
+        // ======================================
+
+        NetworkGameRoleSetup.Save(
+            roleLobbyConfig.GetRoleAmounts()
+        );
+
+        Debug.Log(
+            "LOBBY START GAME | "
+            + "Đã lưu Role Setup. "
+            + "Total Roles = "
+            + NetworkGameRoleSetup.GetTotalRoleAmount()
+        );
+
+
+        // ======================================
+        // START
+        // ======================================
+
+        Debug.Log(
+            "HOST START GAME!"
+        );
+
 
         NetworkManager.SceneManager.LoadScene(
             "Game",
