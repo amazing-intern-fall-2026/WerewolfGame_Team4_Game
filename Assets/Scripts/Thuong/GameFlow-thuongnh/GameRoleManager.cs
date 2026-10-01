@@ -155,10 +155,20 @@ public class GameRoleManager : MonoBehaviour
         if (currentState != GameState.Voting) return;
         SetPhase(GamePhase.ResolveVote);
         VoteManager.Instance.ResolveVote();
+        ResolveHunterTraps();
         WinConditionManager.Instance.CheckWinCondition(true);
         if (currentState == GameState.GameOver) return;
         currentDay++;
         StartDay();
+    }
+    private void ResolveHunterTraps()
+    {
+        if (RoleManager.Instance == null)
+            return;
+
+        foreach (BaseRole role in RoleManager.Instance.playerRoles.Values)
+            if (role is HunterRole hunter)
+                hunter.ResolveTrap();
     }
     public void VillagerWin() { EndGame("Villagers"); }
     public void WerewolfWin() { EndGame("Werewolves"); }
@@ -170,6 +180,9 @@ public class GameRoleManager : MonoBehaviour
     private void EndGame(string winner)
     {
         if (currentState == GameState.GameOver) return;
+        if (winner != "Fox Spirit" && WinConditionManager.Instance != null &&
+            WinConditionManager.Instance.FoxSpiritHasWon())
+            winner = "Fox Spirit";
         Winner = winner;
         SetPhase(GamePhase.GameOver);
         PhaseTimeRemaining = 0;

@@ -105,6 +105,18 @@ public class WinConditionManager : MonoBehaviour
 
         return false;
     }
+
+    public bool FoxSpiritHasWon()
+    {
+        if (RoleManager.Instance == null)
+            return false;
+
+        foreach (BaseRole role in RoleManager.Instance.playerRoles.Values)
+            if (role is FoxSpiritRole foxSpirit && foxSpirit.HasWon)
+                return true;
+
+        return false;
+    }
 }
 
 

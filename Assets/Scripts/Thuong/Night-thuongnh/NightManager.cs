@@ -5,6 +5,7 @@ public class NightManager : MonoBehaviour
     public static NightManager Instance;
 
     private int monsterTarget = -1;
+    private RoleType monsterSourceRole = RoleType.DogSpirit;
     private int protectedTarget = -1;
     private int killerTarget = -1;
     private int evilNightCount = 0;
@@ -18,6 +19,7 @@ public class NightManager : MonoBehaviour
     public void StartNight()
     {
         monsterTarget = -1;
+        monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
         evilNightCount++;
@@ -36,7 +38,13 @@ public class NightManager : MonoBehaviour
 
     public void SetMonsterTarget(int id)
     {
+        SetMonsterTarget(id, RoleType.DogSpirit);
+    }
+
+    public void SetMonsterTarget(int id, RoleType sourceRole)
+    {
         monsterTarget = id;
+        monsterSourceRole = sourceRole;
     }
 
     public void SetProtectedTarget(int id)
@@ -64,7 +72,8 @@ public class NightManager : MonoBehaviour
             PlayerData target = PlayerManager.Instance.GetplayerByID(monsterTarget);
             if (target != null && target.isAlive && (protectedPlayer == null || target.playerID != protectedPlayer.playerID))
             {
-                DeathResolver.Instance.TryKillPlayer(monsterTarget, DeathCause.Monster);
+                DeathResolver.Instance.TryKillPlayer(
+                    monsterTarget, DeathCause.Monster, monsterSourceRole);
             }
         }
 
@@ -82,6 +91,7 @@ public class NightManager : MonoBehaviour
             if (player != null) player.status.isProtected = false;
 
         monsterTarget = -1;
+        monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
     }

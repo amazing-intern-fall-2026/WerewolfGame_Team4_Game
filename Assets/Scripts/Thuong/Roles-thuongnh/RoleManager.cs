@@ -126,7 +126,8 @@ public class RoleManager : MonoBehaviour
 
         if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
-        role.owner.hasUseNightAction = true;
+        role.owner.hasUseNightAction = role is not FoxSpiritRole foxSpirit ||
+                                       foxSpirit.HasUsedAllNightActions;
         return true;
     }
 
