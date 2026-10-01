@@ -13,14 +13,16 @@ public class ShamanRole : BaseRole
 
     public void UseGoodCharm(int targetID)
     {
-        if (!hasGoodCharm)
+        if (!hasGoodCharm || owner == null || !owner.isAlive)
             return;
 
-        PlayerData target = PlayerManager.Instance.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
 
         if (target == null || !target.isAlive)
             return;
 
+        target.status ??= new PlayerStatus();
+        target.status.isProtected = true;
         hasGoodCharm = false;
 
         Debug.Log("Shaman dùng bùa lợi lên " + target.playerName);
@@ -28,14 +30,16 @@ public class ShamanRole : BaseRole
 
     public void UseBadCharm(int targetID)
     {
-        if (!hasBadCharm)
+        if (!hasBadCharm || owner == null || !owner.isAlive)
             return;
 
-        PlayerData target = PlayerManager.Instance.GetplayerByID(targetID);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
 
         if (target == null || !target.isAlive)
             return;
 
+        target.status ??= new PlayerStatus();
+        target.status.isSilenced = true;
         hasBadCharm = false;
 
         Debug.Log("Shaman dùng bùa hại lên " + target.playerName);

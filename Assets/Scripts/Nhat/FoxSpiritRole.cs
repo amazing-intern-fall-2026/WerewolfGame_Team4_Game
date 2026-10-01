@@ -20,6 +20,8 @@ public class FoxSpiritRole : BaseRole
         if (target == null || !target.isAlive)
             return;
 
+        target.status ??= new PlayerStatus();
+        target.status.isCharmed = true;
         charmedPlayers.Add(targetID);
         Debug.Log(owner.playerName + " đã mê hoặc " + target.playerName + ".");
     }

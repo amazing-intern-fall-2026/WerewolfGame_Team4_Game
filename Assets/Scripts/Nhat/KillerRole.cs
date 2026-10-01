@@ -15,12 +15,11 @@ public class KillerRole : BaseRole
         if (owner == null || !owner.isAlive)
             return;
 
-        if (nightCounter % 2 == 0)
-        {
-            NightManager.Instance.SetKillerTarget(targetID);
-            Debug.Log(owner.playerName + " đã chọn giết " + targetID + ".");
-        }
+        NightManager night = NightManager.Instance;
+        if (night == null || night.CurrentNightNumber % 2 != 0)
+            return;
 
-        nightCounter++;
+        night.SetKillerTarget(targetID);
+        Debug.Log(owner.playerName + " đã chọn giết " + targetID + ".");
     }
 }
