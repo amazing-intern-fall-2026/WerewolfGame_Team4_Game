@@ -14,26 +14,41 @@ public class NetworkTargetListUI : MonoBehaviour
     [SerializeField]
     private Transform cardContainer;
 
+    private void OnEnable()
+    {
+        NetworkPlayerNameSync.OnAnyPlayerNameChanged +=
+            OnPlayerNameChanged;
+    }
+
+    private void OnDisable()
+    {
+        NetworkPlayerNameSync.OnAnyPlayerNameChanged -=
+            OnPlayerNameChanged;
+    }
+
+    private void OnPlayerNameChanged()
+    {
+        if (targetPanel == null)
+            return;
+
+        if (!targetPanel.activeSelf)
+            return;
+
+        Debug.Log(
+            "TARGET LIST: Player Name đã sync → cập nhật Card."
+        );
+
+        ShowTargetList();
+    }
+
     public void ShowTargetList()
     {
-        // =========================================
-        // 1. Hiện Target Panel
-        // =========================================
-
         if (targetPanel != null)
         {
             targetPanel.SetActive(true);
         }
 
-        // =========================================
-        // 2. Xóa Card cũ
-        // =========================================
-
         ClearCards();
-
-        // =========================================
-        // 3. Kiểm tra NetworkManager
-        // =========================================
 
         NetworkManager networkManager =
             NetworkManager.Singleton;
@@ -46,10 +61,6 @@ public class NetworkTargetListUI : MonoBehaviour
 
             return;
         }
-
-        // =========================================
-        // 4. Tìm Player local
-        // =========================================
 
         int localPlayerID = -1;
 
@@ -74,10 +85,6 @@ public class NetworkTargetListUI : MonoBehaviour
             + localPlayerID
         );
 
-        // =========================================
-        // 5. Kiểm tra Player
-        // =========================================
-
         if (players == null ||
             players.Length == 0)
         {
@@ -94,10 +101,6 @@ public class NetworkTargetListUI : MonoBehaviour
             + " Player Network."
         );
 
-        // =========================================
-        // 6. Tạo Card từ Player Network thật
-        // =========================================
-
         foreach (PlayerController player in players)
         {
             if (player == null)
@@ -106,18 +109,9 @@ public class NetworkTargetListUI : MonoBehaviour
             int playerID =
                 (int)player.OwnerClientId;
 
-            // =====================================
-            // Không cho chọn chính mình
-            // =====================================
-
+            // Không chọn chính mình
             if (playerID == localPlayerID)
-            {
                 continue;
-            }
-
-            // =====================================
-            // Kiểm tra PlayerCard
-            // =====================================
 
             if (playerCardPrefab == null)
             {
@@ -139,19 +133,11 @@ public class NetworkTargetListUI : MonoBehaviour
                 return;
             }
 
-            // =====================================
-            // Tạo Card
-            // =====================================
-
             GameObject card =
                 Instantiate(
                     playerCardPrefab,
                     cardContainer
                 );
-
-            // =====================================
-            // Lấy NetworkTargetCardUI
-            // =====================================
 
             NetworkTargetCardUI cardUI =
                 card.GetComponent<NetworkTargetCardUI>();
@@ -169,10 +155,6 @@ public class NetworkTargetListUI : MonoBehaviour
                 continue;
             }
 
-            // =====================================
-            // Lấy trạng thái Player
-            // =====================================
-
             bool isAlive = true;
 
             NetworkPlayerStateSync stateSync =
@@ -185,16 +167,33 @@ public class NetworkTargetListUI : MonoBehaviour
                     NetworkPlayerStateType.Alive;
             }
 
-            // =====================================
-            // Tên Player
-            // =====================================
+            NetworkPlayerNameSync nameSync =
+                player.GetComponent<NetworkPlayerNameSync>();
+            Debug.Log(
+            "TARGET NAME DEBUG | Player = "
+            + (playerID + 1)
+            + " | nameSync = "
+            + (nameSync != null ? "FOUND" : "NULL")
+            + " | Name = "
+            + (nameSync != null ? nameSync.GetPlayerName() : "N/A")
+            );
 
             string playerName =
-                "Player " + playerID;
+                "Player " + (playerID + 1);
 
-            // =====================================
-            // Setup Card
-            // =====================================
+            if (nameSync != null)
+            {
+                playerName =
+                    nameSync.GetPlayerName();
+            }
+
+            Debug.Log(
+                "TARGET NAME TEST"
+                + " | Player = "
+                + (playerID + 1)
+                + " | Name = "
+                + playerName
+            );
 
             cardUI.Setup(
                 playerID,
@@ -213,10 +212,6 @@ public class NetworkTargetListUI : MonoBehaviour
             );
         }
     }
-
-    // =============================================
-    // Xóa toàn bộ Card cũ
-    // =============================================
 
     private void ClearCards()
     {

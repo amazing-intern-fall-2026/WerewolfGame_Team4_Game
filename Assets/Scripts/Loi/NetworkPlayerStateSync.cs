@@ -24,7 +24,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "NETWORK PLAYER STATE | Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " | State = "
             + State.Value
         );
@@ -41,7 +41,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
     {
         Debug.Log(
             "NETWORK PLAYER STATE | Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " : "
             + oldState
             + " → "
@@ -111,7 +111,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " đã chết."
         );
     }
@@ -129,7 +129,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " đã hồi sinh."
         );
     }
@@ -148,7 +148,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " → Spectating."
         );
     }
