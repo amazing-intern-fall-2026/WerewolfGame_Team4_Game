@@ -9,6 +9,7 @@ public class GameRoleManager : MonoBehaviour
     [Min(0.1f)] public float nightDuration = 15f;
     [Min(0.1f)] public float discussionDuration = 30f;
     [Min(0.1f)] public float votingDuration = 20f;
+    [Min(0.1f)] public float roleRevealDuration = 25f;
     public string Winner { get; private set; }
     public float PhaseTimeRemaining { get; private set; }
     private bool started;
@@ -65,14 +66,27 @@ public class GameRoleManager : MonoBehaviour
                 "[Event Debug] Ván tiếp tục nhưng chưa có lịch event.");
         }
 
-        StartDay();
+        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.Count > 0)
+        {
+            SetPhase(GamePhase.RoleReveal);
+            PhaseTimeRemaining = roleRevealDuration;
+        }
+        else
+        {
+            Debug.LogWarning("GameRoleManager: no assigned roles to reveal; starting day.");
+            StartDay();
+        }
     }
     private void Update()
     {
         if (!started || currentState == GameState.GameOver || currentState == GameState.Day) return;
         PhaseTimeRemaining = Mathf.Max(0, PhaseTimeRemaining - Time.deltaTime);
         if (PhaseTimeRemaining > 0) return;
-        if (currentState == GameState.Night)
+        if (currentState == GameState.RoleReveal)
+        {
+            StartDay();
+        }
+        else if (currentState == GameState.Night)
         {
             NightManager.Instance.ResolveNight();
             WinConditionManager.Instance.CheckWinCondition();
@@ -89,6 +103,7 @@ public class GameRoleManager : MonoBehaviour
         currentPhase = phase;
         switch (phase)
         {
+            case GamePhase.RoleReveal: currentState = GameState.RoleReveal; break;
             case GamePhase.DayStart: case GamePhase.Task: currentState = GameState.Day; break;
             case GamePhase.Night: case GamePhase.ResolveNight: currentState = GameState.Night; break;
             case GamePhase.Discussion: currentState = GameState.Discussion; break;
@@ -112,6 +127,12 @@ public class GameRoleManager : MonoBehaviour
         if (EventManager.Instance != null)
             EventManager.Instance.NotifyDayStarted(currentDay);
     }
+    public void SkipRoleReveal()
+    {
+        if (!started || currentState != GameState.RoleReveal) return;
+        PhaseTimeRemaining = 0;
+        StartDay();
+    }
     public void EndDay()
     {
         if (!started || currentState != GameState.Day) return;
@@ -134,10 +155,20 @@ public class GameRoleManager : MonoBehaviour
         if (currentState != GameState.Voting) return;
         SetPhase(GamePhase.ResolveVote);
         VoteManager.Instance.ResolveVote();
+        ResolveHunterTraps();
         WinConditionManager.Instance.CheckWinCondition(true);
         if (currentState == GameState.GameOver) return;
         currentDay++;
         StartDay();
+    }
+    private void ResolveHunterTraps()
+    {
+        if (RoleManager.Instance == null)
+            return;
+
+        foreach (BaseRole role in RoleManager.Instance.playerRoles.Values)
+            if (role is HunterRole hunter)
+                hunter.ResolveTrap();
     }
     public void VillagerWin() { EndGame("Villagers"); }
     public void WerewolfWin() { EndGame("Werewolves"); }
@@ -149,6 +180,9 @@ public class GameRoleManager : MonoBehaviour
     private void EndGame(string winner)
     {
         if (currentState == GameState.GameOver) return;
+        if (winner != "Fox Spirit" && WinConditionManager.Instance != null &&
+            WinConditionManager.Instance.FoxSpiritHasWon())
+            winner = "Fox Spirit";
         Winner = winner;
         SetPhase(GamePhase.GameOver);
         PhaseTimeRemaining = 0;

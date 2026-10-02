@@ -20,7 +20,7 @@ public class LoverManager : MonoBehaviour
         PlayerData playerB =
             PlayerManager.Instance.GetplayerByID(playerBID);
 
-        if (playerA == null || playerB == null || playerAID == playerBID)
+        if (playerA == null || playerB == null || !playerA.isAlive || !playerB.isAlive || playerAID == playerBID)
             return;
 
         if (playerA.loverID != -1 || playerB.loverID != -1)

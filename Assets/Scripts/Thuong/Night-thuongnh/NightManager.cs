@@ -5,9 +5,11 @@ public class NightManager : MonoBehaviour
     public static NightManager Instance;
 
     private int monsterTarget = -1;
+    private RoleType monsterSourceRole = RoleType.DogSpirit;
     private int protectedTarget = -1;
     private int killerTarget = -1;
     private int evilNightCount = 0;
+    public int CurrentNightNumber => evilNightCount;
 
     private void Awake()
     {
@@ -17,6 +19,7 @@ public class NightManager : MonoBehaviour
     public void StartNight()
     {
         monsterTarget = -1;
+        monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
         evilNightCount++;
@@ -25,6 +28,7 @@ public class NightManager : MonoBehaviour
 
         foreach (var player in PlayerManager.Instance.players)
         {
+            if (player == null) continue;
             player.status.isProtected = false;
             player.hasUseNightAction = false;
             if (player.roleType == RoleType.SerpentSpirit)
@@ -34,7 +38,13 @@ public class NightManager : MonoBehaviour
 
     public void SetMonsterTarget(int id)
     {
+        SetMonsterTarget(id, RoleType.DogSpirit);
+    }
+
+    public void SetMonsterTarget(int id, RoleType sourceRole)
+    {
         monsterTarget = id;
+        monsterSourceRole = sourceRole;
     }
 
     public void SetProtectedTarget(int id)
@@ -62,7 +72,8 @@ public class NightManager : MonoBehaviour
             PlayerData target = PlayerManager.Instance.GetplayerByID(monsterTarget);
             if (target != null && target.isAlive && (protectedPlayer == null || target.playerID != protectedPlayer.playerID))
             {
-                DeathResolver.Instance.TryKillPlayer(monsterTarget, DeathCause.Monster);
+                DeathResolver.Instance.TryKillPlayer(
+                    monsterTarget, DeathCause.Monster, monsterSourceRole);
             }
         }
 
@@ -77,9 +88,10 @@ public class NightManager : MonoBehaviour
         }
 
         foreach (var player in PlayerManager.Instance.players)
-            player.status.isProtected = false;
+            if (player != null) player.status.isProtected = false;
 
         monsterTarget = -1;
+        monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
     }

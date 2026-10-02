@@ -528,9 +528,15 @@ public class NetworkPlayerAction : NetworkBehaviour
         // CALL DEV2 LOGIC
         // =====================================================
 
-        hunter.SetTrap(
-            (int)targetPlayerId
-        );
+        if (!hunter.TrySetTrap((int)targetPlayerId, out string trapFeedback))
+        {
+            SendActionResultToClient(
+                false,
+                trapFeedback,
+                requesterClientId
+            );
+            return;
+        }
 
 
         Debug.Log(
@@ -603,6 +609,7 @@ public class NetworkPlayerAction : NetworkBehaviour
         SendActionResultToClient(
             true,
             "Đặt bẫy thành công! Target đã chết.",
+            trapFeedback,
             requesterClientId
         );
     }

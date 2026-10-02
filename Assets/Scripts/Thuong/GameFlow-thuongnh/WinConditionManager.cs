@@ -30,10 +30,11 @@ public class WinConditionManager : MonoBehaviour
         {
             if (player == null || !player.isAlive) continue;
 
-            if (player.faction == FactionType.Monster)
-                aliveMonsters++;
-            else if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
+            if ((player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) &&
+                player.isWhiteHoundAwakened)
                 aliveWhiteWolf++;
+            else if (player.faction == FactionType.Monster)
+                aliveMonsters++;
             else if (player.roleType == RoleType.Madman || player.roleType == RoleType.FoxSpirit || player.roleType == RoleType.Killer)
                 aliveThirdParty++;
             else
@@ -101,6 +102,18 @@ public class WinConditionManager : MonoBehaviour
             if (lover != null && lover.isAlive && lover.loverID == player.playerID)
                 return true;
         }
+
+        return false;
+    }
+
+    public bool FoxSpiritHasWon()
+    {
+        if (RoleManager.Instance == null)
+            return false;
+
+        foreach (BaseRole role in RoleManager.Instance.playerRoles.Values)
+            if (role is FoxSpiritRole foxSpirit && foxSpirit.HasWon)
+                return true;
 
         return false;
     }
