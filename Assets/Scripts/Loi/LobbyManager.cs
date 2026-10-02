@@ -38,6 +38,11 @@ public class LobbyManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        if (IsServer)
+        {
+            NetworkGamePlayerNameSetup.Clear();
+        }
+        
         players.OnListChanged +=
             OnPlayerListChanged;
 

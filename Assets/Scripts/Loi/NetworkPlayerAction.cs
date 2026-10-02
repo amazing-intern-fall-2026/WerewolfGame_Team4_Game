@@ -542,14 +542,67 @@ public class NetworkPlayerAction : NetworkBehaviour
 
 
         // =====================================================
+        // KILL TARGET NGAY
+        // =====================================================
+
+        if (DeathResolver.Instance == null)
+        {
+            Debug.LogError(
+                "HUNTER NETWORK | DeathResolver NULL."
+            );
+
+            SendActionResultToClient(
+                false,
+                "DeathResolver đang NULL!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        bool killed =
+            DeathResolver.Instance.TryKillPlayer(
+                (int)targetPlayerId,
+                DeathCause.Trap
+            );
+
+
+        Debug.Log(
+            "HUNTER NETWORK | "
+            + "TryKillPlayer = "
+            + killed
+        );
+
+
+        if (!killed)
+        {
+            SendActionResultToClient(
+                false,
+                "Bẫy không thể giết Target!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+
+        // =====================================================
         // RESULT
         // =====================================================
 
+        Debug.Log(
+            "HUNTER NETWORK | Hunter "
+            + (requesterClientId + 1)
+            + " đặt bẫy → Player "
+            + (targetPlayerId + 1)
+            + " chết ngay."
+        );
+
+
         SendActionResultToClient(
             true,
-            "Hunter đã chọn Player "
-            + targetPlayerId
-            + "!",
+            "Đặt bẫy thành công! Target đã chết.",
             requesterClientId
         );
     }

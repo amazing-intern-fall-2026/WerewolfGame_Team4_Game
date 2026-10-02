@@ -406,8 +406,12 @@ public class NetworkRoleActionBridge : MonoBehaviour
     // =====================================================
 
     private void OnActionAccepted(
-        NetworkActionEvent actionEvent)
+     NetworkActionEvent actionEvent)
     {
+        Debug.Log(
+            "HUNTER DEBUG | OnActionAccepted được gọi."
+        );
+
         int requesterID =
             (int)actionEvent.RequesterPlayerId;
 
@@ -418,21 +422,31 @@ public class NetworkRoleActionBridge : MonoBehaviour
             actionEvent.RequesterPlayerId;
 
         Debug.Log(
-            "ROLE ACTION BRIDGE | Player "
+            "HUNTER DEBUG | Requester = "
             + requesterID
-            + " → Target "
+            + " | Target = "
             + targetID
         );
+
+        // =====================================================
+        // ROLE MANAGER
+        // =====================================================
 
         RoleManager roleManager =
             RoleManager.Instance;
 
         if (roleManager == null)
+        {
             roleManager =
                 FindFirstObjectByType<RoleManager>();
+        }
 
         if (roleManager == null)
         {
+            Debug.LogError(
+                "HUNTER DEBUG | RoleManager NULL."
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -442,17 +456,28 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
+        // =====================================================
+        // ĐẢM BẢO ROLE ĐÃ ĐƯỢC ASSIGN
+        // =====================================================
+
         if (
             roleManager.playerRoles == null ||
             roleManager.playerRoles.Count == 0
         )
         {
+            Debug.LogWarning(
+                "HUNTER DEBUG | playerRoles đang rỗng. "
+                + "Đang AssignRole()."
+            );
+
             roleManager.AssignRole();
 
-            // Sau AssignRole(), cố gắng áp dụng
-            // cấu hình Role từ Lobby.
             TryApplyLobbyRoles();
         }
+
+        // =====================================================
+        // LẤY ROLE REQUESTER
+        // =====================================================
 
         if (
             !roleManager.playerRoles.TryGetValue(
@@ -461,6 +486,11 @@ public class NetworkRoleActionBridge : MonoBehaviour
             )
         )
         {
+            Debug.LogError(
+                "HUNTER DEBUG | Không tìm thấy Role của Player "
+                + requesterID
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -472,6 +502,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         if (role == null)
         {
+            Debug.LogError(
+                "HUNTER DEBUG | Role NULL."
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -481,8 +515,23 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
+        Debug.Log(
+            "HUNTER DEBUG | Role của Player "
+            + requesterID
+            + " = "
+            + role.roleType
+        );
+
+        // =====================================================
+        // PHASE SYNC
+        // =====================================================
+
         if (NetworkPhaseSync.Instance == null)
         {
+            Debug.LogError(
+                "HUNTER DEBUG | NetworkPhaseSync NULL."
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -492,29 +541,33 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
-        if (
-            NetworkPhaseSync.Instance.CurrentPhase.Value
-            != GamePhase.Night
-        )
-        {
-            SendResult(
-                requesterClientId,
-                false,
-                "Không thể Action ngoài Night!"
-            );
+        GamePhase currentPhase =
+            NetworkPhaseSync.Instance.CurrentPhase.Value;
 
-            return;
-        }
+        Debug.Log(
+            "HUNTER DEBUG | Current Phase = "
+            + currentPhase
+        );
+
+        // =====================================================
+        // PLAYER MANAGER
+        // =====================================================
 
         PlayerManager playerManager =
             PlayerManager.Instance;
 
         if (playerManager == null)
+        {
             playerManager =
                 FindFirstObjectByType<PlayerManager>();
+        }
 
         if (playerManager == null)
         {
+            Debug.LogError(
+                "HUNTER DEBUG | PlayerManager NULL."
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -524,18 +577,22 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
+        // =====================================================
+        // REQUESTER
+        // =====================================================
+
         PlayerData requester =
             playerManager.GetplayerByID(
                 requesterID
             );
 
-        PlayerData target =
-            playerManager.GetplayerByID(
-                targetID
-            );
-
         if (requester == null)
         {
+            Debug.LogError(
+                "HUNTER DEBUG | Requester NULL | ID = "
+                + requesterID
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -545,8 +602,22 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
+        // =====================================================
+        // TARGET
+        // =====================================================
+
+        PlayerData target =
+            playerManager.GetplayerByID(
+                targetID
+            );
+
         if (target == null)
         {
+            Debug.LogError(
+                "HUNTER DEBUG | Target NULL | ID = "
+                + targetID
+            );
+
             SendResult(
                 requesterClientId,
                 false,
@@ -557,15 +628,248 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
 
         Debug.Log(
+            "HUNTER DEBUG | Requester Alive = "
+            + requester.isAlive
+            + " | Target Alive = "
+            + target.isAlive
+        );
+
+        // =====================================================
+        // HUNTER
+        // =====================================================
+
+        if (role.roleType == RoleType.Hunter)
+        {
+            Debug.Log(
+                "HUNTER DEBUG | Hunter branch được gọi."
+            );
+
+            // -------------------------------------------------
+            // Hunter phải chết
+            // -------------------------------------------------
+
+            if (requester.isAlive)
+            {
+                Debug.LogWarning(
+                    "HUNTER DEBUG | Hunter vẫn còn sống."
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Hunter phải chết mới có thể đặt bẫy!"
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "HUNTER DEBUG | Hunter đã chết."
+            );
+
+            // -------------------------------------------------
+            // Hunter chỉ dùng trong Discussion
+            // -------------------------------------------------
+
+            if (currentPhase != GamePhase.Discussion)
+            {
+                Debug.LogWarning(
+                    "HUNTER DEBUG | Sai phase: "
+                    + currentPhase
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Hunter chỉ có thể đặt bẫy trong Discussion!"
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "HUNTER DEBUG | Đúng Discussion."
+            );
+
+            // -------------------------------------------------
+            // Kiểm tra Hunter còn trap
+            // -------------------------------------------------
+
+            if (!requester.hasHunterTrap)
+            {
+                Debug.LogWarning(
+                    "HUNTER DEBUG | Hunter không còn trap."
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Hunter không còn bẫy!"
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "HUNTER DEBUG | Hunter còn trap."
+            );
+
+            // -------------------------------------------------
+            // Target phải còn sống
+            // -------------------------------------------------
+
+            if (!target.isAlive)
+            {
+                Debug.LogWarning(
+                    "HUNTER DEBUG | Target đã chết."
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Không thể đặt bẫy lên người đã chết!"
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "HUNTER DEBUG | Target còn sống."
+            );
+
+            // -------------------------------------------------
+            // Lấy HunterRole
+            // -------------------------------------------------
+
+            HunterRole hunterRole =
+                role as HunterRole;
+
+            if (hunterRole == null)
+            {
+                Debug.LogError(
+                    "HUNTER DEBUG | Role không phải HunterRole."
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Không tìm thấy HunterRole!"
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "HUNTER DEBUG | HunterRole OK."
+            );
+
+            // =================================================
+            // DEV2: SET TRAP
+            // =================================================
+
+            hunterRole.SetTrap(
+                targetID
+            );
+
+            Debug.Log(
+                "HUNTER DEBUG | SetTrap() đã được gọi."
+            );
+
+            // =================================================
+            // DEATH RESOLVER
+            // =================================================
+
+            if (DeathResolver.Instance == null)
+            {
+                Debug.LogError(
+                    "HUNTER DEBUG | DeathResolver NULL."
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "DeathResolver đang NULL!"
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "HUNTER DEBUG | DeathResolver OK."
+            );
+
+            // =================================================
+            // GIẾT TARGET NGAY
+            // =================================================
+
+            bool killed =
+                DeathResolver.Instance.TryKillPlayer(
+                    targetID,
+                    DeathCause.Trap
+                );
+
+            Debug.Log(
+                "HUNTER DEBUG | TryKillPlayer result = "
+                + killed
+            );
+
+            if (!killed)
+            {
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Bẫy không thể giết Target!"
+                );
+
+                return;
+            }
+
+            // =================================================
+            // SUCCESS
+            // =================================================
+
+            Debug.Log(
+                "Hunter Player "
+                + (requesterID + 1)
+                + " đặt bẫy → Player "
+                + (targetID + 1)
+                + " chết ngay."
+            );
+
+            SendResult(
+                requesterClientId,
+                true,
+                "Đặt bẫy thành công! Target đã chết."
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // NORMAL NIGHT ACTION
+        // =====================================================
+
+        if (currentPhase != GamePhase.Night)
+        {
+            SendResult(
+                requesterClientId,
+                false,
+                "Không thể Action ngoài Night!"
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // NORMAL DEV2 ACTION
+        // =====================================================
+
+        Debug.Log(
             "ROLE ACTION BRIDGE | "
             + "UseNightAbility("
             + targetID
             + ")"
         );
-
-        // =====================================================
-        // GỌI DEV2
-        // =====================================================
 
         bool success =
             roleManager.UseNightAbility(
@@ -609,7 +913,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
         );
 
         // =====================================================
-        // SEER
+        // SEER RESULT
         // =====================================================
 
         if (role.roleType == RoleType.Seer)
@@ -620,11 +924,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
             );
         }
     }
-
-    // =====================================================
-    // SEND ACTION RESULT
-    // =====================================================
-
     private void SendResult(
         ulong clientId,
         bool success,
