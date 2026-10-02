@@ -58,7 +58,8 @@ public class DeathResolver:MonoBehaviour
             return false;
         }
 
-        target.isAlive = false;
+        if (!PlayerManager.Instance.SetAliveState(targetID, false))
+            return false;
         NetworkPlayerStateSync.SyncGameplayAliveState(targetID, false);
         if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(targetID, out var role))
             role.OnDeath();

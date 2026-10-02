@@ -47,6 +47,17 @@ Không cần thêm scene này vào Build Settings để thử trong Editor. Nế
 Không gắn GameFlowManager/PhaseManager của Nhat hoặc PlayerController của Loi vào scene này.
 Hai thư mục của Loi và Nhat được giữ nguyên.
 
+## Phase 1: Trạng thái sống/chết
+
+- Nguồn trạng thái duy nhất là `PlayerData.isAlive`. Các API `PlayerManager.IsAlive`, `GetAlivePlayers` và `SetAliveState` đọc/cập nhật nguồn này; `AliveStateChanged` thông báo khi trạng thái thực sự thay đổi.
+- `DeathResolver` chuyển trạng thái qua manager rồi giữ nguyên đồng bộ mạng, callback Role và xử lý Lover hiện có. Gọi chết lặp không phát thêm callback.
+- Player chết không di chuyển, làm nhiệm vụ, vote hoặc dùng kỹ năng yêu cầu còn sống. Bẫy sau khi chết của Hunter vẫn được giữ theo luật hiện tại.
+- `TaskManager.TryCompleteTask(playerID, task)` kiểm tra người thực hiện tại API; entry `CompleteTask(task)` cũ vẫn tương thích với Player local của HUD.
+- HUD tự thêm `PlayerRosterUI` khi chạy. Nút PLAYERS mở danh sách toàn lobby có nhãn ALIVE/DEAD, màu trạng thái và cuộn; không lộ Role. Không cần sửa Inspector hay tạo lại scene.
+- Chạy `Tools > Thuong > Check Phase 1 (Alive-Dead)` ngoài Play Mode. Khi đạt, Console có `THUONG_PHASE1_PASSED`; ảnh kiểm tra nằm trong `Logs/thuong-phase1-roster*.png`.
+
+Hướng dẫn đầy đủ cho 13 phase: [HUONG_DAN_TRIEN_KHAI_LOGIC_GAME_MA_SOI.md](HUONG_DAN_TRIEN_KHAI_LOGIC_GAME_MA_SOI.md).
+
 ## Phạm vi kiểm tra
 
 Scene đã được Unity tạo/lưu và kiểm tra hình ảnh, có đầy đủ tham chiếu hai thanh tiến độ.

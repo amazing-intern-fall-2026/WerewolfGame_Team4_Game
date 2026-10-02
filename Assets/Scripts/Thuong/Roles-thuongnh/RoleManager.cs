@@ -96,7 +96,7 @@ public class RoleManager : MonoBehaviour
             feedback = "Người chơi chưa được gán Role hợp lệ.";
             return false;
         }
-        if (!role.owner.isAlive)
+        if (PlayerManager.Instance == null || !PlayerManager.Instance.IsAlive(playerID))
         {
             feedback = "Người chơi đã bị loại.";
             return false;
@@ -118,7 +118,7 @@ public class RoleManager : MonoBehaviour
         }
 
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
-        if (target == null || !target.isAlive)
+        if (target == null || !PlayerManager.Instance.IsAlive(targetID))
         {
             feedback = "Mục tiêu không tồn tại hoặc đã bị loại.";
             return false;

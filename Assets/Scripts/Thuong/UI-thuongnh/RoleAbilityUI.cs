@@ -36,7 +36,7 @@ public class RoleAbilityUI : MonoBehaviour
     private Image revealPortrait;
     private Sprite defaultPortrait;
     private RectTransform targetContent;
-    private readonly List<GameObject> targetButtons = new List<GameObject>();
+    private readonly Dictionary<int, Button> targetButtons = new Dictionary<int, Button>();
     private bool initialized;
     private bool hasShownRole;
     private RoleType shownRole;
@@ -66,7 +66,9 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (abilityCanvas != null) Destroy(abilityCanvas.gameObject);
+        if (abilityCanvas == null) return;
+        if (Application.isPlaying) Destroy(abilityCanvas.gameObject);
+        else DestroyImmediate(abilityCanvas.gameObject);
     }
 
     private static RectTransform Panel(string name, Transform parent, Vector2 min,
@@ -508,7 +510,8 @@ public class RoleAbilityUI : MonoBehaviour
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         if (player != null)
         {
-            playerLabel.text = $"PLAYER {player.playerID + 1}  /  ID {player.playerID}";
+            playerLabel.text = $"PLAYER {player.playerID + 1}  /  ID {player.playerID}" +
+                (player.isAlive ? " / ALIVE" : " / DEAD");
             if (!hasShownRole || shownRole != player.roleType) RefreshRole(player);
         }
 
@@ -553,9 +556,20 @@ public class RoleAbilityUI : MonoBehaviour
             return;
         }
 
-        CanUse(player, game, out string reason);
+        bool canUse = CanUse(player, game, out string reason);
+        bool canSetTrap = CanSetHunterTrap(player, game);
+        if (targetView.activeSelf && (player == null || (!player.isAlive && !canSetTrap)))
+        {
+            CancelTargets();
+            actionFeedback = null;
+        }
+        foreach (var target in targetButtons)
+        {
+            bool alive = PlayerManager.Instance != null && PlayerManager.Instance.IsAlive(target.Key);
+            target.Value.interactable = alive && (selectingHunterTrap ? canSetTrap : canUse);
+        }
         // Luôn cho mở danh sách lobby; chỉ thực thi action khi CanUse hợp lệ.
-        useButton.interactable = player != null && HasActiveAbility(player.roleType);
+        useButton.interactable = player != null && player.isAlive && HasActiveAbility(player.roleType);
         ShamanRole shaman = GetLocalShamanRole();
         bool canUseShamanCharm = player != null && player.isAlive && !player.hasUseNightAction &&
                                  game != null && game.currentState == GameState.Night;
@@ -579,16 +593,23 @@ public class RoleAbilityUI : MonoBehaviour
     {
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         bool canSetHunterTrap = CanSetHunterTrap(player, GameRoleManager.Instance);
+        if (player != null && !player.isAlive && !canSetHunterTrap)
+        {
+            actionFeedback = "Bạn đã bị loại và không thể dùng kỹ năng.";
+            CancelTargets();
+            return;
+        }
         if (player == null || (!HasActiveAbility(player.roleType) && !canSetHunterTrap))
         {
             actionFeedback = "Chưa có kỹ năng chủ động để chọn mục tiêu.";
             return;
         }
 
-        foreach (GameObject button in targetButtons)
+        foreach (Button button in targetButtons.Values)
         {
-            button.SetActive(false);
-            Destroy(button);
+            button.gameObject.SetActive(false);
+            if (Application.isPlaying) Destroy(button.gameObject);
+            else DestroyImmediate(button.gameObject);
         }
         targetButtons.Clear();
         List<PlayerData> lobby = PlayerManager.Instance?.players;
@@ -610,7 +631,7 @@ public class RoleAbilityUI : MonoBehaviour
             Button button = ActionButton("Target " + targetID, targetContent,
                 name, Vector2.zero, Vector2.one, "#2F5962", () => SelectTarget(targetID));
             button.GetComponentInChildren<TMP_Text>().fontSize = 17;
-            targetButtons.Add(button.gameObject);
+            targetButtons[targetID] = button;
             count++;
         }
 

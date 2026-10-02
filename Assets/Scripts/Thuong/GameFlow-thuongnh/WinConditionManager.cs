@@ -26,10 +26,8 @@ public class WinConditionManager : MonoBehaviour
         int aliveWhiteWolf = 0;
         int aliveThirdParty = 0;
 
-        foreach (var player in PlayerManager.Instance.players)
+        foreach (var player in PlayerManager.Instance.GetAlivePlayers())
         {
-            if (player == null || !player.isAlive) continue;
-
             if ((player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) &&
                 player.isWhiteHoundAwakened)
                 aliveWhiteWolf++;

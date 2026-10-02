@@ -1,9 +1,11 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public class PlayerManager : MonoBehaviour
 {
     public static PlayerManager Instance;
+    public event Action<PlayerData> AliveStateChanged;
 
     [SerializeField]
     public List<PlayerData> players = new List<PlayerData>();
@@ -72,6 +74,29 @@ public class PlayerManager : MonoBehaviour
         }
 
         return null;
+    }
+
+    public bool IsAlive(int playerID) => GetplayerByID(playerID)?.isAlive ?? false;
+
+    public IEnumerable<PlayerData> GetAlivePlayers()
+    {
+        if (players == null) yield break;
+        foreach (var player in players)
+            if (player != null && player.isAlive) yield return player;
+    }
+
+    public bool SetAliveState(int playerID, bool isAlive)
+    {
+        var player = GetplayerByID(playerID);
+        if (player == null || player.isAlive == isAlive) return false;
+        player.isAlive = isAlive;
+        if (isAlive)
+        {
+            player.hasVoted = false;
+            player.hasUseNightAction = false;
+        }
+        AliveStateChanged?.Invoke(player);
+        return true;
     }
 
     public void UnlockPlayers()

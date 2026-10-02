@@ -65,6 +65,9 @@ public class GameHUD : MonoBehaviour
         var abilityUI = GetComponent<RoleAbilityUI>();
         if (abilityUI == null) abilityUI = gameObject.AddComponent<RoleAbilityUI>();
         abilityUI.Initialize(phaseText != null ? phaseText.font : null, localVoterID);
+        var rosterUI = GetComponent<PlayerRosterUI>();
+        if (rosterUI == null) rosterUI = gameObject.AddComponent<PlayerRosterUI>();
+        rosterUI.Initialize(this);
     }
 
     private static void SetPanelColor(Transform target, string color)

@@ -11,7 +11,9 @@ public class VoteManager : MonoBehaviour
     {
         votes.Clear();
         choices.Clear();
-        foreach (var player in PlayerManager.Instance.players) player.hasVoted = false;
+        if (PlayerManager.Instance?.players == null) return;
+        foreach (var player in PlayerManager.Instance.players)
+            if (player != null) player.hasVoted = false;
     }
     public void Vote(int voterID, int targetID)
     {
@@ -23,7 +25,8 @@ public class VoteManager : MonoBehaviour
             PlayerManager.Instance == null) return false;
         var voter = PlayerManager.Instance.GetplayerByID(voterID);
         var target = PlayerManager.Instance.GetplayerByID(targetID);
-        if (voter == null || target == null || !voter.isAlive || !target.isAlive || voter.hasVoted) return false;
+        if (voter == null || target == null || !PlayerManager.Instance.IsAlive(voterID) ||
+            !PlayerManager.Instance.IsAlive(targetID) || voter.hasVoted) return false;
         voter.hasVoted = true;
         choices[voterID] = targetID;
         if (!votes.ContainsKey(targetID)) votes[targetID] = 0;
