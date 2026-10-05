@@ -609,7 +609,6 @@ public class NetworkPlayerAction : NetworkBehaviour
         SendActionResultToClient(
             true,
             "Đặt bẫy thành công! Target đã chết.",
-            trapFeedback,
             requesterClientId
         );
     }
