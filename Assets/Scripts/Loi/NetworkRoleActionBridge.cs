@@ -348,11 +348,9 @@ public class NetworkRoleActionBridge : MonoBehaviour
             RoleType temp =
                 roles[i];
 
-            roles[i] =
-                roles[j];
+            roles[i] = roles[j];
 
-            roles[j] =
-                temp;
+            roles[j] = temp;
         }
     }
 
@@ -406,7 +404,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
     // =====================================================
 
     private void OnActionAccepted(
-     NetworkActionEvent actionEvent)
+        NetworkActionEvent actionEvent)
     {
         Debug.Log(
             "HUNTER DEBUG | OnActionAccepted được gọi."
@@ -871,7 +869,136 @@ public class NetworkRoleActionBridge : MonoBehaviour
             + ")"
         );
 
-        bool success =
+        bool success;
+
+        // =====================================================
+        // GUARDIAN SELF PROTECT
+        // =====================================================
+
+        if (
+            role.roleType == RoleType.VillageGuardian &&
+            requesterID == targetID
+        )
+        {
+            GuardianRole guardianRole =
+                role as GuardianRole;
+
+            if (guardianRole == null)
+            {
+                Debug.LogError(
+                    "ROLE ACTION BRIDGE | "
+                    + "Không tìm thấy GuardianRole."
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Không tìm thấy GuardianRole!"
+                );
+
+                return;
+            }
+
+            // =================================================
+            // REQUESTER VALIDATION
+            // =================================================
+
+            if (requester == null || !requester.isAlive)
+            {
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Người chơi đã bị loại."
+                );
+
+                return;
+            }
+
+            if (!role.HasNightAbility)
+            {
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Role này không có kỹ năng chủ động ban đêm."
+                );
+
+                return;
+            }
+
+            // =================================================
+            // KHÔNG CHECK requester.hasUseNightAction Ở ĐÂY
+            // =================================================
+            //
+            // NetworkPlayerAction đã quản lý việc dùng Skill
+            // theo CurrentNightCycle.
+            //
+            // Night 1 → dùng được
+            // Night 2 → dùng lại được
+            // Night 3 → dùng lại được
+            //
+            // Nếu dùng lại trong cùng Night,
+            // NetworkPlayerAction sẽ chặn.
+
+            Debug.Log(
+                "ROLE ACTION BRIDGE | "
+                + "Guardian tự bảo vệ | Player "
+                + (requesterID + 1)
+            );
+
+            // =================================================
+            // DEV2 GUARDIAN LOGIC
+            // =================================================
+            //
+            // Gọi trực tiếp GuardianRole để giữ nguyên
+            // logic Dev2:
+            //
+            // - Có thể tự bảo vệ
+            // - Không thể bảo vệ cùng một người
+            //   trong hai đêm liên tiếp
+            //
+
+            success =
+                guardianRole.TryUseNightAbility(
+                    targetID,
+                    out string guardianFeedback
+                );
+
+            if (!success)
+            {
+                Debug.LogWarning(
+                    "ROLE ACTION BRIDGE | "
+                    + "Guardian từ chối tự bảo vệ | "
+                    + guardianFeedback
+                );
+
+                SendResult(
+                    requesterClientId,
+                    false,
+                    guardianFeedback
+                );
+
+                return;
+            }
+
+            Debug.Log(
+                "ROLE ACTION BRIDGE | "
+                + "Guardian tự bảo vệ thành công."
+            );
+
+            SendResult(
+                requesterClientId,
+                true,
+                guardianFeedback
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // NORMAL DEV2 ACTION
+        // =====================================================
+
+        success =
             roleManager.UseNightAbility(
                 requesterID,
                 targetID
@@ -924,6 +1051,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
             );
         }
     }
+
     private void SendResult(
         ulong clientId,
         bool success,
