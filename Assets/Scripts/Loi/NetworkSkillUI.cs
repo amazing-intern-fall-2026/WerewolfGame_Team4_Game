@@ -26,6 +26,10 @@ public class NetworkSkillUI : MonoBehaviour
     [SerializeField]
     private GameObject trapButton;
 
+    [Header("WeaverOfFate Skill")]
+    [SerializeField]
+    private GameObject weaverButton;
+
     [Header("Skill UI")]
     [SerializeField]
     private GameObject skillPanel;
@@ -44,6 +48,7 @@ public class NetworkSkillUI : MonoBehaviour
     private bool isVillageGuardian;
     private bool isShaman;
     private bool isHunter;
+    private bool isWeaverOfFate;
 
     private bool isNight;
     private bool isDiscussion;
@@ -147,6 +152,9 @@ public class NetworkSkillUI : MonoBehaviour
         isHunter =
             role == RoleType.Hunter;
 
+        isWeaverOfFate =
+            role == RoleType.WeaverOfFate;
+
         Debug.Log(
             "SKILL UI | Role = "
             + role
@@ -160,6 +168,8 @@ public class NetworkSkillUI : MonoBehaviour
             + isShaman
             + " | Hunter = "
             + isHunter
+            + " | WeaverOfFate = "
+            + isWeaverOfFate
         );
 
         UpdateSkillUI();
@@ -202,7 +212,8 @@ public class NetworkSkillUI : MonoBehaviour
                 isDogSpirit ||
                 isSeer ||
                 isVillageGuardian ||
-                isShaman
+                isShaman ||
+                isWeaverOfFate
             )
             &&
             isNight &&
@@ -266,6 +277,15 @@ public class NetworkSkillUI : MonoBehaviour
         {
             trapButton.SetActive(
                 hunterCanUseTrap
+            );
+        }
+
+        if (weaverButton != null)
+        {
+            weaverButton.SetActive(
+                isWeaverOfFate &&
+                isNight &&
+                !hasUsedSkill
             );
         }
 
@@ -424,6 +444,29 @@ public class NetworkSkillUI : MonoBehaviour
         OpenTargetPanel();
     }
 
+    public void OnWeaverClicked()
+    {
+        if (!isWeaverOfFate)
+            return;
+
+        if (!isNight)
+        {
+            Debug.LogWarning(
+                "SKILL UI | WeaverOfFate chỉ dùng ở Night."
+            );
+            return;
+        }
+
+        if (hasUsedSkill)
+            return;
+
+        Debug.Log(
+            "SKILL UI | WeaverOfFate mở Target Panel."
+        );
+
+        OpenTargetPanel();
+    }
+
     private void OpenTargetPanel()
     {
         if (targetListUI != null)
@@ -483,6 +526,9 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (trapButton != null)
             trapButton.SetActive(false);
+
+        if (weaverButton != null)
+            weaverButton.SetActive(false);
 
         if (targetPanel != null)
             targetPanel.SetActive(false);

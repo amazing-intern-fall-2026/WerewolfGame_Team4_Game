@@ -320,7 +320,8 @@ public class RoleAbilityUI : MonoBehaviour
                role == RoleType.VillageGuardian || role == RoleType.SerpentSpirit ||
              role == RoleType.Ogre || role == RoleType.WhiteHound ||
              role == RoleType.Shaman || role == RoleType.Cursed ||
-               role == RoleType.FoxSpirit || role == RoleType.Killer;
+               role == RoleType.FoxSpirit || role == RoleType.Killer ||
+               role == RoleType.WeaverOfFate;
     }
 
     private static string RoleName(RoleType role)
@@ -375,7 +376,7 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.Hunter:
                 return "Bạn thuộc phe Dân Làng. Khi chết, chọn một người trong lúc thảo luận để đặt bẫy; mục tiêu chết sau lượt bỏ phiếu kế tiếp.";
             case RoleType.WeaverOfFate:
-                return "Bạn thuộc phe Dân Làng. Vai Dệt Duyên có thể ghép đôi hai người; giao diện ghép đôi chưa được nối trong prototype.";
+                return "Bạn thuộc phe Dân Làng. Mỗi đêm, bạn có thể ghép đôi mình với một người chơi khác để tạo cặp đôi và cùng chiến thắng khi còn sống.";
             case RoleType.Cursed:
                 return "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi; họ bị lời nguyền và không thể nói trong buổi thảo luận kế tiếp.";
             case RoleType.Brat:
