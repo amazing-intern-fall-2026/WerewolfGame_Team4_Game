@@ -30,7 +30,7 @@ public class VoteButton : MonoBehaviour
         var target = PlayerManager.Instance?.GetplayerByID(targetID);
         button.interactable = GameRoleManager.Instance != null &&
             GameRoleManager.Instance.currentState == GameState.Voting &&
-            voter != null && target != null && voter.isAlive && target.isAlive && !voter.hasVoted;
+            voter != null && target != null && voter.CanVote && target.isAlive && !voter.hasVoted;
         if (nameLabel != null)
         {
             string prototypeName = "Player " + targetID;

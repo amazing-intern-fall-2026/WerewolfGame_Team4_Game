@@ -74,6 +74,7 @@ public static class ThuongPrototypeChecks
                     .GetComponent<Image>().sprite != null, "Role card has a portrait");
                 Require(!string.IsNullOrWhiteSpace(card.Find("Role description/Description")
                     .GetComponent<TMP_Text>().text), "Role card explains the assigned role");
+                if (game.HasIntegratedLogic) SavePreview("Logs/thuong-integrated-role-reveal.png");
                 card.Find("Role description/OK").GetComponent<Button>().onClick.Invoke();
                 Require(game.currentState == GameState.Day, "OK starts the first day immediately");
                 Require(tasks.currentTasks.Count == 4, "Four random tasks");
@@ -134,6 +135,7 @@ public static class ThuongPrototypeChecks
                 Require(game.currentState == GameState.Day,
                     "Role card closes automatically after its countdown");
                 Require(game.currentDay == 1 && tasks.progress == 0, "Reload restarts standalone Editor scene");
+                if (game.HasIntegratedLogic) CheckIntegratedRuntime(game);
                 Debug.Log("THUONG_PROTOTYPE_PLAYMODE_PASSED");
                 SessionState.SetBool("ThuongPrototypeCheck", false);
                 EditorSettings.enterPlayModeOptionsEnabled = SessionState.GetBool("ThuongOriginalPlayOptions", true);
@@ -152,25 +154,91 @@ public static class ThuongPrototypeChecks
     }
     private static void Require(bool ok, string label)
     { if (!ok) throw new Exception("Prototype check failed: " + label); }
-    private static void SavePreview()
+    private static void CheckIntegratedRuntime(GameRoleManager game)
+    {
+        var players = PlayerManager.Instance;
+        var roles = RoleManager.Instance;
+        Require(players.players.Count == players.prototypeLobbySize &&
+            UnityEngine.Object.FindObjectsByType<Assets.Scripts.Thuong.PlayerMovement>().Length == players.prototypeLobbySize &&
+            UnityEngine.Object.FindObjectsByType<ThuongCharacterView>().Length == players.prototypeLobbySize,
+            "Reload spawns the full lobby with replaceable character visuals");
+        var hud = UnityEngine.Object.FindAnyObjectByType<GameHUD>();
+        Require(hud.meetingPanel.GetComponentsInChildren<VoteButton>(true).Length == players.prototypeLobbySize,
+            "Play Mode voting exposes every player");
+        // Fixed actors only inside this runtime test; the saved scene keeps random roles.
+        foreach (var player in players.players)
+        {
+            player.ResetForNewMatch(); player.roleType = RoleType.Villager; player.faction = FactionType.Villager;
+            player.roleDefinition = roles.roleDefinitions.Find(RoleType.Villager);
+            roles.playerRoles[player.playerID] = new VillagerRole(player);
+        }
+        var guardian = players.GetplayerByID(0); guardian.roleType = RoleType.VillageGuardian;
+        guardian.roleDefinition = roles.roleDefinitions.Find(RoleType.VillageGuardian);
+        roles.playerRoles[0] = new GuardianRole(guardian);
+        var wolf = players.GetplayerByID(1); wolf.roleType = RoleType.DogSpirit; wolf.faction = FactionType.Monster;
+        wolf.roleDefinition = roles.roleDefinitions.Find(RoleType.DogSpirit); roles.playerRoles[1] = new DogSpirit(wolf);
+        game.EndDay();
+        var ui = hud.GetComponent<RoleAbilityUI>(); ui.localPlayerID = 0; ui.SendMessage("Update");
+        var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+        typeof(RoleAbilityUI).GetMethod("OpenTargets", flags).Invoke(ui, null);
+        typeof(RoleAbilityUI).GetMethod("SelectTarget", flags).Invoke(ui, new object[] { 2 });
+        Require(NightManager.Instance.PendingActionCount == 1, "Original UI submits integrated protection in Play Mode");
+        Require(roles.UseNightAbility(1, 2, out _), "Play Mode wolf submission accepted");
+        game.FinishNight();
+        Require(players.IsAlive(2) && game.currentState == GameState.Discussion, "Runtime protection resolves before attack");
+        game.StartVoting(); hud.SendMessage("Update");
+        SavePreview("Logs/thuong-integrated-meeting.png");
+        game.statusEffects.ApplyEffect(players.GetplayerByID(2), StatusEffectType.Protected, 1, 1, GamePhase.Discussion, guardian);
+        var roster = hud.GetComponent<PlayerRosterUI>(); roster.Refresh();
+        var rosterWindow = hud.transform.Find("Player Roster Window").gameObject;
+        rosterWindow.SetActive(true);
+        Require(rosterWindow.GetComponentsInChildren<Text>().Any(label => label.text.Contains("Protected")),
+            "Original roster displays integrated effects in Play Mode");
+        SavePreview("Logs/thuong-integrated-roster.png");
+        Debug.Log("THUONG_GAMEPLAY_INTEGRATION_PLAY_PASSED: full lobby, prefab visuals, UI ability, protection, voting and roster.");
+    }
+    private static void SavePreview(string path = "Logs/thuong-prototype-preview.png")
     {
         var camera = Camera.main;
-        var canvas = UnityEngine.Object.FindAnyObjectByType<GameHUD>().GetComponent<Canvas>();
+        // Render every root UI canvas without raising the HUD above its popup canvases.
+        // Also refresh after test callbacks, which can precede the next runtime Update.
+        UnityEngine.Object.FindAnyObjectByType<GameHUD>().SendMessage("Update");
+        foreach (var ui in UnityEngine.Object.FindObjectsByType<RoleAbilityUI>()) ui.SendMessage("Update");
+        var allCanvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include)
+            .Select(canvas => (canvas, order: canvas.sortingOrder)).ToArray();
+        var canvases = allCanvases.Select(entry => entry.canvas)
+            .Where(canvas => canvas.isRootCanvas)
+            .Select(canvas => (canvas, mode: canvas.renderMode, camera: canvas.worldCamera, distance: canvas.planeDistance)).ToArray();
         var rt = new RenderTexture(1600, 900, 24);
         var oldTarget = camera.targetTexture;
         var oldActive = RenderTexture.active;
-        canvas.renderMode = RenderMode.ScreenSpaceCamera;
-        canvas.sortingOrder = 100;
-        canvas.worldCamera = camera; canvas.planeDistance = 1;
-        camera.targetTexture = rt;
-        Canvas.ForceUpdateCanvases();
-        camera.Render();
-        RenderTexture.active = rt;
         var texture = new Texture2D(1600, 900, TextureFormat.RGB24, false);
-        texture.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0); texture.Apply();
-        File.WriteAllBytes("Logs/thuong-prototype-preview.png", texture.EncodeToPNG());
-        camera.targetTexture = oldTarget; RenderTexture.active = oldActive;
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        UnityEngine.Object.Destroy(texture); rt.Release(); UnityEngine.Object.Destroy(rt);
+        try
+        {
+            // Screen-space-camera snapshots share sorting with world sprites. Lift every
+            // UI canvas equally, preserving popup order, instead of lifting only the HUD.
+            foreach (var entry in allCanvases) entry.canvas.sortingOrder = entry.order + 100;
+            foreach (var entry in canvases)
+            {
+                entry.canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                entry.canvas.worldCamera = camera; entry.canvas.planeDistance = 1;
+            }
+            camera.targetTexture = rt;
+            Canvas.ForceUpdateCanvases(); camera.Render();
+            RenderTexture.active = rt;
+            texture.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0); texture.Apply();
+            File.WriteAllBytes(path, texture.EncodeToPNG());
+        }
+        finally
+        {
+            camera.targetTexture = oldTarget; RenderTexture.active = oldActive;
+            foreach (var entry in canvases)
+            {
+                entry.canvas.renderMode = entry.mode; entry.canvas.worldCamera = entry.camera;
+                entry.canvas.planeDistance = entry.distance;
+            }
+            foreach (var entry in allCanvases) entry.canvas.sortingOrder = entry.order;
+            UnityEngine.Object.Destroy(texture); rt.Release(); UnityEngine.Object.Destroy(rt);
+        }
     }
 }

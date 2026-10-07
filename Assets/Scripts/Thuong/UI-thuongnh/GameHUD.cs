@@ -21,6 +21,10 @@ public class GameHUD : MonoBehaviour
     public int localVoterID;
     private TMP_Text phaseCueText;
     private Image phaseCueAccent;
+    private TMP_Text gameplayFeedback;
+    private AbilitySystem observedAbilities;
+    private DeathResolver observedDeaths;
+    private VoteManager observedVotes;
 
     private static Color Hex(string value)
     {
@@ -68,7 +72,50 @@ public class GameHUD : MonoBehaviour
         var rosterUI = GetComponent<PlayerRosterUI>();
         if (rosterUI == null) rosterUI = gameObject.AddComponent<PlayerRosterUI>();
         rosterUI.Initialize(this);
+        if (GameRoleManager.Instance != null && GameRoleManager.Instance.HasIntegratedLogic)
+        {
+            var meeting = GetComponent<ThuongMeetingRosterUI>() ?? gameObject.AddComponent<ThuongMeetingRosterUI>();
+            meeting.Initialize(this);
+            CreateGameplayFeedback();
+            observedAbilities = GameRoleManager.Instance.abilities;
+            observedDeaths = GameRoleManager.Instance.statusEffects.deathSystem;
+            observedVotes = VoteManager.Instance;
+            observedAbilities.AbilityResolved += HandleAbility;
+            observedDeaths.DeathResolved += HandleDeath;
+            observedVotes.VoteResolved += HandleVote;
+        }
     }
+    private void OnDestroy()
+    {
+        if (observedAbilities != null) observedAbilities.AbilityResolved -= HandleAbility;
+        if (observedDeaths != null) observedDeaths.DeathResolved -= HandleDeath;
+        if (observedVotes != null) observedVotes.VoteResolved -= HandleVote;
+    }
+    private void CreateGameplayFeedback()
+    {
+        var panel = transform.Find("PhaseCue") as RectTransform;
+        if (panel == null) return;
+        panel.anchorMax = new Vector2(.98f, .19f);
+        if (phaseCueText != null)
+        {
+            phaseCueText.rectTransform.anchorMin = new Vector2(.025f, .47f);
+            phaseCueText.rectTransform.anchorMax = new Vector2(.98f, .95f);
+        }
+        var label = new GameObject("Gameplay feedback", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var rect = label.GetComponent<RectTransform>(); rect.SetParent(panel, false);
+        rect.anchorMin = new Vector2(.025f, .04f); rect.anchorMax = new Vector2(.98f, .46f);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        gameplayFeedback = label.GetComponent<TMP_Text>();
+        gameplayFeedback.font = phaseText != null ? phaseText.font : null;
+        gameplayFeedback.fontSize = 17; gameplayFeedback.color = Hex("#EBCB83");
+        gameplayFeedback.alignment = TextAlignmentOptions.MidlineLeft;
+        gameplayFeedback.textWrappingMode = TextWrappingModes.NoWrap;
+        gameplayFeedback.overflowMode = TextOverflowModes.Ellipsis; gameplayFeedback.raycastTarget = false;
+        gameplayFeedback.text = "Logic Phase 1–4 đã kết nối. Role đặc biệt vẫn giữ luật cũ.";
+    }
+    private void HandleAbility(AbilityResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
+    private void HandleDeath(DeathResult result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
+    private void HandleVote(VoteResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
 
     private static void SetPanelColor(Transform target, string color)
     {
@@ -346,6 +393,7 @@ public class GameHUD : MonoBehaviour
                 votingStatusText.text = $"Bỏ phiếu bắt đầu sau {Mathf.CeilToInt(game.PhaseTimeRemaining)} giây.";
             else if (voter == null) votingStatusText.text = "Không tìm thấy dữ liệu người bỏ phiếu.";
             else if (!voter.isAlive) votingStatusText.text = "Bạn đã bị loại và không thể bỏ phiếu.";
+            else if (!voter.CanVote) votingStatusText.text = "Bạn đang có CannotVote và không thể bỏ phiếu.";
             else if (voter.hasVoted)
                 votingStatusText.text = chosen >= 0 ? $"Đã chọn Player {chosen + 1}. Đang chờ kết quả." : "Đã bỏ phiếu. Đang chờ kết quả.";
             else votingStatusText.text = $"Bạn là Player {localVoterID + 1}. Chọn một người còn sống.";

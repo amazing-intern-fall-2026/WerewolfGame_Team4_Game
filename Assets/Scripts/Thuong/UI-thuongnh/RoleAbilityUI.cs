@@ -40,6 +40,10 @@ public class RoleAbilityUI : MonoBehaviour
     private bool initialized;
     private bool hasShownRole;
     private RoleType shownRole;
+    private ThuongRoleDefinition shownDefinition;
+    private int shownPlayerID = -1;
+    private bool shownAwakened;
+    private AbilitySystem observedAbilitySystem;
     private GameState previousState;
     private string actionFeedback;
     private bool selectingHunterTrap;
@@ -66,6 +70,7 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved -= HandleAbilityResolved;
         if (abilityCanvas == null) return;
         if (Application.isPlaying) Destroy(abilityCanvas.gameObject);
         else DestroyImmediate(abilityCanvas.gameObject);
@@ -394,13 +399,20 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void RefreshReveal(PlayerData player)
     {
-        revealRoleLabel.text = RoleName(player.roleType);
+        var definition = player.roleDefinition;
+        revealRoleLabel.text = DisplayRoleName(player);
         revealFactionLabel.text = player.faction == FactionType.Monster
                 ? "PHE MA SÓI" : player.faction == FactionType.Villager
                     ? "PHE DÂN LÀNG" : "PHE TRUNG LẬP";
-        revealDescriptionLabel.text = RoleDescription(player.roleType);
-        revealPortrait.sprite = Resources.Load<Sprite>("RolePortraits/" + player.roleType)
-            ?? defaultPortrait;
+        revealDescriptionLabel.text = definition != null && !string.IsNullOrWhiteSpace(definition.description)
+            ? definition.description : RoleDescription(player.roleType);
+        // Unity's missing/destroyed asset references use Unity-null, not CLR-null.
+        // Do not use ?? for an optional serialized Sprite or it can suppress the fallback.
+        Sprite portrait = definition != null ? definition.portrait : null;
+        if (portrait == null) portrait = Resources.Load<Sprite>("RolePortraits/" + player.roleType);
+        if (portrait == null) portrait = defaultPortrait;
+        if (portrait == null) portrait = Resources.Load<Sprite>("RoleAbilityIcon");
+        revealPortrait.sprite = portrait;
         revealPortrait.color = revealPortrait.sprite != null ? Color.white : Hex("#79DED1");
     }
 
@@ -415,8 +427,11 @@ public class RoleAbilityUI : MonoBehaviour
     {
         hasShownRole = true;
         shownRole = player.roleType;
-        roleLabel.text = RoleName(shownRole);
-        openLabel.text = "ROLE / " + RoleName(shownRole);
+        shownDefinition = player.roleDefinition;
+        shownPlayerID = player.playerID;
+        shownAwakened = player.isWhiteHoundAwakened;
+        roleLabel.text = DisplayRoleName(player);
+        openLabel.text = "ROLE / " + DisplayRoleName(player);
         RefreshReveal(player);
 
         switch (shownRole)
@@ -468,8 +483,27 @@ public class RoleAbilityUI : MonoBehaviour
                 descriptionLabel.text = "Role này không có kỹ năng chủ động trên giao diện. Hãy tham gia thảo luận và bỏ phiếu.";
                 break;
         }
-        bool isShaman = shownRole == RoleType.Shaman;
-        useButton.gameObject.SetActive(HasActiveAbility(shownRole) && !isShaman);
+        bool configured = RoleManager.UsesConfiguredAbility(player);
+        if (configured)
+        {
+            skillLabel.text = !string.IsNullOrWhiteSpace(shownDefinition.abilityName)
+                ? shownDefinition.abilityName : shownDefinition.abilityType.ToString();
+            if (!string.IsNullOrWhiteSpace(shownDefinition.description)) descriptionLabel.text = shownDefinition.description;
+        }
+        if (shownDefinition != null && shownDefinition.abilityIcon != null)
+        {
+            foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
+                if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
+                    image.sprite = shownDefinition.abilityIcon;
+        }
+        else
+        {
+            foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
+                if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
+                    image.sprite = Resources.Load<Sprite>("RoleAbilityIcon");
+        }
+        bool isShaman = !configured && shownRole == RoleType.Shaman;
+        useButton.gameObject.SetActive(HasActiveAbility(player) && !isShaman);
         shamanGoodCharmButton.gameObject.SetActive(isShaman);
         shamanBadCharmButton.gameObject.SetActive(isShaman);
         hunterTrapButton.gameObject.SetActive(shownRole == RoleType.Hunter);
@@ -484,12 +518,21 @@ public class RoleAbilityUI : MonoBehaviour
             reason = "Chọn mục tiêu cho bẫy của bạn.";
             return true;
         }
+        else if (RoleManager.UsesConfiguredAbility(player))
+        {
+            if (AbilitySystem.Instance == null) { reason = "Chưa có hệ thống kỹ năng."; return false; }
+            var validation = AbilitySystem.Instance.ValidateActor(player);
+            reason = validation.IsValid ? "Chọn kỹ năng để mở danh sách mục tiêu." : validation.Message;
+            return validation.IsValid;
+        }
         else if (player.roleType == RoleType.WhiteHound && !player.isWhiteHoundAwakened)
             reason = "Chỉ có thể tấn công sau khi thức tỉnh.";
         else if (!player.isAlive)
             reason = "Bạn đã bị loại và không thể dùng kỹ năng.";
-        else if (!HasActiveAbility(player.roleType))
+        else if (!HasActiveAbility(player))
             reason = "Role này chỉ có kỹ năng nội tại hoặc quyền bỏ phiếu.";
+        else if (player.HasEffect(StatusEffectType.Silenced))
+            reason = "Người chơi đang bị Silenced.";
         else if (game == null || game.currentState != GameState.Night)
             reason = "Kỹ năng chỉ dùng được vào ban đêm.";
         else if (player.hasUseNightAction)
@@ -507,13 +550,20 @@ public class RoleAbilityUI : MonoBehaviour
     private void Update()
     {
         if (!initialized) return;
+        if (observedAbilitySystem != AbilitySystem.Instance)
+        {
+            if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved -= HandleAbilityResolved;
+            observedAbilitySystem = AbilitySystem.Instance;
+            if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved += HandleAbilityResolved;
+        }
         GameRoleManager game = GameRoleManager.Instance;
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         if (player != null)
         {
             playerLabel.text = $"PLAYER {player.playerID + 1}  /  ID {player.playerID}" +
                 (player.isAlive ? " / ALIVE" : " / DEAD");
-            if (!hasShownRole || shownRole != player.roleType) RefreshRole(player);
+            if (!hasShownRole || shownRole != player.roleType || shownDefinition != player.roleDefinition ||
+                shownPlayerID != player.playerID || shownAwakened != player.isWhiteHoundAwakened) RefreshRole(player);
         }
 
         bool revealing = game != null && game.currentState == GameState.RoleReveal;
@@ -532,7 +582,7 @@ public class RoleAbilityUI : MonoBehaviour
             if (game.currentState == GameState.Night)
             {
                 actionFeedback = null;
-                if (player != null && player.isAlive && HasActiveAbility(player.roleType))
+                if (player != null && player.isAlive && HasActiveAbility(player))
                 {
                     CancelTargets();
                     ShowWindow(true);
@@ -567,12 +617,14 @@ public class RoleAbilityUI : MonoBehaviour
         foreach (var target in targetButtons)
         {
             bool alive = PlayerManager.Instance != null && PlayerManager.Instance.IsAlive(target.Key);
-            target.Value.interactable = alive && (selectingHunterTrap ? canSetTrap : canUse);
+            bool validTarget = RoleManager.UsesConfiguredAbility(player) && AbilitySystem.Instance != null
+                ? AbilitySystem.Instance.Validate(player, PlayerManager.Instance.GetplayerByID(target.Key)).IsValid : alive;
+            target.Value.interactable = selectingHunterTrap ? alive && canSetTrap : validTarget && canUse;
         }
         // Luôn cho mở danh sách lobby; chỉ thực thi action khi CanUse hợp lệ.
-        useButton.interactable = player != null && player.isAlive && HasActiveAbility(player.roleType);
+        useButton.interactable = player != null && player.isAlive && HasActiveAbility(player);
         ShamanRole shaman = GetLocalShamanRole();
-        bool canUseShamanCharm = player != null && player.isAlive && !player.hasUseNightAction &&
+        bool canUseShamanCharm = player != null && player.isAlive && !player.HasEffect(StatusEffectType.Silenced) && !player.hasUseNightAction &&
                                  game != null && game.currentState == GameState.Night;
         shamanGoodCharmButton.interactable = canUseShamanCharm && shaman != null && shaman.HasGoodCharm;
         shamanBadCharmButton.interactable = canUseShamanCharm && shaman != null && shaman.HasBadCharm;
@@ -600,7 +652,7 @@ public class RoleAbilityUI : MonoBehaviour
             CancelTargets();
             return;
         }
-        if (player == null || (!HasActiveAbility(player.roleType) && !canSetHunterTrap))
+        if (player == null || (!HasActiveAbility(player) && !canSetHunterTrap))
         {
             actionFeedback = "Chưa có kỹ năng chủ động để chọn mục tiêu.";
             return;
@@ -625,7 +677,11 @@ public class RoleAbilityUI : MonoBehaviour
         foreach (PlayerData target in lobby)
         {
             if (target != null) lobbyCount++;
-            if (target == null || !target.isAlive || target.playerID == localPlayerID)
+            if (target == null) continue;
+            bool allowed = RoleManager.UsesConfiguredAbility(player) && !selectingHunterTrap
+                ? TargetValidator.Validate(player, target, player.roleDefinition).IsValid
+                : target.isAlive && target.playerID != localPlayerID;
+            if (!allowed)
                 continue;
             int targetID = target.playerID;
             string name = $"{PlayerName(target)}  /  ID {targetID}";
@@ -762,6 +818,18 @@ public class RoleAbilityUI : MonoBehaviour
         abilityView.SetActive(false);
         resultView.SetActive(true);
         Debug.Log("[Role Ability] " + feedback);
+    }
+
+    private static string DisplayRoleName(PlayerData player) =>
+        player.roleDefinition != null && !string.IsNullOrWhiteSpace(player.roleDefinition.displayName)
+            ? player.roleDefinition.displayName : RoleName(player.roleType);
+    private static bool HasActiveAbility(PlayerData player) => RoleManager.UsesConfiguredAbility(player)
+        ? player.roleDefinition.abilityType != AbilityType.None : HasActiveAbility(player.roleType);
+    private void HandleAbilityResolved(AbilityResolution result)
+    {
+        if (result.Actor == null || result.Actor.playerID != localPlayerID) return;
+        actionFeedback = result.Message;
+        if (resultFeedbackLabel != null) resultFeedbackLabel.text = result.Message;
     }
 
     private void CancelTargets()
