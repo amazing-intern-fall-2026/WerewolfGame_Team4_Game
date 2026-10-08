@@ -20,6 +20,6 @@ public class TaskStation : MonoBehaviour
         if (movement == null || !movement.IsAlive) return;
         if (Vector2.Distance(transform.position, player.position) <= interactionRadius &&
             Keyboard.current.eKey.wasPressedThisFrame)
-            tasks.TryCompleteTask(movement.playerID, task);
+            tasks.CompleteTask(task);
     }
 }

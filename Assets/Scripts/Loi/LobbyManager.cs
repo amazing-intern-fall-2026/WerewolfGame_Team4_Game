@@ -1,6 +1,4 @@
-using System;
 using TMPro;
-using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,174 +6,79 @@ using UnityEngine.SceneManagement;
 public class LobbyManager : NetworkBehaviour
 {
     [Header("UI")]
-    [SerializeField]
-    private TextMeshProUGUI playerListText;
+    [SerializeField] private TextMeshProUGUI playerListText;
+    [SerializeField] private GameObject startGameButton;
 
-    [SerializeField]
-    private GameObject startGameButton;
-
-    [Header("Player Name")]
-    [SerializeField]
-    private TMP_InputField playerNameInput;
-
-    private NetworkList<PlayerLobbyData> players;
-
-    private NetworkRoleLobbyConfig roleLobbyConfig;
-
-    // ==========================================
-    // AWAKE
-    // ==========================================
+    private NetworkList<ulong> playerIds;
 
     private void Awake()
     {
-        players =
-            new NetworkList<PlayerLobbyData>();
+        playerIds = new NetworkList<ulong>();
     }
-
-    // ==========================================
-    // NETWORK SPAWN
-    // ==========================================
 
     public override void OnNetworkSpawn()
     {
-        if (IsServer)
-        {
-            NetworkGamePlayerNameSetup.Clear();
-        }
-        
-        players.OnListChanged +=
-            OnPlayerListChanged;
-
-        FindRoleLobbyConfig();
+        playerIds.OnListChanged += OnPlayerListChanged;
 
         if (IsServer)
         {
-            NetworkManager.OnClientConnectedCallback +=
-                OnClientConnected;
+            NetworkManager.OnClientConnectedCallback += OnClientConnected;
+            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
-            NetworkManager.OnClientDisconnectCallback +=
-                OnClientDisconnected;
+            AddPlayer(NetworkManager.LocalClientId);
 
-            AddPlayer(
-                NetworkManager.LocalClientId,
-                "Player " +
-                (NetworkManager.LocalClientId + 1)
-            );
-
-            foreach (
-                ulong clientId
-                in NetworkManager.ConnectedClientsIds
-            )
+            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
             {
-                AddPlayer(
-                    clientId,
-                    "Player " +
-                    (clientId + 1)
-                );
+                AddPlayer(clientId);
             }
         }
 
         UpdatePlayerList();
         UpdateStartButton();
-
-        Debug.Log(
-            "LOBBY MANAGER | NetworkRoleLobbyConfig = "
-            + (
-                roleLobbyConfig != null
-                    ? "FOUND"
-                    : "NULL"
-            )
-        );
     }
-
-    // ==========================================
-    // NETWORK DESPAWN
-    // ==========================================
 
     public override void OnNetworkDespawn()
     {
-        players.OnListChanged -=
-            OnPlayerListChanged;
+        playerIds.OnListChanged -= OnPlayerListChanged;
 
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.OnClientConnectedCallback -=
-                OnClientConnected;
-
-            NetworkManager.OnClientDisconnectCallback -=
-                OnClientDisconnected;
+            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
+            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
-    }
-
-    // ==========================================
-    // FIND ROLE CONFIG
-    // ==========================================
-
-    private void FindRoleLobbyConfig()
-    {
-        roleLobbyConfig =
-            FindFirstObjectByType<
-                NetworkRoleLobbyConfig
-            >();
-
-        if (roleLobbyConfig == null)
-        {
-            Debug.LogWarning(
-                "LOBBY MANAGER | "
-                + "Không tìm thấy NetworkRoleLobbyConfig!"
-            );
-
-            return;
-        }
-
-        Debug.Log(
-            "LOBBY MANAGER | "
-            + "Đã tìm thấy NetworkRoleLobbyConfig."
-        );
-
-        Debug.Log(
-            "LOBBY MANAGER | Total Roles = "
-            + roleLobbyConfig.GetTotalRoleAmount()
-        );
     }
 
     // ==========================================
     // PLAYER CONNECTED
     // ==========================================
 
-    private void OnClientConnected(
-        ulong clientId)
+    private void OnClientConnected(ulong clientId)
     {
         if (!IsServer)
             return;
 
         Debug.Log(
-            "Lobby: Player "
-            + (clientId + 1)
-            + " đã vào Lobby"
+            "Lobby: Player " +
+            clientId +
+            " đã vào Lobby"
         );
 
-        AddPlayer(
-            clientId,
-            "Player " +
-            (clientId + 1)
-        );
+        AddPlayer(clientId);
     }
 
     // ==========================================
     // PLAYER DISCONNECTED
     // ==========================================
 
-    private void OnClientDisconnected(
-        ulong clientId)
+    private void OnClientDisconnected(ulong clientId)
     {
         if (!IsServer)
             return;
 
         Debug.Log(
-            "Lobby: Player "
-            + (clientId + 1)
-            + " đã rời Lobby"
+            "Lobby: Player " +
+            clientId +
+            " đã rời Lobby"
         );
 
         RemovePlayer(clientId);
@@ -185,25 +88,17 @@ public class LobbyManager : NetworkBehaviour
     // ADD PLAYER
     // ==========================================
 
-    private void AddPlayer(
-        ulong clientId,
-        string playerName)
+    private void AddPlayer(ulong clientId)
     {
-        if (FindPlayerIndex(clientId) >= 0)
+        if (playerIds.Contains(clientId))
             return;
 
-        players.Add(
-            new PlayerLobbyData(
-                clientId,
-                playerName
-            )
-        );
+        playerIds.Add(clientId);
 
         Debug.Log(
-            "Đã thêm Player "
-            + (clientId + 1)
-            + " | Name = "
-            + playerName
+            "Đã thêm Player " +
+            clientId +
+            " vào Lobby."
         );
     }
 
@@ -211,161 +106,17 @@ public class LobbyManager : NetworkBehaviour
     // REMOVE PLAYER
     // ==========================================
 
-    private void RemovePlayer(
-        ulong clientId)
+    private void RemovePlayer(ulong clientId)
     {
-        int index =
-            FindPlayerIndex(clientId);
-
-        if (index < 0)
+        if (!playerIds.Contains(clientId))
             return;
 
-        players.RemoveAt(index);
+        playerIds.Remove(clientId);
 
         Debug.Log(
-            "Đã xóa Player "
-            + (clientId + 1)
-            + " khỏi Lobby."
-        );
-    }
-
-    // ==========================================
-    // FIND PLAYER
-    // ==========================================
-
-    private int FindPlayerIndex(
-        ulong clientId)
-    {
-        for (
-            int i = 0;
-            i < players.Count;
-            i++
-        )
-        {
-            if (
-                players[i].ClientId ==
-                clientId
-            )
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    // ==========================================
-    // SUBMIT PLAYER NAME
-    // ==========================================
-
-    public void SubmitPlayerName()
-    {
-        if (
-            NetworkManager.Singleton ==
-            null
-        )
-        {
-            return;
-        }
-
-        string playerName =
-            "Player " +
-            (
-                NetworkManager.Singleton
-                    .LocalClientId + 1
-            );
-
-        if (playerNameInput != null)
-        {
-            string input =
-                playerNameInput.text.Trim();
-
-            if (
-                !string.IsNullOrWhiteSpace(
-                    input
-                )
-            )
-            {
-                playerName = input;
-            }
-        }
-
-        SubmitPlayerNameServerRpc(
-            playerName
-        );
-    }
-
-    // ==========================================
-    // SUBMIT NAME SERVER RPC
-    // ==========================================
-
-    [ServerRpc(
-        RequireOwnership = false
-    )]
-    private void SubmitPlayerNameServerRpc(
-        string playerName,
-        ServerRpcParams rpcParams = default)
-    {
-        ulong clientId =
-            rpcParams.Receive.SenderClientId;
-
-        playerName =
-            playerName.Trim();
-
-        if (
-            string.IsNullOrWhiteSpace(
-                playerName
-            )
-        )
-        {
-            playerName =
-                "Player " +
-                (clientId + 1);
-        }
-
-        if (playerName.Length > 20)
-        {
-            playerName =
-                playerName.Substring(
-                    0,
-                    20
-                );
-        }
-
-        int index =
-            FindPlayerIndex(clientId);
-
-        if (index < 0)
-        {
-            AddPlayer(
-                clientId,
-                playerName
-            );
-
-            return;
-        }
-
-        PlayerLobbyData data =
-            players[index];
-
-        data.PlayerName =
-            new FixedString64Bytes(
-                playerName
-            );
-
-        players[index] =
-            data;
-
-        NetworkGamePlayerNameSetup.Save(
-       clientId,
-           playerName
-        );
-
-        Debug.Log(
-            "LOBBY NAME | Player "
-            + (clientId + 1)
-            + " → "
-            + playerName
+            "Đã xóa Player " +
+            clientId +
+            " khỏi Lobby."
         );
     }
 
@@ -374,8 +125,7 @@ public class LobbyManager : NetworkBehaviour
     // ==========================================
 
     private void OnPlayerListChanged(
-        NetworkListEvent<PlayerLobbyData>
-            changeEvent)
+        NetworkListEvent<ulong> changeEvent)
     {
         UpdatePlayerList();
         UpdateStartButton();
@@ -390,52 +140,19 @@ public class LobbyManager : NetworkBehaviour
         if (playerListText == null)
             return;
 
-        string text =
-            "PLAYERS\n\n";
+        string text = "PLAYERS\n\n";
 
-        for (
-            int i = 0;
-            i < players.Count;
-            i++
-        )
+        for (int i = 0; i < playerIds.Count; i++)
         {
-            PlayerLobbyData player =
-                players[i];
+            text += "Player " + (i + 1);
 
-            string playerName;
-
-            if (
-                player.PlayerName.Length ==
-                0
-            )
-            {
-                playerName =
-                    "Player " +
-                    (player.ClientId + 1);
-            }
-            else
-            {
-                playerName =
-                    player.PlayerName.ToString();
-            }
-
-            text +=
-                "Player "
-                + (player.ClientId + 1)
-                + " - "
-                + playerName;
-
-            if (
-                i <
-                players.Count - 1
-            )
+            if (i < playerIds.Count - 1)
             {
                 text += "\n";
             }
         }
 
-        playerListText.text =
-            text;
+        playerListText.text = text;
     }
 
     // ==========================================
@@ -447,9 +164,8 @@ public class LobbyManager : NetworkBehaviour
         if (startGameButton == null)
             return;
 
-        startGameButton.SetActive(
-            IsServer
-        );
+        // Chỉ Host được thấy nút Start
+        startGameButton.SetActive(IsServer);
     }
 
     // ==========================================
@@ -458,6 +174,7 @@ public class LobbyManager : NetworkBehaviour
 
     public void StartGame()
     {
+        // Chỉ Server/Host được phép Start
         if (!IsServer)
         {
             Debug.LogWarning(
@@ -467,135 +184,11 @@ public class LobbyManager : NetworkBehaviour
             return;
         }
 
-        if (roleLobbyConfig == null)
-        {
-            FindRoleLobbyConfig();
-        }
-
-        if (roleLobbyConfig == null)
-        {
-            Debug.LogError(
-                "Không thể Start Game: "
-                + "NetworkRoleLobbyConfig "
-                + "không tồn tại!"
-            );
-
-            return;
-        }
-
-        // ======================================
-        // CHECK PLAYER / ROLE
-        // ======================================
-
-        int playerCount =
-            players.Count;
-
-        int roleCount =
-            roleLobbyConfig
-                .GetTotalRoleAmount();
-
-        Debug.Log(
-            "LOBBY START CHECK | "
-            + "Players = "
-            + playerCount
-            + " | Roles = "
-            + roleCount
-        );
-
-        if (playerCount != roleCount)
-        {
-            Debug.LogWarning(
-                "Không thể Start Game! "
-                + "Số Role ("
-                + roleCount
-                + ") "
-                + "phải bằng số Player ("
-                + playerCount
-                + ")."
-            );
-
-            return;
-        }
-
-        // ======================================
-        // SAVE ROLE SETUP
-        // ======================================
-
-        NetworkGameRoleSetup.Save(
-            roleLobbyConfig
-                .GetRoleAmounts()
-        );
-
-        Debug.Log(
-            "LOBBY START GAME | "
-            + "Đã lưu Role Setup. "
-            + "Total Roles = "
-            + NetworkGameRoleSetup
-                .GetTotalRoleAmount()
-        );
-
-        // ======================================
-        // START GAME
-        // ======================================
-
-        Debug.Log(
-            "HOST START GAME!"
-        );
+        Debug.Log("HOST START GAME!");
 
         NetworkManager.SceneManager.LoadScene(
             "Game",
             LoadSceneMode.Single
         );
-    }
-}
-
-
-// ==================================================
-// PLAYER LOBBY DATA
-// ==================================================
-
-public struct PlayerLobbyData :
-    INetworkSerializable,
-    IEquatable<PlayerLobbyData>
-{
-    public ulong ClientId;
-
-    public FixedString64Bytes PlayerName;
-
-    public PlayerLobbyData(
-        ulong clientId,
-        string playerName)
-    {
-        ClientId =
-            clientId;
-
-        PlayerName =
-            new FixedString64Bytes(
-                playerName
-            );
-    }
-
-    public void NetworkSerialize<T>(
-        BufferSerializer<T> serializer)
-        where T : IReaderWriter
-    {
-        serializer.SerializeValue(
-            ref ClientId
-        );
-
-        serializer.SerializeValue(
-            ref PlayerName
-        );
-    }
-
-    public bool Equals(
-        PlayerLobbyData other)
-    {
-        return
-            ClientId ==
-            other.ClientId
-            &&
-            PlayerName ==
-            other.PlayerName;
     }
 }
