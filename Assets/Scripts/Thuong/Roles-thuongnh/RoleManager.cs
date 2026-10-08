@@ -6,7 +6,6 @@ using Random = UnityEngine.Random;
 public class RoleManager : MonoBehaviour
 {
     public static RoleManager Instance;
-    public ThuongRoleDefinitionCatalog roleDefinitions;
 
     [System.NonSerialized]
     public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
@@ -14,7 +13,6 @@ public class RoleManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        playerRoles ??= new Dictionary<int, BaseRole>();
     }
 
     public void AssignRole()
@@ -24,8 +22,6 @@ public class RoleManager : MonoBehaviour
 
     public void AssignRole(int seed)
     {
-        if (roleDefinitions != null && !roleDefinitions.Validate(out string catalogError))
-        { Debug.LogError(catalogError); return; }
         if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
         {
             Debug.LogWarning("RoleManager: chưa có player nào để gán role.");
@@ -58,12 +54,9 @@ public class RoleManager : MonoBehaviour
             list[i].votePower = 1;
             list[i].hasUseNightAction = false;
             list[i].hasVoted = false;
-            list[i].ResetForNewMatch();
-            list[i].roleDefinition = null;
+            list[i].isAlive = true;
 
             CreateRole(rolePool[i], list[i]);
-            list[i].roleDefinition = roleDefinitions != null ? roleDefinitions.Find(rolePool[i]) : null;
-            list[i].NotifyChanged();
         }
 
         Debug.Log("[ROLE] Random seed: " + seed);
@@ -92,14 +85,6 @@ public class RoleManager : MonoBehaviour
 
     public bool UseNightAbility(int playerID, int targetID, out string feedback)
     {
-        var configuredActor = PlayerManager.Instance?.GetplayerByID(playerID);
-        if (UsesConfiguredAbility(configuredActor) && AbilitySystem.Instance != null)
-        {
-            var result = AbilitySystem.Instance.TryUseAbility(configuredActor,
-                PlayerManager.Instance.GetplayerByID(targetID));
-            feedback = result.Message;
-            return result.IsValid;
-        }
         if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Night)
         {
             feedback = "Chỉ có thể dùng kỹ năng vào ban đêm.";
@@ -111,7 +96,7 @@ public class RoleManager : MonoBehaviour
             feedback = "Người chơi chưa được gán Role hợp lệ.";
             return false;
         }
-        if (PlayerManager.Instance == null || !PlayerManager.Instance.IsAlive(playerID))
+        if (!role.owner.isAlive)
         {
             feedback = "Người chơi đã bị loại.";
             return false;
@@ -126,11 +111,6 @@ public class RoleManager : MonoBehaviour
             feedback = "Kỹ năng đã được dùng trong đêm này.";
             return false;
         }
-        if (role.owner.HasEffect(StatusEffectType.Silenced))
-        {
-            feedback = "Người chơi đang bị Silenced.";
-            return false;
-        }
         if (playerID == targetID)
         {
             feedback = "Không thể chọn chính mình.";
@@ -138,7 +118,7 @@ public class RoleManager : MonoBehaviour
         }
 
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
-        if (target == null || !PlayerManager.Instance.IsAlive(targetID))
+        if (target == null || !target.isAlive)
         {
             feedback = "Mục tiêu không tồn tại hoặc đã bị loại.";
             return false;
@@ -146,13 +126,9 @@ public class RoleManager : MonoBehaviour
 
         if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
-        role.owner.hasUseNightAction = role is not FoxSpiritRole foxSpirit ||
-                                       foxSpirit.HasUsedAllNightActions;
+        role.owner.hasUseNightAction = true;
         return true;
     }
-
-    public static bool UsesConfiguredAbility(PlayerData player) =>
-        player?.roleDefinition != null && !player.roleDefinition.useLegacyAbility;
 
     private void NotifyAliveRoles(System.Action<BaseRole> callback)
     {
@@ -172,19 +148,6 @@ public class RoleManager : MonoBehaviour
         playerRoles[player.playerID] = role;
 
         role.OnGameStart();
-    }
-
-    public void AssignConfiguredRoles()
-    {
-        playerRoles ??= new Dictionary<int, BaseRole>();
-        playerRoles.Clear();
-        foreach (var player in PlayerManager.Instance.players)
-        {
-            if (player?.roleDefinition == null) continue;
-            CreateRole(player.roleDefinition.roleType, player);
-            player.faction = player.roleDefinition.faction;
-            player.NotifyChanged();
-        }
     }
 
     private void Shuffle(List<PlayerData> list, System.Random random)

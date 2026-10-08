@@ -10,17 +10,12 @@ public class CursedRole : BaseRole
 
     public override void UseNightAbility(int TargetID)
     {
-        if (owner == null || !owner.isAlive)
-            return;
-
-        PlayerData target = PlayerManager.Instance?.GetplayerByID(TargetID);
+        PlayerData target = PlayerManager.Instance.GetplayerByID(TargetID);
 
         if (target == null || !target.isAlive)
             return;
 
-        target.status ??= new PlayerStatus();
         target.isCursed = true;
-        target.status.isSilenced = true;
 
         Debug.Log(
             owner.playerName +

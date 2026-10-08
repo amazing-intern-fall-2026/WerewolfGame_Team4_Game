@@ -11,7 +11,6 @@ public class WinConditionManager : MonoBehaviour
     {
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
-        if (game.manualLogicPrototype) { EvaluateLogicPrototype(game); return; }
 
         if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
         {
@@ -27,8 +26,10 @@ public class WinConditionManager : MonoBehaviour
         int aliveWhiteWolf = 0;
         int aliveThirdParty = 0;
 
-        foreach (var player in PlayerManager.Instance.GetAlivePlayers())
+        foreach (var player in PlayerManager.Instance.players)
         {
+            if (player == null || !player.isAlive) continue;
+
             if ((player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) &&
                 player.isWhiteHoundAwakened)
                 aliveWhiteWolf++;
@@ -101,38 +102,6 @@ public class WinConditionManager : MonoBehaviour
             if (lover != null && lover.isAlive && lover.loverID == player.playerID)
                 return true;
         }
-
-        return false;
-    }
-
-    private void EvaluateLogicPrototype(GameRoleManager game)
-    {
-        if (PlayerManager.Instance?.players == null) return;
-        int alive = 0, wolves = 0, village = 0;
-        foreach (var player in PlayerManager.Instance.GetAlivePlayers())
-        {
-            alive++;
-            if (player.faction == FactionType.Monster) wolves++;
-            if (player.faction == FactionType.Villager) village++;
-            var rule = player.roleDefinition?.neutralWinRule;
-            if (player.faction == FactionType.Neutral && rule != null &&
-                rule.IsSatisfied(player, PlayerManager.Instance.players))
-            { game.EndLogicGame(rule.BuildWinMessage(player)); return; }
-        }
-        if (alive == 0) game.EndLogicGame("Draw");
-        else if (wolves == 0 && village > 0) game.VillagerWin();
-        else if (wolves == 0 && village == 0) game.EndLogicGame("Neutral");
-        else if (wolves >= alive - wolves) game.WerewolfWin();
-    }
-
-    public bool FoxSpiritHasWon()
-    {
-        if (RoleManager.Instance == null)
-            return false;
-
-        foreach (BaseRole role in RoleManager.Instance.playerRoles.Values)
-            if (role is FoxSpiritRole foxSpirit && foxSpirit.HasWon)
-                return true;
 
         return false;
     }

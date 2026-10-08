@@ -10,6 +10,6 @@ public class Ogre : BaseRole
 
     public override void UseNightAbility(int TargetID)
     {
-        NightManager.Instance.SetMonsterTarget(TargetID, RoleType.Ogre);
+        NightManager.Instance.SetMonsterTarget(TargetID);
     }
 }

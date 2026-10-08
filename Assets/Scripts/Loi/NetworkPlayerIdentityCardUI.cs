@@ -20,8 +20,6 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour
     [Header("Role Images")]
     [SerializeField] private RoleImageEntry[] roleImages;
 
-    private bool playerNameInitialized;
-
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived += OnRoleReceived;
@@ -34,62 +32,12 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour
 
     private void Start()
     {
-        TrySetLocalPlayerName();
-
         if (NetworkRoleSync.LocalInstance != null)
         {
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
         }
-    }
-
-    private void Update()
-    {
-        if (playerNameInitialized)
-            return;
-
-        TrySetLocalPlayerName();
-    }
-
-    private void TrySetLocalPlayerName()
-    {
-        if (NetworkRoleSync.LocalInstance == null)
-            return;
-
-        ulong clientId =
-            NetworkRoleSync.LocalInstance.OwnerClientId;
-
-        NetworkPlayerNameSync nameSync =
-            NetworkRoleSync.LocalInstance
-                .GetComponent<NetworkPlayerNameSync>();
-
-        string playerName;
-
-        if (nameSync != null)
-        {
-            playerName =
-                nameSync.GetPlayerName();
-        }
-        else
-        {
-            playerName =
-                "Player " + (clientId + 1);
-        }
-
-        if (playerNameText != null)
-        {
-            playerNameText.text = playerName;
-        }
-
-        playerNameInitialized = true;
-
-        Debug.Log(
-            "IDENTITY CARD | Local Player = "
-            + playerName
-            + " | ClientID = "
-            + clientId
-        );
     }
 
     private void OnRoleReceived(RoleType role)

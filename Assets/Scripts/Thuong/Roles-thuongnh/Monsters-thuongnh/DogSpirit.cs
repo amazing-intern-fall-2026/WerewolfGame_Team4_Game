@@ -10,7 +10,7 @@ public class DogSpirit:BaseRole
     }
     public override void UseNightAbility(int TargetID)
     {
-         NightManager.Instance?.SetMonsterTarget(TargetID, RoleType.DogSpirit);
+       NightManager.Instance?.SetMonsterTarget(TargetID);
     }
 
     public override bool TryUseNightAbility(int targetID, out string feedback)
