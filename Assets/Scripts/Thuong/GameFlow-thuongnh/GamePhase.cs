@@ -14,5 +14,7 @@ public enum GamePhase
     Night,
     ResolveNight,
 
-    GameOver
+    GameOver,
+    Setup,
+    DayResolution
 }

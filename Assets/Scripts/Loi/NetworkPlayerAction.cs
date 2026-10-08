@@ -1,14 +1,79 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkPlayerAction : NetworkBehaviour
 {
-    public static event Action<NetworkActionEvent> OnNetworkActionAccepted;
+    // =========================================================
+    // ACTION LOCK
+    // PlayerID -> NightCycle đã sử dụng Skill
+    // =========================================================
 
-    public static event Action<bool, string> OnNetworkActionResult;
+    private static readonly Dictionary<ulong, int>
+        playersActionNightCycle =
+        new Dictionary<ulong, int>();
 
-    public static event Action<int, string, RoleType> OnSeerResultReceived;
+    // =========================================================
+    // PENDING ACTION
+    //
+    // PlayerID -> NightCycle đang chờ kết quả Action
+    //
+    // Chỉ khi Action thành công mới chuyển sang
+    // playersActionNightCycle.
+    // =========================================================
+
+    private static readonly Dictionary<ulong, int>
+        pendingActionNightCycle =
+        new Dictionary<ulong, int>();
+
+    // =========================================================
+    // EVENTS
+    // =========================================================
+
+    public static event Action<NetworkActionEvent>
+        OnNetworkActionAccepted;
+
+    public static event Action<bool, string>
+        OnNetworkActionResult;
+
+    public static event Action<int, string, RoleType>
+        OnSeerResultReceived;
+
+    // =========================================================
+    // RESET SERVER ACTION DATA
+    // =========================================================
+
+    private static void ResetServerActionData()
+    {
+        playersActionNightCycle.Clear();
+        pendingActionNightCycle.Clear();
+
+        Debug.Log(
+            "SERVER ACTION DATA RESET"
+        );
+    }
+
+    // =========================================================
+    // NETWORK SPAWN
+    // =========================================================
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        if (IsServer)
+        {
+            Debug.Log(
+                "NetworkPlayerAction Spawned | Player="
+                + (OwnerClientId + 1)
+            );
+        }
+    }
+
+    // =========================================================
+    // REQUEST ACTION
+    // =========================================================
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestActionServerRpc(
@@ -25,39 +90,28 @@ public class NetworkPlayerAction : NetworkBehaviour
             + targetPlayerId
         );
 
+        // =====================================================
+        // NETWORK MANAGER
+        // =====================================================
+
         if (NetworkManager.Singleton == null)
-            return;
-
-        if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                targetPlayerId
-            )
-        )
         {
             SendActionResultToClient(
                 false,
-                "Target Player không tồn tại!",
+                "NetworkManager không tồn tại!",
                 requesterClientId
             );
 
             return;
         }
 
-        if (requesterClientId == targetPlayerId)
-        {
-            SendActionResultToClient(
-                false,
-                "Không thể Action chính mình!",
-                requesterClientId
-            );
-
-            return;
-        }
+        // =====================================================
+        // REQUESTER EXIST
+        // =====================================================
 
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                requesterClientId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(requesterClientId)
         )
         {
             Debug.LogWarning(
@@ -68,9 +122,8 @@ public class NetworkPlayerAction : NetworkBehaviour
         }
 
         NetworkClient requesterClient =
-            NetworkManager.Singleton.ConnectedClients[
-                requesterClientId
-            ];
+            NetworkManager.Singleton
+                .ConnectedClients[requesterClientId];
 
         if (requesterClient.PlayerObject == null)
         {
@@ -83,8 +136,13 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // REQUESTER PLAYER CONTROLLER
+        // =====================================================
+
         PlayerController requester =
-            requesterClient.PlayerObject.GetComponent<PlayerController>();
+            requesterClient.PlayerObject
+                .GetComponent<PlayerController>();
 
         if (requester == null)
         {
@@ -97,6 +155,10 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // REQUESTER STATE
+        // =====================================================
+
         NetworkPlayerStateSync requesterState =
             requester.GetComponent<NetworkPlayerStateSync>();
 
@@ -104,12 +166,153 @@ public class NetworkPlayerAction : NetworkBehaviour
         {
             SendActionResultToClient(
                 false,
-                "Không tìm thấy PlayerState!",
+                "Không tìm thấy NetworkPlayerStateSync!",
                 requesterClientId
             );
 
             return;
         }
+
+        // =====================================================
+        // PHASE SYNC
+        // =====================================================
+
+        if (NetworkPhaseSync.Instance == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy NetworkPhaseSync!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        GamePhase currentPhase =
+            NetworkPhaseSync.Instance
+                .CurrentPhase.Value;
+
+        // =====================================================
+        // CURRENT NIGHT CYCLE
+        //
+        // Night 1 -> 1
+        // Night 2 -> 2
+        // Night 3 -> 3
+        // =====================================================
+
+        int currentNightCycle =
+            NetworkPhaseSync.Instance
+                .CurrentNightCycle.Value;
+
+        // =====================================================
+        // ACTION CHECK
+        // =====================================================
+
+        bool hasStoredNight =
+            playersActionNightCycle.ContainsKey(
+                requesterClientId
+            );
+
+        string storedNightText = "NONE";
+
+        if (hasStoredNight)
+        {
+            storedNightText =
+                playersActionNightCycle[
+                    requesterClientId
+                ].ToString();
+        }
+
+        Debug.Log(
+            "SERVER ACTION CHECK"
+            + " | Player="
+            + (requesterClientId + 1)
+            + " | CurrentPhase="
+            + currentPhase
+            + " | CurrentNight="
+            + currentNightCycle
+            + " | HasStoredNight="
+            + hasStoredNight
+            + " | StoredNight="
+            + storedNightText
+        );
+
+        // =====================================================
+        // CHECK SKILL USED IN CURRENT NIGHT
+        // =====================================================
+
+        if (
+            currentPhase == GamePhase.Night
+            &&
+            playersActionNightCycle.TryGetValue(
+                requesterClientId,
+                out int usedNightCycle
+            )
+        )
+        {
+            // -------------------------------------------------
+            // Đã dùng trong đúng Night hiện tại
+            // -------------------------------------------------
+
+            if (
+                usedNightCycle ==
+                currentNightCycle
+            )
+            {
+                SendActionResultToClient(
+                    false,
+                    "Skill đã được sử dụng trong Night này!",
+                    requesterClientId
+                );
+
+                Debug.LogWarning(
+                    "SERVER ACTION BLOCKED"
+                    + " | Player="
+                    + (requesterClientId + 1)
+                    + " | NightCycle="
+                    + currentNightCycle
+                );
+
+                return;
+            }
+
+            // -------------------------------------------------
+            // Night mới -> cho phép sử dụng lại
+            // -------------------------------------------------
+
+            Debug.Log(
+                "SERVER ACTION ALLOWED"
+                + " | Player="
+                + (requesterClientId + 1)
+                + " | OldNight="
+                + usedNightCycle
+                + " | CurrentNight="
+                + currentNightCycle
+            );
+        }
+
+        // =====================================================
+        // HUNTER SPECIAL ACTION
+        // =====================================================
+
+        if (
+            IsHunterSpecialAction(
+                requesterClientId,
+                requesterState
+            )
+        )
+        {
+            HandleHunterAction(
+                requesterClientId,
+                targetPlayerId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // DEAD / SPECTATING
+        // =====================================================
 
         if (
             requesterState.State.Value ==
@@ -128,19 +331,9 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
-        if (NetworkPhaseSync.Instance == null)
-        {
-            SendActionResultToClient(
-                false,
-                "Không tìm thấy NetworkPhaseSync!",
-                requesterClientId
-            );
-
-            return;
-        }
-
-        GamePhase currentPhase =
-            NetworkPhaseSync.Instance.CurrentPhase.Value;
+        // =====================================================
+        // NORMAL ACTION = NIGHT ONLY
+        // =====================================================
 
         if (currentPhase != GamePhase.Night)
         {
@@ -155,10 +348,27 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // TARGET EXIST
+        // =====================================================
+
+        if (
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(targetPlayerId)
+        )
+        {
+            SendActionResultToClient(
+                false,
+                "Target Player không tồn tại!",
+                requesterClientId
+            );
+
+            return;
+        }
+
         NetworkClient targetClient =
-            NetworkManager.Singleton.ConnectedClients[
-                targetPlayerId
-            ];
+            NetworkManager.Singleton
+                .ConnectedClients[targetPlayerId];
 
         if (targetClient.PlayerObject == null)
         {
@@ -171,8 +381,69 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // SELF TARGET
+        //
+        // Guardian được phép tự bảo vệ.
+        // Các Role khác không được Action chính mình.
+        // =====================================================
+
+        bool isGuardian = false;
+
+        if (
+            RoleManager.Instance != null &&
+            RoleManager.Instance.playerRoles != null
+        )
+        {
+            if (
+                RoleManager.Instance.playerRoles.TryGetValue(
+                    (int)requesterClientId,
+                    out BaseRole requesterRole
+                )
+            )
+            {
+                if (requesterRole != null)
+                {
+                    isGuardian =
+                        requesterRole.roleType ==
+                        RoleType.VillageGuardian;
+                }
+            }
+        }
+
+        if (
+            requesterClientId == targetPlayerId &&
+            !isGuardian
+        )
+        {
+            SendActionResultToClient(
+                false,
+                "Không thể Action chính mình!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        if (
+            requesterClientId == targetPlayerId &&
+            isGuardian
+        )
+        {
+            Debug.Log(
+                "SERVER: Guardian được phép tự bảo vệ."
+                + " | Player="
+                + (requesterClientId + 1)
+            );
+        }
+
+        // =====================================================
+        // TARGET PLAYER
+        // =====================================================
+
         PlayerController target =
-            targetClient.PlayerObject.GetComponent<PlayerController>();
+            targetClient.PlayerObject
+                .GetComponent<PlayerController>();
 
         if (target == null)
         {
@@ -185,6 +456,10 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // TARGET STATE
+        // =====================================================
+
         NetworkPlayerStateSync targetState =
             target.GetComponent<NetworkPlayerStateSync>();
 
@@ -192,12 +467,16 @@ public class NetworkPlayerAction : NetworkBehaviour
         {
             SendActionResultToClient(
                 false,
-                "Không tìm thấy Target PlayerState!",
+                "Không tìm thấy Target NetworkPlayerStateSync!",
                 requesterClientId
             );
 
             return;
         }
+
+        // =====================================================
+        // TARGET DEAD
+        // =====================================================
 
         if (
             targetState.State.Value ==
@@ -216,12 +495,9 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
-        Debug.Log(
-            "SERVER: Network Action hợp lệ | Player "
-            + requesterClientId
-            + " → Player "
-            + targetPlayerId
-        );
+        // =====================================================
+        // NETWORK ACTION EVENT
+        // =====================================================
 
         NetworkActionEvent actionEvent =
             new NetworkActionEvent(
@@ -229,12 +505,303 @@ public class NetworkPlayerAction : NetworkBehaviour
                 targetPlayerId
             );
 
-        OnNetworkActionAccepted?.Invoke(actionEvent);
+        Debug.Log(
+            "SERVER: Network Action hợp lệ | Player "
+            + requesterClientId
+            + " → Player "
+            + targetPlayerId
+        );
+
+        // =====================================================
+        // PENDING ACTION
+        //
+        // Chưa đánh dấu Skill đã dùng.
+        // Chờ NetworkRoleActionBridge xử lý Role.
+        // =====================================================
+
+        pendingActionNightCycle[
+            requesterClientId
+        ] = currentNightCycle;
+
+        Debug.Log(
+            "SERVER ACTION PENDING"
+            + " | Player="
+            + (requesterClientId + 1)
+            + " | NightCycle="
+            + currentNightCycle
+        );
+
+        // =====================================================
+        // SEND ACTION EVENT
+        // =====================================================
+
+        OnNetworkActionAccepted?.Invoke(
+            actionEvent
+        );
+
+        // =====================================================
+        // KHÔNG SAVE Ở ĐÂY
+        //
+        // Save sẽ được thực hiện trong
+        // SendActionResultToClient()
+        // khi success == true.
+        // =====================================================
     }
 
     // =========================================================
-    // SERVER → CLIENT
-    // Gửi kết quả Action cuối cùng về đúng Client
+    // HUNTER SPECIAL VALIDATION
+    // =========================================================
+
+    private bool IsHunterSpecialAction(
+        ulong requesterClientId,
+        NetworkPlayerStateSync requesterState)
+    {
+        if (!IsServer)
+            return false;
+
+        if (requesterState == null)
+            return false;
+
+        if (
+            requesterState.State.Value !=
+            NetworkPlayerStateType.Dead
+        )
+        {
+            return false;
+        }
+
+        if (NetworkPhaseSync.Instance == null)
+            return false;
+
+        if (
+            NetworkPhaseSync.Instance
+                .CurrentPhase.Value
+            != GamePhase.Discussion
+        )
+        {
+            return false;
+        }
+
+        if (RoleManager.Instance == null)
+            return false;
+
+        if (RoleManager.Instance.playerRoles == null)
+            return false;
+
+        if (
+            !RoleManager.Instance.playerRoles.TryGetValue(
+                (int)requesterClientId,
+                out BaseRole role
+            )
+        )
+        {
+            return false;
+        }
+
+        if (role == null)
+            return false;
+
+        return role.roleType ==
+               RoleType.Hunter;
+    }
+
+    // =========================================================
+    // HUNTER ACTION
+    // =========================================================
+
+    private void HandleHunterAction(
+        ulong requesterClientId,
+        ulong targetPlayerId)
+    {
+        Debug.Log(
+            "HUNTER NETWORK | Hunter "
+            + requesterClientId
+            + " chọn Player "
+            + targetPlayerId
+        );
+
+        // =====================================================
+        // ROLE MANAGER
+        // =====================================================
+
+        if (RoleManager.Instance == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy RoleManager!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        if (RoleManager.Instance.playerRoles == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy Player Roles!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // GET ROLE
+        // =====================================================
+
+        if (
+            !RoleManager.Instance.playerRoles.TryGetValue(
+                (int)requesterClientId,
+                out BaseRole role
+            )
+        )
+        {
+            SendActionResultToClient(
+                false,
+                "Không tìm thấy Role của Hunter!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        if (role == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Role Hunter không tồn tại!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // CHECK HUNTER
+        // =====================================================
+
+        if (role.roleType != RoleType.Hunter)
+        {
+            SendActionResultToClient(
+                false,
+                "Player này không phải Hunter!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // GET HUNTER ROLE
+        // =====================================================
+
+        HunterRole hunter =
+            role as HunterRole;
+
+        if (hunter == null)
+        {
+            SendActionResultToClient(
+                false,
+                "Không thể lấy HunterRole!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // CALL DEV2 HUNTER LOGIC
+        // =====================================================
+
+        if (
+            !hunter.TrySetTrap(
+                (int)targetPlayerId,
+                out string trapFeedback
+            )
+        )
+        {
+            SendActionResultToClient(
+                false,
+                trapFeedback,
+                requesterClientId
+            );
+
+            return;
+        }
+
+        Debug.Log(
+            "HUNTER NETWORK | HunterRole.TrySetTrap("
+            + targetPlayerId
+            + ")"
+        );
+
+        // =====================================================
+        // DEATH RESOLVER
+        // =====================================================
+
+        if (DeathResolver.Instance == null)
+        {
+            Debug.LogError(
+                "HUNTER NETWORK | DeathResolver NULL."
+            );
+
+            SendActionResultToClient(
+                false,
+                "DeathResolver đang NULL!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // KILL TARGET
+        // =====================================================
+
+        bool killed =
+            DeathResolver.Instance.TryKillPlayer(
+                (int)targetPlayerId,
+                DeathCause.Trap
+            );
+
+        Debug.Log(
+            "HUNTER NETWORK | TryKillPlayer = "
+            + killed
+        );
+
+        if (!killed)
+        {
+            SendActionResultToClient(
+                false,
+                "Bẫy không thể giết Target!",
+                requesterClientId
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // HUNTER RESULT
+        // =====================================================
+
+        Debug.Log(
+            "HUNTER NETWORK | Hunter "
+            + (requesterClientId + 1)
+            + " đặt bẫy → Player "
+            + (targetPlayerId + 1)
+            + " chết ngay."
+        );
+
+        SendActionResultToClient(
+            true,
+            "Đặt bẫy thành công! Target đã chết.",
+            requesterClientId
+        );
+    }
+
+    // =========================================================
+    // SEND ACTION RESULT
     // =========================================================
 
     public void SendActionResultToClient(
@@ -251,13 +818,67 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // COMMIT ACTION
+        //
+        // Chỉ save Action nếu Role xử lý thành công.
+        //
+        // success = true
+        //      -> playersActionNightCycle được cập nhật.
+        //
+        // success = false
+        //      -> Skill KHÔNG bị consume.
+        // =====================================================
+
+        if (
+            pendingActionNightCycle.TryGetValue(
+                clientId,
+                out int pendingNightCycle
+            )
+        )
+        {
+            if (success)
+            {
+                playersActionNightCycle[
+                    clientId
+                ] = pendingNightCycle;
+
+                Debug.Log(
+                    "SERVER ACTION SAVED"
+                    + " | Player="
+                    + (clientId + 1)
+                    + " | NightCycle="
+                    + pendingNightCycle
+                );
+            }
+            else
+            {
+                Debug.Log(
+                    "SERVER ACTION NOT SAVED"
+                    + " | Player="
+                    + (clientId + 1)
+                    + " | NightCycle="
+                    + pendingNightCycle
+                    + " | Reason="
+                    + message
+                );
+            }
+
+            pendingActionNightCycle.Remove(
+                clientId
+            );
+        }
+
+        // =====================================================
+        // NETWORK MANAGER
+        // =====================================================
+
         if (NetworkManager.Singleton == null)
             return;
 
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                clientId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(clientId)
         )
         {
             Debug.LogWarning(
@@ -269,14 +890,22 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
+        // =====================================================
+        // SEND RESULT TO CORRECT CLIENT
+        // =====================================================
+
         ClientRpcParams rpcParams =
             new ClientRpcParams
             {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds =
-                        new ulong[] { clientId }
-                }
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new ulong[]
+                            {
+                                clientId
+                            }
+                    }
             };
 
         SendActionResultClientRpc(
@@ -285,6 +914,10 @@ public class NetworkPlayerAction : NetworkBehaviour
             rpcParams
         );
     }
+
+    // =========================================================
+    // ACTION RESULT CLIENT RPC
+    // =========================================================
 
     [ClientRpc]
     private void SendActionResultClientRpc(
@@ -328,13 +961,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
 
         if (
-            !NetworkManager.Singleton.ConnectedClients.ContainsKey(
-                clientId
-            )
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(clientId)
         )
         {
             Debug.LogWarning(
-                "SEER RESULT: Client không tồn tại!"
+                "SEER RESULT: Client "
+                + clientId
+                + " không tồn tại!"
             );
 
             return;
@@ -343,11 +977,15 @@ public class NetworkPlayerAction : NetworkBehaviour
         ClientRpcParams rpcParams =
             new ClientRpcParams
             {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds =
-                        new ulong[] { clientId }
-                }
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new ulong[]
+                            {
+                                clientId
+                            }
+                    }
             };
 
         SendSeerResultClientRpc(
@@ -357,6 +995,10 @@ public class NetworkPlayerAction : NetworkBehaviour
             rpcParams
         );
     }
+
+    // =========================================================
+    // SEER RESULT CLIENT RPC
+    // =========================================================
 
     [ClientRpc]
     private void SendSeerResultClientRpc(
