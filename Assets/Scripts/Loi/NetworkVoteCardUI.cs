@@ -11,9 +11,24 @@ public class NetworkVoteCardUI : MonoBehaviour
     private TextMeshProUGUI statusText;
 
     [SerializeField]
+    private TextMeshProUGUI voteCountText;
+
+    [SerializeField]
     private Button cardButton;
 
     private int playerID;
+
+    private void OnEnable()
+    {
+        NetworkPlayerVote.OnVoteCountChanged +=
+            OnVoteCountChanged;
+    }
+
+    private void OnDisable()
+    {
+        NetworkPlayerVote.OnVoteCountChanged -=
+            OnVoteCountChanged;
+    }
 
     public void Setup(
         int id,
@@ -34,15 +49,36 @@ public class NetworkVoteCardUI : MonoBehaviour
                 isAlive ? "ALIVE" : "DEAD";
         }
 
+        if (voteCountText != null)
+        {
+            voteCountText.text = "0 VOTES";
+        }
+
         if (cardButton != null)
         {
             cardButton.interactable = isAlive;
 
             cardButton.onClick.RemoveAllListeners();
+
             cardButton.onClick.AddListener(
                 OnCardClicked
             );
         }
+    }
+
+    private void OnVoteCountChanged(
+        int targetID,
+        int voteCount)
+    {
+        if (targetID != playerID)
+            return;
+
+        if (voteCountText == null)
+            return;
+
+        voteCountText.text =
+            voteCount
+            + (voteCount == 1 ? " VOTE" : " VOTES");
     }
 
     private void OnCardClicked()
