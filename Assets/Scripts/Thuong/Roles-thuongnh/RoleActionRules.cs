@@ -46,6 +46,9 @@ public static class RoleActionRules
             case RoleType.FoxSpirit:
                 feedback = $"Đã mê hoặc Player {targetID + 1}.";
                 break;
+            case RoleType.WeaverOfFate:
+                feedback = $"Đã ghép đôi với Player {targetID + 1}.";
+                break;
         }
         return true;
     }

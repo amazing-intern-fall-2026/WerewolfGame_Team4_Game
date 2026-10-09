@@ -19,6 +19,6 @@ public class SerpentSpirit : BaseRole
             return;
         }
 
-        NightManager.Instance.SetMonsterTarget(TargetID);
+        NightManager.Instance.SetMonsterTarget(TargetID, RoleType.SerpentSpirit);
     }
 }

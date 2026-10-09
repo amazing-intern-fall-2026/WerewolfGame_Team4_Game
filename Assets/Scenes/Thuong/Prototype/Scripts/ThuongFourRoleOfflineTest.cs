@@ -8,6 +8,8 @@ using UnityEngine.InputSystem;
 [DefaultExecutionOrder(1000)]
 public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
 {
+    [Tooltip("Optional presentation-ready prefab. The scene Player remains the first character.")]
+    public GameObject playerPrefab;
     private static readonly Key[] SelectPlayerKeys =
     {
         Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6,
@@ -118,7 +120,7 @@ public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
             int rowLength = Mathf.Min(columns, playerCount - row * columns);
             GameObject character = id == 0
                 ? template.gameObject
-                : Instantiate(template.gameObject);
+                : Instantiate(playerPrefab != null ? playerPrefab : template.gameObject);
             character.name = "Test Player " + (id + 1) + " (" +
                 PlayerManager.Instance.GetplayerByID(id).roleType + ")";
             character.transform.position = center +
@@ -128,6 +130,10 @@ public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
             PlayerMovement movement = character.GetComponent<PlayerMovement>();
             PrototypeControls controls = character.GetComponent<PrototypeControls>();
             movement.playerID = id;
+            PlayerNameTag.AttachOrCreate(
+                character.transform,
+                PlayerManager.Instance.GetplayerByID(id));
+
             movement.SetCanMove(false);
             controls.enabled = false;
             scenePlayers[id] = movement;

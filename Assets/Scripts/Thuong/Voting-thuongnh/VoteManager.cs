@@ -5,13 +5,20 @@ public class VoteManager : MonoBehaviour
     public static VoteManager Instance;
     private readonly Dictionary<int, int> votes = new Dictionary<int, int>();
     private readonly Dictionary<int, int> choices = new Dictionary<int, int>();
+    private bool resolved;
+    public event System.Action<VoteResolution> VoteResolved;
+    public VoteResolution LastResolution { get; private set; }
     public int GetVotedTarget(int voterID) => choices.TryGetValue(voterID, out var target) ? target : -1;
     private void Awake() { Instance = this; }
     public void StartVote()
     {
         votes.Clear();
         choices.Clear();
-        foreach (var player in PlayerManager.Instance.players) player.hasVoted = false;
+        LastResolution = null;
+        resolved = false;
+        if (PlayerManager.Instance?.players == null) return;
+        foreach (var player in PlayerManager.Instance.players)
+            if (player != null) player.hasVoted = false;
     }
     public void Vote(int voterID, int targetID)
     {
@@ -19,19 +26,34 @@ public class VoteManager : MonoBehaviour
     }
     public bool TryVote(int voterID, int targetID)
     {
-        if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Voting ||
+        if (resolved || GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Voting ||
             PlayerManager.Instance == null) return false;
         var voter = PlayerManager.Instance.GetplayerByID(voterID);
         var target = PlayerManager.Instance.GetplayerByID(targetID);
-        if (voter == null || target == null || !voter.isAlive || !target.isAlive || voter.hasVoted) return false;
+        if (voter == null || target == null || !PlayerManager.Instance.IsAlive(voterID) ||
+            !PlayerManager.Instance.IsAlive(targetID) || !voter.CanVote || voter.hasVoted) return false;
         voter.hasVoted = true;
         choices[voterID] = targetID;
-        if (!votes.ContainsKey(targetID)) votes[targetID] = 0;
-        votes[targetID] += Mathf.Max(1, voter.votePower);
+        voter.NotifyChanged();
         return true;
     }
     public void ResolveVote()
     {
+        // A repeated callback must not recalculate the same choices after a death.
+        if (resolved) return;
+        resolved = true;
+        votes.Clear();
+        // Store choices only; transient effects and alive-state are evaluated at resolution.
+        foreach (var choice in choices)
+        {
+            var voter = PlayerManager.Instance?.GetplayerByID(choice.Key);
+            var candidate = PlayerManager.Instance?.GetplayerByID(choice.Value);
+            if (voter == null || candidate == null || !candidate.isAlive) continue;
+            int weight = voter.GetVoteWeight();
+            if (weight == 0) continue;
+            votes.TryGetValue(candidate.playerID, out int tally);
+            votes[candidate.playerID] = tally + weight;
+        }
         int target = -1, highest = 0;
         bool tied = false;
         foreach (var vote in votes)
@@ -39,8 +61,19 @@ public class VoteManager : MonoBehaviour
             if (vote.Value > highest) { target = vote.Key; highest = vote.Value; tied = false; }
             else if (vote.Value == highest) tied = true;
         }
+        var tallies = new Dictionary<int, int>(votes);
         votes.Clear();
-        if (!tied && target >= 0) DeathResolver.Instance.TryKillPlayer(target, DeathCause.Vote);
+        PlayerData eliminated = null;
+        string message = tied ? "Phiếu hòa, không ai bị loại." : "Không có phiếu hợp lệ.";
+        if (!tied && target >= 0)
+        {
+            var selected = PlayerManager.Instance.GetplayerByID(target);
+            var death = DeathResolver.Instance.TryKill(new DeathRequest(selected, DeathCause.Vote));
+            if (death.Outcome == DeathOutcome.Killed) eliminated = selected;
+            message = death.Message;
+        }
+        LastResolution = new VoteResolution(tallies, tied, eliminated, message);
+        VoteResolved?.Invoke(LastResolution);
     }
 }
 
