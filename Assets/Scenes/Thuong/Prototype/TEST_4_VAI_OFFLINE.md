@@ -15,7 +15,7 @@ Console in seed cùng danh sách `[ROLE]` cho từng người. Dòng `[Thuong of
 
 Test nhanh: nhấn **OK / BẮT ĐẦU** trên thẻ vai, đi lại bằng WASD/phím mũi tên, làm nhiệm vụ bằng E. Đến ban đêm, chuyển đến người có kỹ năng chọn mục tiêu, mở **ROLE / KỸ NĂNG** rồi thử. Đến lượt bỏ phiếu, đổi nhân vật để thử từng người bỏ phiếu. Nhấn R để chạy lại scene với cùng số người và một lần phân vai mới; dừng Play để thoát chế độ test.
 
-Đây là các nhân vật trên **một máy**, mỗi lần chỉ điều khiển một nhân vật. Người thật kết nối vào cùng trận là bước online tiếp theo; script này chưa tạo kết nối mạng. `PlayerManager` không đặt trần số người chơi; `Prototype Lobby Size` chỉ có mức tối thiểu 0. Bảng vote có sẵn trong scene chỉ có 5 nút mục tiêu, nên khi thử nhiều hơn 5 người, các Player từ 6 trở đi chưa có nút để được chọn trong bảng đó.
+Đây là các nhân vật trên **một máy**, mỗi lần chỉ điều khiển một nhân vật. Người thật kết nối vào cùng trận là bước online tiếp theo; script này chưa tạo kết nối mạng. `PlayerManager` không đặt trần số người chơi; `Prototype Lobby Size` chỉ có mức tối thiểu 0. Bảng vote được mở rộng thành danh sách cuộn cho toàn bộ lobby khi tích hợp logic Phase 1–4.
 
 Các class Role của Nhật đã được đưa vào hồ phân vai. Một số class hiện mới ghi log hoặc thiếu luật hoàn chỉnh (Pháp Sư, Thợ Săn, Dệt Duyên, Sói Trắng, Đứa Trẻ, Hồ Ly); việc xuất hiện trong hồ vai chưa đồng nghĩa kỹ năng và điều kiện thắng của chúng đã chơi trọn vẹn. Phần test offline giữ đúng hành vi hiện có và chờ chốt luật trước khi nối những cơ chế còn thiếu.
 

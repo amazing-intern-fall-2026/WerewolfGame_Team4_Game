@@ -1,6 +1,5 @@
 using Unity.Netcode;
 using UnityEngine;
-using System;
 
 public enum NetworkPlayerStateType
 {
@@ -12,8 +11,6 @@ public enum NetworkPlayerStateType
 
 public class NetworkPlayerStateSync : NetworkBehaviour
 {
-    public static event Action OnLocalPlayerDeath;
-
     public NetworkVariable<NetworkPlayerStateType> State =
         new NetworkVariable<NetworkPlayerStateType>(
             NetworkPlayerStateType.Alive,
@@ -27,17 +24,10 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "NETWORK PLAYER STATE | Player "
-            + (OwnerClientId + 1)
+            + OwnerClientId
             + " | State = "
             + State.Value
         );
-
-        // Trường hợp Player đã Dead trước khi UI subscribe
-        if (IsOwner &&
-            State.Value == NetworkPlayerStateType.Dead)
-        {
-            OnLocalPlayerDeath?.Invoke();
-        }
     }
 
     public override void OnNetworkDespawn()
@@ -51,20 +41,12 @@ public class NetworkPlayerStateSync : NetworkBehaviour
     {
         Debug.Log(
             "NETWORK PLAYER STATE | Player "
-            + (OwnerClientId + 1)
+            + OwnerClientId
             + " : "
             + oldState
             + " → "
             + newState
         );
-
-        // Chỉ thông báo cho chính Player bị chết
-        if (IsOwner &&
-            oldState != NetworkPlayerStateType.Dead &&
-            newState == NetworkPlayerStateType.Dead)
-        {
-            OnLocalPlayerDeath?.Invoke();
-        }
     }
 
     // Server đổi State
@@ -129,7 +111,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + (OwnerClientId + 1)
+            + OwnerClientId
             + " đã chết."
         );
     }
@@ -147,7 +129,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + (OwnerClientId + 1)
+            + OwnerClientId
             + " đã hồi sinh."
         );
     }
@@ -166,7 +148,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + (OwnerClientId + 1)
+            + OwnerClientId
             + " → Spectating."
         );
     }

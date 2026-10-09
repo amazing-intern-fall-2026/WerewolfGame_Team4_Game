@@ -1,5 +1,4 @@
 using UnityEngine;
-using Unity.Netcode;
 
 public class NetworkSkillUI : MonoBehaviour
 {
@@ -22,10 +21,6 @@ public class NetworkSkillUI : MonoBehaviour
     [SerializeField]
     private GameObject killButton;
 
-    [Header("Hunter Skill")]
-    [SerializeField]
-    private GameObject trapButton;
-
     [Header("Skill UI")]
     [SerializeField]
     private GameObject skillPanel;
@@ -43,10 +38,8 @@ public class NetworkSkillUI : MonoBehaviour
     private bool isSeer;
     private bool isVillageGuardian;
     private bool isShaman;
-    private bool isHunter;
 
     private bool isNight;
-    private bool isDiscussion;
     private bool hasUsedSkill;
 
     private void OnEnable()
@@ -101,33 +94,24 @@ public class NetworkSkillUI : MonoBehaviour
         bool newIsNight =
             currentPhase == GamePhase.Night;
 
-        bool newIsDiscussion =
-            currentPhase == GamePhase.Discussion;
-
-        // =====================================================
-        // PHASE CHANGE
-        // =====================================================
-
-        bool phaseChanged =
-            newIsNight != isNight ||
-            newIsDiscussion != isDiscussion;
-
-        if (phaseChanged)
+        if (newIsNight != isNight)
         {
-            // Phase mới → cho phép dùng Skill lại
-            hasUsedSkill = false;
-
             isNight = newIsNight;
-            isDiscussion = newIsDiscussion;
 
-            // Đóng Target Panel khi đổi Phase
-            if (targetPanel != null)
+            if (isNight)
             {
-                targetPanel.SetActive(false);
+                hasUsedSkill = false;
             }
-        }
+            else
+            {
+                if (targetPanel != null)
+                {
+                    targetPanel.SetActive(false);
+                }
+            }
 
-        UpdateSkillUI();
+            UpdateSkillUI();
+        }
     }
 
     private void OnRoleReceived(RoleType role)
@@ -144,9 +128,6 @@ public class NetworkSkillUI : MonoBehaviour
         isShaman =
             role == RoleType.Shaman;
 
-        isHunter =
-            role == RoleType.Hunter;
-
         Debug.Log(
             "SKILL UI | Role = "
             + role
@@ -158,46 +139,14 @@ public class NetworkSkillUI : MonoBehaviour
             + isVillageGuardian
             + " | Shaman = "
             + isShaman
-            + " | Hunter = "
-            + isHunter
         );
 
         UpdateSkillUI();
     }
 
-    private bool IsLocalPlayerDead()
-    {
-        if (NetworkManager.Singleton == null)
-            return false;
-
-        if (!NetworkManager.Singleton.IsClient)
-            return false;
-
-        NetworkObject localPlayer =
-            NetworkManager.Singleton.LocalClient?.PlayerObject;
-
-        if (localPlayer == null)
-            return false;
-
-        NetworkPlayerStateSync stateSync =
-            localPlayer.GetComponent<NetworkPlayerStateSync>();
-
-        if (stateSync == null)
-            return false;
-
-        return stateSync.State.Value ==
-               NetworkPlayerStateType.Dead;
-    }
-
     private void UpdateSkillUI()
     {
-        bool hunterCanUseTrap =
-            isHunter &&
-            isDiscussion &&
-            IsLocalPlayerDead() &&
-            !hasUsedSkill;
-
-        bool normalSkillAvailable =
+        bool canUseSkill =
             (
                 isDogSpirit ||
                 isSeer ||
@@ -205,12 +154,9 @@ public class NetworkSkillUI : MonoBehaviour
                 isShaman
             )
             &&
-            isNight &&
+            isNight
+            &&
             !hasUsedSkill;
-
-        bool canUseSkill =
-            normalSkillAvailable ||
-            hunterCanUseTrap;
 
         if (skillPanel != null)
         {
@@ -259,13 +205,6 @@ public class NetworkSkillUI : MonoBehaviour
                 isShaman &&
                 isNight &&
                 !hasUsedSkill
-            );
-        }
-
-        if (trapButton != null)
-        {
-            trapButton.SetActive(
-                hunterCanUseTrap
             );
         }
 
@@ -393,37 +332,6 @@ public class NetworkSkillUI : MonoBehaviour
         OpenTargetPanel();
     }
 
-    public void OnTrapClicked()
-    {
-        if (!isHunter)
-            return;
-
-        if (!isDiscussion)
-        {
-            Debug.LogWarning(
-                "SKILL UI | Hunter chỉ đặt bẫy trong Discussion."
-            );
-            return;
-        }
-
-        if (!IsLocalPlayerDead())
-        {
-            Debug.LogWarning(
-                "SKILL UI | Hunter chưa chết."
-            );
-            return;
-        }
-
-        if (hasUsedSkill)
-            return;
-
-        Debug.Log(
-            "SKILL UI | Hunter mở Target Panel."
-        );
-
-        OpenTargetPanel();
-    }
-
     private void OpenTargetPanel()
     {
         if (targetListUI != null)
@@ -480,9 +388,6 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (killButton != null)
             killButton.SetActive(false);
-
-        if (trapButton != null)
-            trapButton.SetActive(false);
 
         if (targetPanel != null)
             targetPanel.SetActive(false);
