@@ -9,8 +9,8 @@ namespace Assets.Scripts.Thuong
         [Header("Movement")]
         [SerializeField] private float movementSpeed = 3f;
         public int playerID;
-        public bool IsAlive => PlayerManager.Instance != null &&
-            PlayerManager.Instance.IsAlive(playerID);
+        public bool IsAlive => PlayerManager.Instance == null ||
+            (PlayerManager.Instance.GetplayerByID(playerID)?.isAlive ?? false);
 
         private Rigidbody2D rb;
         private Animator animator;
@@ -22,14 +22,14 @@ namespace Assets.Scripts.Thuong
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
-            animator = GetComponentInChildren<Animator>();
+            animator = GetComponent<Animator>();
         }
 
         private void FixedUpdate()
         {
             if (!canMove || !IsAlive || (GameRoleManager.Instance != null && GameRoleManager.Instance.currentState != GameState.Day))
             {
-                StopMovement();
+                rb.linearVelocity = Vector2.zero;
                 return;
             }
 
@@ -38,15 +38,15 @@ namespace Assets.Scripts.Thuong
 
         public void Move(InputAction.CallbackContext context)
         {
-            if (!canMove || !IsAlive)
+            if (!canMove)
             {
-                StopMovement();
+                moveInput = Vector2.zero;
                 return;
             }
 
             moveInput = Vector2.ClampMagnitude(context.ReadValue<Vector2>(), 1f);
 
-            if (animator != null && animator.runtimeAnimatorController != null)
+            if (animator != null)
             {
                 animator.SetBool("isWalking", moveInput != Vector2.zero);
 
@@ -64,15 +64,14 @@ namespace Assets.Scripts.Thuong
 
             if (!canMove)
             {
-                StopMovement();
-            }
-        }
+                moveInput = Vector2.zero;
 
-        private void StopMovement()
-        {
-            moveInput = Vector2.zero;
-            if (rb != null) rb.linearVelocity = Vector2.zero;
-            if (animator != null && animator.runtimeAnimatorController != null) animator.SetBool("isWalking", false);
+                if (rb != null)
+                    rb.linearVelocity = Vector2.zero;
+
+                if (animator != null)
+                    animator.SetBool("isWalking", false);
+            }
         }
     
     }

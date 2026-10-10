@@ -30,17 +30,9 @@ public class TaskManager : MonoBehaviour
     }
     public void CompleteTask(TaskData task)
     {
-        var hud = FindAnyObjectByType<GameHUD>();
-        TryCompleteTask(hud != null ? hud.localVoterID : 0, task);
-    }
-
-    public bool TryCompleteTask(int playerID, TaskData task)
-    {
         if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Day ||
-            PlayerManager.Instance == null || !PlayerManager.Instance.IsAlive(playerID) ||
-            task == null || !currentTasks.Contains(task) || !completed.Add(task)) return false;
+            task == null || !currentTasks.Contains(task) || !completed.Add(task)) return;
         progress = Mathf.Clamp(progress + Mathf.Max(0, task.progressValue), 0, 100);
         if (progress >= 100) GameRoleManager.Instance.VillagerWin();
-        return true;
     }
 }

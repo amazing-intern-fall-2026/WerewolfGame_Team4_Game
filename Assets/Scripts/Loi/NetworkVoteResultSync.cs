@@ -1,172 +1,73 @@
-
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkVoteResultSync : NetworkBehaviour
 {
-    public static NetworkVoteResultSync Instance { get; private set; }
-
     [SerializeField]
     private NetworkVoteResultNotification resultUI;
 
-    private readonly Dictionary<int, int> capturedTallies =
-        new Dictionary<int, int>();
-
-    private int capturedTargetID = -1;
-    private int capturedVoteCount;
-    private bool capturedTie;
-    private bool hasCapturedResult;
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Debug.LogWarning(
-                "Đã có NetworkVoteResultSync khác trong scene."
-            );
-            return;
-        }
-
-        Instance = this;
-    }
-
-    public override void OnNetworkDespawn()
-    {
-        if (Instance == this)
-            Instance = null;
-
-        base.OnNetworkDespawn();
-    }
-
-    /// <summary>
-    /// Chụp kết quả vote từ dữ liệu VoteManager hiện có.
-    /// Không sửa code của Dev2.
-    /// </summary>
-    public void CaptureVoteResult()
+    private void Start()
     {
         if (!IsServer)
             return;
 
-        capturedTallies.Clear();
-        capturedTargetID = -1;
-        capturedVoteCount = 0;
-        capturedTie = false;
-        hasCapturedResult = false;
-
-        if (PlayerManager.Instance == null ||
-            VoteManager.Instance == null)
+        if (VoteManager.Instance == null)
         {
             Debug.LogWarning(
-                "VOTE SYNC | Thiếu PlayerManager hoặc VoteManager."
+                "VOTE RESULT SYNC | Không tìm thấy VoteManager!"
             );
+
             return;
         }
 
-        foreach (PlayerData voter in PlayerManager.Instance.players)
-        {
-            // Không lọc isAlive ở đây vì người vote có thể đã bị loại
-            // sau khi VoteManager.ResolveVote() được thực hiện.
-            if (voter == null || !voter.hasVoted)
-                continue;
-
-            int targetID =
-                VoteManager.Instance.GetVotedTarget(voter.playerID);
-
-            if (targetID < 0)
-                continue;
-
-            if (!capturedTallies.ContainsKey(targetID))
-                capturedTallies[targetID] = 0;
-
-            capturedTallies[targetID] +=
-                Mathf.Max(1, voter.votePower);
-        }
-
-        int highest = 0;
-
-        foreach (KeyValuePair<int, int> vote in capturedTallies)
-        {
-            if (vote.Value > highest)
-            {
-                highest = vote.Value;
-                capturedTargetID = vote.Key;
-                capturedTie = false;
-            }
-            else if (vote.Value == highest)
-            {
-                capturedTie = true;
-            }
-        }
-
-        capturedVoteCount = highest;
-
-        if (capturedTallies.Count == 0 || highest == 0)
-        {
-            capturedTargetID = -1;
-            capturedVoteCount = 0;
-            capturedTie = false;
-        }
-
-        hasCapturedResult = true;
+        VoteManager.Instance.VoteResolved +=
+            OnVoteResolved;
 
         Debug.Log(
-            $"VOTE SYNC | Captured target={capturedTargetID}, " +
-            $"votes={capturedVoteCount}, tie={capturedTie}"
+            "VOTE RESULT SYNC | Đã đăng ký VoteResolved."
         );
     }
 
-    /// <summary>
-    /// Gửi kết quả đến tất cả Client sau khi vote đã được xử lý.
-    /// </summary>
-    public void PublishVoteResult()
+    private void OnDestroy()
     {
-        if (!IsServer || !hasCapturedResult)
+        if (VoteManager.Instance != null)
+        {
+            VoteManager.Instance.VoteResolved -=
+                OnVoteResolved;
+        }
+    }
+
+    private void OnVoteResolved(VoteResolution resolution)
+    {
+        if (!IsServer)
             return;
 
-        hasCapturedResult = false;
+        if (resolution == null)
+            return;
 
         int eliminatedPlayerID = -1;
-        string message;
+        int voteCount = 0;
 
-        if (capturedTie)
+        if (resolution.Eliminated != null)
         {
-            message = "Phiếu bầu hòa!\nKhông có người bị loại.";
-        }
-        else if (capturedTargetID < 0)
-        {
-            message =
-                "Không có phiếu bầu hợp lệ.\nKhông có người bị loại.";
-        }
-        else
-        {
-            PlayerData target =
-                PlayerManager.Instance != null
-                    ? PlayerManager.Instance.GetplayerByID(
-                        capturedTargetID)
-                    : null;
+            eliminatedPlayerID =
+                resolution.Eliminated.playerID;
 
-            if (target != null && !target.isAlive)
+            if (resolution.Tallies != null &&
+                resolution.Tallies.TryGetValue(
+                    eliminatedPlayerID,
+                    out int count))
             {
-                eliminatedPlayerID = capturedTargetID;
-                message = "Người chơi đã bị loại.";
-            }
-            else
-            {
-                message = "Không có người bị loại.";
+                voteCount = count;
             }
         }
 
         SendVoteResultClientRpc(
-            message,
+            resolution.Message,
             eliminatedPlayerID,
-            capturedVoteCount,
-            capturedTie
-        );
-
-        Debug.Log(
-            $"VOTE SYNC | Published eliminated={eliminatedPlayerID}, " +
-            $"votes={capturedVoteCount}, tie={capturedTie}"
+            voteCount,
+            resolution.IsTie
         );
     }
 
@@ -177,34 +78,40 @@ public class NetworkVoteResultSync : NetworkBehaviour
         int voteCount,
         bool isTie)
     {
+        Debug.Log(
+            "VOTE RESULT SYNC | Client nhận kết quả."
+            + " | Message = "
+            + message
+        );
+
+        if (resultUI == null)
+        {
+            Debug.LogWarning(
+                "VOTE RESULT SYNC | resultUI = NULL!"
+            );
+
+            return;
+        }
+
         string displayMessage;
 
-        if (isTie)
+        if (eliminatedPlayerID >= 0)
         {
             displayMessage =
-                "Phiếu bầu hòa!\nKhông có người bị loại.";
-        }
-        else if (eliminatedPlayerID >= 0)
-        {
-            displayMessage =
-                $"Player {eliminatedPlayerID + 1} đã bị loại\n" +
-                $"Số phiếu: {voteCount}";
+                "Player "
+                + (eliminatedPlayerID + 1)
+                + " đã bị loại\n"
+                + "Số phiếu: "
+                + voteCount;
         }
         else
         {
             displayMessage = message;
         }
 
-        Debug.Log("VOTE SYNC | " + displayMessage);
-
-        if (resultUI == null)
-        {
-            Debug.LogWarning(
-                "VOTE SYNC | Chưa gán Result UI trong Inspector."
-            );
-            return;
-        }
-
-        resultUI.ShowResult("VOTE RESULT", displayMessage);
+        resultUI.ShowResult(
+            "VOTE RESULT",
+            displayMessage
+        );
     }
 }

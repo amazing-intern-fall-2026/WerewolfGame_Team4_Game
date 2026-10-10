@@ -78,19 +78,8 @@ public class NetworkVoteStateManager : MonoBehaviour
 
     private void PublishVoteResult()
     {
-        if (NetworkVoteResultSync.Instance == null)
-        {
-            Debug.LogError(
-                "VOTE RESULT | Không tìm thấy NetworkVoteResultSync."
-            );
-            return;
-        }
-
-        NetworkVoteResultSync.Instance.CaptureVoteResult();
-        NetworkVoteResultSync.Instance.PublishVoteResult();
-
-        Debug.Log(
-            "VOTE RESULT | Đã gửi yêu cầu thông báo kết quả vote."
-        );
+        // Kết quả vote bây giờ được tự động đồng bộ thông qua sự kiện VoteManager.VoteResolved
+        Debug.Log("VOTE RESULT STATE | Kết quả vote được xử lý tự động qua Event.");
     }
 }
+ 

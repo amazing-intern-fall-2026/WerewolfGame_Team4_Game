@@ -1,4 +1,5 @@
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,8 +7,11 @@ using UnityEngine.SceneManagement;
 public class LobbyManager : NetworkBehaviour
 {
     [Header("UI")]
-    [SerializeField] private TextMeshProUGUI playerListText;
-    [SerializeField] private GameObject startGameButton;
+    [SerializeField]
+    private TextMeshProUGUI playerListText;
+
+    [SerializeField]
+    private GameObject startGameButton;
 
     private NetworkList<ulong> playerIds;
 
@@ -90,15 +94,16 @@ public class LobbyManager : NetworkBehaviour
 
     private void AddPlayer(ulong clientId)
     {
-        if (playerIds.Contains(clientId))
+        if (FindPlayerIndex(clientId) >= 0)
             return;
 
         playerIds.Add(clientId);
 
         Debug.Log(
-            "Đã thêm Player " +
-            clientId +
-            " vào Lobby."
+            "Đã thêm Player "
+            + (clientId + 1)
+            + " | Name = "
+            + playerName
         );
     }
 
@@ -111,7 +116,7 @@ public class LobbyManager : NetworkBehaviour
         if (!playerIds.Contains(clientId))
             return;
 
-        playerIds.Remove(clientId);
+        players.RemoveAt(index);
 
         Debug.Log(
             "Đã xóa Player " +
@@ -174,7 +179,6 @@ public class LobbyManager : NetworkBehaviour
 
     public void StartGame()
     {
-        // Chỉ Server/Host được phép Start
         if (!IsServer)
         {
             Debug.LogWarning(

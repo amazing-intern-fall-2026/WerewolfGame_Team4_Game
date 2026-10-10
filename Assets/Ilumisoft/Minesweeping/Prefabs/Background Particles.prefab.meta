@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5aa11d7e01366344cac0fb7efc5b1560
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Background Particles.prefab
+  uploadId: 752810

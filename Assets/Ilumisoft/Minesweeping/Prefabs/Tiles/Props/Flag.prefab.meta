@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 28d283c3f37964f42a365b0674700a83
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Tiles/Props/Flag.prefab
+  uploadId: 752810
