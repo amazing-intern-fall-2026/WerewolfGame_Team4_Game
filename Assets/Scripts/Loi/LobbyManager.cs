@@ -1,6 +1,7 @@
 
 using System;
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,8 +9,11 @@ using UnityEngine.SceneManagement;
 public class LobbyManager : NetworkBehaviour
 {
     [Header("UI")]
-    [SerializeField] private TextMeshProUGUI playerListText;
-    [SerializeField] private GameObject startGameButton;
+    [SerializeField]
+    private TextMeshProUGUI playerListText;
+
+    [SerializeField]
+    private GameObject startGameButton;
 
     [Header("Player Name")]
     [SerializeField]
@@ -37,15 +41,12 @@ public class LobbyManager : NetworkBehaviour
         {
             NetworkManager.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
-            NetworkManager.OnClientConnectedCallback += OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
             AddPlayer(
                 NetworkManager.LocalClientId,
                 "Player " + (NetworkManager.LocalClientId + 1)
             );
 
-            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
             foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
             {
                 AddPlayer(
@@ -70,8 +71,6 @@ public class LobbyManager : NetworkBehaviour
 
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
             NetworkManager.OnClientConnectedCallback -= OnClientConnected;
             NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
@@ -126,15 +125,16 @@ public class LobbyManager : NetworkBehaviour
 
     private void AddPlayer(ulong clientId, string playerName)
     {
-        if (playerIds.Contains(clientId))
+        if (FindPlayerIndex(clientId) >= 0)
             return;
 
         players.Add(new PlayerLobbyData(clientId, playerName));
 
         Debug.Log(
-            "Đã thêm Player " +
-            clientId +
-            " vào Lobby."
+            "Đã thêm Player "
+            + (clientId + 1)
+            + " | Name = "
+            + playerName
         );
     }
 
@@ -145,7 +145,7 @@ public class LobbyManager : NetworkBehaviour
         if (index < 0)
             return;
 
-        playerIds.Remove(clientId);
+        players.RemoveAt(index);
 
         Debug.Log(
             "Đã xóa Player " + (clientId + 1) + " khỏi Lobby."
@@ -233,7 +233,6 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         string text = "PLAYERS\n\n";
-        string text = "PLAYERS\n\n";
 
         for (int i = 0; i < players.Count; i++)
         {
@@ -261,7 +260,6 @@ public class LobbyManager : NetworkBehaviour
         }
 
         playerListText.text = text;
-        playerListText.text = text;
     }
 
     private void UpdateStartButton()
@@ -274,7 +272,6 @@ public class LobbyManager : NetworkBehaviour
 
     public void StartGame()
     {
-        // Chỉ Server/Host được phép Start
         if (!IsServer)
         {
             Debug.LogWarning("Chỉ Host mới được Start Game!");

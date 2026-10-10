@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ba64f724a840de149b1b6f61d53fec19
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Playables/Scene Unload Timeline.playable
+  uploadId: 752810

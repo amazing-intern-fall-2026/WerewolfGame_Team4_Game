@@ -29,6 +29,30 @@ public class NetworkVoteUI : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        NetworkPlayerNameSync.OnAnyPlayerNameChanged +=
+            OnPlayerNameChanged;
+    }
+
+    private void OnDisable()
+    {
+        NetworkPlayerNameSync.OnAnyPlayerNameChanged -=
+            OnPlayerNameChanged;
+    }
+
+    private void OnPlayerNameChanged()
+    {
+        if (!isVoting)
+            return;
+
+        Debug.Log(
+            "VOTE UI: Player Name đã sync → cập nhật Card."
+        );
+
+        CreateVoteCards();
+    }
+
     private void Update()
     {
         if (phaseSync == null)
@@ -42,8 +66,6 @@ public class NetworkVoteUI : MonoBehaviour
 
         GamePhase currentPhase =
             phaseSync.CurrentPhase.Value;
-
-  
 
         bool newIsVoting =
             currentPhase == GamePhase.Voting;
@@ -156,14 +178,12 @@ public class NetworkVoteUI : MonoBehaviour
             int playerID =
                 (int)player.OwnerClientId;
 
-            // Không cho vote chính mình
+            // Không vote chính mình
             if (playerID == localPlayerID)
                 continue;
 
             NetworkPlayerStateSync stateSync =
-                player.GetComponent<
-                    NetworkPlayerStateSync
-                >();
+                player.GetComponent<NetworkPlayerStateSync>();
 
             bool isAlive = true;
 
@@ -174,6 +194,34 @@ public class NetworkVoteUI : MonoBehaviour
                     NetworkPlayerStateType.Alive;
             }
 
+            NetworkPlayerNameSync nameSync =
+                player.GetComponent<NetworkPlayerNameSync>();
+            Debug.Log(
+                "VOTE NAME DEBUG | Player = "
+                + (playerID + 1)
+                + " | nameSync = "
+                + (nameSync != null ? "FOUND" : "NULL")
+                + " | Name = "
+                + (nameSync != null ? nameSync.GetPlayerName() : "N/A")
+            );
+
+            string playerName =
+                "Player " + (playerID + 1);
+
+            if (nameSync != null)
+            {
+                playerName =
+                    nameSync.GetPlayerName();
+            }
+
+            Debug.Log(
+                "VOTE NAME TEST"
+                + " | Player = "
+                + (playerID + 1)
+                + " | Name = "
+                + playerName
+            );
+
             GameObject card =
                 Instantiate(
                     voteCardPrefab,
@@ -181,9 +229,7 @@ public class NetworkVoteUI : MonoBehaviour
                 );
 
             NetworkVoteCardUI cardUI =
-                card.GetComponent<
-                    NetworkVoteCardUI
-                >();
+                card.GetComponent<NetworkVoteCardUI>();
 
             if (cardUI == null)
             {
@@ -195,10 +241,12 @@ public class NetworkVoteUI : MonoBehaviour
                 Destroy(card);
                 continue;
             }
-
-            string playerName =
-                "Player " + playerID;
-
+            Debug.Log(
+                "VOTE NAME CHECK | ID = "
+                + playerID
+                + " | Name truyền vào Card = "
+                + playerName
+            );
             cardUI.Setup(
                 playerID,
                 playerName,

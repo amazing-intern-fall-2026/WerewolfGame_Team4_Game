@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class NetworkPlayerVote : NetworkBehaviour
 {
+    public static event System.Action<int, int> OnVoteCountChanged;
     private static readonly Dictionary<int, int> currentChoices =
         new Dictionary<int, int>();
 
@@ -339,6 +340,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         }
 
         RebuildDev2Votes();
+        SyncVoteCounts();
     }
 
     private void RebuildDev2Votes()
@@ -435,6 +437,94 @@ public class NetworkPlayerVote : NetworkBehaviour
         );
     }
 
+    private static void SyncVoteCounts()
+    {
+        if (NetworkManager.Singleton == null)
+            return;
+
+        if (!NetworkManager.Singleton.IsServer)
+            return;
+
+        NetworkPlayerVote[] players =
+            FindObjectsByType<NetworkPlayerVote>(
+                FindObjectsSortMode.None
+            );
+
+        if (players == null || players.Length == 0)
+            return;
+
+        // Đếm vote cho TẤT CẢ player
+        Dictionary<int, int> voteCounts =
+            new Dictionary<int, int>();
+
+        foreach (NetworkPlayerVote player in players)
+        {
+            if (player == null)
+                continue;
+
+            int playerID =
+                (int)player.OwnerClientId;
+
+            voteCounts[playerID] = 0;
+        }
+
+        // Cộng vote hiện tại
+        foreach (KeyValuePair<int, int> choice in currentChoices)
+        {
+            int targetID = choice.Value;
+
+            if (!voteCounts.ContainsKey(targetID))
+                voteCounts[targetID] = 0;
+
+            voteCounts[targetID]++;
+        }
+
+        int[] targetIDs =
+            new int[voteCounts.Count];
+
+        int[] counts =
+            new int[voteCounts.Count];
+
+        int index = 0;
+
+        foreach (KeyValuePair<int, int> vote in voteCounts)
+        {
+            targetIDs[index] = vote.Key;
+            counts[index] = vote.Value;
+            index++;
+        }
+
+        // Chỉ cần gửi ClientRpc một lần
+        NetworkPlayerVote sender = players[0];
+
+        if (sender != null)
+        {
+            sender.SendVoteCountsClientRpc(
+                targetIDs,
+                counts
+            );
+        }
+    }
+
+    [ClientRpc]
+    private void SendVoteCountsClientRpc(
+    int[] targetIDs,
+    int[] counts)
+    {
+        if (targetIDs == null || counts == null)
+            return;
+
+        if (targetIDs.Length != counts.Length)
+            return;
+
+        for (int i = 0; i < targetIDs.Length; i++)
+        {
+            OnVoteCountChanged?.Invoke(
+                targetIDs[i],
+                counts[i]
+            );
+        }
+    }
     public static void ResetNetworkVotes()
     {
         currentChoices.Clear();

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8bf1719dc8a5ba8409924b7c8789c485
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Game Manager.prefab
+  uploadId: 752810
