@@ -3357,6 +3357,10 @@ MonoBehaviour:
   protectButton: {fileID: 498274384}
   saveButton: {fileID: 1651843309}
   killButton: {fileID: 1870609651}
+<<<<<<< Updated upstream
+=======
+  trapButton: {fileID: 137449097}
+>>>>>>> Stashed changes
   skillPanel: {fileID: 1837424993}
   targetPanel: {fileID: 1995496456}
   targetListUI: {fileID: 1995496460}
