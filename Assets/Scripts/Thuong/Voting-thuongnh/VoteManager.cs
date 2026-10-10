@@ -1,8 +1,19 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
+
+public class VoteResolution
+{
+    public string Message;
+    public PlayerData Eliminated;
+    public Dictionary<int, int> Tallies;
+    public bool IsTie;
+}
+
 public class VoteManager : MonoBehaviour
 {
     public static VoteManager Instance;
+    public event Action<VoteResolution> VoteResolved;
     private readonly Dictionary<int, int> votes = new Dictionary<int, int>();
     private readonly Dictionary<int, int> choices = new Dictionary<int, int>();
     public int GetVotedTarget(int voterID) => choices.TryGetValue(voterID, out var target) ? target : -1;
@@ -39,8 +50,24 @@ public class VoteManager : MonoBehaviour
             if (vote.Value > highest) { target = vote.Key; highest = vote.Value; tied = false; }
             else if (vote.Value == highest) tied = true;
         }
+        
+        Dictionary<int, int> finalTallies = new Dictionary<int, int>(votes);
         votes.Clear();
-        if (!tied && target >= 0) DeathResolver.Instance.TryKillPlayer(target, DeathCause.Vote);
+        
+        PlayerData eliminatedPlayer = null;
+        if (!tied && target >= 0) 
+        {
+            eliminatedPlayer = PlayerManager.Instance.GetplayerByID(target);
+            DeathResolver.Instance.TryKillPlayer(target, DeathCause.Vote);
+        }
+        
+        VoteResolved?.Invoke(new VoteResolution
+        {
+            Message = tied ? "Hòa phiếu!" : (eliminatedPlayer != null ? $"Người chơi {target + 1} bị loại" : "Không ai bị loại"),
+            Eliminated = eliminatedPlayer,
+            Tallies = finalTallies,
+            IsTie = tied
+        });
     }
 }
 
