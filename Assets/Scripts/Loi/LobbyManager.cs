@@ -41,15 +41,12 @@ public class LobbyManager : NetworkBehaviour
         {
             NetworkManager.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
-            NetworkManager.OnClientConnectedCallback += OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
             AddPlayer(
                 NetworkManager.LocalClientId,
                 "Player " + (NetworkManager.LocalClientId + 1)
             );
 
-            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
             foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
             {
                 AddPlayer(
@@ -74,8 +71,6 @@ public class LobbyManager : NetworkBehaviour
 
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
             NetworkManager.OnClientConnectedCallback -= OnClientConnected;
             NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
@@ -130,7 +125,7 @@ public class LobbyManager : NetworkBehaviour
 
     private void AddPlayer(ulong clientId, string playerName)
     {
-        if (playerIds.Contains(clientId))
+        if (FindPlayerIndex(clientId) >= 0)
             return;
 
         players.Add(new PlayerLobbyData(clientId, playerName));
@@ -148,7 +143,7 @@ public class LobbyManager : NetworkBehaviour
         if (index < 0)
             return;
 
-        playerIds.Remove(clientId);
+        players.RemoveAt(index);
 
         Debug.Log(
             "Đã xóa Player " + (clientId + 1) + " khỏi Lobby."
@@ -236,7 +231,6 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         string text = "PLAYERS\n\n";
-        string text = "PLAYERS\n\n";
 
         for (int i = 0; i < players.Count; i++)
         {
@@ -263,7 +257,6 @@ public class LobbyManager : NetworkBehaviour
                 text += "\n";
         }
 
-        playerListText.text = text;
         playerListText.text = text;
     }
 
