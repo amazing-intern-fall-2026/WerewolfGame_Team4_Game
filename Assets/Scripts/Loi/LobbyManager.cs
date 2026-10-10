@@ -94,7 +94,7 @@ public class LobbyManager : NetworkBehaviour
 
     private void AddPlayer(ulong clientId)
     {
-        if (FindPlayerIndex(clientId) >= 0)
+        if (playerIds.Contains(clientId))
             return;
 
         playerIds.Add(clientId);
@@ -102,8 +102,6 @@ public class LobbyManager : NetworkBehaviour
         Debug.Log(
             "Đã thêm Player "
             + (clientId + 1)
-            + " | Name = "
-            + playerName
         );
     }
 
@@ -116,7 +114,7 @@ public class LobbyManager : NetworkBehaviour
         if (!playerIds.Contains(clientId))
             return;
 
-        players.RemoveAt(index);
+        playerIds.Remove(clientId);
 
         Debug.Log(
             "Đã xóa Player " +
