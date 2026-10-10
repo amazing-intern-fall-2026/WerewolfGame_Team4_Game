@@ -1092,9 +1092,6 @@ MonoBehaviour:
   discussionDuration: 30
   votingDuration: 20
   roleRevealDuration: 25
-  manualLogicPrototype: 0
-  statusEffects: {fileID: 0}
-  abilities: {fileID: 0}
 --- !u!4 &309494666
 Transform:
   m_ObjectHideFlags: 0
@@ -1202,7 +1199,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2aad801ff54090e4c84192b80a296e65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoleManager
-  roleDefinitions: {fileID: 0}
 --- !u!1 &385551102
 GameObject:
   m_ObjectHideFlags: 0
@@ -1370,8 +1366,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54d00ec44ce4dfd40b83687a639526cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeathResolver
-  consumeProtectionOnBlock: 1
-  protectionBlocks: 010000000400000007000000i
 --- !u!1 &468319889
 GameObject:
   m_ObjectHideFlags: 0
@@ -1608,8 +1602,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: VOTE RESULT
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 42426148600cd7548aaa937a8a7768e0, type: 2}
+  m_sharedMaterial: {fileID: -3441607281458731584, guid: 42426148600cd7548aaa937a8a7768e0, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3344,8 +3338,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "Player 4 \u0111\xE3 b\u1ECB lo\u1EA1i\r\nS\u1ED1 phi\u1EBFu: 3"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 42426148600cd7548aaa937a8a7768e0, type: 2}
+  m_sharedMaterial: {fileID: -3441607281458731584, guid: 42426148600cd7548aaa937a8a7768e0, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3735,8 +3729,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "B\u1EA1n \u0111\xE3 ch\u1EBFt"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 42426148600cd7548aaa937a8a7768e0, type: 2}
+  m_sharedMaterial: {fileID: -3441607281458731584, guid: 42426148600cd7548aaa937a8a7768e0, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3766,7 +3760,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -4528,7 +4522,6 @@ MonoBehaviour:
   saveButton: {fileID: 1651843309}
   killButton: {fileID: 1870609651}
   trapButton: {fileID: 137449097}
-  weaverButton: {fileID: 0}
   skillPanel: {fileID: 1837424993}
   targetPanel: {fileID: 1995496456}
   targetListUI: {fileID: 1995496460}
@@ -6680,7 +6673,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &2104899889
 RectTransform:
   m_ObjectHideFlags: 0
