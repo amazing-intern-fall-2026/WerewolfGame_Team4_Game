@@ -5,6 +5,8 @@ using System;
 public class PlayerManager : MonoBehaviour
 {
     public static PlayerManager Instance;
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetSingleton() => Instance = null;
     public event Action<PlayerData> AliveStateChanged;
 
     [SerializeField]
@@ -92,10 +94,12 @@ public class PlayerManager : MonoBehaviour
         player.isAlive = isAlive;
         if (isAlive)
         {
+            player.hasDeathRecord = false;
             player.hasVoted = false;
             player.hasUseNightAction = false;
         }
         AliveStateChanged?.Invoke(player);
+        player.NotifyChanged();
         return true;
     }
 
