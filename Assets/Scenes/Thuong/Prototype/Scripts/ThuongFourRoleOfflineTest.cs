@@ -124,12 +124,13 @@ public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
             character.name = "Test Player " + (id + 1) + " (" +
                 PlayerManager.Instance.GetplayerByID(id).roleType + ")";
             character.transform.position = center +
-                new Vector3((column - (rowLength - 1) * 0.5f) * 1.1f,
-                    ((rows - 1) * 0.5f - row) * 1.1f, 0f);
+                new Vector3((column - (rowLength - 1) * 0.5f) * (character.GetComponentInChildren<ThuongTopDownCharacter>() != null ? 1.5f : 1.1f),
+                    ((rows - 1) * 0.5f - row) * (character.GetComponentInChildren<ThuongTopDownCharacter>() != null ? 1.6f : 1.1f), 0f);
 
             PlayerMovement movement = character.GetComponent<PlayerMovement>();
             PrototypeControls controls = character.GetComponent<PrototypeControls>();
             movement.playerID = id;
+            character.GetComponentInChildren<ThuongTopDownCharacter>()?.SetPlayerID(id);
             PlayerNameTag.AttachOrCreate(
                 character.transform,
                 PlayerManager.Instance.GetplayerByID(id));
@@ -188,6 +189,9 @@ public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
         }
 
         localPlayerID = id;
+        for (int i = 0; i < scenePlayers.Length; i++)
+            scenePlayers[i]?.GetComponentInChildren<ThuongTopDownCharacter>()?.SetSelected(i == id);
+        Camera.main?.GetComponent<ThuongTopDownCamera>()?.Follow(scenePlayers[id].transform);
         scenePlayers[id].SetCanMove(true);
         playerControls[id].enabled = true;
         if (hud != null) hud.localVoterID = id;

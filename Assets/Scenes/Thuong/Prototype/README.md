@@ -13,7 +13,7 @@ Mở scene theo chế độ Single, không nạp thêm các scene gameplay khác
 
 ## Đã gắn sẵn
 
-- Map hình khối có nền, đường đi và tường biên.
+- Map làng trung cổ châu Âu dùng tiles/props thật, nhà khung gỗ/đá, ruộng, giếng, kho và đuốc. Camera top-down theo người đang điều khiển; Tab xem toàn làng.
 - Số nhân vật theo `PlayerManager.prototypeLobbySize` được script test tạo khi Play từ Player gốc, mỗi nhân vật có Rigidbody2D, collider, ID và vai riêng.
 - Sáu task asset và sáu station; mỗi ngày chọn ngẫu nhiên bốn nhiệm vụ, mỗi nhiệm vụ +10%.
 - HUD có hai thanh: tổng tiến độ cả ván ở trên cùng, tiến độ trong ngày trên danh sách nhiệm vụ bên trái; kèm ngày/phase, đồng hồ và hướng dẫn.
@@ -36,7 +36,7 @@ Sau khi phân vai, một thẻ giới thiệu Role của Player local hiện tr�
 Ảnh mặc định dùng `Art/Resources/RoleAbilityIcon.png`. Để dùng ảnh PNG riêng, tạo thư mục `Art/Resources/RolePortraits` rồi thêm sprite đặt tên đúng `RoleType` như `Villager.png`, `Seer.png`, `DogSpirit.png`; để Texture Type là **Sprite (2D and UI)**. Nếu không có ảnh riêng, thẻ dùng ảnh mặc định.
 Tiên tri chỉ nhận kết quả **Dogspirit** hoặc **Không phải Dogspirit**; Role cụ thể của mục tiêu không được hiển thị. Role không có kỹ năng chủ động chỉ hiện mô tả kỹ năng nội tại/thảo luận/bỏ phiếu.
 Các điểm được đặt cố định, tập nhiệm vụ hoạt động được chọn ngẫu nhiên.
-Hình ảnh đang dùng hình khối để thử logic; bạn có thể thay sprite bằng asset thật.
+Hình ảnh dùng Hypnobius và LPC: 20 skin đi bốn hướng theo Player ID, UI giấy/gỗ, hình thẻ vai và tint ban đêm. Xem `MEDIEVAL_ART.md` để biết nguồn, giấy phép và cách chỉnh/import lại.
 
 ## Các thư mục
 

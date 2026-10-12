@@ -108,6 +108,12 @@ public sealed class PlayerNameTag : MonoBehaviour
         textRect.localPosition = TextLocalPosition;
         textRect.localScale = TextLocalScale;
 
+        if (playerRoot.GetComponentInChildren<ThuongTopDownCharacter>() != null)
+        {
+            textRect.localPosition = new Vector3(0, 1.15f, 0);
+            textRect.localScale = Vector3.one;
+        }
+
         nameText.fontSize = 2.3f;
         nameText.enableAutoSizing = false;
         nameText.textWrappingMode = TextWrappingModes.NoWrap;
@@ -159,9 +165,10 @@ public sealed class PlayerNameTag : MonoBehaviour
         // PlayerManager stores generated names as Player 0, Player 1, etc.
         // Display those as Player 1, Player 2 while preserving custom names.
         string generatedName = "Player " + player.playerID;
+        bool topDown = GetComponentInParent<Assets.Scripts.Thuong.PlayerMovement>()?.GetComponentInChildren<ThuongTopDownCharacter>() != null;
         nameText.text = string.IsNullOrWhiteSpace(player.playerName) ||
                         player.playerName == generatedName
-            ? "Player " + (player.playerID + 1)
+            ? (topDown ? "P" + (player.playerID + 1).ToString("00") : "Player " + (player.playerID + 1))
             : player.playerName;
     }
 }

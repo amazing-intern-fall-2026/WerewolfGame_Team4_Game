@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: "D\xC2N L\xC0NG"
   description: "Ho\xE0n th\xE0nh nhi\u1EC7m v\u1EE5, tham gia th\u1EA3o lu\u1EADn v\xE0 b\u1ECF phi\u1EBFu."
   abilityName: "N\u1ED8I T\u1EA0I"
-  portrait: {fileID: 0}
-  abilityIcon: {fileID: 21300000, guid: 8de44d944817462d9ff012096025f867, type: 3}
+  portrait: {fileID: 21300000, guid: bf3862e41f3340040ad9162bc3bf0f67, type: 3}
+  abilityIcon: {fileID: 21300000, guid: 36204f1f198c4814b9a0d7df483e3c99, type: 3}
   roleType: 8
   faction: 0
   abilityType: 0

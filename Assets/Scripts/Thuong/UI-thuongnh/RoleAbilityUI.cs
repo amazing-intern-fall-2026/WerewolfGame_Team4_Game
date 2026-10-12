@@ -89,6 +89,7 @@ public class RoleAbilityUI : MonoBehaviour
         var image = go.GetComponent<Image>();
         image.color = Hex(color);
         image.raycastTarget = raycast;
+        ThuongMedievalTheme.Active?.StylePanel(image, name);
         return rect;
     }
 
@@ -111,6 +112,7 @@ public class RoleAbilityUI : MonoBehaviour
         label.color = Hex(color);
         label.alignment = alignment;
         label.raycastTarget = false;
+        ThuongMedievalTheme.Active?.StyleText(label);
         return label;
     }
 
@@ -120,6 +122,7 @@ public class RoleAbilityUI : MonoBehaviour
         var rect = Panel(name, parent, min, max, color, true);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = rect.GetComponent<Image>();
+        ThuongMedievalTheme.Active?.StylePanel(rect.GetComponent<Image>(), name);
         var colors = button.colors;
         colors.normalColor = Color.white;
         colors.highlightedColor = Hex("#B8F3EA");
@@ -127,6 +130,13 @@ public class RoleAbilityUI : MonoBehaviour
         colors.selectedColor = Color.white;
         colors.disabledColor = Hex("#657B82");
         button.colors = colors;
+        if (ThuongMedievalTheme.Active != null)
+        {
+            colors.highlightedColor = new Color32(255, 223, 158, 255);
+            colors.pressedColor = new Color32(202, 158, 102, 255);
+            colors.disabledColor = new Color32(133, 120, 98, 255);
+            button.colors = colors;
+        }
         button.onClick.AddListener(action);
         Label("Text", rect, value, new Vector2(.03f, .05f),
             new Vector2(.97f, .95f), 20, "#F4FAF8", TextAlignmentOptions.Center);
@@ -152,7 +162,8 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void BuildUI()
     {
-        Sprite roleIcon = Resources.Load<Sprite>("RoleAbilityIcon");
+        Sprite roleIcon = ThuongMedievalTheme.Active != null
+            ? ThuongMedievalTheme.Active.defaultPortrait : Resources.Load<Sprite>("RoleAbilityIcon");
         defaultPortrait = roleIcon;
         if (roleIcon == null)
             Debug.LogWarning("[Role Ability] Không tìm thấy sprite Resources/RoleAbilityIcon.");
@@ -501,7 +512,8 @@ public class RoleAbilityUI : MonoBehaviour
         {
             foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
                 if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
-                    image.sprite = Resources.Load<Sprite>("RoleAbilityIcon");
+                    image.sprite = ThuongMedievalTheme.Active != null
+                        ? ThuongMedievalTheme.Active.defaultPortrait : Resources.Load<Sprite>("RoleAbilityIcon");
         }
         bool isShaman = !configured && shownRole == RoleType.Shaman;
         useButton.gameObject.SetActive(HasActiveAbility(player) && !isShaman);

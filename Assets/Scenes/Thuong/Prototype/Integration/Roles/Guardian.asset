@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: "B\u1EA2O V\u1EC6"
   description: "B\u1EA3o v\u1EC7 m\u1ED9t ng\u01B0\u1EDDi kh\xE1c trong \u0111\xEAm. Kh\xF4ng ch\u1ECDn c\xF9ng ng\u01B0\u1EDDi trong hai \u0111\xEAm li\xEAn ti\u1EBFp."
   abilityName: "B\u1EA2O V\u1EC6"
-  portrait: {fileID: 0}
-  abilityIcon: {fileID: 21300000, guid: 8de44d944817462d9ff012096025f867, type: 3}
+  portrait: {fileID: 21300000, guid: 0f9648c2fe3650246b266281ab701a80, type: 3}
+  abilityIcon: {fileID: 21300000, guid: 36204f1f198c4814b9a0d7df483e3c99, type: 3}
   roleType: 11
   faction: 0
   abilityType: 1

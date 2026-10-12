@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 558b1bd01c4c27549a024141ab26116f, type: 3}
   m_Name: CharacterAppearance
   m_EditorClassIdentifier: Assembly-CSharp::ThuongCharacterAppearance
-  sprite: {fileID: 2537882373423050008, guid: 303280f257c735b4993f9fb80eb341ab, type: 3}
-  animatorController: {fileID: 0}
-  tint: {r: 0.5568628, g: 0.9137255, b: 0.8862745, a: 1}
-  visualScale: {x: 1, y: 1, z: 1}
+  sprite: {fileID: 6629851457376202439, guid: cebab2f5cb2c91f4a845e21bff7e603b, type: 3}
+  animatorController: {fileID: 9100000, guid: 0b29db01764ddc444baf94f5d597d6cd, type: 2}
+  tint: {r: 1, g: 1, b: 1, a: 1}
+  visualScale: {x: 0.9, y: 0.9, z: 1}

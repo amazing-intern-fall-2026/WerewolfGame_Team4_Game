@@ -202,6 +202,11 @@ public static class ThuongPrototypeChecks
     }
     private static void SavePreview(string path = "Logs/thuong-prototype-preview.png")
     {
+        if (Camera.main.GetComponent<ThuongTopDownCamera>() != null)
+        {
+            ThuongMedievalSceneChecks.SavePreview(path);
+            return;
+        }
         var camera = Camera.main;
         // Render every root UI canvas without raising the HUD above its popup canvases.
         // Also refresh after test callbacks, which can precede the next runtime Update.
