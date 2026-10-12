@@ -1,4 +1,3 @@
-
 using System;
 using TMPro;
 using Unity.Collections;
@@ -22,9 +21,28 @@ public class LobbyManager : NetworkBehaviour
     private NetworkList<PlayerLobbyData> players;
     private NetworkRoleLobbyConfig roleLobbyConfig;
 
+    [Header("Speaker UI (Optional)")]
+    [SerializeField]
+    private SpeakerToggleSwitch speakerToggle;
+
+    [Header("Mic UI (Optional)")]
+    [SerializeField]
+    private MicToggleSwitch micToggle;
+
     private void Awake()
     {
         players = new NetworkList<PlayerLobbyData>();
+    }
+
+    private void Start()
+    {
+        EnsureVoiceUI();
+    }
+
+    private void EnsureVoiceUI()
+    {
+        EnsureMicToggleUI();
+        EnsureSpeakerToggleUI();
     }
 
     public override void OnNetworkSpawn()
@@ -33,6 +51,8 @@ public class LobbyManager : NetworkBehaviour
         {
             NetworkGamePlayerNameSetup.Clear();
         }
+
+        JoinLobbyVoice();
 
         players.OnListChanged += OnPlayerListChanged;
         FindRoleLobbyConfig();
@@ -73,6 +93,16 @@ public class LobbyManager : NetworkBehaviour
         {
             NetworkManager.OnClientConnectedCallback -= OnClientConnected;
             NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    private void JoinLobbyVoice()
+    {
+        if (NetworkVoiceManager.Instance != null)
+        {
+            StartCoroutine(
+                NetworkVoiceManager.Instance.WaitAndJoinLobbyVoice()
+            );
         }
     }
 
@@ -326,18 +356,310 @@ public class LobbyManager : NetworkBehaviour
         );
     }
 
-    // Hàm được gọi từ JoinVoiceButton trong Inspector.
+    // =========================================================
+    // VOICE CHAT: BẬT / TẮT MIC VÀ LOA
+    // =========================================================
+
     public void JoinLobbyVoiceButton()
     {
         if (NetworkVoiceManager.Instance == null)
         {
-            Debug.LogError(
-                "VOICE | Không tìm thấy NetworkVoiceManager."
-            );
+            Debug.LogError("VOICE | Không tìm thấy NetworkVoiceManager.");
             return;
         }
 
-        NetworkVoiceManager.Instance.JoinLobbyVoice();
+        if (!NetworkVoiceManager.Instance.IsInLobbyVoice)
+        {
+            NetworkVoiceManager.Instance.JoinLobbyVoice();
+        }
+        else
+        {
+            NetworkVoiceManager.Instance.ToggleMicrophone();
+        }
+    }
+
+    public void ToggleMicButton()
+    {
+        if (micToggle != null)
+        {
+            micToggle.Toggle();
+        }
+        else if (NetworkVoiceManager.Instance != null)
+        {
+            NetworkVoiceManager.Instance.ToggleMicrophone();
+        }
+    }
+
+    public void ToggleSpeakerButton()
+    {
+        if (speakerToggle != null)
+        {
+            speakerToggle.Toggle();
+        }
+        else if (NetworkVoiceManager.Instance != null)
+        {
+            NetworkVoiceManager.Instance.ToggleOutputAudio();
+        }
+    }
+
+    // =========================================================
+    // TỰ ĐỘNG TẠO / LIÊN KẾT GIAO DIỆN BẬT TẮT MICRO VÀ LOA
+    // =========================================================
+
+    private void EnsureMicToggleUI()
+    {
+        if (micToggle != null)
+            return;
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+            return;
+
+        Transform existingMic = canvas.transform.Find("VoiceMicPanel");
+        if (existingMic != null)
+        {
+            micToggle = existingMic.GetComponentInChildren<MicToggleSwitch>(true);
+            if (micToggle != null)
+                return;
+        }
+        else
+        {
+            MicToggleSwitch foundSwitch = canvas.GetComponentInChildren<MicToggleSwitch>(true);
+            if (foundSwitch != null)
+            {
+                micToggle = foundSwitch;
+                return;
+            }
+        }
+
+        Vector2 panelPos = new Vector2(718, 110);
+        Transform parentTransform = canvas.transform;
+
+        GameObject micPanelObj = new GameObject("VoiceMicPanel", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+        micPanelObj.transform.SetParent(parentTransform, false);
+
+        RectTransform panelRect = micPanelObj.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.anchoredPosition = panelPos;
+        panelRect.sizeDelta = new Vector2(242, 56);
+
+        UnityEngine.UI.Image panelBg = micPanelObj.GetComponent<UnityEngine.UI.Image>();
+        panelBg.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
+
+        GameObject titleObj = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        titleObj.transform.SetParent(micPanelObj.transform, false);
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0, 0.5f);
+        titleRect.anchorMax = new Vector2(0, 0.5f);
+        titleRect.pivot = new Vector2(0.5f, 0.5f);
+        titleRect.anchoredPosition = new Vector2(75, 7);
+        titleRect.sizeDelta = new Vector2(120, 22);
+
+        TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
+        titleText.text = "Micro (Mic)";
+        titleText.fontSize = 18;
+        titleText.fontStyle = FontStyles.Bold;
+        titleText.color = Color.white;
+        titleText.alignment = TextAlignmentOptions.MidlineLeft;
+
+        GameObject switchObj = new GameObject("MicToggleSwitch", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(MicToggleSwitch));
+        switchObj.transform.SetParent(micPanelObj.transform, false);
+        RectTransform switchRect = switchObj.GetComponent<RectTransform>();
+        switchRect.anchorMin = new Vector2(1, 0.5f);
+        switchRect.anchorMax = new Vector2(1, 0.5f);
+        switchRect.pivot = new Vector2(0.5f, 0.5f);
+        switchRect.anchoredPosition = new Vector2(-46, 0);
+        switchRect.sizeDelta = new Vector2(62, 30);
+
+        UnityEngine.UI.Image switchBg = switchObj.GetComponent<UnityEngine.UI.Image>();
+        switchBg.color = new Color(0.2f, 0.8f, 0.35f, 1f);
+
+        GameObject handleObj = new GameObject("Handle", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+        handleObj.transform.SetParent(switchObj.transform, false);
+        RectTransform handleRect = handleObj.GetComponent<RectTransform>();
+        handleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        handleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        handleRect.pivot = new Vector2(0.5f, 0.5f);
+        handleRect.anchoredPosition = new Vector2(16, 0);
+        handleRect.sizeDelta = new Vector2(24, 24);
+
+        UnityEngine.UI.Image handleImg = handleObj.GetComponent<UnityEngine.UI.Image>();
+        handleImg.color = Color.white;
+
+        GameObject statusLabelObj = new GameObject("StatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        statusLabelObj.transform.SetParent(micPanelObj.transform, false);
+        RectTransform statusRect = statusLabelObj.GetComponent<RectTransform>();
+        statusRect.anchorMin = new Vector2(0, 0.5f);
+        statusRect.anchorMax = new Vector2(0, 0.5f);
+        statusRect.pivot = new Vector2(0.5f, 0.5f);
+        statusRect.anchoredPosition = new Vector2(75, -13);
+        statusRect.sizeDelta = new Vector2(120, 18);
+
+        TextMeshProUGUI statusLabel = statusLabelObj.GetComponent<TextMeshProUGUI>();
+        statusLabel.text = "BẬT";
+        statusLabel.fontSize = 13;
+        statusLabel.fontStyle = FontStyles.Bold;
+        statusLabel.color = new Color(0.2f, 0.85f, 0.45f, 1f);
+        statusLabel.alignment = TextAlignmentOptions.MidlineLeft;
+
+        micToggle = switchObj.GetComponent<MicToggleSwitch>();
+        var handleField = typeof(MicToggleSwitch).GetField("handleRect", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var bgField = typeof(MicToggleSwitch).GetField("backgroundImage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var handleImgField = typeof(MicToggleSwitch).GetField("handleImage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var statusTextField = typeof(MicToggleSwitch).GetField("statusText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        if (handleField != null) handleField.SetValue(micToggle, handleRect);
+        if (bgField != null) bgField.SetValue(micToggle, switchBg);
+        if (handleImgField != null) handleImgField.SetValue(micToggle, handleImg);
+        if (statusTextField != null) statusTextField.SetValue(micToggle, statusLabel);
+
+        UnityEngine.UI.Button panelButton = micPanelObj.GetComponent<UnityEngine.UI.Button>();
+        panelButton.onClick.AddListener(() =>
+        {
+            if (micToggle != null)
+            {
+                micToggle.Toggle();
+            }
+        });
+    }
+
+    private void EnsureSpeakerToggleUI()
+    {
+        if (speakerToggle != null)
+            return;
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+            return;
+
+        Transform existingSpeaker = canvas.transform.Find("VoiceSpeakerPanel");
+        if (existingSpeaker != null)
+        {
+            speakerToggle = existingSpeaker.GetComponentInChildren<SpeakerToggleSwitch>(true);
+            if (speakerToggle != null)
+                return;
+        }
+        else
+        {
+            SpeakerToggleSwitch foundSwitch = canvas.GetComponentInChildren<SpeakerToggleSwitch>(true);
+            if (foundSwitch != null)
+            {
+                speakerToggle = foundSwitch;
+                return;
+            }
+        }
+
+        Transform micPanelT = canvas.transform.Find("VoiceMicPanel");
+        if (micPanelT == null && micToggle != null)
+        {
+            micPanelT = micToggle.transform.parent != null && micToggle.transform.parent != canvas.transform
+                ? micToggle.transform.parent
+                : micToggle.transform;
+        }
+
+        Vector2 panelPos = new Vector2(718, 46);
+        Transform parentTransform = canvas.transform;
+
+        if (micPanelT != null)
+        {
+            parentTransform = micPanelT.parent != null ? micPanelT.parent : canvas.transform;
+            RectTransform micRect = micPanelT.GetComponent<RectTransform>();
+            if (micRect != null)
+            {
+                panelPos = new Vector2(micRect.anchoredPosition.x, micRect.anchoredPosition.y - 64);
+            }
+        }
+
+        GameObject speakerPanelObj = new GameObject("VoiceSpeakerPanel", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+        speakerPanelObj.transform.SetParent(parentTransform, false);
+
+        RectTransform panelRect = speakerPanelObj.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.anchoredPosition = panelPos;
+        panelRect.sizeDelta = new Vector2(242, 56);
+
+        UnityEngine.UI.Image panelBg = speakerPanelObj.GetComponent<UnityEngine.UI.Image>();
+        panelBg.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
+
+        GameObject titleObj = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        titleObj.transform.SetParent(speakerPanelObj.transform, false);
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0, 0.5f);
+        titleRect.anchorMax = new Vector2(0, 0.5f);
+        titleRect.pivot = new Vector2(0.5f, 0.5f);
+        titleRect.anchoredPosition = new Vector2(75, 7);
+        titleRect.sizeDelta = new Vector2(120, 22);
+
+        TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
+        titleText.text = "Loa (Speaker)";
+        titleText.fontSize = 18;
+        titleText.fontStyle = FontStyles.Bold;
+        titleText.color = Color.white;
+        titleText.alignment = TextAlignmentOptions.MidlineLeft;
+
+        GameObject switchObj = new GameObject("SpeakerToggleSwitch", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(SpeakerToggleSwitch));
+        switchObj.transform.SetParent(speakerPanelObj.transform, false);
+        RectTransform switchRect = switchObj.GetComponent<RectTransform>();
+        switchRect.anchorMin = new Vector2(1, 0.5f);
+        switchRect.anchorMax = new Vector2(1, 0.5f);
+        switchRect.pivot = new Vector2(0.5f, 0.5f);
+        switchRect.anchoredPosition = new Vector2(-46, 0);
+        switchRect.sizeDelta = new Vector2(62, 30);
+
+        UnityEngine.UI.Image switchBg = switchObj.GetComponent<UnityEngine.UI.Image>();
+        switchBg.color = new Color(0.2f, 0.8f, 0.35f, 1f);
+
+        GameObject handleObj = new GameObject("Handle", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+        handleObj.transform.SetParent(switchObj.transform, false);
+        RectTransform handleRect = handleObj.GetComponent<RectTransform>();
+        handleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        handleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        handleRect.pivot = new Vector2(0.5f, 0.5f);
+        handleRect.anchoredPosition = new Vector2(16, 0);
+        handleRect.sizeDelta = new Vector2(24, 24);
+
+        UnityEngine.UI.Image handleImg = handleObj.GetComponent<UnityEngine.UI.Image>();
+        handleImg.color = Color.white;
+
+        GameObject statusLabelObj = new GameObject("StatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        statusLabelObj.transform.SetParent(speakerPanelObj.transform, false);
+        RectTransform statusRect = statusLabelObj.GetComponent<RectTransform>();
+        statusRect.anchorMin = new Vector2(0, 0.5f);
+        statusRect.anchorMax = new Vector2(0, 0.5f);
+        statusRect.pivot = new Vector2(0.5f, 0.5f);
+        statusRect.anchoredPosition = new Vector2(75, -13);
+        statusRect.sizeDelta = new Vector2(120, 18);
+
+        TextMeshProUGUI statusLabel = statusLabelObj.GetComponent<TextMeshProUGUI>();
+        statusLabel.text = "BẬT";
+        statusLabel.fontSize = 13;
+        statusLabel.fontStyle = FontStyles.Bold;
+        statusLabel.color = new Color(0.2f, 0.85f, 0.45f, 1f);
+        statusLabel.alignment = TextAlignmentOptions.MidlineLeft;
+
+        speakerToggle = switchObj.GetComponent<SpeakerToggleSwitch>();
+        var handleField = typeof(SpeakerToggleSwitch).GetField("handleRect", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var bgField = typeof(SpeakerToggleSwitch).GetField("backgroundImage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var handleImgField = typeof(SpeakerToggleSwitch).GetField("handleImage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var statusTextField = typeof(SpeakerToggleSwitch).GetField("statusText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        if (handleField != null) handleField.SetValue(speakerToggle, handleRect);
+        if (bgField != null) bgField.SetValue(speakerToggle, switchBg);
+        if (handleImgField != null) handleImgField.SetValue(speakerToggle, handleImg);
+        if (statusTextField != null) statusTextField.SetValue(speakerToggle, statusLabel);
+
+        UnityEngine.UI.Button panelButton = speakerPanelObj.GetComponent<UnityEngine.UI.Button>();
+        panelButton.onClick.AddListener(() =>
+        {
+            if (speakerToggle != null)
+            {
+                speakerToggle.Toggle();
+            }
+        });
     }
 }
 
