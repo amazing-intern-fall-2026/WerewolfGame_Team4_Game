@@ -11,8 +11,16 @@ public class LoverManager : MonoBehaviour
 
     public void MakeLovers(int playerAID, int playerBID)
     {
+        TryMakeLovers(playerAID, playerBID, out _);
+    }
+
+    public bool TryMakeLovers(int playerAID, int playerBID, out string feedback)
+    {
         if (PlayerManager.Instance == null)
-            return;
+        {
+            feedback = "Chưa có danh sách người chơi.";
+            return false;
+        }
 
         PlayerData playerA =
             PlayerManager.Instance.GetplayerByID(playerAID);
@@ -21,10 +29,16 @@ public class LoverManager : MonoBehaviour
             PlayerManager.Instance.GetplayerByID(playerBID);
 
         if (playerA == null || playerB == null || !playerA.isAlive || !playerB.isAlive || playerAID == playerBID)
-            return;
+        {
+            feedback = "Hai mục tiêu phải là người chơi còn sống và khác nhau.";
+            return false;
+        }
 
         if (playerA.loverID != -1 || playerB.loverID != -1)
-            return;
+        {
+            feedback = "Một trong hai người đã có đôi.";
+            return false;
+        }
 
         playerA.loverID = playerBID;
         playerB.loverID = playerAID;
@@ -34,6 +48,9 @@ public class LoverManager : MonoBehaviour
             " ❤️ " +
             playerB.playerName
         );
+
+        feedback = $"Đã ghép đôi {playerA.playerName} và {playerB.playerName}.";
+        return true;
     }
 
     public void LoverDied(PlayerData deadPlayer)

@@ -55,6 +55,7 @@ public class RoleManager : MonoBehaviour
             list[i].hasUseNightAction = false;
             list[i].hasVoted = false;
             list[i].isAlive = true;
+            list[i].wasVotedOut = false;
 
             CreateRole(rolePool[i], list[i]);
         }

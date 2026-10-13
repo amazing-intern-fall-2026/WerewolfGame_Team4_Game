@@ -59,6 +59,7 @@ public class DeathResolver:MonoBehaviour
         }
 
         target.isAlive = false;
+        target.wasVotedOut = cause == DeathCause.Vote;
         NetworkPlayerStateSync.SyncGameplayAliveState(targetID, false);
         if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(targetID, out var role))
             role.OnDeath();
