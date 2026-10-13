@@ -21,6 +21,26 @@ public class LobbyManager : NetworkBehaviour
     private NetworkList<PlayerLobbyData> players;
     private NetworkRoleLobbyConfig roleLobbyConfig;
 
+    // Mã phòng 6 chữ số — Host đồng bộ cho mọi Client
+    private NetworkVariable<FixedString64Bytes> roomCodeNetwork =
+        new NetworkVariable<FixedString64Bytes>(
+            new FixedString64Bytes(string.Empty),
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+    // Kênh Voice riêng cho mỗi lobby — Host tạo, Client đọc
+    private NetworkVariable<FixedString64Bytes> voiceChannelId =
+        new NetworkVariable<FixedString64Bytes>(
+            new FixedString64Bytes(string.Empty),
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+    [Header("Room Code UI")]
+    [SerializeField]
+    private TextMeshProUGUI roomCodeDisplayText;
+
     [Header("Speaker UI (Optional)")]
     [SerializeField]
     private SpeakerToggleSwitch speakerToggle;
@@ -37,6 +57,7 @@ public class LobbyManager : NetworkBehaviour
     private void Start()
     {
         EnsureVoiceUI();
+        EnsureRoomCodeUI();
     }
 
     private void EnsureVoiceUI()
@@ -50,9 +71,30 @@ public class LobbyManager : NetworkBehaviour
         if (IsServer)
         {
             NetworkGamePlayerNameSetup.Clear();
+
+            // Khởi tạo Room Code 6 chữ số
+            string code = RoomManager.CurrentRoomCode;
+            if (string.IsNullOrEmpty(code))
+            {
+                code = RoomManager.GenerateRoomCode();
+                RoomManager.CurrentRoomCode = code;
+            }
+            roomCodeNetwork.Value = new FixedString64Bytes(code);
+
+            // Tạo Voice Channel duy nhất gắn liền với mã phòng của Lobby này
+            string uniqueVoice = RoomManager.CurrentVoiceChannelId;
+            if (string.IsNullOrEmpty(uniqueVoice))
+            {
+                uniqueVoice = "ww-" + code + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+                RoomManager.CurrentVoiceChannelId = uniqueVoice;
+            }
+            voiceChannelId.Value = new FixedString64Bytes(uniqueVoice);
+            Debug.Log($"LOBBY MANAGER | Room Code: {code} | Voice Channel ID: {uniqueVoice}");
         }
 
-        JoinLobbyVoice();
+        // Đăng ký lắng nghe khi mã phòng hoặc kênh voice thay đổi
+        roomCodeNetwork.OnValueChanged += OnRoomCodeChanged;
+        voiceChannelId.OnValueChanged += OnVoiceChannelIdChanged;
 
         players.OnListChanged += OnPlayerListChanged;
         FindRoleLobbyConfig();
@@ -76,8 +118,14 @@ public class LobbyManager : NetworkBehaviour
             }
         }
 
+        EnsureRoomCodeUI();
+        UpdateRoomCodeUI(roomCodeNetwork.Value.ToString());
+
         UpdatePlayerList();
         UpdateStartButton();
+
+        // Join voice sau khi channel ID đã sẵn sàng
+        JoinLobbyVoice();
 
         Debug.Log(
             "LOBBY MANAGER | NetworkRoleLobbyConfig = "
@@ -87,6 +135,8 @@ public class LobbyManager : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        roomCodeNetwork.OnValueChanged -= OnRoomCodeChanged;
+        voiceChannelId.OnValueChanged -= OnVoiceChannelIdChanged;
         players.OnListChanged -= OnPlayerListChanged;
 
         if (NetworkManager.Singleton != null)
@@ -96,13 +146,53 @@ public class LobbyManager : NetworkBehaviour
         }
     }
 
+    private void OnRoomCodeChanged(FixedString64Bytes oldVal, FixedString64Bytes newVal)
+    {
+        string code = newVal.ToString();
+        Debug.Log("LOBBY MANAGER | Nhận Room Code từ Host: " + code);
+        UpdateRoomCodeUI(code);
+    }
+
+    private void UpdateRoomCodeUI(string code)
+    {
+        if (string.IsNullOrEmpty(code)) return;
+        RoomManager.CurrentRoomCode = code;
+
+        if (roomCodeDisplayText != null)
+        {
+            roomCodeDisplayText.text = "PHÒNG: " + code;
+        }
+    }
+
     private void JoinLobbyVoice()
     {
+        if (NetworkVoiceManager.Instance == null)
+            return;
+
+        string channel = voiceChannelId.Value.ToString();
+
+        // Nếu Host chưa set (trường hợp Client spawn rất nhanh trước Host), chờ
+        if (string.IsNullOrEmpty(channel))
+        {
+            StartCoroutine(NetworkVoiceManager.Instance.WaitAndJoinLobbyVoice());
+        }
+        else
+        {
+            StartCoroutine(NetworkVoiceManager.Instance.WaitAndJoinVoiceChannel(channel));
+        }
+    }
+
+    private void OnVoiceChannelIdChanged(FixedString64Bytes oldVal, FixedString64Bytes newVal)
+    {
+        string channel = newVal.ToString();
+        if (string.IsNullOrEmpty(channel))
+            return;
+
+        Debug.Log("LOBBY MANAGER | Nhận Voice Channel ID từ Host: " + channel);
+
         if (NetworkVoiceManager.Instance != null)
         {
-            StartCoroutine(
-                NetworkVoiceManager.Instance.WaitAndJoinLobbyVoice()
-            );
+            StartCoroutine(NetworkVoiceManager.Instance.WaitAndJoinVoiceChannel(channel));
         }
     }
 
@@ -159,6 +249,7 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         players.Add(new PlayerLobbyData(clientId, playerName));
+        RoomManager.UpdatePlayerCountInRegistry(roomCodeNetwork.Value.ToString(), 1);
 
         Debug.Log(
             "Đã thêm Player "
@@ -174,6 +265,7 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         players.RemoveAt(index);
+        RoomManager.UpdatePlayerCountInRegistry(roomCodeNetwork.Value.ToString(), -1);
 
         Debug.Log(
             "Đã xóa Player " + (clientId + 1) + " khỏi Lobby."
@@ -660,6 +752,114 @@ public class LobbyManager : NetworkBehaviour
                 speakerToggle.Toggle();
             }
         });
+    }
+
+    // =========================================================
+    // ROOM CODE UI (HIỂN THỊ VÀ SAO CHÉP MÃ PHÒNG 6 SỐ)
+    // =========================================================
+
+    private void EnsureRoomCodeUI()
+    {
+        if (roomCodeDisplayText != null)
+            return;
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+            return;
+
+        Transform existingBadge = canvas.transform.Find("RoomCodeBadge");
+        if (existingBadge != null)
+        {
+            roomCodeDisplayText = existingBadge.GetComponentInChildren<TextMeshProUGUI>();
+            return;
+        }
+
+        GameObject badgeObj = new GameObject("RoomCodeBadge", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+        badgeObj.transform.SetParent(canvas.transform, false);
+
+        RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+        badgeRect.anchorMin = new Vector2(0.5f, 1f);
+        badgeRect.anchorMax = new Vector2(0.5f, 1f);
+        badgeRect.pivot = new Vector2(0.5f, 1f);
+        badgeRect.anchoredPosition = new Vector2(0, -75);
+        badgeRect.sizeDelta = new Vector2(260, 42);
+
+        UnityEngine.UI.Image badgeBg = badgeObj.GetComponent<UnityEngine.UI.Image>();
+        badgeBg.color = new Color(0.12f, 0.16f, 0.22f, 0.95f);
+
+        // Text hiển thị mã phòng
+        GameObject textObj = new GameObject("RoomCodeText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObj.transform.SetParent(badgeObj.transform, false);
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0, 0);
+        textRect.anchorMax = new Vector2(0.65f, 1);
+        textRect.offsetMin = new Vector2(12, 0);
+        textRect.offsetMax = new Vector2(0, 0);
+
+        roomCodeDisplayText = textObj.GetComponent<TextMeshProUGUI>();
+        roomCodeDisplayText.fontSize = 17;
+        roomCodeDisplayText.fontStyle = FontStyles.Bold;
+        roomCodeDisplayText.color = new Color(1f, 0.85f, 0.2f, 1f);
+        roomCodeDisplayText.alignment = TextAlignmentOptions.MidlineLeft;
+        roomCodeDisplayText.text = "PHÒNG: ......";
+
+        // Nút Sao Chép
+        GameObject copyBtnObj = new GameObject("CopyButton", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+        copyBtnObj.transform.SetParent(badgeObj.transform, false);
+        RectTransform copyRect = copyBtnObj.GetComponent<RectTransform>();
+        copyRect.anchorMin = new Vector2(0.66f, 0.15f);
+        copyRect.anchorMax = new Vector2(0.96f, 0.85f);
+        copyRect.offsetMin = Vector2.zero;
+        copyRect.offsetMax = Vector2.zero;
+
+        UnityEngine.UI.Image copyBg = copyBtnObj.GetComponent<UnityEngine.UI.Image>();
+        copyBg.color = new Color(0.2f, 0.55f, 0.9f, 1f);
+
+        GameObject copyTextObj = new GameObject("CopyText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        copyTextObj.transform.SetParent(copyBtnObj.transform, false);
+        RectTransform copyTextRect = copyTextObj.GetComponent<RectTransform>();
+        copyTextRect.anchorMin = Vector2.zero;
+        copyTextRect.anchorMax = Vector2.one;
+        copyTextRect.offsetMin = Vector2.zero;
+        copyTextRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI copyLabel = copyTextObj.GetComponent<TextMeshProUGUI>();
+        copyLabel.text = "CHÉP MÃ";
+        copyLabel.fontSize = 13;
+        copyLabel.fontStyle = FontStyles.Bold;
+        copyLabel.color = Color.white;
+        copyLabel.alignment = TextAlignmentOptions.Center;
+
+        UnityEngine.UI.Button copyBtn = copyBtnObj.GetComponent<UnityEngine.UI.Button>();
+        copyBtn.onClick.AddListener(() =>
+        {
+            CopyRoomCode(copyLabel);
+        });
+    }
+
+    public void CopyRoomCode(TextMeshProUGUI label = null)
+    {
+        string code = roomCodeNetwork.Value.ToString();
+        if (string.IsNullOrEmpty(code))
+            code = RoomManager.CurrentRoomCode;
+
+        if (!string.IsNullOrEmpty(code))
+        {
+            GUIUtility.systemCopyBuffer = code;
+            Debug.Log("LOBBY MANAGER | Đã sao chép mã phòng: " + code);
+            if (label != null)
+            {
+                StartCoroutine(FlashCopiedFeedback(label));
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator FlashCopiedFeedback(TextMeshProUGUI label)
+    {
+        string prev = label.text;
+        label.text = "ĐÃ CHÉP!";
+        yield return new WaitForSecondsRealtime(1.5f);
+        if (label != null) label.text = prev;
     }
 }
 

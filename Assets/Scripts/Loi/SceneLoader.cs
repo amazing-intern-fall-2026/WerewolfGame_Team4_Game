@@ -80,11 +80,53 @@ public class SceneLoader : MonoBehaviour
 
         Debug.Log("Đang Leave Lobby...");
 
-        if (NetworkManager.Singleton != null)
+        // Rời Vivox voice channel
+        if (NetworkVoiceManager.Instance != null)
+        {
+            NetworkVoiceManager.Instance.LeaveVoiceChannel();
+        }
+
+        // Đóng session phòng nếu là Host
+        if (RoomManager.IsHostOfCurrentRoom || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer))
+        {
+            _ = RoomManager.CloseCurrentRoomAsync();
+        }
+        else
+        {
+            RoomManager.CurrentRoomCode = null;
+            RoomManager.CurrentVoiceChannelId = null;
+            RoomManager.IsHostOfCurrentRoom = false;
+        }
+
+        StartCoroutine(ShutdownThenLoadMainMenu());
+    }
+
+    private IEnumerator ShutdownThenLoadMainMenu()
+    {
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
         {
             Debug.Log("Shutdown NetworkManager...");
-
             NetworkManager.Singleton.Shutdown();
+
+            // Chờ Shutdown hoàn tất (IsListening về false) — tối đa 5 giây
+            float timeout = 5f;
+            float elapsed = 0f;
+            while (NetworkManager.Singleton != null
+                   && NetworkManager.Singleton.IsListening
+                   && elapsed < timeout)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            {
+                Debug.LogWarning("SceneLoader: NetworkManager vẫn IsListening sau 5s — tiếp tục load.");
+            }
+            else
+            {
+                Debug.Log("SceneLoader: Shutdown hoàn tất.");
+            }
         }
 
         // Chuyển về MainMenu
@@ -111,6 +153,15 @@ public class SceneLoader : MonoBehaviour
         );
 
         isLeaving = true;
+
+        if (NetworkVoiceManager.Instance != null)
+        {
+            NetworkVoiceManager.Instance.LeaveVoiceChannel();
+        }
+
+        RoomManager.CurrentRoomCode = null;
+        RoomManager.CurrentVoiceChannelId = null;
+        RoomManager.IsHostOfCurrentRoom = false;
 
         SceneManager.LoadScene("MainMenu");
     }

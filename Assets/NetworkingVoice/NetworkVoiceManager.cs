@@ -62,7 +62,8 @@ public class NetworkVoiceManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(channelName))
         {
-            channelName = "werewolf-dev-test-lobby";
+            Debug.LogError("VOICE | JoinVoiceChannel: channelName rỗng. Không thể join.");
+            return;
         }
 
         if (!IsInitialized || VivoxService.Instance == null || !VivoxService.Instance.IsLoggedIn)
@@ -81,6 +82,13 @@ public class NetworkVoiceManager : MonoBehaviour
         if (isJoiningChannel && targetJoiningChannelName == channelName)
         {
             return;
+        }
+
+        // Nếu đang ở kênh khác, rời kênh cũ trước theo đúng quy định của Vivox
+        if (IsInLobbyVoice && !string.IsNullOrEmpty(CurrentChannelName) && CurrentChannelName != channelName)
+        {
+            Debug.Log($"VOICE | Đang rời kênh cũ '{CurrentChannelName}' trước khi vào kênh mới '{channelName}'...");
+            await LeaveVoiceChannelAsync();
         }
 
         isJoiningChannel = true;
@@ -115,8 +123,16 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public void JoinLobbyVoice()
     {
-        string channel = !string.IsNullOrEmpty(CurrentChannelName) ? CurrentChannelName : "werewolf-dev-test-lobby";
-        JoinVoiceChannel(channel);
+        // Chỉ dùng khi đã có CurrentChannelName (set bởi LobbyManager)
+        string channel = CurrentChannelName;
+        if (!string.IsNullOrEmpty(channel))
+        {
+            JoinVoiceChannel(channel);
+        }
+        else
+        {
+            Debug.LogWarning("VOICE | JoinLobbyVoice được gọi nhưng chưa có channel ID. Hãy dùng JoinVoiceChannel(channelName) trực tiếp.");
+        }
     }
 
     public async Task LeaveVoiceChannelAsync()
@@ -223,7 +239,8 @@ public class NetworkVoiceManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(channelName))
         {
-            channelName = "werewolf-dev-test-lobby";
+            Debug.LogError("VOICE | WaitAndJoinVoiceChannel: channelName rỗng. Không thể join.");
+            yield break;
         }
 
         float timeout = 15f;
@@ -246,7 +263,15 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public IEnumerator WaitAndJoinLobbyVoice()
     {
-        string channel = !string.IsNullOrEmpty(CurrentChannelName) ? CurrentChannelName : "werewolf-dev-test-lobby";
-        yield return WaitAndJoinVoiceChannel(channel);
+        // Chỉ dùng nếu đã có CurrentChannelName
+        string channel = CurrentChannelName;
+        if (!string.IsNullOrEmpty(channel))
+        {
+            yield return WaitAndJoinVoiceChannel(channel);
+        }
+        else
+        {
+            Debug.LogWarning("VOICE | WaitAndJoinLobbyVoice được gọi nhưng chưa có channel ID.");
+        }
     }
 }
