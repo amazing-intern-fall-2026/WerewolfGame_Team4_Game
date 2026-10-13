@@ -12,11 +12,28 @@ public sealed class ThuongTopDownCharacter : MonoBehaviour
     public LineRenderer selectionRing;
     private PlayerMovement movement;
     private bool wasAlive = true;
+    private int forcedSkin = -1;
 
     private void Awake() => movement = GetComponentInParent<PlayerMovement>();
-    private void Start() => SetPlayerID(movement != null ? movement.playerID : 0);
+    private void Start()
+    {
+        if (forcedSkin >= 0) ApplySkin(forcedSkin);
+        else SetPlayerID(movement != null ? movement.playerID : 0);
+    }
 
     public void SetPlayerID(int id)
+    {
+        forcedSkin = -1;
+        ApplySkin(id);
+    }
+
+    public void SetSkin(int skin)
+    {
+        forcedSkin = skin;
+        ApplySkin(skin);
+    }
+
+    private void ApplySkin(int id)
     {
         if (cast == null || cast.Count == 0) return;
         int skin = Mathf.Abs(id) % cast.Count;
