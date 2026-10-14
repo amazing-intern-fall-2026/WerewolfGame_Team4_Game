@@ -12,6 +12,8 @@ public class PlayerData
 
     public bool isAlive =true ;
 
+    public bool wasVotedOut;
+
     public int votePower = 1;
 
     public bool hasVoted;

@@ -48,9 +48,6 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
         match.deathSystem.DeathResolved += HandleDeath;
         match.abilitySystem.AbilityResolved += HandleAbility;
         match.statusSystem.EffectRemoved += HandleEffectRemoved;
-        var roster = GetComponent<PlayerRosterUI>();
-        if (roster == null) roster = gameObject.AddComponent<PlayerRosterUI>();
-        roster.InitializeEmbedded(rosterPanel);
         Refresh();
     }
     private void OnDestroy()

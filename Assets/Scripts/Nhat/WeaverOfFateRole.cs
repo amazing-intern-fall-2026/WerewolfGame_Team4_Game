@@ -2,70 +2,49 @@ using UnityEngine;
 
 public class WeaverOfFateRole : BaseRole
 {
+    public bool HasUsedAbility { get; private set; }
+
     public WeaverOfFateRole(PlayerData owner) : base(owner)
     {
         roleType = RoleType.WeaverOfFate;
         faction = FactionType.Villager;
     }
 
-    public override void UseNightAbility(int targetID)
-    {
-        TryUseNightAbility(targetID, out _);
-    }
-
-    public override bool TryUseNightAbility(int targetID, out string feedback)
+    public bool TryMakeLovers(int playerAID, int playerBID, out string feedback)
     {
         if (owner == null || !owner.isAlive)
         {
-            feedback = "Dệt Duyên đã bị loại.";
+            feedback = "Bạn đã bị loại và không thể dùng kỹ năng.";
             return false;
         }
 
-        if (targetID == owner.playerID)
+        if (GameRoleManager.Instance == null ||
+            GameRoleManager.Instance.currentState != GameState.Night)
         {
-            feedback = "Dệt Duyên không thể ghép đôi chính mình.";
+            feedback = "Dệt Duyên chỉ có thể dùng vào ban đêm.";
             return false;
         }
 
-        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
-        if (target == null || !target.isAlive)
+        if (HasUsedAbility)
         {
-            feedback = "Mục tiêu không tồn tại hoặc đã bị loại.";
-            return false;
-        }
-
-        if (owner.loverID != -1 || target.loverID != -1)
-        {
-            feedback = "Một trong hai người đã có cặp đôi.";
+            feedback = "Dệt Duyên chỉ dùng được một lần mỗi ván.";
             return false;
         }
 
         if (LoverManager.Instance == null)
         {
-            feedback = "Chưa có LoverManager.";
+            feedback = "Chưa có LoverManager trong màn chơi.";
             return false;
         }
 
-        LoverManager.Instance.MakeLovers(owner.playerID, targetID);
-
-        if (owner.loverID == targetID && target.loverID == owner.playerID)
-        {
-            feedback = $"Đã ghép đôi Player {owner.playerID + 1} và Player {targetID + 1}.";
-            return true;
-        }
-
-        feedback = "Không thể ghép đôi với mục tiêu này.";
-        return false;
-    }
-
-    public void MakeLovers(int playerAID, int playerBID)
-    {
-        if (LoverManager.Instance == null)
-            return;
-
-        LoverManager.Instance.MakeLovers(
+        if (!LoverManager.Instance.TryMakeLovers(
             playerAID,
-            playerBID
-        );
+            playerBID,
+            out feedback))
+            return false;
+
+        HasUsedAbility = true;
+        owner.hasUseNightAction = true;
+        return true;
     }
 }

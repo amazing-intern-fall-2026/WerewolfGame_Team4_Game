@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.Netcode;
+
 public class NetworkSkillUI : MonoBehaviour
 {
     [Header("DogSpirit Skill")]
@@ -103,33 +104,26 @@ public class NetworkSkillUI : MonoBehaviour
         bool newIsDiscussion =
             currentPhase == GamePhase.Discussion;
 
-        if (newIsNight != isNight)
+        // =====================================================
+        // PHASE CHANGE
+        // =====================================================
+
+        bool phaseChanged =
+            newIsNight != isNight ||
+            newIsDiscussion != isDiscussion;
+
+        if (phaseChanged)
         {
+            // Phase mới → cho phép dùng Skill lại
+            hasUsedSkill = false;
+
             isNight = newIsNight;
-
-            if (isNight)
-            {
-                hasUsedSkill = false;
-            }
-            else
-            {
-                if (targetPanel != null)
-                {
-                    targetPanel.SetActive(false);
-                }
-            }
-        }
-
-        if (newIsDiscussion != isDiscussion)
-        {
             isDiscussion = newIsDiscussion;
 
-            if (!isDiscussion)
+            // Đóng Target Panel khi đổi Phase
+            if (targetPanel != null)
             {
-                if (targetPanel != null)
-                {
-                    targetPanel.SetActive(false);
-                }
+                targetPanel.SetActive(false);
             }
         }
 

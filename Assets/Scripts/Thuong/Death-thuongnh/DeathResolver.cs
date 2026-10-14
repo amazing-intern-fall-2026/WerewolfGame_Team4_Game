@@ -82,10 +82,8 @@ public class DeathResolver:MonoBehaviour
             return Publish(request, DeathOutcome.Prevented, $"{target.DisplayName} thức tỉnh thành Bạch Khuyển.");
         }
 
-        // Record before the alive-state event so UI observes a complete death.
-        target.hasDeathRecord = true;
-        target.lastDeathCause = cause;
-        PlayerManager.Instance.SetAliveState(targetID, false);
+        target.isAlive = false;
+        target.wasVotedOut = cause == DeathCause.Vote;
         NetworkPlayerStateSync.SyncGameplayAliveState(targetID, false);
         if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(targetID, out var role))
             role.OnDeath();

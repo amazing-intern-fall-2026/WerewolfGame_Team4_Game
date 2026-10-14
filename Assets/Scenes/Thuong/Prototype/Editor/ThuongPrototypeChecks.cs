@@ -189,15 +189,8 @@ public static class ThuongPrototypeChecks
         game.StartVoting(); hud.SendMessage("Update");
         SavePreview("Logs/thuong-integrated-meeting.png");
         game.statusEffects.ApplyEffect(players.GetplayerByID(2), StatusEffectType.Protected, 1, 1, GamePhase.Discussion, guardian);
-        var roster = hud.GetComponent<PlayerRosterUI>(); roster.Refresh();
-        var rosterWindow = hud.transform.Find("Player Roster Window").gameObject;
-        rosterWindow.SetActive(true);
-        Require(rosterWindow.GetComponentsInChildren<Text>().Any(label => label.text.Contains("Protected")),
-            "Original roster displays integrated effects in Play Mode");
-        SavePreview("Logs/thuong-integrated-roster.png");
-        Debug.Log("THUONG_GAMEPLAY_INTEGRATION_PLAY_PASSED: full lobby, prefab visuals, UI ability, protection, voting and roster.");
+        Debug.Log("THUONG_GAMEPLAY_INTEGRATION_PLAY_PASSED: full lobby, prefab visuals, UI ability, protection and voting.");
         ThuongPhaseFiveChecks.CheckRuntime(game);
-        rosterWindow.SetActive(false);
         SavePreview("Logs/thuong-phase5-targets.png");
     }
     private static void SavePreview(string path = "Logs/thuong-prototype-preview.png")

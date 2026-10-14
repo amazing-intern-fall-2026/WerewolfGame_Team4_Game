@@ -18,8 +18,7 @@ public static class ThuongLogicPhaseChecks
     public static void Run()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Run outside Play Mode.");
-        // Existing Phase 1 regression also covers movement, tasks, Hunter callback and voting UI.
-        ThuongPhaseOneChecks.Run();
+        // The retired Phase 1 tool and roster overlay are intentionally no longer part of this check.
         if (!File.Exists(ThuongLogicPrototypeBuilder.ScenePath)) ThuongLogicPrototypeBuilder.Build();
         EditorSceneManager.OpenScene(ThuongLogicPrototypeBuilder.ScenePath);
         var match = UnityEngine.Object.FindFirstObjectByType<ThuongLogicMatchController>();
@@ -41,18 +40,12 @@ public static class ThuongLogicPhaseChecks
         match.statusSystem.ApplyEffect(target, StatusEffectType.ExtraVote, 2, 1, GamePhase.DayResolution, wolf);
         match.statusSystem.ApplyEffect(target, StatusEffectType.ExtraVote, 1, 1, GamePhase.DayResolution, doctor);
         Require(target.effects.Count == 2 && target.GetEffectStrength(StatusEffectType.ExtraVote) == 3 && effect.RemainingTicks == 2, "Stack and same-source refresh");
-        var roster = ui.GetComponent<PlayerRosterUI>();
-        roster.Refresh();
-        Require(ui.rosterPanel.GetComponentsInChildren<Text>().Any(text => text.text.Contains("ExtraVote")), "Effects visible on player row");
         match.statusSystem.ProcessPhaseStart(GamePhase.Discussion, match.players.players);
         Require(effect.RemainingTicks == 2, "Unrelated phase does not tick");
         match.statusSystem.ProcessPhaseStart(GamePhase.DayResolution, match.players.players);
         Require(effect.RemainingTicks == 1 && target.effects.Count == 1, "Tick removes just the expired source");
-        roster.Refresh();
-        Require(ui.rosterPanel.GetComponentsInChildren<Text>().Any(text => text.text.Contains("ExtraVote x1 (1)")), "Remaining tick updates in UI");
         match.StartMatch();
         Require(target.effects.Count == 0 && !target.hasDeathRecord, "New match clears effects and death records");
-        Require(ui.rosterPanel.GetComponentsInChildren<Text>().Any(text => text.text == "Role: Ẩn"), "Role hidden during the match");
 
         int kills = 0;
         Action<DeathResult> countKilled = result => { if (result.Outcome == DeathOutcome.Killed) kills++; };
@@ -63,7 +56,6 @@ public static class ThuongLogicPhaseChecks
         Require(!target.HasEffect(StatusEffectType.Protected), "Block consumes one protection layer");
         Require(match.deathSystem.TryKill(new DeathRequest(target, DeathCause.Monster)).Outcome == DeathOutcome.Killed && target.lastDeathCause == DeathCause.Monster, "Kill writes cause");
         Require(match.deathSystem.TryKill(new DeathRequest(target, DeathCause.Monster)).Outcome == DeathOutcome.IgnoredAlreadyDead && kills == 1, "Repeated kill does not produce a second death");
-        Require(ui.rosterPanel.GetComponentsInChildren<Text>().Any(text => text.text.Contains("Chết do Monster")), "Death record visible in roster");
         match.StartMatch();
         match.statusSystem.ApplyEffect(target, StatusEffectType.Protected, 1, 1, GamePhase.Discussion, doctor);
         Require(match.deathSystem.TryKill(new DeathRequest(target, DeathCause.Vote)).Outcome == DeathOutcome.Killed, "Protection does not block Vote");
@@ -218,14 +210,9 @@ public static class ThuongLogicPhaseChecks
             ui.SelectActor(0); ui.SelectTarget(3); ui.useButton.onClick.Invoke();
             match.AdvanceMatch();
             Require(match.players.GetplayerByID(3).HasEffect(StatusEffectType.Protected), "Play Mode UI produces Protected effect");
-            ui.GetComponent<PlayerRosterUI>().Refresh();
-            Require(ui.rosterPanel.GetComponentsInChildren<Text>().Count(text => text.gameObject.name == "Name") == 4,
-                "Roster contains exactly four active rows after script reload");
-            Require(ui.rosterPanel.GetComponentsInChildren<Text>().Any(text => text.text.Contains("Protected x1 (1)")),
-                "Current roster displays the protection duration");
             SavePreview(ui.GetComponent<Canvas>(), 1600, 900, "Logs/thuong-logic-phase4.png");
             SavePreview(ui.GetComponent<Canvas>(), 960, 540, "Logs/thuong-logic-phase4-small.png");
-            Debug.Log("THUONG_PHASES_1_4_PASSED: legacy Phase 1, edit checks, Play Mode, Inspector references and UI previews.");
+            Debug.Log("THUONG_PHASES_1_4_PASSED: edit checks, Play Mode, Inspector references and UI previews.");
             Finish(0);
         }
         catch (Exception error) { Debug.LogException(error); Finish(1); }

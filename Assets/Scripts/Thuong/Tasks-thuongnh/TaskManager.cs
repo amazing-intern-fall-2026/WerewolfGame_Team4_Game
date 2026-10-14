@@ -33,7 +33,6 @@ public class TaskManager : MonoBehaviour
         var hud = FindAnyObjectByType<GameHUD>();
         TryCompleteTask(hud != null ? hud.localVoterID : 0, task);
     }
-
     public bool TryCompleteTask(int playerID, TaskData task)
     {
         if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Day ||

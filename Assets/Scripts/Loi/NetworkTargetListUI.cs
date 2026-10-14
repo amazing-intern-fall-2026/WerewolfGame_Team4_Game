@@ -101,6 +101,33 @@ public class NetworkTargetListUI : MonoBehaviour
             + " Player Network."
         );
 
+        // ==========================================
+        // LẤY ROLE CỦA PLAYER LOCAL
+        // ==========================================
+
+        RoleType localRole =
+            RoleType.Villager;
+
+        if (NetworkRoleSync.LocalInstance != null)
+        {
+            localRole =
+                NetworkRoleSync.LocalInstance.LocalRole;
+        }
+
+        bool isGuardian =
+            localRole == RoleType.VillageGuardian;
+
+        Debug.Log(
+            "TARGET LIST: Local Role = "
+            + localRole
+            + " | Is Guardian = "
+            + isGuardian
+        );
+
+        // ==========================================
+        // TẠO TARGET CARD
+        // ==========================================
+
         foreach (PlayerController player in players)
         {
             if (player == null)
@@ -109,9 +136,16 @@ public class NetworkTargetListUI : MonoBehaviour
             int playerID =
                 (int)player.OwnerClientId;
 
-            // Không chọn chính mình
-            if (playerID == localPlayerID)
+            // ==========================================
+            // KHÔNG CHO TỰ TARGET
+            // NGOẠI TRỪ GUARDIAN
+            // ==========================================
+
+            if (!isGuardian &&
+                playerID == localPlayerID)
+            {
                 continue;
+            }
 
             if (playerCardPrefab == null)
             {
@@ -155,6 +189,10 @@ public class NetworkTargetListUI : MonoBehaviour
                 continue;
             }
 
+            // ==========================================
+            // KIỂM TRA ALIVE
+            // ==========================================
+
             bool isAlive = true;
 
             NetworkPlayerStateSync stateSync =
@@ -167,15 +205,22 @@ public class NetworkTargetListUI : MonoBehaviour
                     NetworkPlayerStateType.Alive;
             }
 
+            // ==========================================
+            // LẤY PLAYER NAME
+            // ==========================================
+
             NetworkPlayerNameSync nameSync =
                 player.GetComponent<NetworkPlayerNameSync>();
+
             Debug.Log(
-            "TARGET NAME DEBUG | Player = "
-            + (playerID + 1)
-            + " | nameSync = "
-            + (nameSync != null ? "FOUND" : "NULL")
-            + " | Name = "
-            + (nameSync != null ? nameSync.GetPlayerName() : "N/A")
+                "TARGET NAME DEBUG | Player = "
+                + (playerID + 1)
+                + " | nameSync = "
+                + (nameSync != null ? "FOUND" : "NULL")
+                + " | Name = "
+                + (nameSync != null
+                    ? nameSync.GetPlayerName()
+                    : "N/A")
             );
 
             string playerName =
@@ -194,6 +239,10 @@ public class NetworkTargetListUI : MonoBehaviour
                 + " | Name = "
                 + playerName
             );
+
+            // ==========================================
+            // SETUP CARD
+            // ==========================================
 
             cardUI.Setup(
                 playerID,

@@ -11,98 +11,66 @@ public class LoverManager : MonoBehaviour
 
     public void MakeLovers(int playerAID, int playerBID)
     {
+        TryMakeLovers(playerAID, playerBID, out _);
+    }
+
+    public bool TryMakeLovers(int playerAID, int playerBID, out string feedback)
+    {
         if (PlayerManager.Instance == null)
-            return;
+        {
+            feedback = "Chưa có danh sách người chơi.";
+            return false;
+        }
 
-        if (playerAID == playerBID)
-            return;
+        PlayerData playerA =
+            PlayerManager.Instance.GetplayerByID(playerAID);
 
-        PlayerData playerA = PlayerManager.Instance.GetplayerByID(playerAID);
-        PlayerData playerB = PlayerManager.Instance.GetplayerByID(playerBID);
+        PlayerData playerB =
+            PlayerManager.Instance.GetplayerByID(playerBID);
 
-        if (playerA == null || playerB == null)
-            return;
-
-        if (!playerA.isAlive || !playerB.isAlive)
-            return;
+        if (playerA == null || playerB == null || !playerA.isAlive || !playerB.isAlive || playerAID == playerBID)
+        {
+            feedback = "Hai mục tiêu phải là người chơi còn sống và khác nhau.";
+            return false;
+        }
 
         if (playerA.loverID != -1 || playerB.loverID != -1)
         {
-            if (playerA.loverID == playerBID && playerB.loverID == playerAID)
-                return;
-
-            return;
+            feedback = "Một trong hai người đã có đôi.";
+            return false;
         }
 
-        SetLovers(playerA, playerB);
+        playerA.loverID = playerBID;
+        playerB.loverID = playerAID;
 
         Debug.Log(
             playerA.playerName +
             " ❤️ " +
             playerB.playerName
         );
+
+        feedback = $"Đã ghép đôi {playerA.playerName} và {playerB.playerName}.";
+        return true;
     }
 
     public void LoverDied(PlayerData deadPlayer)
     {
-        if (deadPlayer == null)
-            return;
-
-        if (deadPlayer.loverID == -1 ||
+        if (deadPlayer == null || deadPlayer.loverID == -1 ||
             PlayerManager.Instance == null || DeathResolver.Instance == null)
             return;
 
-        PlayerData lover = PlayerManager.Instance.GetplayerByID(deadPlayer.loverID);
+        PlayerData lover =
+            PlayerManager.Instance.GetplayerByID(deadPlayer.loverID);
 
         if (lover == null)
-        {
-            deadPlayer.loverID = -1;
-            return;
-        }
-
-        if (lover.playerID != deadPlayer.loverID || deadPlayer.playerID != lover.loverID)
-        {
-            deadPlayer.loverID = -1;
-            lover.loverID = -1;
-            return;
-        }
-
-        if (!lover.isAlive)
             return;
 
-        deadPlayer.loverID = -1;
-        lover.loverID = -1;
-
-        if (deadPlayer.status != null)
+        if (lover.isAlive)
         {
-            deadPlayer.status.isLover = false;
-            deadPlayer.status.loverID = -1;
+            DeathResolver.Instance.TryKillPlayer(
+                lover.playerID,
+                DeathCause.Lover
+            );
         }
-
-        if (lover.status != null)
-        {
-            lover.status.isLover = false;
-            lover.status.loverID = -1;
-        }
-
-        DeathResolver.Instance.TryKillPlayer(
-            lover.playerID,
-            DeathCause.Lover
-        );
-    }
-
-    private void SetLovers(PlayerData playerA, PlayerData playerB)
-    {
-        playerA.loverID = playerB.playerID;
-        playerB.loverID = playerA.playerID;
-
-        playerA.status ??= new PlayerStatus();
-        playerB.status ??= new PlayerStatus();
-
-        playerA.status.isLover = true;
-        playerA.status.loverID = playerB.playerID;
-
-        playerB.status.isLover = true;
-        playerB.status.loverID = playerA.playerID;
     }
 }

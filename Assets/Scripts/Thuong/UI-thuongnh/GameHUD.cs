@@ -69,21 +69,6 @@ public class GameHUD : MonoBehaviour
         var abilityUI = GetComponent<RoleAbilityUI>();
         if (abilityUI == null) abilityUI = gameObject.AddComponent<RoleAbilityUI>();
         abilityUI.Initialize(phaseText != null ? phaseText.font : null, localVoterID);
-        var rosterUI = GetComponent<PlayerRosterUI>();
-        if (rosterUI == null) rosterUI = gameObject.AddComponent<PlayerRosterUI>();
-        rosterUI.Initialize(this);
-        if (GameRoleManager.Instance != null && GameRoleManager.Instance.HasIntegratedLogic)
-        {
-            var meeting = GetComponent<ThuongMeetingRosterUI>() ?? gameObject.AddComponent<ThuongMeetingRosterUI>();
-            meeting.Initialize(this);
-            CreateGameplayFeedback();
-            observedAbilities = GameRoleManager.Instance.abilities;
-            observedDeaths = GameRoleManager.Instance.statusEffects.deathSystem;
-            observedVotes = VoteManager.Instance;
-            observedAbilities.AbilityResolved += HandleAbility;
-            observedDeaths.DeathResolved += HandleDeath;
-            observedVotes.VoteResolved += HandleVote;
-        }
     }
     private void OnDestroy()
     {

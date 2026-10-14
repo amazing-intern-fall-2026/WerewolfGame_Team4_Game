@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using System;
 
 public enum NetworkPlayerStateType
 {
@@ -11,6 +12,8 @@ public enum NetworkPlayerStateType
 
 public class NetworkPlayerStateSync : NetworkBehaviour
 {
+    public static event Action OnLocalPlayerDeath;
+
     public NetworkVariable<NetworkPlayerStateType> State =
         new NetworkVariable<NetworkPlayerStateType>(
             NetworkPlayerStateType.Alive,
@@ -28,6 +31,13 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             + " | State = "
             + State.Value
         );
+
+        // Trường hợp Player đã Dead trước khi UI subscribe
+        if (IsOwner &&
+            State.Value == NetworkPlayerStateType.Dead)
+        {
+            OnLocalPlayerDeath?.Invoke();
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -47,6 +57,14 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             + " → "
             + newState
         );
+
+        // Chỉ thông báo cho chính Player bị chết
+        if (IsOwner &&
+            oldState != NetworkPlayerStateType.Dead &&
+            newState == NetworkPlayerStateType.Dead)
+        {
+            OnLocalPlayerDeath?.Invoke();
+        }
     }
 
     // Server đổi State

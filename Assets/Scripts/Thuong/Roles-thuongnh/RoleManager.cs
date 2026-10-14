@@ -58,8 +58,8 @@ public class RoleManager : MonoBehaviour
             list[i].votePower = 1;
             list[i].hasUseNightAction = false;
             list[i].hasVoted = false;
-            list[i].ResetForNewMatch();
-            list[i].roleDefinition = null;
+            list[i].isAlive = true;
+            list[i].wasVotedOut = false;
 
             CreateRole(rolePool[i], list[i]);
             list[i].roleDefinition = roleDefinitions != null ? roleDefinitions.Find(rolePool[i]) : null;
@@ -111,7 +111,7 @@ public class RoleManager : MonoBehaviour
             feedback = "Người chơi chưa được gán Role hợp lệ.";
             return false;
         }
-        if (PlayerManager.Instance == null || !PlayerManager.Instance.IsAlive(playerID))
+        if (!role.owner.isAlive)
         {
             feedback = "Người chơi đã bị loại.";
             return false;
@@ -132,7 +132,7 @@ public class RoleManager : MonoBehaviour
             return false;
         }
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
-        var targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
+        ActionValidationResult targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
         if (!targetValidation.IsValid)
         {
             feedback = targetValidation.Message;

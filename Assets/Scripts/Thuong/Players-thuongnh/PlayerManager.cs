@@ -1,13 +1,9 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using System;
 
 public class PlayerManager : MonoBehaviour
 {
     public static PlayerManager Instance;
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetSingleton() => Instance = null;
-    public event Action<PlayerData> AliveStateChanged;
 
     [SerializeField]
     public List<PlayerData> players = new List<PlayerData>();
@@ -78,19 +74,30 @@ public class PlayerManager : MonoBehaviour
         return null;
     }
 
-    public bool IsAlive(int playerID) => GetplayerByID(playerID)?.isAlive ?? false;
+    public bool IsAlive(int playerID)
+    {
+        PlayerData player = GetplayerByID(playerID);
+        return player != null && player.isAlive;
+    }
 
     public IEnumerable<PlayerData> GetAlivePlayers()
     {
-        if (players == null) yield break;
-        foreach (var player in players)
-            if (player != null && player.isAlive) yield return player;
+        if (players == null)
+            yield break;
+
+        foreach (PlayerData player in players)
+        {
+            if (player != null && player.isAlive)
+                yield return player;
+        }
     }
 
     public bool SetAliveState(int playerID, bool isAlive)
     {
-        var player = GetplayerByID(playerID);
-        if (player == null || player.isAlive == isAlive) return false;
+        PlayerData player = GetplayerByID(playerID);
+        if (player == null || player.isAlive == isAlive)
+            return false;
+
         player.isAlive = isAlive;
         if (isAlive)
         {
@@ -98,7 +105,7 @@ public class PlayerManager : MonoBehaviour
             player.hasVoted = false;
             player.hasUseNightAction = false;
         }
-        AliveStateChanged?.Invoke(player);
+
         player.NotifyChanged();
         return true;
     }

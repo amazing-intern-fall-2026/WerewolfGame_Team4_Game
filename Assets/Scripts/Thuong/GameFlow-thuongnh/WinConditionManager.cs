@@ -13,6 +13,16 @@ public class WinConditionManager : MonoBehaviour
         if (game == null || game.currentState == GameState.GameOver) return;
         if (game.manualLogicPrototype) { EvaluateLogicPrototype(game); return; }
 
+        if (dayFinished && game.currentDay == 1 &&
+            PlayerManager.Instance != null &&
+            PlayerManager.Instance.players.Exists(player =>
+                player != null && player.roleType == RoleType.Madman &&
+                !player.isAlive && player.wasVotedOut))
+        {
+            game.MadmanWin();
+            return;
+        }
+
         if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
         {
             game.VillagerWin();
@@ -27,8 +37,10 @@ public class WinConditionManager : MonoBehaviour
         int aliveWhiteWolf = 0;
         int aliveThirdParty = 0;
 
-        foreach (var player in PlayerManager.Instance.GetAlivePlayers())
+        foreach (var player in PlayerManager.Instance.players)
         {
+            if (player == null || !player.isAlive) continue;
+
             if ((player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) &&
                 player.isWhiteHoundAwakened)
                 aliveWhiteWolf++;
@@ -40,21 +52,17 @@ public class WinConditionManager : MonoBehaviour
                 aliveVillagers++;
         }
 
+        if (LoversAreLastTwo())
+        {
+            game.LoversWin();
+            return;
+        }
+
         // Phe trắng thắng khi chỉ còn mỗi WhiteHound và 2 dân làng
         if (aliveWhiteWolf > 0 && aliveMonsters == 0 && aliveVillagers <= 2)
         {
             game.WhiteWolfWin();
             return;
-        }
-
-        // Madman thắng nếu bị treo cổ ngày đầu tiên
-        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers <= 2 && aliveThirdParty == 1)
-        {
-            if (PlayerManager.Instance.players.Exists(p => p != null && p.roleType == RoleType.Madman && p.isAlive == true))
-            {
-                game.MadmanWin();
-                return;
-            }
         }
 
         // Sát nhân thắng nếu chỉ còn sát nhân và 2 dân làng
@@ -69,8 +77,7 @@ public class WinConditionManager : MonoBehaviour
 
         if (dayFinished && game.currentDay >= maxDay)
         {
-            if (LivingLoversExist()) game.LoversWin();
-            else game.WerewolfWin();
+            game.WerewolfWin();
             return;
         }
 
@@ -78,8 +85,7 @@ public class WinConditionManager : MonoBehaviour
 
         if (aliveMonsters == 0)
         {
-            if (LivingLoversExist()) game.LoversWin();
-            else game.VillagerWin();
+            game.VillagerWin();
         }
         else if (aliveMonsters >= aliveVillagers + aliveWhiteWolf + aliveThirdParty)
         {
@@ -87,22 +93,33 @@ public class WinConditionManager : MonoBehaviour
         }
     }
 
-    private bool LivingLoversExist()
+    private bool LoversAreLastTwo()
     {
         if (PlayerManager.Instance == null)
             return false;
 
+        PlayerData firstAlive = null;
+        PlayerData secondAlive = null;
+        int aliveCount = 0;
+
         foreach (var player in PlayerManager.Instance.players)
         {
-            if (player == null || !player.isAlive || player.loverID == -1)
+            if (player == null || !player.isAlive)
                 continue;
 
-            PlayerData lover = PlayerManager.Instance.GetplayerByID(player.loverID);
-            if (lover != null && lover.isAlive && lover.loverID == player.playerID)
-                return true;
+            aliveCount++;
+            if (aliveCount > 2)
+                return false;
+
+            if (firstAlive == null)
+                firstAlive = player;
+            else
+                secondAlive = player;
         }
 
-        return false;
+        return aliveCount == 2 &&
+               firstAlive.loverID == secondAlive.playerID &&
+               secondAlive.loverID == firstAlive.playerID;
     }
 
     private void EvaluateLogicPrototype(GameRoleManager game)
