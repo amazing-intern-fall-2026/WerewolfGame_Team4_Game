@@ -26,6 +26,8 @@ public class NetworkTargetListUI : MonoBehaviour
             OnPlayerNameChanged;
     }
 
+    private int currentSubActionId;
+
     private void OnPlayerNameChanged()
     {
         if (targetPanel == null)
@@ -38,11 +40,13 @@ public class NetworkTargetListUI : MonoBehaviour
             "TARGET LIST: Player Name đã sync → cập nhật Card."
         );
 
-        ShowTargetList();
+        ShowTargetList(currentSubActionId);
     }
 
-    public void ShowTargetList()
+    public void ShowTargetList(int subActionId = 0)
     {
+        currentSubActionId = subActionId;
+
         if (targetPanel != null)
         {
             targetPanel.SetActive(true);
@@ -117,11 +121,20 @@ public class NetworkTargetListUI : MonoBehaviour
         bool isGuardian =
             localRole == RoleType.VillageGuardian;
 
+        bool isShamanSave =
+            localRole == RoleType.Shaman &&
+            currentSubActionId == 1;
+
+        bool allowSelfTarget =
+            isGuardian || isShamanSave;
+
         Debug.Log(
             "TARGET LIST: Local Role = "
             + localRole
-            + " | Is Guardian = "
-            + isGuardian
+            + " | SubAction = "
+            + currentSubActionId
+            + " | AllowSelfTarget = "
+            + allowSelfTarget
         );
 
         // ==========================================
@@ -138,10 +151,10 @@ public class NetworkTargetListUI : MonoBehaviour
 
             // ==========================================
             // KHÔNG CHO TỰ TARGET
-            // NGOẠI TRỪ GUARDIAN
+            // NGOẠI TRỪ GUARDIAN HOẶC SHAMAN DÙNG BÙA LỢI
             // ==========================================
 
-            if (!isGuardian &&
+            if (!allowSelfTarget &&
                 playerID == localPlayerID)
             {
                 continue;
@@ -247,7 +260,8 @@ public class NetworkTargetListUI : MonoBehaviour
             cardUI.Setup(
                 playerID,
                 playerName,
-                isAlive
+                isAlive,
+                currentSubActionId
             );
 
             Debug.Log(

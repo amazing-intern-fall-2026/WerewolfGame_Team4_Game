@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -6,11 +6,42 @@ using Unity.Netcode;
 [DefaultExecutionOrder(-50)]
 public class NetworkRoleActionBridge : MonoBehaviour
 {
+    public static NetworkRoleActionBridge Instance { get; private set; }
+
     private bool phaseInitialized;
     private GamePhase lastPhase;
 
     // Đảm bảo Role Lobby chỉ được áp dụng một lần
     private bool lobbyRolesApplied;
+
+    private int lastNotifiedDogSpiritNightCycle = -1;
+    private int lastNotifiedDogSpiritVictimId = -1;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
+    public void ResetForNewMatch()
+    {
+        lobbyRolesApplied = false;
+        phaseInitialized = false;
+        lastNotifiedDogSpiritNightCycle = -1;
+        lastNotifiedDogSpiritVictimId = -1;
+        ResetNightActions();
+        Debug.Log("ROLE ACTION BRIDGE: Reset For New Match hoàn tất.");
+    }
 
     private void OnEnable()
     {
@@ -82,7 +113,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
     // APPLY ROLE SETUP TỪ LOBBY
     // =====================================================
 
-    private void TryApplyLobbyRoles()
+    public void TryApplyLobbyRoles()
     {
         if (!NetworkGameRoleSetup.HasSetup())
             return;
@@ -296,6 +327,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         lobbyRolesApplied = true;
 
+        NetworkPlayerAction.ResetServerActionData();
+
         // ==========================================
         // DEBUG
         // ==========================================
@@ -390,6 +423,9 @@ public class NetworkRoleActionBridge : MonoBehaviour
             player.hasUseNightAction = false;
             resetCount++;
         }
+
+        lastNotifiedDogSpiritNightCycle = -1;
+        lastNotifiedDogSpiritVictimId = -1;
 
         Debug.Log(
             "ROLE ACTION BRIDGE | "
@@ -995,13 +1031,158 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
 
         // =====================================================
+        // SHAMAN (PHÁP SƯ) LOGIC
+        // =====================================================
+
+        if (role.roleType == RoleType.Shaman)
+        {
+            ShamanRole shamanRole = role as ShamanRole;
+            if (shamanRole == null)
+            {
+                SendResult(requesterClientId, false, "Không tìm thấy ShamanRole!");
+                return;
+            }
+
+            // Requester validation
+            if (requester == null || !requester.isAlive)
+            {
+                SendResult(requesterClientId, false, "Người chơi đã bị loại.");
+                return;
+            }
+
+            // Target validation
+            if (target == null || !target.isAlive)
+            {
+                SendResult(requesterClientId, false, "Mục tiêu không tồn tại hoặc đã bị loại.");
+                return;
+            }
+
+            bool isSave = actionEvent.SubActionId == 1; // 1 = Bùa Lợi (Cứu)
+            bool isKill = actionEvent.SubActionId == 2; // 2 = Bùa Hại (Giết)
+
+            if (!isSave && !isKill)
+            {
+                SendResult(requesterClientId, false, "Vui lòng chọn Bùa Lợi (Cứu) hoặc Bùa Hại (Giết)!");
+                return;
+            }
+
+            // -------------------------------------------------
+            // BÙA LỢI (SAVE / CỨU)
+            // -------------------------------------------------
+            if (isSave)
+            {
+                if (!shamanRole.HasGoodCharm)
+                {
+                    SendResult(requesterClientId, false, "Bùa Lợi (Cứu) đã được sử dụng trước đó!");
+                    return;
+                }
+
+                // Tiêu hao Bùa Lợi trên ShamanRole
+                shamanRole.UseGoodCharm(targetID);
+
+                // Ghi nhận bảo vệ lên NightManager và PlayerStatus để chặn đòn cắn của Sói
+                NightManager.Instance?.SetProtectedTarget(targetID);
+                target.status ??= new PlayerStatus();
+                target.status.isProtected = true;
+
+                Debug.Log(
+                    "ROLE ACTION BRIDGE | Shaman dùng Bùa Lợi cứu Player "
+                    + (targetID + 1)
+                    + (requesterID == targetID ? " (Tự cứu bản thân)" : "")
+                );
+
+                string saveMsg = requesterID == targetID
+                    ? "Đã dùng Bùa Lợi tự cứu bản thân thành công!"
+                    : $"Đã dùng Bùa Lợi cứu Player {targetID + 1} thành công!";
+
+                SendResult(
+                    requesterClientId,
+                    true,
+                    saveMsg
+                );
+
+                return;
+            }
+
+            // -------------------------------------------------
+            // BÙA HẠI (KILL / GIẾT)
+            // -------------------------------------------------
+            if (isKill)
+            {
+                if (!shamanRole.HasBadCharm)
+                {
+                    SendResult(requesterClientId, false, "Bùa Hại (Giết) đã được sử dụng trước đó!");
+                    return;
+                }
+
+                if (requesterID == targetID)
+                {
+                    SendResult(requesterClientId, false, "Không thể dùng Bùa Hại lên chính mình!");
+                    return;
+                }
+
+                if (DeathResolver.Instance == null)
+                {
+                    Debug.LogError("ROLE ACTION BRIDGE | DeathResolver NULL.");
+                    SendResult(requesterClientId, false, "DeathResolver đang NULL!");
+                    return;
+                }
+
+                // Tiêu hao Bùa Hại trên ShamanRole
+                shamanRole.UseBadCharm(targetID);
+
+                // Tuyệt đối không dùng hiệu ứng Silenced thay cho Kill (xóa cờ Silenced sai của Dev2)
+                if (target.status != null)
+                {
+                    target.status.isSilenced = false;
+                }
+
+                // Tiêu diệt mục tiêu qua DeathResolver chính thống của gameplay
+                bool killed = DeathResolver.Instance.TryKillPlayer(
+                    targetID,
+                    DeathCause.Poison,
+                    RoleType.Shaman
+                );
+
+                Debug.Log(
+                    "ROLE ACTION BRIDGE | Shaman dùng Bùa Hại giết Player "
+                    + (targetID + 1)
+                    + " | Killed = "
+                    + killed
+                );
+
+                if (!killed)
+                {
+                    SendResult(
+                        requesterClientId,
+                        false,
+                        "Mục tiêu được bảo vệ và không thể bị tiêu diệt!"
+                    );
+
+                    return;
+                }
+
+                SendResult(
+                    requesterClientId,
+                    true,
+                    $"Đã dùng Bùa Hại tiêu diệt Player {targetID + 1} thành công!"
+                );
+
+                return;
+            }
+        }
+
+        // =====================================================
         // NORMAL DEV2 ACTION
         // =====================================================
+
+        string feedback;
 
         success =
             roleManager.UseNightAbility(
                 requesterID,
-                targetID
+                targetID,
+                out feedback
             );
 
         // =====================================================
@@ -1012,13 +1193,16 @@ public class NetworkRoleActionBridge : MonoBehaviour
         {
             Debug.LogWarning(
                 "ROLE ACTION BRIDGE | "
-                + "Dev2 từ chối Action."
+                + "Dev2 từ chối Action: "
+                + feedback
             );
 
             SendResult(
                 requesterClientId,
                 false,
-                "Action không thành công!"
+                string.IsNullOrEmpty(feedback)
+                    ? "Action không thành công!"
+                    : feedback
             );
 
             return;
@@ -1030,13 +1214,16 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         Debug.Log(
             "ROLE ACTION BRIDGE | "
-            + "Action thành công!"
+            + "Action thành công! "
+            + feedback
         );
 
         SendResult(
             requesterClientId,
             true,
-            "Action thành công!"
+            string.IsNullOrEmpty(feedback)
+                ? "Action thành công!"
+                : feedback
         );
 
         // =====================================================
@@ -1048,6 +1235,17 @@ public class NetworkRoleActionBridge : MonoBehaviour
             SendSeerResult(
                 requesterID,
                 target
+            );
+        }
+
+        // =====================================================
+        // DOGSPIRIT ATTACK -> NOTIFY SHAMAN
+        // =====================================================
+
+        if (role.roleType == RoleType.DogSpirit)
+        {
+            NotifyShamanAboutDogSpiritTarget(
+                targetID
             );
         }
     }
@@ -1146,5 +1344,72 @@ public class NetworkRoleActionBridge : MonoBehaviour
             target.roleType,
             (ulong)requesterID
         );
+    }
+
+    // =====================================================
+    // SHAMAN NOTIFICATION: DOGSPIRIT ATTACK
+    // =====================================================
+
+    private void NotifyShamanAboutDogSpiritTarget(int victimId)
+    {
+        if (RoleManager.Instance == null || RoleManager.Instance.playerRoles == null)
+            return;
+
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            return;
+
+        int currentNight = 1;
+        if (NetworkPhaseSync.Instance != null)
+        {
+            currentNight = NetworkPhaseSync.Instance.CurrentNightCycle.Value;
+        }
+        else if (GameRoleManager.Instance != null)
+        {
+            currentNight = GameRoleManager.Instance.currentDay;
+        }
+
+        if (currentNight == lastNotifiedDogSpiritNightCycle && victimId == lastNotifiedDogSpiritVictimId)
+        {
+            return;
+        }
+
+        PlayerData victim = PlayerManager.Instance?.GetplayerByID(victimId);
+        string victimName = victim != null ? victim.playerName : $"Player {victimId + 1}";
+
+        bool notifiedAny = false;
+
+        foreach (var pair in RoleManager.Instance.playerRoles)
+        {
+            if (pair.Value is ShamanRole sr && pair.Value.owner != null && pair.Value.owner.isAlive && sr.HasGoodCharm)
+            {
+                ulong clientId = (ulong)pair.Key;
+                if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out NetworkClient client))
+                    continue;
+
+                if (client.PlayerObject == null)
+                    continue;
+
+                NetworkPlayerAction networkAction = client.PlayerObject.GetComponent<NetworkPlayerAction>();
+                if (networkAction == null)
+                    continue;
+
+                Debug.Log($"ROLE ACTION BRIDGE | Gửi thông báo DogSpirit cắn {victimName} (ID {victimId}) riêng cho Shaman Client {clientId}.");
+                networkAction.SendShamanVictimPromptToClient(victimId, victimName, clientId);
+                notifiedAny = true;
+            }
+        }
+
+        if (notifiedAny)
+        {
+            lastNotifiedDogSpiritNightCycle = currentNight;
+            lastNotifiedDogSpiritVictimId = victimId;
+
+            // Ghi log nếu thời gian còn lại ít hơn 8 giây (PhaseTimeRemaining là private set, không thể gán từ ngoài)
+            if (GameRoleManager.Instance != null && GameRoleManager.Instance.PhaseTimeRemaining < 8f)
+            {
+                Debug.LogWarning($"ROLE ACTION BRIDGE | Thời gian đêm còn {GameRoleManager.Instance.PhaseTimeRemaining:F1}s < 8s. " +
+                    "Shaman có thể không kịp phản hồi. Cân nhắc tăng nightDuration trong GameRoleManager.");
+            }
+        }
     }
 }

@@ -8,9 +8,12 @@ public class NetworkPhaseTimerController : MonoBehaviour
 
     private GamePhase lastPhase;
     private bool initialized;
+    private bool phaseFinishedHandled;
 
     private void Start()
     {
+        _ = NetworkGameOverManager.Instance;
+
         gameTimer =
             FindFirstObjectByType<NetworkGameTimer>();
 
@@ -26,6 +29,15 @@ public class NetworkPhaseTimerController : MonoBehaviour
 
         if (!NetworkManager.Singleton.IsServer)
             return;
+
+        // Dừng xử lý timer khi Game Over và luôn kích hoạt UI
+        if (NetworkGameOverManager.GameEnded)
+        {
+            string winner = GameRoleManager.Instance != null ? GameRoleManager.Instance.Winner : "Draw";
+            if (string.IsNullOrEmpty(winner)) winner = "Draw";
+            NetworkGameOverManager.Instance.ShowGameOverUI(winner);
+            return;
+        }
 
         if (gameTimer == null)
         {
@@ -73,20 +85,32 @@ public class NetworkPhaseTimerController : MonoBehaviour
             );
 
             lastPhase = currentPhase;
+            phaseFinishedHandled = false;
             return;
         }
+
+        // Bỏ qua nếu phase hiện tại là GameOver
+        if (currentPhase == GamePhase.GameOver)
+            return;
 
         // =========================
         // TIMER CHƯA HẾT
         // =========================
 
         if (gameTimer.TimeRemaining.Value > 0f)
+        {
+            phaseFinishedHandled = false;
             return;
+        }
 
         // =========================
         // TIMER HẾT
         // =========================
 
+        if (phaseFinishedHandled)
+            return;
+
+        phaseFinishedHandled = true;
         HandlePhaseFinished(currentPhase);
     }
 
@@ -95,6 +119,10 @@ public class NetworkPhaseTimerController : MonoBehaviour
     )
     {
         if (GameRoleManager.Instance == null)
+            return;
+
+        // Không chuyển phase sau khi Game Over
+        if (NetworkGameOverManager.GameEnded || phase == GamePhase.GameOver)
             return;
 
         switch (phase)
@@ -106,6 +134,7 @@ public class NetworkPhaseTimerController : MonoBehaviour
                 break;
         }
     }
+
 
     private void HandleDayStartFinished()
     {
@@ -126,5 +155,13 @@ public class NetworkPhaseTimerController : MonoBehaviour
         }
 
         gameRoleManager.EndDay();
+    }
+
+    public void ResetForNewMatch()
+    {
+        lastPhase = GamePhase.Setup;
+        phaseFinishedHandled = false;
+        initialized = false;
+        Debug.Log("PHASE TIMER CONTROLLER: Reset For New Match hoàn tất.");
     }
 }

@@ -16,6 +16,35 @@ public class NetworkHunterDeathUI : MonoBehaviour
     private bool hunterHasDied;
     private bool hasOpenedTargetUI;
 
+    public static NetworkHunterDeathUI Instance { get; private set; }
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
+    public void ResetForNewMatch()
+    {
+        hunterHasDied = false;
+        hasOpenedTargetUI = false;
+        if (targetPanel != null)
+        {
+            targetPanel.SetActive(false);
+        }
+        Debug.Log("HUNTER DEATH UI: Reset For New Match hoàn tất.");
+    }
+
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived += OnRoleReceived;
@@ -244,6 +273,9 @@ public class NetworkHunterDeathUI : MonoBehaviour
         Debug.Log(
             "HUNTER UI | Discussion → mở Target Panel."
         );
+
+        // Đóng thông báo Bạn đã chết để không che chắn bảng chọn mục tiêu
+        NetworkDeathNotification.Instance?.HideDeathNotification();
 
         if (targetListUI != null)
         {
