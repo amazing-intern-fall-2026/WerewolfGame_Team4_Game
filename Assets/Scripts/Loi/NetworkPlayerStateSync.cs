@@ -170,4 +170,33 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             + " → Spectating."
         );
     }
+
+    /// <summary>
+    /// Server gọi khi bắt đầu ván mới: Đặt tất cả Player đang kết nối về Alive và đồng bộ qua mạng.
+    /// </summary>
+    public static void ResetAllPlayersAlive()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            return;
+
+        Debug.Log("SERVER: Reset toàn bộ người chơi về Alive cho ván mới.");
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClients.Values)
+        {
+            if (client.PlayerObject != null)
+            {
+                var stateSync = client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+                if (stateSync != null)
+                {
+                    stateSync.SetState(NetworkPlayerStateType.Alive);
+                }
+
+                var controller = client.PlayerObject.GetComponent<PlayerController>();
+                if (controller != null)
+                {
+                    controller.State.Value = PlayerState.Alive;
+                }
+            }
+        }
+    }
 }

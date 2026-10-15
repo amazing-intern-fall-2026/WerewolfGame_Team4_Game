@@ -26,6 +26,17 @@ public class NetworkPhaseSync : NetworkBehaviour
     private int lastNetworkNightDay = -1;
 
     // =========================================================
+    // WINNER
+    // =========================================================
+
+    public NetworkVariable<Unity.Collections.FixedString64Bytes> Winner =
+        new NetworkVariable<Unity.Collections.FixedString64Bytes>(
+            default,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+    // =========================================================
     // AWAKE
     // =========================================================
 
@@ -46,6 +57,8 @@ public class NetworkPhaseSync : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        _ = NetworkGameOverManager.Instance;
+
         CurrentPhase.OnValueChanged += OnPhaseChanged;
         CurrentNightCycle.OnValueChanged += OnNightCycleChanged;
 
@@ -98,10 +111,40 @@ public class NetworkPhaseSync : NetworkBehaviour
         {
             CurrentPhase.Value = dev2Phase;
 
-            Debug.Log(
-                "NETWORK PHASE AUTO SYNC: "
-                + CurrentPhase.Value
-            );
+            if (dev2Phase == GamePhase.GameOver)
+            {
+                string winnerName = roleManager.Winner;
+                if (string.IsNullOrEmpty(winnerName))
+                    winnerName = "Draw";
+
+                Winner.Value = new Unity.Collections.FixedString64Bytes(winnerName);
+
+                Debug.Log(
+                    "NETWORK PHASE AUTO SYNC: GameOver | Winner = "
+                    + winnerName
+                );
+
+                NetworkGameOverManager.Instance.ShowGameOverUI(winnerName);
+            }
+            else
+            {
+                Debug.Log(
+                    "NETWORK PHASE AUTO SYNC: "
+                    + CurrentPhase.Value
+                );
+            }
+        }
+
+        // Luôn đảm bảo GameOver UI được hiển thị nếu phase hiện tại là GameOver
+        if (CurrentPhase.Value == GamePhase.GameOver || (roleManager != null && roleManager.currentState == GameState.GameOver))
+        {
+            string winner = Winner.Value.ToString();
+            if (string.IsNullOrEmpty(winner) && roleManager != null)
+                winner = roleManager.Winner;
+            if (string.IsNullOrEmpty(winner))
+                winner = "Draw";
+
+            NetworkGameOverManager.Instance.ShowGameOverUI(winner);
         }
 
         // =====================================================
@@ -148,6 +191,15 @@ public class NetworkPhaseSync : NetworkBehaviour
 
         CurrentPhase.Value =
             initialPhase;
+
+        if (initialPhase == GamePhase.GameOver)
+        {
+            string winnerName = roleManager.Winner;
+            if (string.IsNullOrEmpty(winnerName))
+                winnerName = "Draw";
+
+            Winner.Value = new Unity.Collections.FixedString64Bytes(winnerName);
+        }
 
         Debug.Log(
             "SERVER: Initial Phase → "
@@ -208,6 +260,35 @@ public class NetworkPhaseSync : NetworkBehaviour
             + " → "
             + newPhase
         );
+
+        if (newPhase == GamePhase.GameOver)
+        {
+            string winnerName = Winner.Value.ToString();
+            if (string.IsNullOrEmpty(winnerName) && GameRoleManager.Instance != null)
+                winnerName = GameRoleManager.Instance.Winner;
+            if (string.IsNullOrEmpty(winnerName))
+                winnerName = "Draw";
+
+            NetworkGameOverManager.Instance.ShowGameOverUI(winnerName);
+        }
+        else if (oldPhase == GamePhase.GameOver && newPhase != GamePhase.GameOver)
+        {
+            NetworkGameOverManager.Instance?.ResetUIState();
+        }
+    }
+
+    // =========================================================
+    // CLIENT RPC: RESET CLIENT MATCH STATE
+    // =========================================================
+
+    [ClientRpc]
+    public void ResetClientMatchStateClientRpc()
+    {
+        Debug.Log("[NetworkPhaseSync] ResetClientMatchStateClientRpc: Đặt lại UI và Skill trên Client.");
+        NetworkGameOverManager.Instance?.ResetUIState();
+        NetworkSkillUI.Instance?.ResetForNewMatch();
+        NetworkHunterDeathUI.Instance?.ResetForNewMatch();
+        NetworkDeathNotification.Instance?.HideDeathNotification();
     }
 
     // =========================================================

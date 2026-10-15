@@ -40,11 +40,14 @@ public class NetworkPlayerAction : NetworkBehaviour
     public static event Action<int, string, RoleType>
         OnSeerResultReceived;
 
+    public static event Action<int, string>
+        OnShamanVictimPromptReceived;
+
     // =========================================================
     // RESET SERVER ACTION DATA
     // =========================================================
 
-    private static void ResetServerActionData()
+    public static void ResetServerActionData()
     {
         playersActionNightCycle.Clear();
         pendingActionNightCycle.Clear();
@@ -55,7 +58,7 @@ public class NetworkPlayerAction : NetworkBehaviour
     }
 
     // =========================================================
-    // NETWORK SPAWN
+    // NETWORK SPAWN & DESPAWN
     // =========================================================
 
     public override void OnNetworkSpawn()
@@ -64,10 +67,22 @@ public class NetworkPlayerAction : NetworkBehaviour
 
         if (IsServer)
         {
+            ResetServerActionData();
+
             Debug.Log(
                 "NetworkPlayerAction Spawned | Player="
                 + (OwnerClientId + 1)
             );
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+
+        if (IsServer)
+        {
+            ResetServerActionData();
         }
     }
 
@@ -78,6 +93,7 @@ public class NetworkPlayerAction : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void RequestActionServerRpc(
         ulong targetPlayerId,
+        int subActionId = 0,
         ServerRpcParams rpcParams = default)
     {
         ulong requesterClientId =
@@ -104,6 +120,27 @@ public class NetworkPlayerAction : NetworkBehaviour
 
             return;
         }
+
+        // =====================================================
+        // GAME OVER GUARD — Chặn action sau khi ván kết thúc
+        // =====================================================
+
+        if (NetworkGameOverManager.GameEnded)
+        {
+            SendActionResultToClient(
+                false,
+                "Ván đã kết thúc, không thể thực hiện action.",
+                requesterClientId
+            );
+
+            Debug.LogWarning(
+                "SERVER ACTION BLOCKED | Game Over | Player="
+                + (requesterClientId + 1)
+            );
+
+            return;
+        }
+
 
         // =====================================================
         // REQUESTER EXIST
@@ -389,6 +426,7 @@ public class NetworkPlayerAction : NetworkBehaviour
         // =====================================================
 
         bool isGuardian = false;
+        bool isShamanSave = false;
 
         if (
             RoleManager.Instance != null &&
@@ -407,13 +445,20 @@ public class NetworkPlayerAction : NetworkBehaviour
                     isGuardian =
                         requesterRole.roleType ==
                         RoleType.VillageGuardian;
+
+                    isShamanSave =
+                        requesterRole.roleType ==
+                        RoleType.Shaman &&
+                        subActionId == 1;
                 }
             }
         }
 
+        bool allowSelfTarget = isGuardian || isShamanSave;
+
         if (
             requesterClientId == targetPlayerId &&
-            !isGuardian
+            !allowSelfTarget
         )
         {
             SendActionResultToClient(
@@ -427,13 +472,17 @@ public class NetworkPlayerAction : NetworkBehaviour
 
         if (
             requesterClientId == targetPlayerId &&
-            isGuardian
+            allowSelfTarget
         )
         {
             Debug.Log(
-                "SERVER: Guardian được phép tự bảo vệ."
+                "SERVER: Cho phép tự Action chính mình."
                 + " | Player="
                 + (requesterClientId + 1)
+                + " | Guardian="
+                + isGuardian
+                + " | ShamanSave="
+                + isShamanSave
             );
         }
 
@@ -502,7 +551,8 @@ public class NetworkPlayerAction : NetworkBehaviour
         NetworkActionEvent actionEvent =
             new NetworkActionEvent(
                 requesterClientId,
-                targetPlayerId
+                targetPlayerId,
+                subActionId
             );
 
         Debug.Log(
@@ -1020,6 +1070,85 @@ public class NetworkPlayerAction : NetworkBehaviour
             targetPlayerId,
             targetPlayerName,
             targetRole
+        );
+    }
+
+    // =========================================================
+    // SHAMAN VICTIM PROMPT
+    // =========================================================
+
+    public void SendShamanVictimPromptToClient(
+        int victimPlayerId,
+        string victimPlayerName,
+        ulong clientId)
+    {
+        if (!IsServer)
+        {
+            Debug.LogWarning(
+                "SHAMAN VICTIM PROMPT: Chỉ Server mới được gửi thông báo!"
+            );
+
+            return;
+        }
+
+        if (NetworkManager.Singleton == null)
+            return;
+
+        if (
+            !NetworkManager.Singleton.ConnectedClients
+                .ContainsKey(clientId)
+        )
+        {
+            Debug.LogWarning(
+                "SHAMAN VICTIM PROMPT: Client "
+                + clientId
+                + " không tồn tại!"
+            );
+
+            return;
+        }
+
+        ClientRpcParams rpcParams =
+            new ClientRpcParams
+            {
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new ulong[]
+                            {
+                                clientId
+                            }
+                    }
+            };
+
+        SendShamanVictimPromptClientRpc(
+            victimPlayerId,
+            victimPlayerName,
+            rpcParams
+        );
+    }
+
+    // =========================================================
+    // SHAMAN VICTIM PROMPT CLIENT RPC
+    // =========================================================
+
+    [ClientRpc]
+    private void SendShamanVictimPromptClientRpc(
+        int victimPlayerId,
+        string victimPlayerName,
+        ClientRpcParams rpcParams = default)
+    {
+        Debug.Log(
+            "SHAMAN VICTIM PROMPT CLIENT RPC | Nạn nhân ID="
+            + victimPlayerId
+            + " | Tên="
+            + victimPlayerName
+        );
+
+        OnShamanVictimPromptReceived?.Invoke(
+            victimPlayerId,
+            victimPlayerName
         );
     }
 }
