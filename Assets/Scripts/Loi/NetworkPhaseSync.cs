@@ -61,6 +61,7 @@ public class NetworkPhaseSync : NetworkBehaviour
 
         CurrentPhase.OnValueChanged += OnPhaseChanged;
         CurrentNightCycle.OnValueChanged += OnNightCycleChanged;
+        Winner.OnValueChanged += OnWinnerChanged;
 
         Debug.Log(
             "NetworkPhaseSync Spawned | Phase = "
@@ -83,6 +84,7 @@ public class NetworkPhaseSync : NetworkBehaviour
     {
         CurrentPhase.OnValueChanged -= OnPhaseChanged;
         CurrentNightCycle.OnValueChanged -= OnNightCycleChanged;
+        Winner.OnValueChanged -= OnWinnerChanged;
     }
 
     // =========================================================
@@ -109,25 +111,28 @@ public class NetworkPhaseSync : NetworkBehaviour
 
         if (CurrentPhase.Value != dev2Phase)
         {
-            CurrentPhase.Value = dev2Phase;
-
             if (dev2Phase == GamePhase.GameOver)
             {
                 string winnerName = roleManager.Winner;
+                if (string.IsNullOrEmpty(winnerName) && NetworkGameOverManager.Instance != null)
+                    winnerName = NetworkGameOverManager.Instance.currentWinner;
                 if (string.IsNullOrEmpty(winnerName))
-                    winnerName = "Draw";
+                    winnerName = "Villagers";
 
                 Winner.Value = new Unity.Collections.FixedString64Bytes(winnerName);
+                CurrentPhase.Value = dev2Phase;
 
                 Debug.Log(
                     "NETWORK PHASE AUTO SYNC: GameOver | Winner = "
                     + winnerName
                 );
 
+                NotifyGameOverClientRpc(winnerName);
                 NetworkGameOverManager.Instance.ShowGameOverUI(winnerName);
             }
             else
             {
+                CurrentPhase.Value = dev2Phase;
                 Debug.Log(
                     "NETWORK PHASE AUTO SYNC: "
                     + CurrentPhase.Value
@@ -141,10 +146,13 @@ public class NetworkPhaseSync : NetworkBehaviour
             string winner = Winner.Value.ToString();
             if (string.IsNullOrEmpty(winner) && roleManager != null)
                 winner = roleManager.Winner;
-            if (string.IsNullOrEmpty(winner))
-                winner = "Draw";
+            if (string.IsNullOrEmpty(winner) && NetworkGameOverManager.Instance != null)
+                winner = NetworkGameOverManager.Instance.currentWinner;
 
-            NetworkGameOverManager.Instance.ShowGameOverUI(winner);
+            if (!string.IsNullOrEmpty(winner))
+            {
+                NetworkGameOverManager.Instance.ShowGameOverUI(winner);
+            }
         }
 
         // =====================================================
@@ -195,8 +203,10 @@ public class NetworkPhaseSync : NetworkBehaviour
         if (initialPhase == GamePhase.GameOver)
         {
             string winnerName = roleManager.Winner;
+            if (string.IsNullOrEmpty(winnerName) && NetworkGameOverManager.Instance != null)
+                winnerName = NetworkGameOverManager.Instance.currentWinner;
             if (string.IsNullOrEmpty(winnerName))
-                winnerName = "Draw";
+                winnerName = "Villagers";
 
             Winner.Value = new Unity.Collections.FixedString64Bytes(winnerName);
         }
@@ -266,15 +276,47 @@ public class NetworkPhaseSync : NetworkBehaviour
             string winnerName = Winner.Value.ToString();
             if (string.IsNullOrEmpty(winnerName) && GameRoleManager.Instance != null)
                 winnerName = GameRoleManager.Instance.Winner;
-            if (string.IsNullOrEmpty(winnerName))
-                winnerName = "Draw";
 
-            NetworkGameOverManager.Instance.ShowGameOverUI(winnerName);
+            if (!string.IsNullOrEmpty(winnerName))
+            {
+                NetworkGameOverManager.Instance.ShowGameOverUI(winnerName);
+            }
+            else
+            {
+                Debug.Log("NETWORK PHASE: Đã chuyển phase sang GameOver, đang đợi Winner từ RPC hoặc Winner.OnValueChanged.");
+            }
         }
         else if (oldPhase == GamePhase.GameOver && newPhase != GamePhase.GameOver)
         {
             NetworkGameOverManager.Instance?.ResetUIState();
         }
+    }
+
+    private void OnWinnerChanged(
+        Unity.Collections.FixedString64Bytes oldWinner,
+        Unity.Collections.FixedString64Bytes newWinner)
+    {
+        string winnerName = newWinner.ToString();
+        Debug.Log($"NETWORK WINNER CHANGED: {oldWinner} → {winnerName}");
+
+        if (!string.IsNullOrEmpty(winnerName))
+        {
+            NetworkGameOverManager.Instance?.ShowGameOverUI(winnerName);
+        }
+    }
+
+    // =========================================================
+    // CLIENT RPC: GAME OVER NOTIFICATION
+    // =========================================================
+
+    [ClientRpc]
+    public void NotifyGameOverClientRpc(string winner)
+    {
+        Debug.Log($"[NetworkPhaseSync] NotifyGameOverClientRpc: Winner = {winner}");
+        if (string.IsNullOrEmpty(winner))
+            winner = "Villagers";
+
+        NetworkGameOverManager.Instance?.ShowGameOverUI(winner);
     }
 
     // =========================================================

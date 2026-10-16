@@ -30,12 +30,16 @@ public class NetworkPhaseTimerController : MonoBehaviour
         if (!NetworkManager.Singleton.IsServer)
             return;
 
-        // Dừng xử lý timer khi Game Over và luôn kích hoạt UI
+        // Dừng xử lý timer khi Game Over và kích hoạt UI nếu có winner hợp lệ
         if (NetworkGameOverManager.GameEnded)
         {
-            string winner = GameRoleManager.Instance != null ? GameRoleManager.Instance.Winner : "Draw";
-            if (string.IsNullOrEmpty(winner)) winner = "Draw";
-            NetworkGameOverManager.Instance.ShowGameOverUI(winner);
+            string winner = GameRoleManager.Instance != null ? GameRoleManager.Instance.Winner : null;
+            if (string.IsNullOrEmpty(winner) && NetworkGameOverManager.Instance != null)
+                winner = NetworkGameOverManager.Instance.currentWinner;
+            if (!string.IsNullOrEmpty(winner))
+            {
+                NetworkGameOverManager.Instance.ShowGameOverUI(winner);
+            }
             return;
         }
 

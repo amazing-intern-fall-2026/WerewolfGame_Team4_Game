@@ -146,6 +146,13 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
+        // Chờ tất cả connected clients hoàn tất đăng ký vào PlayerManager
+        if (Unity.Netcode.NetworkManager.Singleton != null &&
+            playerManager.players.Count < Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count)
+        {
+            return;
+        }
+
         // RoleManager phải AssignRole trước.
         // Nếu chưa có role thì chờ frame tiếp theo.
         if (
@@ -183,13 +190,14 @@ public class NetworkRoleActionBridge : MonoBehaviour
         {
             Debug.LogError(
                 "ROLE ACTION BRIDGE | "
-                + "Role Count != Player Count."
-                + " Players = "
-                + playerCount
-                + " | Roles = "
+                + "Cấu hình Role không hợp lệ: Số Role ("
                 + totalRoles
+                + ") != Số Player ("
+                + playerCount
+                + "). Không bắt đầu chia role."
             );
 
+            lobbyRolesApplied = true;
             return;
         }
 

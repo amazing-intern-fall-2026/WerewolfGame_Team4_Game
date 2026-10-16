@@ -70,8 +70,23 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
         roleAmounts.OnListChanged -= OnRoleListChanged;
     }
 
+    private bool hasCustomizedRoles = false;
+    public bool HasCustomizedRoles => hasCustomizedRoles;
+
+    public void ResetCustomization()
+    {
+        hasCustomizedRoles = false;
+    }
+
     private void InitializeDefaultRoles()
     {
+        int count = LobbyManager.CurrentPlayerCount;
+        if (count > 0)
+        {
+            InitializeDefaultRolesForPlayerCount(count);
+            return;
+        }
+
         roleAmounts.Clear();
 
         if (defaultRoles == null)
@@ -95,6 +110,66 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
 
         Debug.Log(
             "ROLE LOBBY CONFIG | Default roles initialized."
+        );
+    }
+
+    public void InitializeDefaultRolesForPlayerCount(int playerCount)
+    {
+        if (!IsServer)
+            return;
+
+        if (hasCustomizedRoles)
+            return;
+
+        roleAmounts.Clear();
+        playerCount = Mathf.Max(1, playerCount);
+
+        if (playerCount == 1)
+        {
+            roleAmounts.Add(new RoleAmountData(RoleType.Villager, 1));
+        }
+        else if (playerCount == 2)
+        {
+            roleAmounts.Add(new RoleAmountData(RoleType.DogSpirit, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Villager, 1));
+        }
+        else if (playerCount == 3)
+        {
+            // Phòng 3 người: 1 Sói (DogSpirit), 1 Dân (Villager), 1 Thợ săn (Hunter)
+            roleAmounts.Add(new RoleAmountData(RoleType.DogSpirit, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Villager, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Hunter, 1));
+        }
+        else if (playerCount == 4)
+        {
+            // Phòng 4 người: 1 Sói (DogSpirit), 2 Dân (Villager), 1 Thợ săn (Hunter)
+            roleAmounts.Add(new RoleAmountData(RoleType.DogSpirit, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Villager, 2));
+            roleAmounts.Add(new RoleAmountData(RoleType.Hunter, 1));
+        }
+        else if (playerCount == 5)
+        {
+            // Phòng 5 người: 1 Sói, 2 Dân, 1 Thợ săn, 1 Tiên tri
+            roleAmounts.Add(new RoleAmountData(RoleType.DogSpirit, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Villager, 2));
+            roleAmounts.Add(new RoleAmountData(RoleType.Hunter, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Seer, 1));
+        }
+        else
+        {
+            int wolves = Mathf.Max(1, playerCount / 4);
+            int specials = 3;
+            int villagers = Mathf.Max(1, playerCount - wolves - specials);
+
+            roleAmounts.Add(new RoleAmountData(RoleType.DogSpirit, wolves));
+            roleAmounts.Add(new RoleAmountData(RoleType.Hunter, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Seer, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.VillageGuardian, 1));
+            roleAmounts.Add(new RoleAmountData(RoleType.Villager, villagers));
+        }
+
+        Debug.Log(
+            $"ROLE LOBBY CONFIG | Đã tự động thiết lập vai mặc định cho {playerCount} Player. Total Roles = {GetTotalRoleAmount()}"
         );
     }
 
@@ -134,6 +209,7 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
             return;
         }
 
+        hasCustomizedRoles = true;
         amount = Mathf.Max(0, amount);
 
         for (int i = 0; i < roleAmounts.Count; i++)

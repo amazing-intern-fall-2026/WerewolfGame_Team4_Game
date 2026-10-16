@@ -78,6 +78,7 @@ public class NetworkSkillUI : MonoBehaviour
             return;
         }
         Instance = this;
+        CleanupUnusedText();
     }
 
     private void OnDestroy()
@@ -88,6 +89,7 @@ public class NetworkSkillUI : MonoBehaviour
 
     public void ResetForNewMatch()
     {
+        CleanupUnusedText();
         hasUsedSkill = false;
         shamanHasUsedSave = false;
         shamanHasUsedKill = false;
@@ -129,6 +131,7 @@ public class NetworkSkillUI : MonoBehaviour
 
     private void Start()
     {
+        CleanupUnusedText();
         phaseSync =
             FindFirstObjectByType<NetworkPhaseSync>();
 
@@ -289,6 +292,7 @@ public class NetworkSkillUI : MonoBehaviour
         if (skillPanel != null)
         {
             skillPanel.SetActive(canUseSkill);
+            CleanupUnusedText();
         }
 
         if (attackButton != null)
@@ -559,6 +563,7 @@ public class NetworkSkillUI : MonoBehaviour
 
     private void HideAll()
     {
+        CleanupUnusedText();
         if (skillPanel != null)
             skillPanel.SetActive(false);
 
@@ -845,5 +850,27 @@ public class NetworkSkillUI : MonoBehaviour
         dismissText.alignment = TMPro.TextAlignmentOptions.Center;
 
         shamanPromptPanel.SetActive(false);
+    }
+
+    private void CleanupUnusedText()
+    {
+        if (skillPanel != null)
+        {
+            Transform unused = skillPanel.transform.Find("ActionMessageText");
+            if (unused != null)
+            {
+                unused.gameObject.SetActive(false);
+                var tmp = unused.GetComponent<TMPro.TextMeshProUGUI>();
+                if (tmp != null)
+                {
+                    tmp.text = string.Empty;
+                }
+                var txt = unused.GetComponent<UnityEngine.UI.Text>();
+                if (txt != null)
+                {
+                    txt.text = string.Empty;
+                }
+            }
+        }
     }
 }
