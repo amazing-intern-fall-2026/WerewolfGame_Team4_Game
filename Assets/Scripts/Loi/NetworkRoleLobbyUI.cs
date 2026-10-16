@@ -16,6 +16,13 @@ public class NetworkRoleLobbyUI : MonoBehaviour
     private readonly List<NetworkRoleRowUI> roleRows =
         new List<NetworkRoleRowUI>();
 
+    public static NetworkRoleLobbyUI Instance { get; private set; }
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
     private void Start()
     {
         FindRoleConfig();
@@ -26,6 +33,9 @@ public class NetworkRoleLobbyUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (Instance == this)
+            Instance = null;
+
         UnsubscribeFromRoleConfig();
     }
 
@@ -160,16 +170,27 @@ public class NetworkRoleLobbyUI : MonoBehaviour
         }
     }
 
-    private void RefreshRoleCount()
+    public void RefreshRoleCount()
     {
+        if (roleConfig == null)
+            FindRoleConfig();
+
         if (roleConfig == null)
             return;
 
         if (roleCountText == null)
             return;
 
-        roleCountText.text =
-            "ROLES: " +
-            roleConfig.GetTotalRoleAmount();
+        int totalRoles = roleConfig.GetTotalRoleAmount();
+        int totalPlayers = LobbyManager.CurrentPlayerCount;
+
+        if (totalPlayers > 0)
+        {
+            roleCountText.text = $"ROLES: {totalRoles} / PLAYERS: {totalPlayers}";
+        }
+        else
+        {
+            roleCountText.text = $"ROLES: {totalRoles}";
+        }
     }
 }

@@ -503,6 +503,19 @@ public static class RoomManager
             SaveRegistry(wrapper);
         }
     }
+
+    public static void SetPlayerCountInRegistry(string roomCode, int count)
+    {
+        if (string.IsNullOrEmpty(roomCode)) return;
+        var wrapper = LoadRegistry();
+        var room = wrapper.rooms.Find(r => r.roomCode == roomCode);
+        if (room != null)
+        {
+            room.currentPlayers = Mathf.Max(1, count);
+            room.lastHeartbeat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            SaveRegistry(wrapper);
+        }
+    }
 }
 
 public class RoomLookupResult

@@ -63,10 +63,10 @@ public class SceneLoader : MonoBehaviour
     }
 
     // =========================================================
-    // CLIENT / HOST CHỦ ĐỘNG LEAVE
+    // CLIENT / HOST CHỦ ĐỘNG RỜI PHÒNG VỀ MAINMENU
     // =========================================================
 
-    public void LeaveLobby()
+    public void LeaveRoomToMainMenu()
     {
         if (isLeaving)
         {
@@ -78,9 +78,14 @@ public class SceneLoader : MonoBehaviour
         }
 
         isLeaving = true;
-        Debug.Log("SceneLoader: Người chơi chủ động rời Lobby...");
+        Debug.Log("SceneLoader: Người chơi chủ động rời phòng về MainMenu...");
 
         StartCoroutine(ShutdownThenLoadMainMenu());
+    }
+
+    public void LeaveLobby()
+    {
+        LeaveRoomToMainMenu();
     }
 
     private IEnumerator ShutdownThenLoadMainMenu()
