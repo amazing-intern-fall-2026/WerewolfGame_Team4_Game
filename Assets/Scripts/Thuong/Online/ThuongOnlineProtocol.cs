@@ -10,7 +10,9 @@ namespace Thuong.Online
         ShamanGoodCharm,
         ShamanBadCharm,
         HunterTrap,
-        Vote
+        Vote,
+        RevealRead,
+        MakeLovers
     }
 
     internal sealed class ThuongOnlineLobbyMember
@@ -40,6 +42,7 @@ namespace Thuong.Online
         public int CharacterIndex;
         public bool Ready;
         public Vector2 Position;
+        public bool RevealRead;
         public Vector2 Input;
         public float LastInputTime;
         public ushort LastInputSequence;
@@ -51,10 +54,10 @@ namespace Thuong.Online
         public const string Hello = "thuong.online.hello.v1";
         public const string Ready = "thuong.online.ready.v1";
         public const string Input = "thuong.online.input.v1";
-        public const string Action = "thuong.online.action.v1";
-        public const string Roster = "thuong.online.roster.v1";
-        public const string Snapshot = "thuong.online.snapshot.v1";
-        public const string PrivateState = "thuong.online.private.v1";
+        public const string Action = "thuong.online.action.v2";
+        public const string Roster = "thuong.online.roster.v2";
+        public const string Snapshot = "thuong.online.snapshot.v4";
+        public const string PrivateState = "thuong.online.private.v2";
     }
 
     internal sealed class ThuongOnlineAvatar
@@ -63,5 +66,6 @@ namespace Thuong.Online
         public Animator Animator;
         public Vector2 TargetPosition;
         public Vector2 PreviousPosition;
+        public int CharacterIndex;
     }
 }

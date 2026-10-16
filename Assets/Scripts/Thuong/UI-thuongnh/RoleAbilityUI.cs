@@ -9,6 +9,7 @@ public class RoleAbilityUI : MonoBehaviour
     public int localPlayerID;
 
     private Canvas abilityCanvas;
+    private GraphicRaycaster abilityRaycaster;
     private TMP_FontAsset font;
     private GameObject window;
     private GameObject abilityView;
@@ -43,12 +44,14 @@ public class RoleAbilityUI : MonoBehaviour
     private ThuongRoleDefinition shownDefinition;
     private int shownPlayerID = -1;
     private bool shownAwakened;
+    private FactionType shownFaction;
     private AbilitySystem observedAbilitySystem;
     private GameState previousState;
     private string actionFeedback;
     private string targetFailureFeedback;
     private bool selectingHunterTrap;
     private int firstLoverTargetID = -1;
+    private bool onlineGoodCharm;
 
     private static Color Hex(string value)
     {
@@ -72,6 +75,7 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved -= HandleAbilityResolved;
         if (abilityCanvas != null) Destroy(abilityCanvas.gameObject);
     }
 
@@ -169,6 +173,7 @@ public class RoleAbilityUI : MonoBehaviour
         var root = new GameObject("Role Ability Canvas", typeof(Canvas),
             typeof(CanvasScaler), typeof(GraphicRaycaster));
         abilityCanvas = root.GetComponent<Canvas>();
+        abilityRaycaster = root.GetComponent<GraphicRaycaster>();
         abilityCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         abilityCanvas.sortingOrder = 30;
         var scaler = root.GetComponent<CanvasScaler>();
@@ -291,7 +296,7 @@ public class RoleAbilityUI : MonoBehaviour
             new Vector2(.15f, .18f), new Vector2(.85f, .82f), "#142D38", true);
         Label("Card title", card, "THẺ VAI TRÒ CỦA BẠN",
             new Vector2(.04f, .86f), new Vector2(.70f, .97f), 32, "#EBCB83");
-        revealTimerLabel = Label("Countdown", card, "Bắt đầu sau 25 giây",
+        revealTimerLabel = Label("Countdown", card, Thuong.Online.ThuongOnlineSession.Active != null ? "Không giới hạn thời gian" : "Bắt đầu sau 25 giây",
             new Vector2(.72f, .87f), new Vector2(.96f, .96f), 19,
             "#B8D0D1", TextAlignmentOptions.Right);
 
@@ -323,9 +328,17 @@ public class RoleAbilityUI : MonoBehaviour
         revealDescriptionLabel = Label("Description", right, "",
             new Vector2(.05f, .25f), new Vector2(.95f, .82f), 22,
             "#EAF7F5", TextAlignmentOptions.TopLeft);
-        ActionButton("OK", right, "OK  /  BẮT ĐẦU",
+        ActionButton("OK", right, Thuong.Online.ThuongOnlineSession.Active != null ? "OK / ĐÃ ĐỌC" : "OK  /  BẮT ĐẦU",
             new Vector2(.70f, .05f), new Vector2(.95f, .19f), "#28716F",
-            () => GameRoleManager.Instance?.SkipRoleReveal());
+            () =>
+            {
+                var online = Thuong.Online.ThuongOnlineSession.Active;
+                if (online != null)
+                {
+                    online.ReadLocalRole();
+                }
+                else GameRoleManager.Instance?.SkipRoleReveal();
+            });
         revealWindow.SetActive(false);
     }
 
@@ -414,8 +427,17 @@ public class RoleAbilityUI : MonoBehaviour
         revealFactionLabel.text = player.faction == FactionType.Monster
                 ? "PHE MA SÓI" : player.faction == FactionType.Villager
                     ? "PHE DÂN LÀNG" : "PHE TRUNG LẬP";
-        revealDescriptionLabel.text = definition != null && !string.IsNullOrWhiteSpace(definition.description)
-            ? definition.description : RoleDescription(player.roleType);
+        string guide = RoleDescription(player.roleType);
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null && player.roleType == RoleType.FoxSpirit)
+            guide = "Bạn thuộc phe Trung Lập. Mỗi đêm chọn tối đa hai người còn sống để mê hoặc. Xét thắng khi xử lý xong đêm, sau toàn bộ đòn đánh và hiệu ứng.";
+        revealDescriptionLabel.text = definition != null && !string.IsNullOrWhiteSpace(definition.description) &&
+            !guide.Contains(definition.description) ? guide + "\n\n" + definition.description : guide;
+        if (online != null)
+        {
+            string skillGuide = player.roleType == RoleType.FoxSpirit ? guide : revealDescriptionLabel.text;
+            revealDescriptionLabel.text = "ĐIỀU KIỆN THẮNG ONLINE\n" + online.LocalWinObjective + "\n\nHƯỚNG DẪN KỸ NĂNG\n" + skillGuide;
+        }
         // Unity's missing/destroyed asset references use Unity-null, not CLR-null.
         // Do not use ?? for an optional serialized Sprite or it can suppress the fallback.
         Sprite portrait = definition != null ? definition.portrait : null;
@@ -440,6 +462,7 @@ public class RoleAbilityUI : MonoBehaviour
         shownDefinition = player.roleDefinition;
         shownPlayerID = player.playerID;
         shownAwakened = player.isWhiteHoundAwakened;
+        shownFaction = player.faction;
         roleLabel.text = DisplayRoleName(player);
         openLabel.text = "ROLE / " + DisplayRoleName(player);
         RefreshReveal(player);
@@ -526,6 +549,8 @@ public class RoleAbilityUI : MonoBehaviour
 
     private bool CanUse(PlayerData player, GameRoleManager game, out string reason)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null)
+            return Thuong.Online.ThuongOnlineSession.Active.CanUseLocalAbility(out reason);
         if (player == null || !hasShownRole)
             reason = "Đang chờ phân Role cho người chơi.";
         else if (CanSetHunterTrap(player, game))
@@ -568,34 +593,60 @@ public class RoleAbilityUI : MonoBehaviour
     private void Update()
     {
         if (!initialized) return;
-        if (observedAbilitySystem != AbilitySystem.Instance)
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        bool canvasVisible = online == null || online.HasLocalRole && (online.MatchStarted || online.ShowRoleCard);
+        abilityCanvas.enabled = canvasVisible;
+        abilityRaycaster.enabled = canvasVisible;
+        if (online != null)
+        {
+            if (!online.HasLocalRole)
+            {
+                hasShownRole = false;
+                previousState = GameState.RoleReveal;
+                ShowWindow(false);
+                return;
+            }
+            localPlayerID = online.LocalPlayerId;
+        }
+        if (online == null && observedAbilitySystem != AbilitySystem.Instance)
         {
             if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved -= HandleAbilityResolved;
             observedAbilitySystem = AbilitySystem.Instance;
             if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved += HandleAbilityResolved;
         }
         GameRoleManager game = GameRoleManager.Instance;
+        GameState state = online != null ? online.VisibleState : game != null ? game.currentState : GameState.RoleReveal;
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         if (player != null)
         {
             playerLabel.text = $"PLAYER {player.playerID + 1}  /  ID {player.playerID}";
-            if (!hasShownRole || shownRole != player.roleType) RefreshRole(player);
+            if (!hasShownRole || shownRole != player.roleType || shownPlayerID != player.playerID ||
+                shownDefinition != player.roleDefinition || shownAwakened != player.isWhiteHoundAwakened ||
+                online != null && shownFaction != player.faction) RefreshRole(player);
         }
 
-        bool revealing = game != null && game.currentState == GameState.RoleReveal;
+        bool revealing = online != null ? online.ShowRoleCard : state == GameState.RoleReveal;
         if (revealWindow.activeSelf != revealing) revealWindow.SetActive(revealing);
         if (revealing)
         {
             if (window.activeSelf) ShowWindow(false);
             openButton.gameObject.SetActive(false);
-            revealTimerLabel.text = $"Bắt đầu sau {Mathf.CeilToInt(game.PhaseTimeRemaining)} giây";
-            previousState = game.currentState;
+            if (online != null) revealTimerLabel.text = "Không giới hạn thời gian";
+            else revealTimerLabel.text = $"Bắt đầu sau {Mathf.CeilToInt(game != null ? game.PhaseTimeRemaining : 0)} giây";
+            previousState = state;
             return;
         }
 
-        if (game != null && game.currentState != previousState)
+        if (online != null && !online.MatchStarted)
         {
-            if (game.currentState == GameState.Night)
+            openButton.gameObject.SetActive(false);
+            ShowWindow(false);
+            return;
+        }
+
+        if ((online != null || game != null) && state != previousState)
+        {
+            if (state == GameState.Night)
             {
                 actionFeedback = null;
                 if (player != null && player.isAlive && HasActiveAbility(player))
@@ -604,7 +655,7 @@ public class RoleAbilityUI : MonoBehaviour
                     ShowWindow(true);
                 }
             }
-            else if (game.currentState == GameState.Discussion && player != null &&
+            else if (state == GameState.Discussion && player != null &&
                      player.roleType == RoleType.Hunter && !player.isAlive && player.hasHunterTrap)
             {
                 CancelTargets();
@@ -612,10 +663,10 @@ public class RoleAbilityUI : MonoBehaviour
             }
             else if (previousState == GameState.Night)
                 ShowWindow(false);
-            previousState = game.currentState;
+            previousState = state;
         }
 
-        bool ended = game != null && game.currentState == GameState.GameOver;
+        bool ended = state == GameState.GameOver;
         openButton.gameObject.SetActive(!ended);
         if (ended)
         {
@@ -628,14 +679,18 @@ public class RoleAbilityUI : MonoBehaviour
         useButton.interactable = player != null && HasActiveAbility(player.roleType);
         ShamanRole shaman = GetLocalShamanRole();
         bool canUseShamanCharm = player != null && player.isAlive && !player.HasEffect(StatusEffectType.Silenced) && !player.hasUseNightAction &&
-                                 game != null && game.currentState == GameState.Night;
-        shamanGoodCharmButton.interactable = canUseShamanCharm && shaman != null && shaman.HasGoodCharm;
-        shamanBadCharmButton.interactable = canUseShamanCharm && shaman != null && shaman.HasBadCharm;
+                                 state == GameState.Night;
+        shamanGoodCharmButton.interactable = online != null ? online.CanUseLocalAbility(out _) && online.HasGoodCharm
+            : canUseShamanCharm && shaman != null && shaman.HasGoodCharm;
+        shamanBadCharmButton.interactable = online != null ? online.CanUseLocalAbility(out _) && online.HasBadCharm
+            : canUseShamanCharm && shaman != null && shaman.HasBadCharm;
         hunterTrapButton.gameObject.SetActive(player != null && player.roleType == RoleType.Hunter &&
                              player.hasHunterTrap);
         hunterTrapButton.interactable = CanSetHunterTrap(player, game);
         if (window.activeSelf && abilityView.activeSelf)
-            statusLabel.text = !string.IsNullOrEmpty(actionFeedback) ? actionFeedback : reason;
+            statusLabel.text = online != null ? online.Feedback + "\n" + reason
+                : !string.IsNullOrEmpty(actionFeedback) ? actionFeedback : reason;
+        if (online != null && resultView.activeSelf) resultFeedbackLabel.text = online.Feedback;
     }
 
     private void ShowWindow(bool visible)
@@ -721,6 +776,8 @@ public class RoleAbilityUI : MonoBehaviour
 
     private static bool CanSetHunterTrap(PlayerData player, GameRoleManager game)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null)
+            return Thuong.Online.ThuongOnlineSession.Active.CanSetHunterTrap;
         return player != null && player.roleType == RoleType.Hunter && !player.isAlive &&
                player.hasHunterTrap && game != null && game.currentState == GameState.Discussion;
     }
@@ -772,6 +829,14 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void OpenShamanTargets(bool goodCharm)
     {
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null)
+        {
+            if (goodCharm ? !online.HasGoodCharm : !online.HasBadCharm) return;
+            onlineGoodCharm = goodCharm;
+            OpenTargets();
+            return;
+        }
         ShamanRole shaman = GetLocalShamanRole();
         if (shaman == null || !shaman.SelectCharm(goodCharm))
         {
@@ -786,6 +851,32 @@ public class RoleAbilityUI : MonoBehaviour
     private void SelectTarget(int targetID)
     {
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null)
+        {
+            bool canUseOnline = online.CanUseLocalAbility(out string networkReason);
+            if (player == null || !canUseOnline)
+            {
+                targetFeedbackLabel.text = player == null ? "Đang chờ dữ liệu vai trò." : networkReason;
+                return;
+            }
+            if (player.roleType == RoleType.WeaverOfFate && firstLoverTargetID < 0)
+            {
+                firstLoverTargetID = targetID;
+                OpenTargets();
+                return;
+            }
+            online.RequestAbility(player.roleType == RoleType.WeaverOfFate ? firstLoverTargetID : targetID,
+                player.roleType == RoleType.WeaverOfFate ? targetID : -1,
+                player.roleType == RoleType.Shaman, onlineGoodCharm, selectingHunterTrap);
+            firstLoverTargetID = -1;
+            selectingHunterTrap = false;
+            targetView.SetActive(false);
+            abilityView.SetActive(false);
+            resultView.SetActive(true);
+            resultFeedbackLabel.text = "Đang gửi yêu cầu...";
+            return;
+        }
         if (selectingHunterTrap)
         {
             if (!CanSetHunterTrap(player, GameRoleManager.Instance))

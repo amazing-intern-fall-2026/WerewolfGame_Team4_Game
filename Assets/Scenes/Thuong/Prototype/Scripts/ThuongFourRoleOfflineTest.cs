@@ -30,6 +30,7 @@ public sealed class ThuongFourRoleOfflineTest : MonoBehaviour
 
     private void Awake()
     {
+        if (!enabled) return;
         // Runs after PlayerManager.Awake and before GameRoleManager.Start.
         // Read the Inspector value instead of forcing the four-role example.
         PlayerManager players = PlayerManager.Instance;

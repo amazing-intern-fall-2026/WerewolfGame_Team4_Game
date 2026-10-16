@@ -5,12 +5,29 @@ public class WinConditionManager : MonoBehaviour
     [SerializeField, Min(1)] private int maxDay = 7;
     public int MaxDay => maxDay;
     [SerializeField] private bool useEliminationWin = false;
+    private GameRoleManager matchEvaluatorOwner;
+    private System.Action<bool> matchEvaluator;
+    public bool HasMatchEvaluator(GameRoleManager owner) => owner != null && matchEvaluatorOwner == owner && matchEvaluator != null;
+    public void InstallMatchEvaluator(GameRoleManager owner, System.Action<bool> evaluator)
+    {
+        if (owner == null || owner.gameObject.scene != gameObject.scene)
+            throw new System.ArgumentException("The match evaluator must belong to this gameplay scene.");
+        matchEvaluatorOwner = owner;
+        matchEvaluator = evaluator;
+    }
+    public void RemoveMatchEvaluator(GameRoleManager owner, System.Action<bool> evaluator)
+    {
+        if (matchEvaluatorOwner != owner || matchEvaluator != evaluator) return;
+        matchEvaluatorOwner = null;
+        matchEvaluator = null;
+    }
     private void Awake() { Instance = this; }
     public void CheckWinCondition() { CheckWinCondition(false); }
     public void CheckWinCondition(bool dayFinished)
     {
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
+        if (HasMatchEvaluator(game)) { matchEvaluator(dayFinished); return; }
         if (game.manualLogicPrototype) { EvaluateLogicPrototype(game); return; }
 
         if (dayFinished && game.currentDay == 1 &&
