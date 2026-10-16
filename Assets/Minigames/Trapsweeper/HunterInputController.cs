@@ -2,73 +2,156 @@ using UnityEngine;
 
 public class HunterInputController : MonoBehaviour
 {
+    [Header("References")]
     [SerializeField] private Camera cam;
     [SerializeField] private Grid grid;
     [SerializeField] private HunterTilemapManager manager;
 
-    [Header("Touch Settings")]
-    [SerializeField] private float longPressThreshold = 0.28f;
-    [SerializeField] private float dragTolerance = 15f; // pixels
+    [Header("Touch & Pan Settings")]
+    [SerializeField] private float longPressTime = 0.3f;
+    [SerializeField] private float dragThresholdPixels = 15f;
 
-    private float touchStartTime;
-    private Vector2 touchStartPos;
-    private bool isHolding = false;
-    private bool hasTriggeredLongPress = false;
+    [Header("Zoom Settings")]
+    [SerializeField] private float minZoom = 2f;
+    [SerializeField] private float maxZoom = 15f;
+    [SerializeField] private float pinchZoomSpeed = 0.015f;
+    [SerializeField] private float scrollZoomSpeed = 2f;
+
+    private float pressTimer;
+    private Vector2 startScreenPos;
+    private Vector3 dragOriginWorld;
+    private bool isPointerDown;
+    private bool isDragging;
+    private bool longPressTriggered;
 
     void Awake()
     {
         if (cam == null) cam = Camera.main;
+        if (cam == null) cam = FindFirstObjectByType<Camera>();
     }
 
     void Update()
     {
-        HandleTouchInput();
-    }
-
-    private void HandleTouchInput()
-    {
-        if (Input.touchCount == 0) return;
-
-        Touch touch = Input.GetTouch(0);
-
-        if (touch.phase == TouchPhase.Began)
+        // 1. Handle 2-Finger Pinch Zoom on Mobile
+        if (Input.touchCount == 2)
         {
-            touchStartTime = Time.time;
-            touchStartPos = touch.position;
-            isHolding = true;
-            hasTriggeredLongPress = false;
+            isPointerDown = false;
+            isDragging = false;
+            HandlePinchZoom();
+            return;
         }
-        else if (touch.phase == TouchPhase.Moved)
+
+        // 2. Handle 1-Finger Touch (Mobile & Unity Device Simulator)
+        if (Input.touchCount == 1)
         {
-            // Cancel touch if user is scrolling/panning
-            if (Vector2.Distance(touch.position, touchStartPos) > dragTolerance)
-            {
-                isHolding = false;
-            }
+            Touch t = Input.GetTouch(0);
+            if (t.phase == TouchPhase.Began) OnPointerDown(t.position);
+            else if (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary) OnPointerHold(t.position);
+            else if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled) OnPointerUp(t.position);
         }
-        else if (touch.phase == TouchPhase.Stationary && isHolding && !hasTriggeredLongPress)
+        // 3. Fallback for Standard Game View (Mouse)
+        else
         {
-            if (Time.time - touchStartTime >= longPressThreshold)
+            if (Input.GetMouseButtonDown(0)) OnPointerDown(Input.mousePosition);
+            else if (Input.GetMouseButton(0)) OnPointerHold(Input.mousePosition);
+            else if (Input.GetMouseButtonUp(0)) OnPointerUp(Input.mousePosition);
+
+            // Right-click to flag in Game View
+            if (Input.GetMouseButtonDown(1))
             {
-                hasTriggeredLongPress = true;
-                Vector3Int cell = ScreenToCell(touch.position);
+                Vector3Int cell = ScreenToCell(Input.mousePosition);
                 manager.HandleToggleFlag(cell);
             }
         }
-        else if (touch.phase == TouchPhase.Ended)
+
+        // 4. Mouse Wheel Zoom (works in Game View & some Simulators)
+        float scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) > 0.01f)
         {
-            if (isHolding && !hasTriggeredLongPress)
-            {
-                Vector3Int cell = ScreenToCell(touch.position);
-                manager.HandleTap(cell);
-            }
-            isHolding = false;
+            cam.orthographicSize = Mathf.Clamp(cam.orthographicSize - scroll * scrollZoomSpeed * 0.2f, minZoom, maxZoom);
         }
+    }
+
+    private void OnPointerDown(Vector2 screenPos)
+    {
+        startScreenPos = screenPos;
+        dragOriginWorld = ScreenToWorld(screenPos);
+        pressTimer = 0f;
+        isPointerDown = true;
+        isDragging = false;
+        longPressTriggered = false;
+    }
+
+    private void OnPointerHold(Vector2 screenPos)
+    {
+        if (!isPointerDown) return;
+
+        // Check if player moved finger far enough to count as dragging the camera
+        if (!isDragging && Vector2.Distance(screenPos, startScreenPos) > dragThresholdPixels)
+        {
+            isDragging = true;
+        }
+
+        if (isDragging)
+        {
+            // Move the camera by the world delta
+            Vector3 currentWorld = ScreenToWorld(screenPos);
+            Vector3 delta = dragOriginWorld - currentWorld;
+            cam.transform.position += new Vector3(delta.x, delta.y, 0f);
+            
+            // Update origin after moving camera
+            dragOriginWorld = ScreenToWorld(screenPos);
+        }
+        else if (!longPressTriggered)
+        {
+            // Finger is still -> count up timer for long press flag
+            pressTimer += Time.deltaTime;
+            if (pressTimer >= longPressTime)
+            {
+                longPressTriggered = true;
+                Vector3Int cell = ScreenToCell(screenPos);
+                manager.HandleToggleFlag(cell);
+            }
+        }
+    }
+
+    private void OnPointerUp(Vector2 screenPos)
+    {
+        if (!isPointerDown) return;
+
+        // If we released quickly without dragging or long-pressing -> Reveal Tile!
+        if (!isDragging && !longPressTriggered)
+        {
+            Vector3Int cell = ScreenToCell(screenPos);
+            manager.HandleTap(cell);
+        }
+
+        isPointerDown = false;
+        isDragging = false;
+    }
+
+    private void HandlePinchZoom()
+    {
+        Touch t0 = Input.GetTouch(0);
+        Touch t1 = Input.GetTouch(1);
+
+        Vector2 t0Prev = t0.position - t0.deltaPosition;
+        Vector2 t1Prev = t1.position - t1.deltaPosition;
+
+        float prevDist = Vector2.Distance(t0Prev, t1Prev);
+        float currDist = Vector2.Distance(t0.position, t1.position);
+
+        float diff = currDist - prevDist;
+        cam.orthographicSize = Mathf.Clamp(cam.orthographicSize - diff * pinchZoomSpeed, minZoom, maxZoom);
+    }
+
+    private Vector3 ScreenToWorld(Vector2 screenPos)
+    {
+        return cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
     }
 
     private Vector3Int ScreenToCell(Vector2 screenPos)
     {
-        Vector3 worldPos = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
-        return grid.WorldToCell(worldPos);
+        return grid.WorldToCell(ScreenToWorld(screenPos));
     }
 }

@@ -4,24 +4,24 @@ using UnityEngine.Tilemaps;
 
 public class HunterTilemapManager : MonoBehaviour
 {
-    [Header("Tilemaps")]
+    [Header("References")]
+    [SerializeField] private Camera cam;
     [SerializeField] private Tilemap groundTilemap;
     [SerializeField] private Tilemap coverTilemap;
     [SerializeField] private Tilemap markerTilemap;
 
-    [Header("Tiles")]
+    [Header("Tile Assets")]
     [SerializeField] private TileBase coverTile;
     [SerializeField] private TileBase clearedTile;
     [SerializeField] private TileBase flagTile;
     [SerializeField] private TileBase trapTile;
-    [SerializeField] private TileBase[] numberTiles; // Indexes 0 to 7 represent numbers 1 to 8
+    [SerializeField] private TileBase[] numberTiles; // Assign 8 tiles (1 to 8)
 
-    [Header("Board Settings")]
+    [Header("Board Config")]
     [SerializeField] private int width = 10;
-    [SerializeField] private int height = 12;
+    [SerializeField] private int height = 10;
     [SerializeField] private int totalTraps = 15;
 
-    // Internal cell state tracking
     private struct CellData
     {
         public bool isTrap;
@@ -36,7 +36,11 @@ public class HunterTilemapManager : MonoBehaviour
 
     void Start()
     {
+        if (cam == null) cam = Camera.main;
+        if (cam == null) cam = FindFirstObjectByType<Camera>();
+
         InitializeBoard();
+        CenterEverything();
     }
 
     public void InitializeBoard()
@@ -49,7 +53,6 @@ public class HunterTilemapManager : MonoBehaviour
         coverTilemap.ClearAllTiles();
         markerTilemap.ClearAllTiles();
 
-        // Populate visual cover and default ground underneath
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
@@ -58,6 +61,25 @@ public class HunterTilemapManager : MonoBehaviour
                 coverTilemap.SetTile(pos, coverTile);
                 groundTilemap.SetTile(pos, clearedTile);
             }
+        }
+    }
+
+    private void CenterEverything()
+    {
+        // 1. Shift the Grid GameObject itself so its center is at (0, 0, 0)
+        // We use transform.root or groundTilemap.layoutGrid.transform so it works no matter where the script is attached!
+        Transform gridTransform = groundTilemap.layoutGrid.transform;
+        gridTransform.position = new Vector3(-width * 0.5f, -height * 0.5f, 0f);
+
+        // 2. Put Camera at (0, 0, -10) and zoom to fit the whole board
+        if (cam != null)
+        {
+            cam.transform.position = new Vector3(0f, 0f, -10f);
+
+            float padding = 1.5f;
+            float verticalSize = (height * 0.5f) + padding;
+            float horizontalSize = ((width * 0.5f) + padding) / cam.aspect;
+            cam.orthographicSize = Mathf.Max(verticalSize, horizontalSize);
         }
     }
 
@@ -101,7 +123,9 @@ public class HunterTilemapManager : MonoBehaviour
         if (grid[x, y].isFlagged)
         {
             markerTilemap.SetTile(cellPos, flagTile);
-            Handheld.Vibrate(); // Subtle tactile bump on mobile
+#if UNITY_ANDROID || UNITY_IOS
+            Handheld.Vibrate();
+#endif
         }
         else
         {
@@ -112,12 +136,13 @@ public class HunterTilemapManager : MonoBehaviour
     private void PlantTraps(int safeX, int safeY)
     {
         int placed = 0;
-        while (placed < totalTraps)
+        int maxPossibleTraps = Mathf.Min(totalTraps, (width * height) - 9);
+
+        while (placed < maxPossibleTraps)
         {
             int rx = Random.Range(0, width);
             int ry = Random.Range(0, height);
 
-            // Avoid spawning on or directly adjacent to the first click for comfortable starts
             if ((Mathf.Abs(rx - safeX) <= 1 && Mathf.Abs(ry - safeY) <= 1) || grid[rx, ry].isTrap)
                 continue;
 
@@ -151,19 +176,24 @@ public class HunterTilemapManager : MonoBehaviour
         grid[x, y].isRevealed = true;
         Vector3Int pos = new Vector3Int(x, y, 0);
 
-        // Remove the brush cover
         coverTilemap.SetTile(pos, null);
 
-        // Update ground display with etched notches/numbers
         int clues = grid[x, y].adjacentTraps;
-        if (clues > 0 && clues <= numberTiles.Length)
+
+        if (clues > 0)
         {
-            groundTilemap.SetTile(pos, numberTiles[clues - 1]);
+            if (numberTiles != null && clues <= numberTiles.Length && numberTiles[clues - 1] != null)
+            {
+                groundTilemap.SetTile(pos, numberTiles[clues - 1]);
+            }
+            else
+            {
+                Debug.LogWarning($"Clue is {clues}, but NumberTiles slot {clues - 1} is empty in Inspector!");
+            }
         }
         else
         {
             groundTilemap.SetTile(pos, clearedTile);
-            // Flood fill open safety zones
             foreach (var (nx, ny) in GetNeighbors(x, y))
             {
                 if (!grid[nx, ny].isTrap)
@@ -177,8 +207,6 @@ public class HunterTilemapManager : MonoBehaviour
     private void TriggerGameOver(int hitX, int hitY)
     {
         isGameOver = true;
-
-        // Reveal all forgotten traps
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
@@ -191,8 +219,7 @@ public class HunterTilemapManager : MonoBehaviour
                 }
             }
         }
-
-        Debug.Log($"*CLACK!* Hunter stepped right into a bear trap at ({hitX}, {hitY})!");
+        Debug.Log($"*SNAP!* Stepped on a trap at ({hitX}, {hitY})! Game Over.");
     }
 
     private void CheckWinCondition()
@@ -210,7 +237,7 @@ public class HunterTilemapManager : MonoBehaviour
         if (unrevealedSafeCells == 0)
         {
             isGameOver = true;
-            Debug.Log("Tracked down all forgotten traps safely!");
+            Debug.Log("All traps found! You Win!");
         }
     }
 

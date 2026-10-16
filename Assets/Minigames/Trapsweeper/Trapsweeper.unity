@@ -199,7 +199,7 @@ TilemapRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 2
   m_MaskInteraction: 0
   m_ChunkSize: {x: 32, y: 32, z: 32}
   m_ChunkCullingBounds: {x: 0, y: 0, z: 0}
@@ -463,7 +463,7 @@ TilemapRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_MaskInteraction: 0
   m_ChunkSize: {x: 32, y: 32, z: 32}
   m_ChunkCullingBounds: {x: 0, y: 0, z: 0}
@@ -521,6 +521,7 @@ GameObject:
   - component: {fileID: 1363767810}
   - component: {fileID: 1363767809}
   - component: {fileID: 1363767811}
+  - component: {fileID: 1363767812}
   m_Layer: 0
   m_Name: Grid
   m_TagString: Untagged
@@ -570,17 +571,48 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06aea4799c0fcce4bac519391bb1a265, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HunterTilemapManager
+  cam: {fileID: 0}
   groundTilemap: {fileID: 1654035242}
   coverTilemap: {fileID: 1096620817}
   markerTilemap: {fileID: 462429421}
   coverTile: {fileID: 11400000, guid: e4ed6653d9243c64d90bcc227c2b4767, type: 2}
   clearedTile: {fileID: 11400000, guid: e0a432aeb79ccff448983d3fe1d7bb63, type: 2}
-  flagTile: {fileID: 0}
-  trapTile: {fileID: 0}
-  numberTiles: []
-  width: 10
-  height: 12
-  totalTraps: 15
+  flagTile: {fileID: 11400000, guid: 37cea9c523ea2b44698954399f072226, type: 2}
+  trapTile: {fileID: 11400000, guid: 690af7845721bf04fa620a74223451c1, type: 2}
+  numberTiles:
+  - {fileID: 11400000, guid: 01221ef6ccc76e84b981c90c94c05a45, type: 2}
+  - {fileID: 11400000, guid: 0cb37d6d99258084a8a3cd6b190c17ea, type: 2}
+  - {fileID: 11400000, guid: 6f0cba71898c78545886d60d3f840e10, type: 2}
+  - {fileID: 11400000, guid: 968170844b601044092cd426bf843663, type: 2}
+  - {fileID: 11400000, guid: c1f348fd79701e74cb8860d39d7822ff, type: 2}
+  - {fileID: 11400000, guid: b93a4807f4cfdc04ea8252b48bffbd7b, type: 2}
+  - {fileID: 11400000, guid: cf2dd7c00dde6af4bb750f9d1d86d675, type: 2}
+  - {fileID: 11400000, guid: 19ad6e5e69ec0b044b78b9b92c7a1ea9, type: 2}
+  - {fileID: 11400000, guid: f60be1c1e00ae5a4085a118f7a3ff165, type: 2}
+  width: 20
+  height: 20
+  totalTraps: 70
+--- !u!114 &1363767812
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1363767808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74874583fbd357847bb0d0367504839f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HunterInputController
+  cam: {fileID: 708341818}
+  grid: {fileID: 1363767809}
+  manager: {fileID: 1363767811}
+  longPressTime: 0.3
+  dragThresholdPixels: 15
+  minZoom: 2
+  maxZoom: 15
+  pinchZoomSpeed: 0.015
+  scrollZoomSpeed: 2
 --- !u!1 &1654035239
 GameObject:
   m_ObjectHideFlags: 0
