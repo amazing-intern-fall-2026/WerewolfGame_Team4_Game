@@ -49,9 +49,19 @@ public class LobbyManager : NetworkBehaviour
     [SerializeField]
     private MicToggleSwitch micToggle;
 
+    public static LobbyManager Instance { get; private set; }
+    public static int CurrentPlayerCount => Instance != null && Instance.players != null ? Instance.players.Count : 0;
+
     private void Awake()
     {
+        Instance = this;
         players = new NetworkList<PlayerLobbyData>();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 
     private void Start()
@@ -104,18 +114,7 @@ public class LobbyManager : NetworkBehaviour
             NetworkManager.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
-            AddPlayer(
-                NetworkManager.LocalClientId,
-                "Player " + (NetworkManager.LocalClientId + 1)
-            );
-
-            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
-            {
-                AddPlayer(
-                    clientId,
-                    "Player " + (clientId + 1)
-                );
-            }
+            SyncPlayersWithConnectedClients();
         }
 
         EnsureRoomCodeUI();
@@ -228,7 +227,7 @@ public class LobbyManager : NetworkBehaviour
             "Lobby: Player " + (clientId + 1) + " đã vào Lobby"
         );
 
-        AddPlayer(clientId, "Player " + (clientId + 1));
+        SyncPlayersWithConnectedClients();
     }
 
     private void OnClientDisconnected(ulong clientId)
@@ -240,7 +239,72 @@ public class LobbyManager : NetworkBehaviour
             "Lobby: Player " + (clientId + 1) + " đã rời Lobby"
         );
 
-        RemovePlayer(clientId);
+        SyncPlayersWithConnectedClients();
+    }
+
+    public void SyncPlayersWithConnectedClients()
+    {
+        if (!IsServer || NetworkManager.Singleton == null)
+            return;
+
+        // 1. Loại bỏ các player không còn kết nối thực tế trong ConnectedClientsIds
+        for (int i = players.Count - 1; i >= 0; i--)
+        {
+            ulong cid = players[i].ClientId;
+            bool isStillConnected = false;
+            var connectedList = NetworkManager.Singleton.ConnectedClientsIds;
+            if (connectedList != null)
+            {
+                for (int c = 0; c < connectedList.Count; c++)
+                {
+                    if (connectedList[c] == cid)
+                    {
+                        isStillConnected = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!isStillConnected)
+            {
+                Debug.Log($"LOBBY MANAGER | Xóa player ClientId {cid} khỏi Lobby vì không còn kết nối.");
+                players.RemoveAt(i);
+            }
+        }
+
+        // 2. Thêm các client đang kết nối thực tế mà chưa có trong players
+        foreach (ulong cid in NetworkManager.Singleton.ConnectedClientsIds)
+        {
+            if (FindPlayerIndex(cid) < 0)
+            {
+                string name = NetworkGamePlayerNameSetup.GetName(cid);
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    name = "Player " + (cid + 1);
+                }
+                players.Add(new PlayerLobbyData(cid, name));
+                Debug.Log($"LOBBY MANAGER | Thêm player ClientId {cid} ({name}) vào Lobby.");
+            }
+        }
+
+        // 3. Cập nhật Registry số lượng người chơi chính xác
+        string code = roomCodeNetwork.Value.ToString();
+        if (!string.IsNullOrEmpty(code))
+        {
+            RoomManager.SetPlayerCountInRegistry(code, players.Count);
+        }
+
+        // 4. Đồng bộ vai mặc định nếu Host chưa tùy chỉnh tay
+        if (roleLobbyConfig == null)
+            FindRoleLobbyConfig();
+
+        if (roleLobbyConfig != null)
+        {
+            roleLobbyConfig.InitializeDefaultRolesForPlayerCount(players.Count);
+        }
+
+        UpdatePlayerList();
+        UpdateStartButton();
     }
 
     private void AddPlayer(ulong clientId, string playerName)
@@ -249,7 +313,11 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         players.Add(new PlayerLobbyData(clientId, playerName));
-        RoomManager.UpdatePlayerCountInRegistry(roomCodeNetwork.Value.ToString(), 1);
+        string code = roomCodeNetwork.Value.ToString();
+        if (!string.IsNullOrEmpty(code))
+        {
+            RoomManager.SetPlayerCountInRegistry(code, players.Count);
+        }
 
         Debug.Log(
             "Đã thêm Player "
@@ -265,7 +333,11 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         players.RemoveAt(index);
-        RoomManager.UpdatePlayerCountInRegistry(roomCodeNetwork.Value.ToString(), -1);
+        string code = roomCodeNetwork.Value.ToString();
+        if (!string.IsNullOrEmpty(code))
+        {
+            RoomManager.SetPlayerCountInRegistry(code, players.Count);
+        }
 
         Debug.Log(
             "Đã xóa Player " + (clientId + 1) + " khỏi Lobby."
@@ -345,6 +417,11 @@ public class LobbyManager : NetworkBehaviour
     {
         UpdatePlayerList();
         UpdateStartButton();
+
+        if (NetworkRoleLobbyUI.Instance != null)
+        {
+            NetworkRoleLobbyUI.Instance.RefreshRoleCount();
+        }
     }
 
     private void UpdatePlayerList()
@@ -352,9 +429,10 @@ public class LobbyManager : NetworkBehaviour
         if (playerListText == null)
             return;
 
-        string text = "PLAYERS\n\n";
+        int count = players != null ? players.Count : 0;
+        string text = $"PLAYERS ({count})\n\n";
 
-        for (int i = 0; i < players.Count; i++)
+        for (int i = 0; i < count; i++)
         {
             PlayerLobbyData player = players[i];
 
@@ -375,11 +453,16 @@ public class LobbyManager : NetworkBehaviour
                 + " - "
                 + playerName;
 
-            if (i < players.Count - 1)
+            if (i < count - 1)
                 text += "\n";
         }
 
         playerListText.text = text;
+
+        if (NetworkRoleLobbyUI.Instance != null)
+        {
+            NetworkRoleLobbyUI.Instance.RefreshRoleCount();
+        }
     }
 
     private void UpdateStartButton()

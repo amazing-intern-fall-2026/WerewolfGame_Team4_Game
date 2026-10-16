@@ -14,14 +14,17 @@ public class NetworkTargetCardUI : MonoBehaviour
     private Button cardButton;
 
     private int playerID;
+    private int subActionId;
 
     public void Setup(
         int id,
         string playerName,
-        bool isAlive
+        bool isAlive,
+        int subAction = 0
     )
     {
         playerID = id;
+        subActionId = subAction;
 
         if (playerNameText != null)
         {
@@ -55,7 +58,8 @@ public class NetworkTargetCardUI : MonoBehaviour
                 continue;
 
             action.RequestActionServerRpc(
-                (ulong)playerID
+                (ulong)playerID,
+                subActionId
             );
 
             return;
