@@ -398,6 +398,7 @@ namespace Thuong.Online
             ResetEndgamePresentation();
             if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
             if (scopedWinManager != null) scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
+            RestoreOtherGameOverManager();
             try
             {
                 if (relaySession != null)
@@ -1465,6 +1466,7 @@ namespace Thuong.Online
         {
             if (Active == this) Active = null;
             if (scopedWinManager != null) scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
+            RestoreOtherGameOverManager();
             if (endgameCanvas != null) Destroy(endgameCanvas.gameObject);
             if (observedVoteManager != null) observedVoteManager.VoteResolved -= HandleVoteResolved;
             if (observedNetworkAbilities != null) observedNetworkAbilities.AbilityResolved -= HandleNetworkAbilityResolved;

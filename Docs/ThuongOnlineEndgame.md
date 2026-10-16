@@ -6,6 +6,8 @@ Chỉ kích hoạt khi `ThuongOnlineSession` gắn bộ xét luật vào `GameRo
 
 Không sửa script role trong `Assets/Scripts/Nhat`, hệ thống mạng trong `Assets/Scripts/Loi`, scene / prefab, hoặc asset UI dùng chung. Các scene không gắn bộ xét mới tiếp tục chạy nguyên luật và bảng kết quả cũ, kể cả prototype offline của Thương.
 
+Khi tích hợp main mới có `NetworkGameOverManager` tự khởi tạo toàn cục, session Thương tạm tắt manager đó trước Start để tránh xét luật khác hoặc chồng hai màn hình kết quả. Trạng thái bật được khôi phục khi rời scene / hủy runtime. Lớp tương thích chỉ nằm trong mã Thương; source của manager bên Lợi giữ nguyên so với main.
+
 ## Luật mặc định và thứ tự ưu tiên
 
 Server xét sau toàn bộ xử lý đêm, vote + bẫy + hiệu ứng, khi chuyển ngày / đêm / vote và trong LateUpdate sau nhiệm vụ, kỹ năng, chuyển phe hoặc chết dây chuyền ngoài thời gian thu thập hành động đêm. Khi đêm đang nhận hành động, đợi giải quyết hết đòn đánh và hiệu ứng rồi mới xét (Hồ Ly không thắng sớm trước đòn đánh đang chờ có thể giết mình). Không kết luận ở giữa callback chết. Chỉ có một kết quả cố định cho mỗi ván.

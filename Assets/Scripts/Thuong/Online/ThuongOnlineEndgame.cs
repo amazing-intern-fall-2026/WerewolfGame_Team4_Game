@@ -13,6 +13,8 @@ namespace Thuong.Online
         private WinConditionManager scopedWinManager;
         private ThuongMatchResult matchResult;
         private int matchMaxDay = 7;
+        private NetworkGameOverManager suspendedGameOverManager;
+        private bool restoreGameOverManager;
 
         public string LocalWinObjective
         {
@@ -64,6 +66,20 @@ namespace Thuong.Online
             scopedWinManager = FindObjectsByType<WinConditionManager>(FindObjectsInactive.Include)
                 .FirstOrDefault(manager => manager.gameObject.scene == game.gameObject.scene);
             scopedWinManager?.InstallMatchEvaluator(game, EvaluateOnlineWin);
+            // main's legacy manager auto-installs globally and evaluates its own
+            // rules. Suspend it before Start while this scene owns the match.
+            suspendedGameOverManager = NetworkGameOverManager.Instance;
+            restoreGameOverManager = suspendedGameOverManager.enabled;
+            suspendedGameOverManager.enabled = false;
+            suspendedGameOverManager.ResetUIState();
+        }
+
+        private void RestoreOtherGameOverManager()
+        {
+            if (suspendedGameOverManager != null && restoreGameOverManager)
+                suspendedGameOverManager.enabled = true;
+            suspendedGameOverManager = null;
+            restoreGameOverManager = false;
         }
 
         private void LateUpdate()
