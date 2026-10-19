@@ -14,6 +14,35 @@ public class NetworkTargetListUI : MonoBehaviour
     [SerializeField]
     private Transform cardContainer;
 
+    [SerializeField]
+    private UnityEngine.UI.Button closeButton;
+
+    [SerializeField]
+    private UnityEngine.UI.Button hudPlayerListButton;
+
+    private void Start()
+    {
+        if (closeButton != null)
+        {
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(CloseTargetList);
+        }
+
+        if (hudPlayerListButton != null)
+        {
+            hudPlayerListButton.onClick.RemoveAllListeners();
+            hudPlayerListButton.onClick.AddListener(() => ShowTargetList(-1));
+        }
+    }
+
+    public void CloseTargetList()
+    {
+        if (targetPanel != null)
+        {
+            targetPanel.SetActive(false);
+        }
+    }
+
     private void OnEnable()
     {
         NetworkPlayerNameSync.OnAnyPlayerNameChanged +=
@@ -126,7 +155,7 @@ public class NetworkTargetListUI : MonoBehaviour
             currentSubActionId == 1;
 
         bool allowSelfTarget =
-            isGuardian || isShamanSave;
+            isGuardian || isShamanSave || currentSubActionId < 0;
 
         Debug.Log(
             "TARGET LIST: Local Role = "
