@@ -1,9 +1,10 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
-public class NetworkRoleCardUI : MonoBehaviour
+public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
 {
     [Serializable]
     private class RoleImageEntry
@@ -37,11 +38,44 @@ public class NetworkRoleCardUI : MonoBehaviour
 
     private void Start()
     {
+        Button btn = GetComponent<Button>();
+        if (btn == null)
+        {
+            btn = gameObject.AddComponent<Button>();
+        }
+        if (btn != null)
+        {
+            btn.interactable = true;
+            if (btn.targetGraphic == null)
+            {
+                btn.targetGraphic = GetComponent<Image>();
+            }
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(OnRoleCardClicked);
+        }
+
+        if (roleText != null) roleText.raycastTarget = false;
+        if (roleImage != null) roleImage.raycastTarget = false;
+
         if (NetworkRoleSync.LocalInstance != null)
         {
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
+        }
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        OnRoleCardClicked();
+    }
+
+    private void OnRoleCardClicked()
+    {
+        Debug.Log("[ROLE CARD] RolePanel clicked -> Mở thông tin Role chi tiết!");
+        if (NetworkRoleDetailUI.Instance != null)
+        {
+            NetworkRoleDetailUI.Instance.ShowForLocalPlayer();
         }
     }
 
@@ -89,61 +123,6 @@ public class NetworkRoleCardUI : MonoBehaviour
 
     private string GetRoleName(RoleType role)
     {
-        switch (role)
-        {
-            case RoleType.Villager:
-                return "VILLAGER";
-
-            case RoleType.DogSpirit:
-                return "DOG SPIRIT";
-
-            case RoleType.Seer:
-                return "SEER";
-
-            case RoleType.VillageGuardian:
-                return "VILLAGE GUARDIAN";
-
-            case RoleType.Mayor:
-                return "MAYOR";
-
-            case RoleType.Idiot:
-                return "IDIOT";
-
-            case RoleType.WhiteHound:
-                return "WHITE HOUND";
-
-            case RoleType.SerpentSpirit:
-                return "SERPENT SPIRIT";
-
-            case RoleType.Ogre:
-                return "OGRE";
-
-            case RoleType.Hunter:
-                return "HUNTER";
-
-            case RoleType.Shaman:
-                return "SHAMAN";
-
-            case RoleType.WeaverOfFate:
-                return "WEAVER OF FATE";
-
-            case RoleType.Cursed:
-                return "CURSED";
-
-            case RoleType.Brat:
-                return "BRAT";
-
-            case RoleType.Madman:
-                return "MADMAN";
-
-            case RoleType.FoxSpirit:
-                return "FOX SPIRIT";
-
-            case RoleType.Killer:
-                return "KILLER";
-
-            default:
-                return role.ToString();
-        }
+        return RoleInfoDatabase.GetLocalizedRoleName(role).ToUpper();
     }
 }
