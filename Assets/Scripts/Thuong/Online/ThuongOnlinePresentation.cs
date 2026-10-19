@@ -246,6 +246,10 @@ namespace Thuong.Online
 
         public void RefreshHud(GameHUD hud)
         {
+            // Close a task modal before any phase or personal-result UI becomes visible.
+            if (localMinigame != null && (visibleState != GameState.Day || matchResult != null ||
+                visibleDay != localMinigame.day || publicPlayers.Any(player => player.PlayerId == localPlayerId && !player.Alive)))
+                CloseLocalMinigame();
             SetGameplayHudVisible(matchStarted);
             RefreshEndgamePresentation();
             if (!matchStarted) return;

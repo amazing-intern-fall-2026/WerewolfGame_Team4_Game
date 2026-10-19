@@ -113,6 +113,7 @@ namespace Thuong.Online
                 tasks != null ? tasks.progress : 0, scopedWinManager.MaxDay, dayFinished);
             if (matchResult == null) return;
 
+            ResetMinigames();
             foreach (var member in serverPlayers.Values) member.Input = Vector2.zero;
             game.FinishEvaluatedMatch(matchResult.WinnerId);
             status = "Ván chơi đã kết thúc. Xem kết quả thắng / thua của bạn.";

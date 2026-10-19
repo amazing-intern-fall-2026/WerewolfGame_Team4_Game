@@ -1,0 +1,141 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96f9f0e9120ba524daf471a58f9e0af8, type: 3}
+  m_Name: ThuongMinigameCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::Thuong.Minigames.ThuongMinigameCatalog
+  schemaVersion: 1
+  entries:
+  - taskId: thuong.task.wood
+    task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
+    kind: 0
+    instructions: "Nh\u1EA5n v\xE0o khung khi kh\xFAc g\u1ED7 \u0111\u1EBFn v\u1EA1ch v\xE0ng. Ch\u1EB7t \u0111\xFAng 5 kh\xFAc; t\u1ED1i \u0111a 2 l\u1EA7n tr\u01B0\u1EE3t."
+    rules:
+      target: 5
+      allowedMistakes: 2
+      duration: 18
+      minimumDayRemaining: 12
+      interval: 1.8
+      timingWindow: 0.4
+      boardWidth: 5
+      traps: 3
+    viewPrefab: {fileID: 876569577010035463, guid: 08ad2a7e95f09044da2fa929fdb32ebd, type: 3}
+    background: {fileID: -44259460, guid: 5fe5454ec8605de43809133b020d1b69, type: 3}
+    subject: {fileID: 109800182, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
+    tool: {fileID: 0}
+    obstacle: {fileID: 0}
+  - taskId: thuong.task.harvest
+    task: {fileID: 11400000, guid: 1cdc42f9ab30ef640be91e670d03a1fb, type: 2}
+    kind: 1
+    instructions: "Nh\u1EA5n v\xE0o khung khi l\xFAa \u0111\u1EBFn v\u1EA1ch v\xE0ng. Thu \u0111\u1EE7 8 b\xF3, b\u1ECF qua ch\u01B0\u1EDBng ng\u1EA1i m\xE0u \u0111\u1ECF; t\u1ED1i \u0111a 1 l\u1EA7n tr\u01B0\u1EE3t."
+    rules:
+      target: 8
+      allowedMistakes: 1
+      duration: 23
+      minimumDayRemaining: 18
+      interval: 1.5
+      timingWindow: 0.4
+      boardWidth: 5
+      traps: 3
+    viewPrefab: {fileID: 6330662794204646646, guid: 594634c2c1fd7864797d1499733203cc, type: 3}
+    background: {fileID: 21300000, guid: 5f2ea1cc99a964944b30708c532a74e0, type: 3}
+    subject: {fileID: 21300144, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
+    tool: {fileID: 0}
+    obstacle: {fileID: 109800182, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
+  - taskId: thuong.task.eggs
+    task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
+    kind: 2
+    instructions: "Di chuy\u1EC3n chu\u1ED9t ho\u1EB7c k\xE9o trong khung \u0111\u1EC3 \u0111\u01B0a gi\u1ECF d\u01B0\u1EDBi tr\u1EE9ng. H\u1EE9ng 10 qu\u1EA3; t\u1ED1i \u0111a 2 l\u1EA7n r\u01A1i."
+    rules:
+      target: 10
+      allowedMistakes: 2
+      duration: 25
+      minimumDayRemaining: 18
+      interval: 1.6
+      timingWindow: 0.4
+      boardWidth: 5
+      traps: 3
+    viewPrefab: {fileID: 4354787232694715389, guid: 1f1f6eebac1e7b244b32544e90a9bd40, type: 3}
+    background: {fileID: 0}
+    subject: {fileID: 21300256, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
+    tool: {fileID: 7997016757595137417, guid: d0ff2a9e3814e1b4089a2ef039b3bc5f, type: 3}
+    obstacle: {fileID: 0}
+  - taskId: thuong.task.potion
+    task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
+    kind: 3
+    instructions: "Ch\u1ECDn 3 nguy\xEAn li\u1EC7u theo lo\u1EA1i thu\u1ED1c \u0111\u01B0\u1EE3c giao."
+    rules:
+      target: 3
+      allowedMistakes: 0
+      duration: 22
+      minimumDayRemaining: 8
+      interval: 1.5
+      timingWindow: 0.4
+      boardWidth: 5
+      traps: 3
+    viewPrefab: {fileID: 5955728450878236409, guid: b6ba65b614eaaf74785a25a26791b9e0, type: 3}
+    background: {fileID: 0}
+    subject: {fileID: 21300000, guid: 204a5fc087a510c478ae6549f31ccca1, type: 3}
+    tool: {fileID: 0}
+    obstacle: {fileID: 0}
+  - taskId: thuong.task.defender
+    task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
+    kind: 4
+    instructions: "Di chuy\u1EC3n chu\u1ED9t ho\u1EB7c k\xE9o quanh t\xE2m \u0111\u1EC3 xoay khi\xEAn. Ch\u1EB7n 10 \u0111\u1EE3t; \u0111\u01B0\u1EE3c tr\xFAng t\u1ED1i \u0111a 2 \u0111\xF2n."
+    rules:
+      target: 10
+      allowedMistakes: 2
+      duration: 25
+      minimumDayRemaining: 18
+      interval: 1.6
+      timingWindow: 0.4
+      boardWidth: 5
+      traps: 3
+    viewPrefab: {fileID: 8618656458610225600, guid: 143b83398a01f9f41929efea53306bd2, type: 3}
+    background: {fileID: 0}
+    subject: {fileID: 21300156, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
+    tool: {fileID: 21300000, guid: 4027acdb180c349b7a270045251c7b27, type: 3}
+    obstacle: {fileID: 0}
+  - taskId: thuong.task.traps
+    task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
+    kind: 5
+    instructions: "M\u1EDF 22 \xF4 an to\xE0n tr\xEAn b\xE0n 5\xD75 c\xF3 3 b\u1EABy. L\u1EA7n m\u1EDF \u0111\u1EA7u an to\xE0n. Chu\u1ED9t ph\u1EA3i ho\u1EB7c b\u1EADt C\u1EAFm c\u1EDD cho c\u1EA3m \u1EE9ng."
+    rules:
+      target: 22
+      allowedMistakes: 0
+      duration: 40
+      minimumDayRemaining: 15
+      interval: 1.5
+      timingWindow: 0.4
+      boardWidth: 5
+      traps: 3
+    viewPrefab: {fileID: 731785989773023131, guid: 919a776f5cd8870428856f58e1324738, type: 3}
+    background: {fileID: 0}
+    subject: {fileID: 0}
+    tool: {fileID: 0}
+    obstacle: {fileID: 0}
+  additionalStations:
+  - task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
+    position: {x: -7, y: 3}
+  - task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
+    position: {x: 6, y: 5}
+  - task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
+    position: {x: 8, y: -4}
+  - task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
+    position: {x: -6, y: -5}
+  stationPrefab: {fileID: 4248278775423850136, guid: e43143587cc774f40ae9263de27adc53, type: 3}
+  ingredients:
+  - {fileID: 11400000, guid: 11d6e7c2d0971d84ab58e78f55cafda0, type: 2}
+  - {fileID: 11400000, guid: ccdf3e37bc56151499829b16e21605da, type: 2}
+  - {fileID: 11400000, guid: 8f27bcb2cc10fdd468111b0d6cd76a03, type: 2}
+  trapCover: {fileID: 1561205615984820651, guid: dc747d0a3cdf6594f9f275fdd2a48b4b, type: 3}
+  trapFlag: {fileID: 2730825291635158166, guid: e4ab770e29421054d8d462d19fe9e9e9, type: 3}
+  trapCleared: {fileID: 7477827516038983822, guid: dc747d0a3cdf6594f9f275fdd2a48b4b, type: 3}

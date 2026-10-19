@@ -125,6 +125,7 @@ namespace Thuong.Online
                 test.enabled = false;
             PreparePresentation();
             PrepareOnlineWinRules();
+            PrepareMinigames();
 
             stations = FindObjectsByType<TaskStation>()
                 .OrderBy(station => station.task != null ? station.task.name : string.Empty)
@@ -152,6 +153,7 @@ namespace Thuong.Online
         {
             RefreshLobbyView();
             UpdateAvatars();
+            UpdateMinigames();
             if (!connected || network == null || !network.IsListening) return;
 
             if (network.IsServer)
@@ -182,7 +184,7 @@ namespace Thuong.Online
 
         private Vector2 ReadMovementInput()
         {
-            if (Keyboard.current == null || visibleState != GameState.Day) return Vector2.zero;
+            if (Keyboard.current == null || visibleState != GameState.Day || IsPlayingTask) return Vector2.zero;
             float x = 0f;
             float y = 0f;
             if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) x -= 1f;
@@ -220,7 +222,7 @@ namespace Thuong.Online
             foreach (ThuongOnlineServerPlayer member in serverPlayers.Values)
             {
                 PlayerData player = players?.GetplayerByID(member.PlayerId);
-                Vector2 input = canMove && player != null && player.isAlive &&
+                Vector2 input = canMove && !minigameAuthority.IsPlaying(member.ClientId) && player != null && player.isAlive &&
                                 Time.unscaledTime - member.LastInputTime <= 0.35f
                     ? member.Input : Vector2.zero;
                 Vector2 next = member.Position + Vector2.ClampMagnitude(input, 1f) * MoveSpeed * delta;
@@ -314,6 +316,7 @@ namespace Thuong.Online
 
         private void HandleClientDisconnected(ulong clientId)
         {
+            ResetMinigames();
             if (network.IsServer && serverPlayers.Remove(clientId))
             {
                 rosterDirty = true;
@@ -341,6 +344,7 @@ namespace Thuong.Online
 
         private void HandleNetworkStopped(bool _)
         {
+            ResetMinigames();
             UnregisterMessageHandlers();
             connected = false;
             busy = false;
@@ -369,6 +373,7 @@ namespace Thuong.Online
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.Roster, ReceiveRoster);
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.Snapshot, ReceiveSnapshot);
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.PrivateState, ReceivePrivateState);
+            RegisterMinigameMessages();
         }
 
         private void UnregisterMessageHandlers()
@@ -377,6 +382,7 @@ namespace Thuong.Online
             var messaging = network != null ? network.CustomMessagingManager : null;
             if (messaging != null)
             {
+                UnregisterMinigameMessages();
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Hello);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Ready);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Input);
@@ -394,6 +400,7 @@ namespace Thuong.Online
             // Stop this scene's overlays and hooks before an asynchronous Relay
             // leave, so a newly loaded scene immediately uses its own gameplay.
             enabled = false;
+            ResetMinigames();
             if (Active == this) Active = null;
             ResetEndgamePresentation();
             if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
@@ -903,7 +910,7 @@ namespace Thuong.Online
 
         private void RequestNearestTask()
         {
-            if (localPlayerId < 0 || visibleState != GameState.Day ||
+            if (IsPlayingTask || localPlayerId < 0 || visibleState != GameState.Day ||
                 !avatars.TryGetValue(localPlayerId, out ThuongOnlineAvatar avatar)) return;
             int best = -1;
             float bestDistance = float.MaxValue;
@@ -919,7 +926,7 @@ namespace Thuong.Online
                 status = "Không có nhiệm vụ khả dụng ở gần.";
                 return;
             }
-            SendAction(ThuongOnlineAction.CompleteTask, best);
+            RequestTaskMinigame(best);
         }
 
         private void SendAction(ThuongOnlineAction action, int argument, int secondArgument = -1)
@@ -1022,6 +1029,8 @@ namespace Thuong.Online
             if (stationId < 0 || stationId >= stations.Length || stationId >= 16 || tasks == null)
             { feedback = "Trạm nhiệm vụ không hợp lệ."; return false; }
             TaskStation station = stations[stationId];
+            if (!minigamesReady || minigameCatalog.Find(station.task) != null || minigameAuthority.IsPlaying(member.ClientId))
+            { feedback = "Nhiệm vụ này yêu cầu hoàn thành minigame trước."; return false; }
             if (!actor.isAlive || game == null || game.currentState != GameState.Day)
             { feedback = "Chỉ người còn sống mới làm nhiệm vụ ban ngày."; return false; }
             if (Vector2.Distance(member.Position, station.transform.position) > station.interactionRadius + 0.25f)
@@ -1268,6 +1277,7 @@ namespace Thuong.Online
         private async void LeaveSession()
         {
             if (busy) return;
+            ResetMinigames();
             busy = true;
             status = "Đang rời phòng...";
             try
@@ -1294,6 +1304,7 @@ namespace Thuong.Online
 
         private void ClearClientState()
         {
+            ResetMinigames();
             lobby.Clear();
             publicPlayers.Clear();
             serverPlayers.Clear();
@@ -1464,6 +1475,7 @@ namespace Thuong.Online
 
         private void OnDestroy()
         {
+            ResetMinigames();
             if (Active == this) Active = null;
             if (scopedWinManager != null) scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
             RestoreOtherGameOverManager();
