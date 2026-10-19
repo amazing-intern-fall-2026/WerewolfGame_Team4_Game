@@ -27,11 +27,13 @@ namespace Thuong.Minigames
             context = value; catalog = value.catalog; font = value.font;
             fallbackTexture = new Texture2D(1, 1); fallbackTexture.SetPixel(0, 0, Color.white); fallbackTexture.Apply();
             fallback = Sprite.Create(fallbackTexture, new Rect(0, 0, 1, 1), new Vector2(.5f, .5f), 1);
-            if (context.entry.background != null) AddSprite("Background", context.entry.background, Vector2.zero, new Vector2(16, 9), -10);
+            if (context.entry.background != null) AddSprite("Background", context.entry.background, Vector2.zero, new Vector2(16, 9), -10, false);
             subject = AddSprite("Subject", context.entry.subject, Vector2.zero, new Vector2(1.6f, 1.6f), 2);
             tool = AddSprite("Tool", context.entry.tool, new Vector2(0, -2.5f), new Vector2(2, 1), 3);
             tool.enabled = context.entry.tool != null;
             marker = AddSprite("Target", null, Vector2.zero, new Vector2(.12f, 6), 1); marker.color = new Color(1, .85f, .2f, .6f);
+            if (context.entry.kind == ThuongMinigameKind.Defender)
+                AddSprite("Protected villager", context.entry.obstacle, Vector2.zero, new Vector2(1, 1.4f), 1);
             if (context.entry.kind == ThuongMinigameKind.Trapsweeper)
             {
                 subject.enabled = tool.enabled = marker.enabled = false;
@@ -132,13 +134,15 @@ namespace Thuong.Minigames
             }
         }
         private static Vector2 CellPosition(int index, int width) => new((index % width - (width - 1) / 2f) * 1.1f, (index / width - (width - 1) / 2f) * 1.1f);
-        private SpriteRenderer AddSprite(string name, Sprite sprite, Vector2 position, Vector2 size, int order)
+        private SpriteRenderer AddSprite(string name, Sprite sprite, Vector2 position, Vector2 size, int order, bool preserveAspect = true)
         {
             var child = new GameObject(name, typeof(SpriteRenderer)); child.transform.SetParent(transform, false); child.transform.localPosition = position;
             var renderer = child.GetComponent<SpriteRenderer>(); renderer.sprite = sprite != null ? sprite : fallback;
             if (spriteMaterial != null) renderer.sharedMaterial = spriteMaterial;
             var bounds = renderer.sprite.bounds.size;
-            child.transform.localScale = new Vector3(size.x / Mathf.Max(.01f, bounds.x), size.y / Mathf.Max(.01f, bounds.y), 1);
+            float scaleX = size.x / Mathf.Max(.01f, bounds.x), scaleY = size.y / Mathf.Max(.01f, bounds.y);
+            if (sprite != null && preserveAspect) scaleX = scaleY = Mathf.Min(scaleX, scaleY);
+            child.transform.localScale = new Vector3(scaleX, scaleY, 1);
             renderer.sortingOrder = order; return renderer;
         }
         public void Cancel() { running = false; StopAllCoroutines(); }

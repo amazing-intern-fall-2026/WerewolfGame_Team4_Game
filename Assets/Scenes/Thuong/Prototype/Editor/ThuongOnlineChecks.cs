@@ -168,6 +168,19 @@ public static class ThuongOnlineChecks
                     NormalizeRoles();
                     Invoke(session, "SendPrivateState", 0UL, "PRIVATE_HOST_ONLY");
                     Require(session.Feedback == "PRIVATE_HOST_ONLY" && Field<string>(session, "status") != "PRIVATE_HOST_ONLY", "Private ability feedback never enters the public snapshot status");
+                    if (ThuongMinigameOnlineChecks.Enabled)
+                    {
+                        ThuongMinigameOnlineChecks.Begin(session, peers.Select(peer => peer.Network).ToArray());
+                        stage = 50;
+                        break;
+                    }
+                    stage = 51;
+                    goto case 51;
+                case 50:
+                    if (!ThuongMinigameOnlineChecks.Tick()) return;
+                    stage = 51;
+                    goto case 51;
+                case 51:
                     GameRoleManager.Instance.EndDay();
                     GameRoleManager.Instance.FinishNight();
                     GameRoleManager.Instance.StartVoting();

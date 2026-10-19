@@ -24,6 +24,12 @@ namespace Thuong.Online
         private readonly HashSet<ulong> dismissedAttempts = new();
         public bool IsPlayingTask => localMinigame != null || minigamePendingUntil > MinigameTime;
         private double MinigameTime => network != null && network.IsListening ? network.ServerTime.Time : Time.unscaledTimeAsDouble;
+        private bool LocalMinigameInvalid => localMinigame != null &&
+            (!connected || !matchStarted || visibleState != GameState.Day || visibleDay != localMinigame.day || matchResult != null ||
+             localMinigame.stationId < 0 || localMinigame.stationId >= 16 ||
+             (activeTaskMask & (1 << localMinigame.stationId)) == 0 ||
+             localMinigame.result != ThuongMinigameResult.Succeeded && (completedTaskMask & (1 << localMinigame.stationId)) != 0 ||
+             publicPlayers.Any(player => player.PlayerId == localPlayerId && !player.Alive));
 
         private void PrepareMinigames()
         {
@@ -185,9 +191,7 @@ namespace Thuong.Online
 
         private void UpdateMinigames()
         {
-            if (localMinigame != null && (!connected || !matchStarted || visibleState != GameState.Day ||
-                visibleDay != localMinigame.day || matchResult != null ||
-                publicPlayers.Any(player => player.PlayerId == localPlayerId && !player.Alive))) CloseLocalMinigame();
+            if (LocalMinigameInvalid) CloseLocalMinigame();
             if (network == null || !network.IsServer || !network.IsListening) return;
             foreach (ulong owner in minigameAuthority.Owners())
             {

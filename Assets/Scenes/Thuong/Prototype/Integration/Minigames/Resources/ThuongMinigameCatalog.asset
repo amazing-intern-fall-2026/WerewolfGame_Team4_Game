@@ -65,7 +65,7 @@ MonoBehaviour:
       traps: 3
     viewPrefab: {fileID: 4354787232694715389, guid: 1f1f6eebac1e7b244b32544e90a9bd40, type: 3}
     background: {fileID: 0}
-    subject: {fileID: 21300256, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
+    subject: {fileID: 21300228, guid: 2700e06d970d112489ff23cfb58c3f78, type: 3}
     tool: {fileID: 7997016757595137417, guid: d0ff2a9e3814e1b4089a2ef039b3bc5f, type: 3}
     obstacle: {fileID: 0}
   - taskId: thuong.task.potion
@@ -103,7 +103,7 @@ MonoBehaviour:
     background: {fileID: 0}
     subject: {fileID: 21300156, guid: 7810966f0f690954c87305933cabf2b0, type: 3}
     tool: {fileID: 21300000, guid: 4027acdb180c349b7a270045251c7b27, type: 3}
-    obstacle: {fileID: 0}
+    obstacle: {fileID: 5084661014962647745, guid: 2f90eb840bd0cf4438d49759bc08d718, type: 3}
   - taskId: thuong.task.traps
     task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
     kind: 5
