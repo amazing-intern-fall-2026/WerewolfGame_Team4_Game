@@ -114,6 +114,15 @@ public class SpeakerToggleSwitch : MonoBehaviour, IPointerClickHandler, IBeginDr
                 UpdateVisualsInstant(isOn);
             }
         }
+        else
+        {
+            // Mặc định loa luôn BẬT để nghe người khác
+            if (!isOn)
+            {
+                isOn = true;
+                UpdateVisualsInstant(true);
+            }
+        }
     }
 
     private void OnVoiceOutputMuteChanged(bool isMuted)
