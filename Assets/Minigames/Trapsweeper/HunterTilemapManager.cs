@@ -49,29 +49,34 @@ public class HunterTilemapManager : MonoBehaviour
         firstTap = true;
         isGameOver = false;
 
-        groundTilemap.ClearAllTiles();
-        coverTilemap.ClearAllTiles();
-        markerTilemap.ClearAllTiles();
+        // Batch-fill the entire board in 1 call instead of hundreds of SetTile calls
+        BoundsInt bounds = new BoundsInt(0, 0, 0, width, height, 1);
+        int totalCells = width * height;
 
-        for (int x = 0; x < width; x++)
+        TileBase[] coverBlock = new TileBase[totalCells];
+        TileBase[] groundBlock = new TileBase[totalCells];
+        TileBase[] emptyBlock = new TileBase[totalCells];
+
+        for (int i = 0; i < totalCells; i++)
         {
-            for (int y = 0; y < height; y++)
-            {
-                Vector3Int pos = new Vector3Int(x, y, 0);
-                coverTilemap.SetTile(pos, coverTile);
-                groundTilemap.SetTile(pos, clearedTile);
-            }
+            coverBlock[i] = coverTile;
+            groundBlock[i] = clearedTile;
+            emptyBlock[i] = null;
         }
+
+        groundTilemap.SetTilesBlock(bounds, groundBlock);
+        coverTilemap.SetTilesBlock(bounds, coverBlock);
+        markerTilemap.SetTilesBlock(bounds, emptyBlock);
     }
 
     private void CenterEverything()
     {
-        // 1. Shift the Grid GameObject itself so its center is at (0, 0, 0)
-        // We use transform.root or groundTilemap.layoutGrid.transform so it works no matter where the script is attached!
-        Transform gridTransform = groundTilemap.layoutGrid.transform;
-        gridTransform.position = new Vector3(-width * 0.5f, -height * 0.5f, 0f);
+        if (groundTilemap != null && groundTilemap.layoutGrid != null)
+        {
+            Transform gridTransform = groundTilemap.layoutGrid.transform;
+            gridTransform.position = new Vector3(-width * 0.5f, -height * 0.5f, 0f);
+        }
 
-        // 2. Put Camera at (0, 0, -10) and zoom to fit the whole board
         if (cam != null)
         {
             cam.transform.position = new Vector3(0f, 0f, -10f);
@@ -119,18 +124,7 @@ public class HunterTilemapManager : MonoBehaviour
         if (grid[x, y].isRevealed) return;
 
         grid[x, y].isFlagged = !grid[x, y].isFlagged;
-
-        if (grid[x, y].isFlagged)
-        {
-            markerTilemap.SetTile(cellPos, flagTile);
-#if UNITY_ANDROID || UNITY_IOS
-            Handheld.Vibrate();
-#endif
-        }
-        else
-        {
-            markerTilemap.SetTile(cellPos, null);
-        }
+        markerTilemap.SetTile(cellPos, grid[x, y].isFlagged ? flagTile : null);
     }
 
     private void PlantTraps(int safeX, int safeY)
@@ -185,10 +179,6 @@ public class HunterTilemapManager : MonoBehaviour
             if (numberTiles != null && clues <= numberTiles.Length && numberTiles[clues - 1] != null)
             {
                 groundTilemap.SetTile(pos, numberTiles[clues - 1]);
-            }
-            else
-            {
-                Debug.LogWarning($"Clue is {clues}, but NumberTiles slot {clues - 1} is empty in Inspector!");
             }
         }
         else
