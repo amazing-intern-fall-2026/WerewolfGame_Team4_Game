@@ -578,7 +578,9 @@ MonoBehaviour:
   coverTile: {fileID: 11400000, guid: e4ed6653d9243c64d90bcc227c2b4767, type: 2}
   clearedTile: {fileID: 11400000, guid: e0a432aeb79ccff448983d3fe1d7bb63, type: 2}
   flagTile: {fileID: 11400000, guid: 37cea9c523ea2b44698954399f072226, type: 2}
-  trapTile: {fileID: 11400000, guid: 690af7845721bf04fa620a74223451c1, type: 2}
+  spikeFlagTile: {fileID: 11400000, guid: d01243a9faa8aa14882a4c0affaa5765, type: 2}
+  bearTrapTile: {fileID: 11400000, guid: 690af7845721bf04fa620a74223451c1, type: 2}
+  spikePitTile: {fileID: 11400000, guid: ba48604fc147f7c4c8e5c80175b322bb, type: 2}
   numberTiles:
   - {fileID: 11400000, guid: 01221ef6ccc76e84b981c90c94c05a45, type: 2}
   - {fileID: 11400000, guid: 0cb37d6d99258084a8a3cd6b190c17ea, type: 2}
@@ -591,7 +593,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f60be1c1e00ae5a4085a118f7a3ff165, type: 2}
   width: 20
   height: 20
-  totalTraps: 70
+  bearTrapCount: 50
+  spikePitCount: 3
+  spikeClueTint: {r: 1, g: 0.55, b: 0.2, a: 1}
 --- !u!114 &1363767812
 MonoBehaviour:
   m_ObjectHideFlags: 0
