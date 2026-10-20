@@ -15,7 +15,7 @@ public class HunterTilemapManager : MonoBehaviour
     [SerializeField] private TileBase clearedTile;
     [SerializeField] private TileBase flagTile;
     [SerializeField] private TileBase trapTile;
-    [SerializeField] private TileBase[] numberTiles; // 8 tiles (1 to 8)
+    [SerializeField] private TileBase[] numberTiles; // Assign 8 tiles (1 to 8)
 
     [Header("Board Config")]
     [SerializeField] private int width = 10;

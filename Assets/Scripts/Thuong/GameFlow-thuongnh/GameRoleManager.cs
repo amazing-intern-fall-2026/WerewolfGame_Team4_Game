@@ -134,7 +134,9 @@ public class GameRoleManager : MonoBehaviour
             case GamePhase.Setup: currentState = GameState.RoleReveal; break;
             case GamePhase.DayResolution: currentState = GameState.VotingResult; break;
         }
-        if (HasIntegratedLogic && previous != phase)
+        bool finalOnlinePhase = phase == GamePhase.GameOver && WinConditionManager.Instance != null &&
+            WinConditionManager.Instance.HasMatchEvaluator(this);
+        if (HasIntegratedLogic && previous != phase && !finalOnlinePhase)
         {
             bool wasResolving = resolving;
             resolving = true;
@@ -161,7 +163,8 @@ public class GameRoleManager : MonoBehaviour
         // Chỉ kiểm tra/log lịch đã tạo, tuyệt đối không random ở đây.
         if (EventManager.Instance != null)
             EventManager.Instance.NotifyDayStarted(currentDay);
-        if (HasIntegratedLogic) WinConditionManager.Instance.CheckWinCondition();
+        if (HasIntegratedLogic || WinConditionManager.Instance.HasMatchEvaluator(this))
+            WinConditionManager.Instance.CheckWinCondition();
     }
     public void SkipRoleReveal()
     {
@@ -177,6 +180,8 @@ public class GameRoleManager : MonoBehaviour
         SetPhase(GamePhase.Night);
         NightManager.Instance.StartNight();
         PhaseTimeRemaining = nightDuration;
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this))
+            WinConditionManager.Instance.CheckWinCondition();
     }
     public void StartVoting()
     {
@@ -185,6 +190,8 @@ public class GameRoleManager : MonoBehaviour
         RoleManager.Instance?.NotifyVoteStart();
         VoteManager.Instance.StartVote();
         PhaseTimeRemaining = votingDuration;
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this))
+            WinConditionManager.Instance.CheckWinCondition();
     }
     public void FinishVoting()
     {
@@ -222,6 +229,8 @@ public class GameRoleManager : MonoBehaviour
     }
     private void HandleDeath(DeathResult result)
     {
+        // Online evaluates standalone deaths in LateUpdate, after all chained deaths.
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
         if (started && HasIntegratedLogic && !resolving && result.Outcome == DeathOutcome.Killed)
             WinConditionManager.Instance.CheckWinCondition();
     }
@@ -251,10 +260,34 @@ public class GameRoleManager : MonoBehaviour
         currentPhase = GamePhase.Setup;
         currentDay = 1;
     }
+    public void ResetForOnlineLobby()
+    {
+        DayTimer.Instance?.StopTimer();
+        abilities?.SetMatchRunning(false);
+        if (observedDeathSystem != null) observedDeathSystem.DeathResolved -= HandleDeath;
+        observedDeathSystem = null;
+        NightManager.Instance?.ResetForNewMatch();
+        started = resolving = false;
+        manualLogicPrototype = true;
+        enabled = false;
+        ResetLogicMatch();
+    }
     private void EndGame(string winner)
     {
+        // The scoped evaluator owns the result. Legacy role/task shortcuts must
+        // not finish an online match halfway through an atomic resolution.
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
+        FinishGame(winner, true);
+    }
+    internal void FinishEvaluatedMatch(string winner)
+    {
+        if (WinConditionManager.Instance == null || !WinConditionManager.Instance.HasMatchEvaluator(this)) return;
+        FinishGame(winner, false);
+    }
+    private void FinishGame(string winner, bool allowLegacyFoxOverride)
+    {
         if (currentState == GameState.GameOver) return;
-        if (winner != "Fox Spirit" && WinConditionManager.Instance != null &&
+        if (allowLegacyFoxOverride && winner != "Fox Spirit" && WinConditionManager.Instance != null &&
             WinConditionManager.Instance.FoxSpiritHasWon())
             winner = "Fox Spirit";
         Winner = winner;

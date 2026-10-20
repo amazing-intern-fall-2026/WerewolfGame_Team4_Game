@@ -12,6 +12,12 @@ public class TaskManager : MonoBehaviour
     public float DailyProgress => currentTasks.Count == 0 ? 0f : 100f * CompletedToday / currentTasks.Count;
     private void Awake() { Instance = this; progress = 0; }
     public bool IsCompleted(TaskData task) => task != null && completed.Contains(task);
+    public void ResetForNewMatch()
+    {
+        progress = 0;
+        currentTasks.Clear();
+        completed.Clear();
+    }
     public void StartNewDay()
     {
         currentTasks.Clear();

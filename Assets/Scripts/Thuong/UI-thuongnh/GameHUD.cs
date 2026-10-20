@@ -69,6 +69,9 @@ public class GameHUD : MonoBehaviour
         var abilityUI = GetComponent<RoleAbilityUI>();
         if (abilityUI == null) abilityUI = gameObject.AddComponent<RoleAbilityUI>();
         abilityUI.Initialize(phaseText != null ? phaseText.font : null, localVoterID);
+        var roster = GetComponent<ThuongMeetingRosterUI>() ?? gameObject.AddComponent<ThuongMeetingRosterUI>();
+        roster.Initialize(this);
+        CreateGameplayFeedback();
     }
     private void OnDestroy()
     {
@@ -101,6 +104,11 @@ public class GameHUD : MonoBehaviour
     private void HandleAbility(AbilityResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
     private void HandleDeath(DeathResult result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
     private void HandleVote(VoteResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
+    public void SetOnlineFeedback(string phase, string message)
+    {
+        if (phaseCueText != null) phaseCueText.text = phase;
+        if (gameplayFeedback != null) gameplayFeedback.text = message;
+    }
 
     private static void SetPanelColor(Transform target, string color)
     {
@@ -336,6 +344,11 @@ public class GameHUD : MonoBehaviour
 
     private void Update()
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null)
+        {
+            Thuong.Online.ThuongOnlineSession.Active.RefreshHud(this);
+            return;
+        }
         var game = GameRoleManager.Instance;
         var tasks = TaskManager.Instance;
         if (game == null || tasks == null) return;

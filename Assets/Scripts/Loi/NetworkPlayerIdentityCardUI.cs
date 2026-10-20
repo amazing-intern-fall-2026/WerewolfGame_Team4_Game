@@ -1,12 +1,13 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class NetworkPlayerIdentityCardUI : MonoBehaviour
+public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
 {
     [Serializable]
-    private class RoleImageEntry
+    public class RoleImageEntry
     {
         public RoleType role;
         public Sprite image;
@@ -17,8 +18,12 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour
     [SerializeField] private Image characterImage;
     [SerializeField] private TextMeshProUGUI roleNameText;
 
+    [SerializeField] private Button cardButton;
+
     [Header("Role Images")]
     [SerializeField] private RoleImageEntry[] roleImages;
+
+    public RoleImageEntry[] RoleImages => roleImages;
 
     private bool playerNameInitialized;
 
@@ -34,6 +39,34 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour
 
     private void Start()
     {
+        if (cardButton == null)
+        {
+            cardButton = GetComponent<Button>();
+            if (cardButton == null)
+            {
+                cardButton = gameObject.AddComponent<Button>();
+            }
+        }
+
+        if (cardButton != null)
+        {
+            cardButton.interactable = true;
+            if (cardButton.targetGraphic == null)
+            {
+                cardButton.targetGraphic = GetComponent<Image>();
+            }
+            cardButton.onClick.RemoveAllListeners();
+            cardButton.onClick.AddListener(OnIdentityCardClicked);
+        }
+
+        // Đảm bảo các component con không cản trở click vào thẻ
+        if (playerNameText != null) playerNameText.raycastTarget = false;
+        if (roleNameText != null) roleNameText.raycastTarget = false;
+        if (characterImage != null) characterImage.raycastTarget = false;
+
+        Image cardImg = GetComponent<Image>();
+        if (cardImg != null) cardImg.raycastTarget = true;
+
         TrySetLocalPlayerName();
 
         if (NetworkRoleSync.LocalInstance != null)
@@ -41,6 +74,25 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
+        }
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        Debug.Log("[IDENTITY CARD] OnPointerClick event received!");
+        OnIdentityCardClicked();
+    }
+
+    private void OnIdentityCardClicked()
+    {
+        Debug.Log("[IDENTITY CARD] Click PlayerIdentityCard -> Mở thông tin Role chi tiết!");
+        if (NetworkRoleDetailUI.Instance != null)
+        {
+            NetworkRoleDetailUI.Instance.ShowForLocalPlayer();
+        }
+        else
+        {
+            Debug.LogError("[IDENTITY CARD] Không tìm thấy NetworkRoleDetailUI.Instance trong scene!");
         }
     }
 
@@ -131,61 +183,6 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour
 
     private string GetRoleName(RoleType role)
     {
-        switch (role)
-        {
-            case RoleType.Villager:
-                return "VILLAGER";
-
-            case RoleType.DogSpirit:
-                return "DOG SPIRIT";
-
-            case RoleType.Seer:
-                return "SEER";
-
-            case RoleType.VillageGuardian:
-                return "VILLAGE GUARDIAN";
-
-            case RoleType.Mayor:
-                return "MAYOR";
-
-            case RoleType.Idiot:
-                return "IDIOT";
-
-            case RoleType.WhiteHound:
-                return "WHITE HOUND";
-
-            case RoleType.SerpentSpirit:
-                return "SERPENT SPIRIT";
-
-            case RoleType.Ogre:
-                return "OGRE";
-
-            case RoleType.Hunter:
-                return "HUNTER";
-
-            case RoleType.Shaman:
-                return "SHAMAN";
-
-            case RoleType.WeaverOfFate:
-                return "WEAVER OF FATE";
-
-            case RoleType.Cursed:
-                return "CURSED";
-
-            case RoleType.Brat:
-                return "BRAT";
-
-            case RoleType.Madman:
-                return "MADMAN";
-
-            case RoleType.FoxSpirit:
-                return "FOX SPIRIT";
-
-            case RoleType.Killer:
-                return "KILLER";
-
-            default:
-                return role.ToString();
-        }
+        return RoleInfoDatabase.GetLocalizedRoleName(role).ToUpper();
     }
 }
