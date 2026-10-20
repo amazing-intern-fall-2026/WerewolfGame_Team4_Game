@@ -13,8 +13,12 @@ public class NetworkTargetCardUI : MonoBehaviour
     [SerializeField]
     private Button cardButton;
 
+    [SerializeField]
+    private Button infoButton;
+
     private int playerID;
     private int subActionId;
+    private string cachedPlayerName;
 
     public void Setup(
         int id,
@@ -25,6 +29,7 @@ public class NetworkTargetCardUI : MonoBehaviour
     {
         playerID = id;
         subActionId = subAction;
+        cachedPlayerName = playerName;
 
         if (playerNameText != null)
         {
@@ -33,7 +38,8 @@ public class NetworkTargetCardUI : MonoBehaviour
 
         if (statusText != null)
         {
-            statusText.text = isAlive ? "ALIVE" : "DEAD";
+            statusText.text = isAlive ? "CÒN SỐNG" : "ĐÃ BỊ LOẠI";
+            statusText.color = isAlive ? new Color(0.2f, 1f, 0.4f) : new Color(0.8f, 0.3f, 0.3f);
         }
 
         if (cardButton != null)
@@ -43,10 +49,34 @@ public class NetworkTargetCardUI : MonoBehaviour
             cardButton.onClick.RemoveAllListeners();
             cardButton.onClick.AddListener(OnCardClicked);
         }
+
+        if (infoButton != null)
+        {
+            infoButton.onClick.RemoveAllListeners();
+            infoButton.onClick.AddListener(OnInfoButtonClicked);
+        }
+    }
+
+    private void OnInfoButtonClicked()
+    {
+        if (NetworkRoleDetailUI.Instance != null)
+        {
+            NetworkRoleDetailUI.Instance.ShowForPlayer(playerID, cachedPlayerName);
+        }
     }
 
     private void OnCardClicked()
     {
+        // Nếu ở chế độ xem danh sách (subActionId < 0), click card sẽ mở thông tin vai trò
+        if (subActionId < 0)
+        {
+            if (NetworkRoleDetailUI.Instance != null)
+            {
+                NetworkRoleDetailUI.Instance.ShowForPlayer(playerID, cachedPlayerName);
+            }
+            return;
+        }
+
         NetworkPlayerAction[] actions =
             FindObjectsByType<NetworkPlayerAction>(
                 FindObjectsSortMode.None

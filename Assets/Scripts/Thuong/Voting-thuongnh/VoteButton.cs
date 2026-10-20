@@ -23,6 +23,12 @@ public class VoteButton : MonoBehaviour
     public void Refresh()
     {
         if (button == null) button = GetComponent<Button>();
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null)
+        {
+            button.interactable = online.CanVoteFor(targetID);
+            return;
+        }
         var voter = PlayerManager.Instance?.GetplayerByID(voterID);
         var target = PlayerManager.Instance?.GetplayerByID(targetID);
         button.interactable = GameRoleManager.Instance != null &&
@@ -31,6 +37,12 @@ public class VoteButton : MonoBehaviour
     }
     public void CastVote()
     {
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null)
+        {
+            if (online.CanVoteFor(targetID)) online.RequestVote(targetID);
+            return;
+        }
         if (VoteManager.Instance != null && VoteManager.Instance.TryVote(voterID, targetID))
             Debug.Log($"Vote accepted: Player {voterID + 1} -> Player {targetID + 1}");
         Update();

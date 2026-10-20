@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 // Reuse the scene's vote-row template, but expose every registered player through a scroll list.
 public sealed class ThuongMeetingRosterUI : MonoBehaviour
@@ -66,6 +67,19 @@ public sealed class ThuongMeetingRosterUI : MonoBehaviour
             }
             row.gameObject.SetActive(true);
             row.voterID = hud.localVoterID;
+            TMP_Text label = row.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+            {
+                var online = Thuong.Online.ThuongOnlineSession.Active;
+                label.text = online != null ? online.VoteRowLabel(player)
+                    : $"P{player.playerID + 1:00}  {player.DisplayName}" +
+                        (player.playerID == hud.localVoterID ? " (Bạn)" : string.Empty) +
+                        (player.isAlive ? string.Empty : " • Đã bị loại");
+                label.enableAutoSizing = true;
+                label.fontSizeMax = 22; label.fontSizeMin = 13;
+                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.overflowMode = TextOverflowModes.Ellipsis;
+            }
             row.Refresh();
         }
         foreach (var pair in rows) if (!ids.Contains(pair.Key)) pair.Value.gameObject.SetActive(false);
