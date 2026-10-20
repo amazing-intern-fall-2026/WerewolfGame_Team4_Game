@@ -31,6 +31,12 @@ public static class RoleDetailUIInstaller
         // 4. Cập nhật Game.unity
         UpdateGameScene(fontAsset);
 
+        // 5. Cài đặt hệ thống Chat Multiplayer nhỏ gọn tại góc dưới bên trái
+        ChatSystemInstaller.InstallChatSystem();
+
+        // 6. Cài đặt hệ thống Voice HUD (Microphone & Speaker) nhỏ gọn tại góc trên bên phải
+        GameVoiceInstaller.InstallInternal(saveScene: false, writeReport: true);
+
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
@@ -372,8 +378,11 @@ public static class RoleDetailUIInstaller
         if (identityCard != null)
         {
             RectTransform cardRt = identityCard.GetComponent<RectTransform>();
-            cardRt.sizeDelta = new Vector2(210, 230);
-            cardRt.anchoredPosition = new Vector2(70, 20);
+            cardRt.anchorMin = new Vector2(0f, 1f);
+            cardRt.anchorMax = new Vector2(0f, 1f);
+            cardRt.pivot = new Vector2(0f, 1f);
+            cardRt.sizeDelta = new Vector2(200, 220);
+            cardRt.anchoredPosition = new Vector2(20, -20);
 
             Image cardImg = identityCard.GetComponent<Image>();
             if (cardImg != null) cardImg.raycastTarget = true;
@@ -886,11 +895,11 @@ public static class RoleDetailUIInstaller
         }
 
         RectTransform rt = btnObj.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0, 0);
-        rt.anchorMax = new Vector2(0, 0);
-        rt.pivot = new Vector2(0, 0);
-        rt.anchoredPosition = new Vector2(70, 260);
-        rt.sizeDelta = new Vector2(210, 42);
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(20, -248);
+        rt.sizeDelta = new Vector2(200, 38);
 
         Image img = btnObj.GetComponent<Image>();
         img.color = new Color(0.12f, 0.16f, 0.24f, 0.95f);

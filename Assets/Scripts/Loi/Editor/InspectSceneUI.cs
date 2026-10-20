@@ -106,6 +106,20 @@ public static class InspectSceneUI
             Log($"  NetworkRoleDetailUI trên GameObject: '{d.gameObject.name}', activeSelf: {d.gameObject.activeSelf}, activeInHierarchy: {d.gameObject.activeInHierarchy}");
         }
 
+        // 6. Kiểm tra Multiplayer Chat System
+        Log("\n[KIỂM TRA MULTIPLAYER CHAT SYSTEM]:");
+        GameObject chatManager = GameObject.Find("NetworkChatManager");
+        Log($"NetworkChatManager: {(chatManager != null ? "CÓ" : "KHÔNG")}");
+        if (chatManager != null)
+        {
+            var no = chatManager.GetComponent<Unity.Netcode.NetworkObject>();
+            var cm = chatManager.GetComponent<NetworkChatManager>();
+            Log($"  NetworkObject: {(no != null ? "CÓ" : "KHÔNG")}, NetworkChatManager: {(cm != null ? "CÓ" : "KHÔNG")}");
+        }
+
+        NetworkChatUI chatUI = Object.FindAnyObjectByType<NetworkChatUI>(FindObjectsInactive.Include);
+        Log($"NetworkChatUI: {(chatUI != null ? "CÓ trên '" + chatUI.gameObject.name + "'" : "KHÔNG")}");
+
         File.WriteAllText("scene_inspection.txt", sb.ToString(), Encoding.UTF8);
         Debug.Log(">>> ĐÃ GHI KẾT QUẢ KIỂM TRA SCENE VÀO scene_inspection.txt");
     }
