@@ -8,5 +8,9 @@ public enum DeathCause
     Trap,
     Killer,
     Lover,
-    DeathHerald
+    DeathHerald,
+    // Append values so existing scenes and network role code keep their enum IDs.
+    Ability,
+    Curse,
+    Special
 }

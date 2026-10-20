@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -62,10 +63,10 @@ public class SceneLoader : MonoBehaviour
     }
 
     // =========================================================
-    // CLIENT / HOST CHỦ ĐỘNG LEAVE
+    // CLIENT / HOST CHỦ ĐỘNG RỜI PHÒNG VỀ MAINMENU
     // =========================================================
 
-    public void LeaveLobby()
+    public void LeaveRoomToMainMenu()
     {
         if (isLeaving)
         {
@@ -77,17 +78,87 @@ public class SceneLoader : MonoBehaviour
         }
 
         isLeaving = true;
+        Debug.Log("SceneLoader: Người chơi chủ động rời phòng về MainMenu...");
 
-        Debug.Log("Đang Leave Lobby...");
+        StartCoroutine(ShutdownThenLoadMainMenu());
+    }
 
-        if (NetworkManager.Singleton != null)
+    public void LeaveLobby()
+    {
+        LeaveRoomToMainMenu();
+    }
+
+    private IEnumerator ShutdownThenLoadMainMenu()
+    {
+        Debug.Log("SceneLoader: Bắt đầu quy trình Leave và Shutdown...");
+
+        // 1. Rời kênh thoại Vivox và đồng bộ chờ hoàn tất trước
+        if (NetworkVoiceManager.Instance != null)
         {
-            Debug.Log("Shutdown NetworkManager...");
+            Debug.Log("SceneLoader: [1/3] Đang chờ rời kênh thoại Vivox...");
+            Task leaveVoiceTask = NetworkVoiceManager.Instance.LeaveVoiceChannelAsync();
+            while (leaveVoiceTask != null && !leaveVoiceTask.IsCompleted)
+            {
+                yield return null;
+            }
 
-            NetworkManager.Singleton.Shutdown();
+            if (leaveVoiceTask != null && leaveVoiceTask.IsFaulted)
+            {
+                Debug.LogWarning($"SceneLoader: [1/3] Kênh thoại kết thúc có cảnh báo: {leaveVoiceTask.Exception?.GetBaseException().Message}");
+            }
+            else
+            {
+                Debug.Log("SceneLoader: [1/3] Đã rời kênh thoại Vivox hoàn tất.");
+            }
         }
 
-        // Chuyển về MainMenu
+        // 2. Đóng session phòng nếu là Host
+        if (RoomManager.IsHostOfCurrentRoom || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer))
+        {
+            Debug.Log("SceneLoader: [2/3] Đang đóng session phòng Host...");
+            Task closeRoomTask = RoomManager.CloseCurrentRoomAsync();
+            while (closeRoomTask != null && !closeRoomTask.IsCompleted)
+            {
+                yield return null;
+            }
+            Debug.Log("SceneLoader: [2/3] Đã đóng session phòng Host.");
+        }
+        else
+        {
+            RoomManager.CurrentRoomCode = null;
+            RoomManager.CurrentVoiceChannelId = null;
+            RoomManager.IsHostOfCurrentRoom = false;
+        }
+
+        // 3. Shutdown NetworkManager nếu đang hoạt động
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            Debug.Log("SceneLoader: [3/3] Shutdown NetworkManager...");
+            NetworkManager.Singleton.Shutdown();
+
+            // Chờ Shutdown hoàn tất (IsListening về false) — tối đa 5 giây
+            float timeout = 5f;
+            float elapsed = 0f;
+            while (NetworkManager.Singleton != null
+                   && NetworkManager.Singleton.IsListening
+                   && elapsed < timeout)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            {
+                Debug.LogWarning("SceneLoader: NetworkManager vẫn IsListening sau 5s — tiếp tục load.");
+            }
+            else
+            {
+                Debug.Log("SceneLoader: [3/3] Shutdown hoàn tất.");
+            }
+        }
+
+        // 4. Chuyển về MainMenu
+        Debug.Log("SceneLoader: Hoàn tất dọn dẹp, đang tải Scene MainMenu...");
         SceneManager.LoadScene("MainMenu");
     }
 
@@ -107,12 +178,12 @@ public class SceneLoader : MonoBehaviour
             return;
 
         Debug.Log(
-            "Client bị disconnect khỏi Host."
+            "SceneLoader: Client bị disconnect khỏi Host."
         );
 
         isLeaving = true;
 
-        SceneManager.LoadScene("MainMenu");
+        StartCoroutine(ShutdownThenLoadMainMenu());
     }
 
     // =========================================================

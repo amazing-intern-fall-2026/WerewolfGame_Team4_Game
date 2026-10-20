@@ -74,6 +74,42 @@ public class PlayerManager : MonoBehaviour
         return null;
     }
 
+    public bool IsAlive(int playerID)
+    {
+        PlayerData player = GetplayerByID(playerID);
+        return player != null && player.isAlive;
+    }
+
+    public IEnumerable<PlayerData> GetAlivePlayers()
+    {
+        if (players == null)
+            yield break;
+
+        foreach (PlayerData player in players)
+        {
+            if (player != null && player.isAlive)
+                yield return player;
+        }
+    }
+
+    public bool SetAliveState(int playerID, bool isAlive)
+    {
+        PlayerData player = GetplayerByID(playerID);
+        if (player == null || player.isAlive == isAlive)
+            return false;
+
+        player.isAlive = isAlive;
+        if (isAlive)
+        {
+            player.hasDeathRecord = false;
+            player.hasVoted = false;
+            player.hasUseNightAction = false;
+        }
+
+        player.NotifyChanged();
+        return true;
+    }
+
     public void UnlockPlayers()
     {
         if (players == null)

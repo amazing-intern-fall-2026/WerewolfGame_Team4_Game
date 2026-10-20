@@ -17,6 +17,9 @@ public class RoleAbilityUI : MonoBehaviour
     private GameObject revealWindow;
     private Button openButton;
     private Button useButton;
+    private Button shamanGoodCharmButton;
+    private Button shamanBadCharmButton;
+    private Button hunterTrapButton;
     private TMP_Text openLabel;
     private TMP_Text playerLabel;
     private TMP_Text roleLabel;
@@ -37,8 +40,15 @@ public class RoleAbilityUI : MonoBehaviour
     private bool initialized;
     private bool hasShownRole;
     private RoleType shownRole;
+    private ThuongRoleDefinition shownDefinition;
+    private int shownPlayerID = -1;
+    private bool shownAwakened;
+    private AbilitySystem observedAbilitySystem;
     private GameState previousState;
     private string actionFeedback;
+    private string targetFailureFeedback;
+    private bool selectingHunterTrap;
+    private int firstLoverTargetID = -1;
 
     private static Color Hex(string value)
     {
@@ -77,6 +87,7 @@ public class RoleAbilityUI : MonoBehaviour
         var image = go.GetComponent<Image>();
         image.color = Hex(color);
         image.raycastTarget = raycast;
+        ThuongMedievalTheme.Active?.StylePanel(image, name);
         return rect;
     }
 
@@ -99,6 +110,7 @@ public class RoleAbilityUI : MonoBehaviour
         label.color = Hex(color);
         label.alignment = alignment;
         label.raycastTarget = false;
+        ThuongMedievalTheme.Active?.StyleText(label);
         return label;
     }
 
@@ -108,6 +120,7 @@ public class RoleAbilityUI : MonoBehaviour
         var rect = Panel(name, parent, min, max, color, true);
         var button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = rect.GetComponent<Image>();
+        ThuongMedievalTheme.Active?.StylePanel(rect.GetComponent<Image>(), name);
         var colors = button.colors;
         colors.normalColor = Color.white;
         colors.highlightedColor = Hex("#B8F3EA");
@@ -115,6 +128,13 @@ public class RoleAbilityUI : MonoBehaviour
         colors.selectedColor = Color.white;
         colors.disabledColor = Hex("#657B82");
         button.colors = colors;
+        if (ThuongMedievalTheme.Active != null)
+        {
+            colors.highlightedColor = new Color32(255, 223, 158, 255);
+            colors.pressedColor = new Color32(202, 158, 102, 255);
+            colors.disabledColor = new Color32(133, 120, 98, 255);
+            button.colors = colors;
+        }
         button.onClick.AddListener(action);
         Label("Text", rect, value, new Vector2(.03f, .05f),
             new Vector2(.97f, .95f), 20, "#F4FAF8", TextAlignmentOptions.Center);
@@ -140,7 +160,8 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void BuildUI()
     {
-        Sprite roleIcon = Resources.Load<Sprite>("RoleAbilityIcon");
+        Sprite roleIcon = ThuongMedievalTheme.Active != null
+            ? ThuongMedievalTheme.Active.defaultPortrait : Resources.Load<Sprite>("RoleAbilityIcon");
         defaultPortrait = roleIcon;
         if (roleIcon == null)
             Debug.LogWarning("[Role Ability] Không tìm thấy sprite Resources/RoleAbilityIcon.");
@@ -200,6 +221,18 @@ public class RoleAbilityUI : MonoBehaviour
             new Vector2(.95f, .39f), 19, "#B8D0D1");
         useButton = ActionButton("Use skill", abilityView.transform, "CHỌN MỤC TIÊU",
             new Vector2(.06f, .04f), new Vector2(.95f, .17f), "#28716F", OpenTargets);
+        shamanGoodCharmButton = ActionButton("Shaman good charm", abilityView.transform,
+            "BÙA LỢI", new Vector2(.06f, .04f), new Vector2(.49f, .17f),
+            "#28716F", () => OpenShamanTargets(true));
+        shamanBadCharmButton = ActionButton("Shaman bad charm", abilityView.transform,
+            "BÙA HẠI", new Vector2(.52f, .04f), new Vector2(.95f, .17f),
+            "#7D4548", () => OpenShamanTargets(false));
+        shamanGoodCharmButton.gameObject.SetActive(false);
+        shamanBadCharmButton.gameObject.SetActive(false);
+        hunterTrapButton = ActionButton("Hunter trap", abilityView.transform,
+            "ĐẶT BẪY", new Vector2(.06f, .04f), new Vector2(.95f, .17f),
+            "#7D4548", OpenHunterTrapTargets);
+        hunterTrapButton.gameObject.SetActive(false);
 
         targetView = Panel("Target selection", right, Vector2.zero, Vector2.one,
             "#00000000").gameObject;
@@ -300,8 +333,10 @@ public class RoleAbilityUI : MonoBehaviour
     {
         return role == RoleType.DogSpirit || role == RoleType.Seer ||
                role == RoleType.VillageGuardian || role == RoleType.SerpentSpirit ||
-               role == RoleType.Ogre || role == RoleType.Cursed ||
-               role == RoleType.FoxSpirit || role == RoleType.Killer;
+             role == RoleType.Ogre || role == RoleType.WhiteHound ||
+             role == RoleType.Shaman || role == RoleType.Cursed ||
+                             role == RoleType.FoxSpirit || role == RoleType.Killer ||
+                             role == RoleType.WeaverOfFate;
     }
 
     private static string RoleName(RoleType role)
@@ -348,23 +383,23 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.Ogre:
                 return "Bạn thuộc phe Ma Sói và có thể chọn mục tiêu tấn công vào ban đêm. Ban ngày, bạn vẫn tham gia thảo luận và bỏ phiếu.";
             case RoleType.Shaman:
-                return "Bạn thuộc phe Dân Làng. Pháp Sư có một bùa lợi và một bùa hại để dùng lên người chơi còn sống. Hai thao tác này chưa được đưa lên bảng kỹ năng của bản thử hiện tại.";
+                return "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi để dùng bùa lợi bảo vệ hoặc bùa hại khiến họ im lặng. Mỗi loại bùa dùng một lần.";
             case RoleType.WhiteHound:
-                return "Bạn bắt đầu ở phe Dân Làng. Bản thử hiện tại chưa kích hoạt cơ chế chuyển phe và chưa có nút kỹ năng chủ động riêng cho vai trò này. Hãy theo dõi diễn biến và tham gia bỏ phiếu.";
+                return "Bạn bắt đầu ở phe Dân Làng. Nếu bị Dog Spirit tấn công, bạn thức tỉnh thành Bạch Khuyển và có thể chọn mục tiêu tấn công vào các đêm sau.";
             case RoleType.Idiot:
                 return "Bạn thuộc phe Dân Làng. Nếu bị loại bởi bỏ phiếu, bạn sẽ sống sót nhờ khả năng đặc biệt. Bạn vẫn có thể hoàn thành nhiệm vụ và tham gia thảo luận.";
             case RoleType.Hunter:
-                return "Bạn thuộc phe Dân Làng. Khi chết, vai Thợ Săn có thể đặt bẫy; giao diện chọn bẫy chưa được nối trong prototype.";
+                return "Bạn thuộc phe Dân Làng. Khi chết, chọn một người trong lúc thảo luận để đặt bẫy; mục tiêu chết sau lượt bỏ phiếu kế tiếp.";
             case RoleType.WeaverOfFate:
-                return "Bạn thuộc phe Dân Làng. Vai Dệt Duyên có thể ghép đôi hai người; giao diện ghép đôi chưa được nối trong prototype.";
+                return "Bạn thuộc phe Dân Làng. Trong đêm, chọn hai người chơi còn sống để ghép đôi. Kỹ năng dùng một lần mỗi ván.";
             case RoleType.Cursed:
-                return "Bạn thuộc phe Dân Làng. Ban đêm có thể đánh dấu một người chơi bằng lời nguyền.";
+                return "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi; họ bị lời nguyền và không thể nói trong buổi thảo luận kế tiếp.";
             case RoleType.Brat:
                 return "Bạn thuộc phe Dân Làng. Vai Đứa Trẻ có thao tác nhìn trộm; giao diện của thao tác này chưa được nối trong prototype.";
             case RoleType.Madman:
                 return "Bạn thuộc phe Trung Lập. Vai này có điều kiện thắng riêng trong logic hiện có của dự án.";
             case RoleType.FoxSpirit:
-                return "Bạn thuộc phe Trung Lập. Ban đêm có thể mê hoặc một người chơi còn sống.";
+                return "Bạn thuộc phe Trung Lập. Mỗi đêm mê hoặc tối đa hai người. Nếu cả hai còn sống khi ván kết thúc, Cáo tinh chiến thắng.";
             case RoleType.Killer:
                 return "Bạn thuộc phe Trung Lập. Có thể chọn mục tiêu tấn công vào các đêm chẵn.";
             default:
@@ -374,13 +409,20 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void RefreshReveal(PlayerData player)
     {
-        revealRoleLabel.text = RoleName(player.roleType);
+        var definition = player.roleDefinition;
+        revealRoleLabel.text = DisplayRoleName(player);
         revealFactionLabel.text = player.faction == FactionType.Monster
                 ? "PHE MA SÓI" : player.faction == FactionType.Villager
                     ? "PHE DÂN LÀNG" : "PHE TRUNG LẬP";
-        revealDescriptionLabel.text = RoleDescription(player.roleType);
-        revealPortrait.sprite = Resources.Load<Sprite>("RolePortraits/" + player.roleType)
-            ?? defaultPortrait;
+        revealDescriptionLabel.text = definition != null && !string.IsNullOrWhiteSpace(definition.description)
+            ? definition.description : RoleDescription(player.roleType);
+        // Unity's missing/destroyed asset references use Unity-null, not CLR-null.
+        // Do not use ?? for an optional serialized Sprite or it can suppress the fallback.
+        Sprite portrait = definition != null ? definition.portrait : null;
+        if (portrait == null) portrait = Resources.Load<Sprite>("RolePortraits/" + player.roleType);
+        if (portrait == null) portrait = defaultPortrait;
+        if (portrait == null) portrait = Resources.Load<Sprite>("RoleAbilityIcon");
+        revealPortrait.sprite = portrait;
         revealPortrait.color = revealPortrait.sprite != null ? Color.white : Hex("#79DED1");
     }
 
@@ -395,8 +437,11 @@ public class RoleAbilityUI : MonoBehaviour
     {
         hasShownRole = true;
         shownRole = player.roleType;
-        roleLabel.text = RoleName(shownRole);
-        openLabel.text = "ROLE / " + RoleName(shownRole);
+        shownDefinition = player.roleDefinition;
+        shownPlayerID = player.playerID;
+        shownAwakened = player.isWhiteHoundAwakened;
+        roleLabel.text = DisplayRoleName(player);
+        openLabel.text = "ROLE / " + DisplayRoleName(player);
         RefreshReveal(player);
 
         switch (shownRole)
@@ -421,13 +466,27 @@ public class RoleAbilityUI : MonoBehaviour
                 skillLabel.text = "BẢO VỆ";
                 descriptionLabel.text = "Chọn một người chơi để bảo vệ trong đêm. Không chọn cùng mục tiêu hai đêm liên tiếp.";
                 break;
+            case RoleType.Shaman:
+                skillLabel.text = "BÙA LỢI / BÙA HẠI";
+                descriptionLabel.text = "Mỗi loại bùa dùng một lần. Chọn bùa rồi chọn mục tiêu trong đêm.";
+                break;
+            case RoleType.WhiteHound:
+                skillLabel.text = "TẤN CÔNG";
+                descriptionLabel.text = player.isWhiteHoundAwakened
+                    ? "Bạch Khuyển đã thức tỉnh. Chọn một người chơi để tấn công trong đêm."
+                    : "Chỉ có thể tấn công sau khi bị Dog Spirit tấn công và thức tỉnh.";
+                break;
             case RoleType.Cursed:
                 skillLabel.text = "NGUYỀN";
                 descriptionLabel.text = "Đánh dấu một người chơi còn sống bằng lời nguyền.";
                 break;
             case RoleType.FoxSpirit:
                 skillLabel.text = "MÊ HOẶC";
-                descriptionLabel.text = "Mê hoặc một người chơi còn sống trong đêm.";
+                descriptionLabel.text = "Mỗi đêm chọn tối đa hai người còn sống để mê hoặc.";
+                break;
+            case RoleType.WeaverOfFate:
+                skillLabel.text = "DỆT DUYÊN";
+                descriptionLabel.text = "Chọn hai người chơi còn sống trong đêm. Kỹ năng dùng một lần mỗi ván.";
                 break;
             case RoleType.Killer:
                 skillLabel.text = "TẤN CÔNG";
@@ -438,19 +497,62 @@ public class RoleAbilityUI : MonoBehaviour
                 descriptionLabel.text = "Role này không có kỹ năng chủ động trên giao diện. Hãy tham gia thảo luận và bỏ phiếu.";
                 break;
         }
-        useButton.gameObject.SetActive(HasActiveAbility(shownRole));
+        bool configured = RoleManager.UsesConfiguredAbility(player);
+        if (configured)
+        {
+            skillLabel.text = !string.IsNullOrWhiteSpace(shownDefinition.abilityName)
+                ? shownDefinition.abilityName : shownDefinition.abilityType.ToString();
+            if (!string.IsNullOrWhiteSpace(shownDefinition.description)) descriptionLabel.text = shownDefinition.description;
+        }
+        if (shownDefinition != null && shownDefinition.abilityIcon != null)
+        {
+            foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
+                if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
+                    image.sprite = shownDefinition.abilityIcon;
+        }
+        else
+        {
+            foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
+                if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
+                    image.sprite = ThuongMedievalTheme.Active != null
+                        ? ThuongMedievalTheme.Active.defaultPortrait : Resources.Load<Sprite>("RoleAbilityIcon");
+        }
+        bool isShaman = !configured && shownRole == RoleType.Shaman;
+        useButton.gameObject.SetActive(HasActiveAbility(player) && !isShaman);
+        shamanGoodCharmButton.gameObject.SetActive(isShaman);
+        shamanBadCharmButton.gameObject.SetActive(isShaman);
+        hunterTrapButton.gameObject.SetActive(shownRole == RoleType.Hunter);
     }
 
     private bool CanUse(PlayerData player, GameRoleManager game, out string reason)
     {
         if (player == null || !hasShownRole)
             reason = "Đang chờ phân Role cho người chơi.";
+        else if (CanSetHunterTrap(player, game))
+        {
+            reason = "Chọn mục tiêu cho bẫy của bạn.";
+            return true;
+        }
+        else if (RoleManager.UsesConfiguredAbility(player))
+        {
+            if (AbilitySystem.Instance == null) { reason = "Chưa có hệ thống kỹ năng."; return false; }
+            var validation = AbilitySystem.Instance.ValidateActor(player);
+            reason = validation.IsValid ? "Chọn kỹ năng để mở danh sách mục tiêu." : validation.Message;
+            return validation.IsValid;
+        }
+        else if (player.roleType == RoleType.WhiteHound && !player.isWhiteHoundAwakened)
+            reason = "Chỉ có thể tấn công sau khi thức tỉnh.";
         else if (!player.isAlive)
             reason = "Bạn đã bị loại và không thể dùng kỹ năng.";
-        else if (!HasActiveAbility(player.roleType))
+        else if (!HasActiveAbility(player))
             reason = "Role này chỉ có kỹ năng nội tại hoặc quyền bỏ phiếu.";
+        else if (player.HasEffect(StatusEffectType.Silenced))
+            reason = "Người chơi đang bị Silenced.";
         else if (game == null || game.currentState != GameState.Night)
             reason = "Kỹ năng chỉ dùng được vào ban đêm.";
+        else if (player.roleType == RoleType.WeaverOfFate &&
+                 GetLocalWeaverRole()?.HasUsedAbility == true)
+            reason = "Dệt Duyên chỉ dùng được một lần mỗi ván.";
         else if (player.hasUseNightAction)
             reason = "Bạn đã dùng kỹ năng trong đêm này.";
         else if (RoleManager.Instance == null && RoleManger.Instance == null)
@@ -466,6 +568,12 @@ public class RoleAbilityUI : MonoBehaviour
     private void Update()
     {
         if (!initialized) return;
+        if (observedAbilitySystem != AbilitySystem.Instance)
+        {
+            if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved -= HandleAbilityResolved;
+            observedAbilitySystem = AbilitySystem.Instance;
+            if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved += HandleAbilityResolved;
+        }
         GameRoleManager game = GameRoleManager.Instance;
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         if (player != null)
@@ -490,11 +598,17 @@ public class RoleAbilityUI : MonoBehaviour
             if (game.currentState == GameState.Night)
             {
                 actionFeedback = null;
-                if (player != null && player.isAlive && HasActiveAbility(player.roleType))
+                if (player != null && player.isAlive && HasActiveAbility(player))
                 {
                     CancelTargets();
                     ShowWindow(true);
                 }
+            }
+            else if (game.currentState == GameState.Discussion && player != null &&
+                     player.roleType == RoleType.Hunter && !player.isAlive && player.hasHunterTrap)
+            {
+                CancelTargets();
+                ShowWindow(true);
             }
             else if (previousState == GameState.Night)
                 ShowWindow(false);
@@ -512,6 +626,14 @@ public class RoleAbilityUI : MonoBehaviour
         CanUse(player, game, out string reason);
         // Luôn cho mở danh sách lobby; chỉ thực thi action khi CanUse hợp lệ.
         useButton.interactable = player != null && HasActiveAbility(player.roleType);
+        ShamanRole shaman = GetLocalShamanRole();
+        bool canUseShamanCharm = player != null && player.isAlive && !player.HasEffect(StatusEffectType.Silenced) && !player.hasUseNightAction &&
+                                 game != null && game.currentState == GameState.Night;
+        shamanGoodCharmButton.interactable = canUseShamanCharm && shaman != null && shaman.HasGoodCharm;
+        shamanBadCharmButton.interactable = canUseShamanCharm && shaman != null && shaman.HasBadCharm;
+        hunterTrapButton.gameObject.SetActive(player != null && player.roleType == RoleType.Hunter &&
+                             player.hasHunterTrap);
+        hunterTrapButton.interactable = CanSetHunterTrap(player, game);
         if (window.activeSelf && abilityView.activeSelf)
             statusLabel.text = !string.IsNullOrEmpty(actionFeedback) ? actionFeedback : reason;
     }
@@ -525,8 +647,10 @@ public class RoleAbilityUI : MonoBehaviour
 
     private void OpenTargets()
     {
+        targetFailureFeedback = null;
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
-        if (player == null || !HasActiveAbility(player.roleType))
+        bool canSetHunterTrap = CanSetHunterTrap(player, GameRoleManager.Instance);
+        if (player == null || (!HasActiveAbility(player.roleType) && !canSetHunterTrap))
         {
             actionFeedback = "Chưa có kỹ năng chủ động để chọn mục tiêu.";
             return;
@@ -547,10 +671,14 @@ public class RoleAbilityUI : MonoBehaviour
 
         int lobbyCount = 0;
         int count = 0;
+        bool selectingSecondLover = player.roleType == RoleType.WeaverOfFate &&
+                                    firstLoverTargetID != -1;
         foreach (PlayerData target in lobby)
         {
             if (target != null) lobbyCount++;
             if (target == null || !target.isAlive || target.playerID == localPlayerID)
+                continue;
+            if (selectingSecondLover && target.playerID == firstLoverTargetID)
                 continue;
             int targetID = target.playerID;
             string name = $"{PlayerName(target)}  /  ID {targetID}";
@@ -561,22 +689,166 @@ public class RoleAbilityUI : MonoBehaviour
             count++;
         }
 
-        targetTitleLabel.text = $"MỤC TIÊU / LOBBY {lobbyCount} NGƯỜI";
+        targetTitleLabel.text = selectingSecondLover
+            ? "CHỌN NGƯỜI THỨ HAI"
+            : $"MỤC TIÊU / LOBBY {lobbyCount} NGƯỜI";
         bool canUse = CanUse(player, GameRoleManager.Instance, out string reason);
-        targetFeedbackLabel.text = count == 0 ? "Không có mục tiêu còn sống hợp lệ." :
-            canUse ? $"{count} người chơi có thể chọn." : reason;
+        if (!canUse)
+            targetFeedbackLabel.text = reason;
+        else if (selectingSecondLover)
+        {
+            PlayerData firstTarget = PlayerManager.Instance.GetplayerByID(firstLoverTargetID);
+            targetFeedbackLabel.text = firstTarget == null
+                ? "Chọn người chơi thứ hai."
+                : $"Đã chọn {PlayerName(firstTarget)}. Chọn người thứ hai.";
+        }
+        else
+            targetFeedbackLabel.text = count == 0
+                ? "Không có mục tiêu còn sống hợp lệ."
+                : $"{count} người chơi có thể chọn.";
         abilityView.SetActive(false);
         resultView.SetActive(false);
         targetView.SetActive(true);
         LayoutRebuilder.MarkLayoutForRebuild(targetContent);
     }
 
+    private ActionValidationResult ValidateTarget(PlayerData actor, PlayerData target)
+    {
+        return RoleManager.UsesConfiguredAbility(actor) && !selectingHunterTrap
+            ? TargetValidator.Validate(actor, target, actor.roleDefinition)
+            : TargetValidator.ValidateLegacy(actor, target);
+    }
+
+    private static bool CanSetHunterTrap(PlayerData player, GameRoleManager game)
+    {
+        return player != null && player.roleType == RoleType.Hunter && !player.isAlive &&
+               player.hasHunterTrap && game != null && game.currentState == GameState.Discussion;
+    }
+
+    private HunterRole GetLocalHunterRole()
+    {
+        if (RoleManager.Instance != null &&
+            RoleManager.Instance.playerRoles.TryGetValue(localPlayerID, out BaseRole role))
+            return role as HunterRole;
+
+        if (RoleManger.Instance != null &&
+            RoleManger.Instance.playerRoles.TryGetValue(localPlayerID, out role))
+            return role as HunterRole;
+
+        return null;
+    }
+
+    private void OpenHunterTrapTargets()
+    {
+        selectingHunterTrap = true;
+        OpenTargets();
+    }
+
+    private ShamanRole GetLocalShamanRole()
+    {
+        if (RoleManager.Instance != null &&
+            RoleManager.Instance.playerRoles.TryGetValue(localPlayerID, out BaseRole role))
+            return role as ShamanRole;
+
+        if (RoleManger.Instance != null &&
+            RoleManger.Instance.playerRoles.TryGetValue(localPlayerID, out role))
+            return role as ShamanRole;
+
+        return null;
+    }
+
+    private WeaverOfFateRole GetLocalWeaverRole()
+    {
+        if (RoleManager.Instance != null &&
+            RoleManager.Instance.playerRoles.TryGetValue(localPlayerID, out BaseRole role))
+            return role as WeaverOfFateRole;
+
+        if (RoleManger.Instance != null &&
+            RoleManger.Instance.playerRoles.TryGetValue(localPlayerID, out role))
+            return role as WeaverOfFateRole;
+
+        return null;
+    }
+
+    private void OpenShamanTargets(bool goodCharm)
+    {
+        ShamanRole shaman = GetLocalShamanRole();
+        if (shaman == null || !shaman.SelectCharm(goodCharm))
+        {
+            actionFeedback = goodCharm ? "Bùa lợi đã được sử dụng." : "Bùa hại đã được sử dụng.";
+            if (statusLabel != null) statusLabel.text = actionFeedback;
+            return;
+        }
+
+        OpenTargets();
+    }
+
     private void SelectTarget(int targetID)
     {
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
+        if (selectingHunterTrap)
+        {
+            if (!CanSetHunterTrap(player, GameRoleManager.Instance))
+            {
+                targetFeedbackLabel.text = targetFailureFeedback = "Hiện chưa thể đặt bẫy.";
+                return;
+            }
+
+            HunterRole hunter = GetLocalHunterRole();
+            if (hunter == null)
+            {
+                targetFeedbackLabel.text = targetFailureFeedback = "Không tìm thấy vai trò Thợ Săn.";
+                return;
+            }
+
+            if (!hunter.TrySetTrap(targetID, out string trapFeedback))
+            {
+                targetFeedbackLabel.text = targetFailureFeedback = trapFeedback;
+                return;
+            }
+
+            selectingHunterTrap = false;
+            actionFeedback = trapFeedback;
+            resultFeedbackLabel.text = trapFeedback;
+            targetView.SetActive(false);
+            abilityView.SetActive(false);
+            resultView.SetActive(true);
+            return;
+        }
+
         if (!CanUse(player, GameRoleManager.Instance, out string reason))
         {
-            targetFeedbackLabel.text = reason;
+            targetFeedbackLabel.text = targetFailureFeedback = reason;
+            return;
+        }
+
+        if (player.roleType == RoleType.WeaverOfFate)
+        {
+            if (firstLoverTargetID == -1)
+            {
+                firstLoverTargetID = targetID;
+                OpenTargets();
+                return;
+            }
+
+                WeaverOfFateRole weaver = GetLocalWeaverRole();
+                string loverFeedback = string.Empty;
+            if (weaver == null || !weaver.TryMakeLovers(firstLoverTargetID, targetID,
+                    out loverFeedback))
+            {
+                targetFeedbackLabel.text = weaver == null
+                    ? "Không tìm thấy vai trò Dệt Duyên."
+                    : loverFeedback;
+                return;
+            }
+
+            firstLoverTargetID = -1;
+            actionFeedback = loverFeedback;
+            resultFeedbackLabel.text = loverFeedback;
+            targetView.SetActive(false);
+            abilityView.SetActive(false);
+            resultView.SetActive(true);
+            Debug.Log("[Role Ability] " + loverFeedback);
             return;
         }
 
@@ -594,7 +866,7 @@ public class RoleAbilityUI : MonoBehaviour
 
         if (!success)
         {
-            targetFeedbackLabel.text = feedback;
+            targetFeedbackLabel.text = targetFailureFeedback = feedback;
             return;
         }
 
@@ -608,8 +880,23 @@ public class RoleAbilityUI : MonoBehaviour
         Debug.Log("[Role Ability] " + feedback);
     }
 
+    private static string DisplayRoleName(PlayerData player) =>
+        player.roleDefinition != null && !string.IsNullOrWhiteSpace(player.roleDefinition.displayName)
+            ? player.roleDefinition.displayName : RoleName(player.roleType);
+    private static bool HasActiveAbility(PlayerData player) => RoleManager.UsesConfiguredAbility(player)
+        ? player.roleDefinition.abilityType != AbilityType.None : HasActiveAbility(player.roleType);
+    private void HandleAbilityResolved(AbilityResolution result)
+    {
+        if (result.Actor == null || result.Actor.playerID != localPlayerID) return;
+        actionFeedback = result.Message;
+        if (resultFeedbackLabel != null) resultFeedbackLabel.text = result.Message;
+    }
+
     private void CancelTargets()
     {
+        targetFailureFeedback = null;
+        selectingHunterTrap = false;
+        firstLoverTargetID = -1;
         if (targetView != null) targetView.SetActive(false);
         if (resultView != null) resultView.SetActive(false);
         if (abilityView != null) abilityView.SetActive(true);

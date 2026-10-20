@@ -111,4 +111,23 @@ public class NetworkRoleSync : NetworkBehaviour
             LocalInstance = null;
         }
     }
+
+    /// <summary>
+    /// Cho phép gửi lại Role khi bắt đầu ván mới.
+    /// </summary>
+    public void ResetForNewMatch()
+    {
+        roleSent = false;
+        LocalRole = RoleType.Villager;
+    }
+
+    public static void ResetAllRoleSyncs()
+    {
+        NetworkRoleSync[] syncs = FindObjectsByType<NetworkRoleSync>(FindObjectsSortMode.None);
+        foreach (var s in syncs)
+        {
+            s.ResetForNewMatch();
+        }
+        Debug.Log($"NETWORK ROLE SYNC: Đã reset {syncs.Length} NetworkRoleSync.");
+    }
 }

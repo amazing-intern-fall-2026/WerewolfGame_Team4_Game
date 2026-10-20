@@ -21,6 +21,5 @@ public struct PotionResult
 {
     public string potionName;
     public string description;
-    public Sprite potionSprite; // Bottle image
-    public Color potionColor;   // Color tint or liquid effect
+    public Color potionColor;
 }

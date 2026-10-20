@@ -106,38 +106,61 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
             Debug.Log(
                 "NETWORK GAME BOOTSTRAP: "
                 + "Player "
-                + playerID
+                + (playerID + 1)
                 + " đã tồn tại."
             );
 
             return;
         }
 
+        // Lấy tên đã nhập từ Lobby
+        string playerName =
+    NetworkGamePlayerNameSetup.GetName(
+        clientId
+    );
+
+        if (
+            NetworkManager.Singleton.ConnectedClients.TryGetValue(
+                clientId,
+                out NetworkClient client
+            )
+            && client.PlayerObject != null
+        )
+        {
+            NetworkPlayerNameSync nameSync =
+                client.PlayerObject.GetComponent<NetworkPlayerNameSync>();
+
+            if (nameSync != null)
+            {
+                nameSync.SetPlayerName(playerName);
+            }
+        }
+
         PlayerData player =
             new PlayerData
             {
                 playerID = playerID,
-
-                playerName =
-                    "Player " + playerID,
-
+                playerName = playerName,
                 isAlive = true,
-
                 votePower = 1,
-
                 hasVoted = false,
-
                 hasUseNightAction = false,
-
                 status = new PlayerStatus()
             };
 
-        playerManager.RegisterPlayer(player);
+
+
+        playerManager.RegisterPlayer(
+            player
+        );
 
         Debug.Log(
             "NETWORK GAME BOOTSTRAP: "
-            + "Đã tạo PlayerData cho Player "
-            + playerID
+            + "Đã tạo PlayerData"
+            + " | Player = "
+            + (playerID + 1)
+            + " | Name = "
+            + playerName
         );
     }
 }

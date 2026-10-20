@@ -1,0 +1,1212 @@
+fileFormatVersion: 2
+guid: a84f368051b19ea4ba10f1d10979076c
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -285302607878305194
+    second: Villager07_walkcycle_0
+  - first:
+      213: -5667206572455433008
+    second: Villager07_walkcycle_1
+  - first:
+      213: 3100765798534929229
+    second: Villager07_walkcycle_2
+  - first:
+      213: 501441528645121321
+    second: Villager07_walkcycle_3
+  - first:
+      213: -2372728046832595593
+    second: Villager07_walkcycle_4
+  - first:
+      213: 4190158650543872846
+    second: Villager07_walkcycle_5
+  - first:
+      213: 8053373309235881571
+    second: Villager07_walkcycle_6
+  - first:
+      213: -4797879135334276293
+    second: Villager07_walkcycle_7
+  - first:
+      213: -4730533056946694887
+    second: Villager07_walkcycle_8
+  - first:
+      213: -3072484961913153671
+    second: Villager07_walkcycle_9
+  - first:
+      213: 92992143473912245
+    second: Villager07_walkcycle_10
+  - first:
+      213: 4055683161579812485
+    second: Villager07_walkcycle_11
+  - first:
+      213: -9131813442040340222
+    second: Villager07_walkcycle_12
+  - first:
+      213: 2283390922999826477
+    second: Villager07_walkcycle_13
+  - first:
+      213: 6360718268748440763
+    second: Villager07_walkcycle_14
+  - first:
+      213: -8849052195436491824
+    second: Villager07_walkcycle_15
+  - first:
+      213: 1435467805373290916
+    second: Villager07_walkcycle_16
+  - first:
+      213: -4284603062885573660
+    second: Villager07_walkcycle_17
+  - first:
+      213: -1791371235834810666
+    second: Villager07_walkcycle_18
+  - first:
+      213: -8127869186451913224
+    second: Villager07_walkcycle_19
+  - first:
+      213: 542515938139841182
+    second: Villager07_walkcycle_20
+  - first:
+      213: 7032820637286127746
+    second: Villager07_walkcycle_21
+  - first:
+      213: 3386127095768044322
+    second: Villager07_walkcycle_22
+  - first:
+      213: -4818766875961022583
+    second: Villager07_walkcycle_23
+  - first:
+      213: -1875983603805372165
+    second: Villager07_walkcycle_24
+  - first:
+      213: -3869233760000552968
+    second: Villager07_walkcycle_25
+  - first:
+      213: 5546074045239068876
+    second: Villager07_walkcycle_26
+  - first:
+      213: -5917801066641950296
+    second: Villager07_walkcycle_27
+  - first:
+      213: 6681909682410580780
+    second: Villager07_walkcycle_28
+  - first:
+      213: 7361405584079325821
+    second: Villager07_walkcycle_29
+  - first:
+      213: 3464554706629814790
+    second: Villager07_walkcycle_30
+  - first:
+      213: -1024891977242414900
+    second: Villager07_walkcycle_31
+  - first:
+      213: 119162860074269763
+    second: Villager07_walkcycle_32
+  - first:
+      213: -4538477707321107930
+    second: Villager07_walkcycle_33
+  - first:
+      213: -5321771168401939863
+    second: Villager07_walkcycle_34
+  - first:
+      213: 6076910837199462604
+    second: Villager07_walkcycle_35
+  - first:
+      213: 9137726015505164844
+    second: Villager07_walkcycle_r0_c0
+  - first:
+      213: -2113451121604275132
+    second: Villager07_walkcycle_r0_c1
+  - first:
+      213: 758614779632281161
+    second: Villager07_walkcycle_r0_c2
+  - first:
+      213: 6459099385746419926
+    second: Villager07_walkcycle_r0_c3
+  - first:
+      213: -6467499462041836904
+    second: Villager07_walkcycle_r0_c4
+  - first:
+      213: 3722112297715393092
+    second: Villager07_walkcycle_r0_c5
+  - first:
+      213: -3523056000447471179
+    second: Villager07_walkcycle_r0_c6
+  - first:
+      213: 7717592178448987736
+    second: Villager07_walkcycle_r0_c7
+  - first:
+      213: -3359477312029311629
+    second: Villager07_walkcycle_r0_c8
+  - first:
+      213: 3641104373838388465
+    second: Villager07_walkcycle_r1_c0
+  - first:
+      213: -3731576733502732165
+    second: Villager07_walkcycle_r1_c1
+  - first:
+      213: 3339122039790629578
+    second: Villager07_walkcycle_r1_c2
+  - first:
+      213: 4808699176026571852
+    second: Villager07_walkcycle_r1_c3
+  - first:
+      213: -879177490519813059
+    second: Villager07_walkcycle_r1_c4
+  - first:
+      213: 7339248369744513689
+    second: Villager07_walkcycle_r1_c5
+  - first:
+      213: -3625341109924439196
+    second: Villager07_walkcycle_r1_c6
+  - first:
+      213: 6238301319607178512
+    second: Villager07_walkcycle_r1_c7
+  - first:
+      213: 7470081769295552405
+    second: Villager07_walkcycle_r1_c8
+  - first:
+      213: -6590442501396402122
+    second: Villager07_walkcycle_r2_c0
+  - first:
+      213: -324371118167889881
+    second: Villager07_walkcycle_r2_c1
+  - first:
+      213: 7859796241235841715
+    second: Villager07_walkcycle_r2_c2
+  - first:
+      213: -9185224593575488466
+    second: Villager07_walkcycle_r2_c3
+  - first:
+      213: 5410508670894994193
+    second: Villager07_walkcycle_r2_c4
+  - first:
+      213: 4386469187886039962
+    second: Villager07_walkcycle_r2_c5
+  - first:
+      213: -1479345288867252505
+    second: Villager07_walkcycle_r2_c6
+  - first:
+      213: 7028008767862555402
+    second: Villager07_walkcycle_r2_c7
+  - first:
+      213: 25223136846953020
+    second: Villager07_walkcycle_r2_c8
+  - first:
+      213: -5621297315971955567
+    second: Villager07_walkcycle_r3_c0
+  - first:
+      213: 8440011064205189402
+    second: Villager07_walkcycle_r3_c1
+  - first:
+      213: -5351701338504924731
+    second: Villager07_walkcycle_r3_c2
+  - first:
+      213: -675140460893376172
+    second: Villager07_walkcycle_r3_c3
+  - first:
+      213: -4093224194826922606
+    second: Villager07_walkcycle_r3_c4
+  - first:
+      213: 3840908885346285517
+    second: Villager07_walkcycle_r3_c5
+  - first:
+      213: 3103999482265934917
+    second: Villager07_walkcycle_r3_c6
+  - first:
+      213: 9167134202388288038
+    second: Villager07_walkcycle_r3_c7
+  - first:
+      213: 2455207255254924833
+    second: Villager07_walkcycle_r3_c8
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0}
+  spritePixelsToUnits: 48
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c2ae709b569bfce70800000000000000
+      internalID: 9137726015505164844
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 44450a607638ba2e0800000000000000
+      internalID: -2113451121604275132
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 946e75d6f14278a00800000000000000
+      internalID: 758614779632281161
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c3
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6d0fb586ba453a950800000000000000
+      internalID: 6459099385746419926
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c4
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 89267fb6183de36a0800000000000000
+      internalID: -6467499462041836904
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c5
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 44260770a6997a330800000000000000
+      internalID: 3722112297715393092
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c6
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5b12589cb379b1fc0800000000000000
+      internalID: -3523056000447471179
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 856f8cd52356a1b60800000000000000
+      internalID: 7717592178448987736
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r0_c8
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 192
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 37d32891f2db061d0800000000000000
+      internalID: -3359477312029311629
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1fc12c8f22dc78230800000000000000
+      internalID: 3641104373838388465
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b78057b4bb6c63cc0800000000000000
+      internalID: -3731576733502732165
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ac2f563cdc1f65e20800000000000000
+      internalID: 3339122039790629578
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c3
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c4407ca4c6eebb240800000000000000
+      internalID: 4808699176026571852
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c4
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d341c0ffab88cc3f0800000000000000
+      internalID: -879177490519813059
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c5
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 99a8cfcd18f3ad560800000000000000
+      internalID: 7339248369744513689
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c6
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 46b5559e77330bdc0800000000000000
+      internalID: -3625341109924439196
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 015590d8ff5e29650800000000000000
+      internalID: 6238301319607178512
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r1_c8
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 128
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 59f9bfd7acf0ba760800000000000000
+      internalID: 7470081769295552405
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 63071af667b0a84a0800000000000000
+      internalID: -6590442501396402122
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 728e436cf2a9f7bf0800000000000000
+      internalID: -324371118167889881
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3b210d5d90b931d60800000000000000
+      internalID: 7859796241235841715
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c3
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e2450c5c5e6878080800000000000000
+      internalID: -9185224593575488466
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c4
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 113fdd658fcf51b40800000000000000
+      internalID: 5410508670894994193
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c5
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a93c4226c7edfdc30800000000000000
+      internalID: 4386469187886039962
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c6
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7e67be43c4f487be0800000000000000
+      internalID: -1479345288867252505
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a0347c60db0888160800000000000000
+      internalID: 7028008767862555402
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r2_c8
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 64
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c3a32ef2f4c995000800000000000000
+      internalID: 25223136846953020
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 19482a0cfd32df1b0800000000000000
+      internalID: -5621297315971955567
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a1121568851f02570800000000000000
+      internalID: 8440011064205189402
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5c17e66bcffeab5b0800000000000000
+      internalID: -5351701338504924731
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c3
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 451f4fee35b61a6f0800000000000000
+      internalID: -675140460893376172
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c4
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2959e491842f137c0800000000000000
+      internalID: -4093224194826922606
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c5
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dc7f4bdf746ad4530800000000000000
+      internalID: 3840908885346285517
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c6
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 54c157b551f931b20800000000000000
+      internalID: 3103999482265934917
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 62210bdccf3383f70800000000000000
+      internalID: 9167134202388288038
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Villager07_walkcycle_r3_c8
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 0
+        width: 64
+        height: 64
+      alignment: 9
+      pivot: {x: 0.5, y: 0.109375}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 12e7e6b8df5a21220800000000000000
+      internalID: 2455207255254924833
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    outline: []
+    customData:
+    physicsShape: []
+    bones: []
+    spriteID:
+    internalID: 0
+    vertices: []
+    indices:
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Villager07_walkcycle_0: -285302607878305194
+      Villager07_walkcycle_1: -5667206572455433008
+      Villager07_walkcycle_10: 92992143473912245
+      Villager07_walkcycle_11: 4055683161579812485
+      Villager07_walkcycle_12: -9131813442040340222
+      Villager07_walkcycle_13: 2283390922999826477
+      Villager07_walkcycle_14: 6360718268748440763
+      Villager07_walkcycle_15: -8849052195436491824
+      Villager07_walkcycle_16: 1435467805373290916
+      Villager07_walkcycle_17: -4284603062885573660
+      Villager07_walkcycle_18: -1791371235834810666
+      Villager07_walkcycle_19: -8127869186451913224
+      Villager07_walkcycle_2: 3100765798534929229
+      Villager07_walkcycle_20: 542515938139841182
+      Villager07_walkcycle_21: 7032820637286127746
+      Villager07_walkcycle_22: 3386127095768044322
+      Villager07_walkcycle_23: -4818766875961022583
+      Villager07_walkcycle_24: -1875983603805372165
+      Villager07_walkcycle_25: -3869233760000552968
+      Villager07_walkcycle_26: 5546074045239068876
+      Villager07_walkcycle_27: -5917801066641950296
+      Villager07_walkcycle_28: 6681909682410580780
+      Villager07_walkcycle_29: 7361405584079325821
+      Villager07_walkcycle_3: 501441528645121321
+      Villager07_walkcycle_30: 3464554706629814790
+      Villager07_walkcycle_31: -1024891977242414900
+      Villager07_walkcycle_32: 119162860074269763
+      Villager07_walkcycle_33: -4538477707321107930
+      Villager07_walkcycle_34: -5321771168401939863
+      Villager07_walkcycle_35: 6076910837199462604
+      Villager07_walkcycle_4: -2372728046832595593
+      Villager07_walkcycle_5: 4190158650543872846
+      Villager07_walkcycle_6: 8053373309235881571
+      Villager07_walkcycle_7: -4797879135334276293
+      Villager07_walkcycle_8: -4730533056946694887
+      Villager07_walkcycle_9: -3072484961913153671
+      Villager07_walkcycle_r0_c0: 9137726015505164844
+      Villager07_walkcycle_r0_c1: -2113451121604275132
+      Villager07_walkcycle_r0_c2: 758614779632281161
+      Villager07_walkcycle_r0_c3: 6459099385746419926
+      Villager07_walkcycle_r0_c4: -6467499462041836904
+      Villager07_walkcycle_r0_c5: 3722112297715393092
+      Villager07_walkcycle_r0_c6: -3523056000447471179
+      Villager07_walkcycle_r0_c7: 7717592178448987736
+      Villager07_walkcycle_r0_c8: -3359477312029311629
+      Villager07_walkcycle_r1_c0: 3641104373838388465
+      Villager07_walkcycle_r1_c1: -3731576733502732165
+      Villager07_walkcycle_r1_c2: 3339122039790629578
+      Villager07_walkcycle_r1_c3: 4808699176026571852
+      Villager07_walkcycle_r1_c4: -879177490519813059
+      Villager07_walkcycle_r1_c5: 7339248369744513689
+      Villager07_walkcycle_r1_c6: -3625341109924439196
+      Villager07_walkcycle_r1_c7: 6238301319607178512
+      Villager07_walkcycle_r1_c8: 7470081769295552405
+      Villager07_walkcycle_r2_c0: -6590442501396402122
+      Villager07_walkcycle_r2_c1: -324371118167889881
+      Villager07_walkcycle_r2_c2: 7859796241235841715
+      Villager07_walkcycle_r2_c3: -9185224593575488466
+      Villager07_walkcycle_r2_c4: 5410508670894994193
+      Villager07_walkcycle_r2_c5: 4386469187886039962
+      Villager07_walkcycle_r2_c6: -1479345288867252505
+      Villager07_walkcycle_r2_c7: 7028008767862555402
+      Villager07_walkcycle_r2_c8: 25223136846953020
+      Villager07_walkcycle_r3_c0: -5621297315971955567
+      Villager07_walkcycle_r3_c1: 8440011064205189402
+      Villager07_walkcycle_r3_c2: -5351701338504924731
+      Villager07_walkcycle_r3_c3: -675140460893376172
+      Villager07_walkcycle_r3_c4: -4093224194826922606
+      Villager07_walkcycle_r3_c5: 3840908885346285517
+      Villager07_walkcycle_r3_c6: 3103999482265934917
+      Villager07_walkcycle_r3_c7: 9167134202388288038
+      Villager07_walkcycle_r3_c8: 2455207255254924833
+  mipmapLimitGroupName:
+  pSDRemoveMatte: 0
+  userData:
+  assetBundleName:
+  assetBundleVariant:

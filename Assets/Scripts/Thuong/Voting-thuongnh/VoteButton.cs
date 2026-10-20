@@ -18,6 +18,11 @@ public class VoteButton : MonoBehaviour
     private void OnDisable() { if (button != null) button.onClick.RemoveListener(CastVote); }
     private void Update()
     {
+        Refresh();
+    }
+    public void Refresh()
+    {
+        if (button == null) button = GetComponent<Button>();
         var voter = PlayerManager.Instance?.GetplayerByID(voterID);
         var target = PlayerManager.Instance?.GetplayerByID(targetID);
         button.interactable = GameRoleManager.Instance != null &&

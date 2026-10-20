@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 558b1bd01c4c27549a024141ab26116f, type: 3}
+  m_Name: CharacterAppearance
+  m_EditorClassIdentifier: Assembly-CSharp::ThuongCharacterAppearance
+  sprite: {fileID: 6629851457376202439, guid: cebab2f5cb2c91f4a845e21bff7e603b, type: 3}
+  animatorController: {fileID: 9100000, guid: 0b29db01764ddc444baf94f5d597d6cd, type: 2}
+  tint: {r: 1, g: 1, b: 1, a: 1}
+  visualScale: {x: 0.9, y: 0.9, z: 1}

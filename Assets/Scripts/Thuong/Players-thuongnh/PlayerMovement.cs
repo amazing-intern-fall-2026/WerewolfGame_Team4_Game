@@ -22,7 +22,7 @@ namespace Assets.Scripts.Thuong
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>();
-            animator = GetComponent<Animator>();
+            animator = GetComponentInChildren<Animator>();
         }
 
         private void FixedUpdate()
@@ -46,7 +46,7 @@ namespace Assets.Scripts.Thuong
 
             moveInput = Vector2.ClampMagnitude(context.ReadValue<Vector2>(), 1f);
 
-            if (animator != null)
+            if (animator != null && animator.runtimeAnimatorController != null)
             {
                 animator.SetBool("isWalking", moveInput != Vector2.zero);
 

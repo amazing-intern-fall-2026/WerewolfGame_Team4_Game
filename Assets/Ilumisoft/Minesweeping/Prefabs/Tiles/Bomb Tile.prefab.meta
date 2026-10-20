@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 36b11f2508c73cf4690c46b13841358b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Ilumisoft/Minesweeping/Prefabs/Tiles/Bomb Tile.prefab
+  uploadId: 752810

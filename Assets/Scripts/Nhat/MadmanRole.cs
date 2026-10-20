@@ -10,7 +10,8 @@ public class MadmanRole : BaseRole
 
     public override bool checkSpecialWin()
     {
-        return owner != null && !owner.isAlive && GameRoleManager.Instance != null &&
-               GameRoleManager.Instance.currentState == GameState.Day;
+        return owner != null && !owner.isAlive && owner.wasVotedOut &&
+               GameRoleManager.Instance != null &&
+               GameRoleManager.Instance.currentDay == 1;
     }
 }

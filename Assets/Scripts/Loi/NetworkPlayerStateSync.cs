@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using System;
 
 public enum NetworkPlayerStateType
 {
@@ -11,6 +12,8 @@ public enum NetworkPlayerStateType
 
 public class NetworkPlayerStateSync : NetworkBehaviour
 {
+    public static event Action OnLocalPlayerDeath;
+
     public NetworkVariable<NetworkPlayerStateType> State =
         new NetworkVariable<NetworkPlayerStateType>(
             NetworkPlayerStateType.Alive,
@@ -24,10 +27,17 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "NETWORK PLAYER STATE | Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " | State = "
             + State.Value
         );
+
+        // Trường hợp Player đã Dead trước khi UI subscribe
+        if (IsOwner &&
+            State.Value == NetworkPlayerStateType.Dead)
+        {
+            OnLocalPlayerDeath?.Invoke();
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -41,12 +51,20 @@ public class NetworkPlayerStateSync : NetworkBehaviour
     {
         Debug.Log(
             "NETWORK PLAYER STATE | Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " : "
             + oldState
             + " → "
             + newState
         );
+
+        // Chỉ thông báo cho chính Player bị chết
+        if (IsOwner &&
+            oldState != NetworkPlayerStateType.Dead &&
+            newState == NetworkPlayerStateType.Dead)
+        {
+            OnLocalPlayerDeath?.Invoke();
+        }
     }
 
     // Server đổi State
@@ -111,7 +129,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " đã chết."
         );
     }
@@ -129,7 +147,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " đã hồi sinh."
         );
     }
@@ -148,8 +166,37 @@ public class NetworkPlayerStateSync : NetworkBehaviour
 
         Debug.Log(
             "SERVER: Player "
-            + OwnerClientId
+            + (OwnerClientId + 1)
             + " → Spectating."
         );
+    }
+
+    /// <summary>
+    /// Server gọi khi bắt đầu ván mới: Đặt tất cả Player đang kết nối về Alive và đồng bộ qua mạng.
+    /// </summary>
+    public static void ResetAllPlayersAlive()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            return;
+
+        Debug.Log("SERVER: Reset toàn bộ người chơi về Alive cho ván mới.");
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClients.Values)
+        {
+            if (client.PlayerObject != null)
+            {
+                var stateSync = client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+                if (stateSync != null)
+                {
+                    stateSync.SetState(NetworkPlayerStateType.Alive);
+                }
+
+                var controller = client.PlayerObject.GetComponent<PlayerController>();
+                if (controller != null)
+                {
+                    controller.State.Value = PlayerState.Alive;
+                }
+            }
+        }
     }
 }

@@ -1,0 +1,18 @@
+{
+  "pixelsPerUnit": 48,
+  "characterCell": 64,
+  "walkColumns": 9,
+  "directionRows": [
+    "Up",
+    "Left",
+    "Down",
+    "Right"
+  ],
+  "skinCount": 20,
+  "sourcePages": {
+    "Hypnobius": "https://hypnobius.itch.io/medieval-village-exterior-tileset",
+    "LPCCharacters": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "LPCDecorations": "https://opengameart.org/content/lpc-medieval-village-decorations",
+    "LPCFarming": "https://opengameart.org/content/lpc-farming-tilesets-magic-animations-and-ui-elements"
+  }
+}
