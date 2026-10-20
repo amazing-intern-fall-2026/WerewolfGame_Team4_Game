@@ -206,7 +206,7 @@ TilemapRenderer:
   m_MaxChunkCount: 32
   m_MaxFrameAge: 64
   m_SortOrder: 0
-  m_Mode: 0
+  m_Mode: 1
   m_DetectChunkCullingBounds: 0
 --- !u!1839735485 &462429421
 Tilemap:
@@ -470,7 +470,7 @@ TilemapRenderer:
   m_MaxChunkCount: 32
   m_MaxFrameAge: 64
   m_SortOrder: 0
-  m_Mode: 0
+  m_Mode: 1
   m_DetectChunkCullingBounds: 0
 --- !u!1839735485 &1096620817
 Tilemap:
@@ -571,7 +571,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06aea4799c0fcce4bac519391bb1a265, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HunterTilemapManager
-  cam: {fileID: 0}
+  cam: {fileID: 708341818}
   groundTilemap: {fileID: 1654035242}
   coverTilemap: {fileID: 1096620817}
   markerTilemap: {fileID: 462429421}
@@ -700,7 +700,7 @@ TilemapRenderer:
   m_MaxChunkCount: 32
   m_MaxFrameAge: 64
   m_SortOrder: 0
-  m_Mode: 0
+  m_Mode: 1
   m_DetectChunkCullingBounds: 0
 --- !u!1839735485 &1654035242
 Tilemap:
