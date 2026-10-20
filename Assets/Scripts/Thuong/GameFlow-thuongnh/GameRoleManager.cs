@@ -254,6 +254,7 @@ public class GameRoleManager : MonoBehaviour
     public void ResetLogicMatch()
     {
         if (!manualLogicPrototype) return;
+        LoverManager.Instance?.ResetForNewMatch();
         Winner = null;
         PhaseTimeRemaining = 0;
         currentState = GameState.RoleReveal;
