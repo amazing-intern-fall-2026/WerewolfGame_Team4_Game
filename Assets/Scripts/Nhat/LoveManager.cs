@@ -4,6 +4,12 @@ public class LoveManager : MonoBehaviour
 {
     public static LoverManager Instance => LoverManager.Instance;
 
+    public void ResetForNewMatch()
+    {
+        if (LoverManager.Instance != null)
+            LoverManager.Instance.ResetForNewMatch();
+    }
+
     public void MakeLovers(int playerAID, int playerBID)
     {
         if (LoverManager.Instance != null)

@@ -16,7 +16,11 @@ public class NetworkVoteCardUI : MonoBehaviour
     [SerializeField]
     private Button cardButton;
 
+    [SerializeField]
+    private Button infoButton;
+
     private int playerID;
+    private string cachedPlayerName;
 
     private void OnEnable()
     {
@@ -37,6 +41,7 @@ public class NetworkVoteCardUI : MonoBehaviour
     )
     {
         playerID = id;
+        cachedPlayerName = playerName;
 
         if (playerNameText != null)
         {
@@ -46,12 +51,13 @@ public class NetworkVoteCardUI : MonoBehaviour
         if (statusText != null)
         {
             statusText.text =
-                isAlive ? "ALIVE" : "DEAD";
+                isAlive ? "CÒN SỐNG" : "ĐÃ BỊ LOẠI";
+            statusText.color = isAlive ? new Color(0.2f, 1f, 0.4f) : new Color(0.8f, 0.3f, 0.3f);
         }
 
         if (voteCountText != null)
         {
-            voteCountText.text = "0 VOTES";
+            voteCountText.text = "0 PHIẾU";
         }
 
         if (cardButton != null)
@@ -63,6 +69,20 @@ public class NetworkVoteCardUI : MonoBehaviour
             cardButton.onClick.AddListener(
                 OnCardClicked
             );
+        }
+
+        if (infoButton != null)
+        {
+            infoButton.onClick.RemoveAllListeners();
+            infoButton.onClick.AddListener(OnInfoButtonClicked);
+        }
+    }
+
+    private void OnInfoButtonClicked()
+    {
+        if (NetworkRoleDetailUI.Instance != null)
+        {
+            NetworkRoleDetailUI.Instance.ShowForPlayer(playerID, cachedPlayerName);
         }
     }
 
@@ -77,8 +97,7 @@ public class NetworkVoteCardUI : MonoBehaviour
             return;
 
         voteCountText.text =
-            voteCount
-            + (voteCount == 1 ? " VOTE" : " VOTES");
+            $"{voteCount} PHIẾU";
     }
 
     private void OnCardClicked()

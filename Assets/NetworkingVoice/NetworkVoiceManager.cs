@@ -9,14 +9,56 @@ using UnityEngine;
 
 public class NetworkVoiceManager : MonoBehaviour
 {
-    public static NetworkVoiceManager Instance { get; private set; }
+    private static NetworkVoiceManager _instance;
+    public static NetworkVoiceManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindFirstObjectByType<NetworkVoiceManager>();
+                if (_instance == null)
+                {
+                    var go = new GameObject("NetworkVoiceManager");
+                    _instance = go.AddComponent<NetworkVoiceManager>();
+                }
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     public bool IsInitialized { get; private set; }
     public bool IsInLobbyVoice { get; private set; }
     public string CurrentChannelName { get; private set; }
 
-    public bool IsMicrophoneMuted { get; private set; }
-    public bool IsOutputMuted { get; private set; }
+    private bool _isMicrophoneMuted = true;
+    public bool IsMicrophoneMuted
+    {
+        get
+        {
+            if (IsInitialized && VivoxService.Instance != null && VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized)
+            {
+                return VivoxService.Instance.IsInputDeviceMuted;
+            }
+            return _isMicrophoneMuted;
+        }
+        private set => _isMicrophoneMuted = value;
+    }
+
+    private bool _isOutputMuted = false;
+    public bool IsOutputMuted
+    {
+        get
+        {
+            if (IsInitialized && VivoxService.Instance != null && VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized)
+            {
+                return VivoxService.Instance.IsOutputDeviceMuted;
+            }
+            return _isOutputMuted;
+        }
+        private set => _isOutputMuted = value;
+    }
 
     public static event Action<bool> OnMicrophoneMuteChanged;
     public static event Action<bool> OnOutputMuteChanged;
@@ -29,14 +71,18 @@ public class NetworkVoiceManager : MonoBehaviour
 
     private async void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
-        Instance = this;
+        _instance = this;
         DontDestroyOnLoad(gameObject);
+
+        // Mặc định an toàn: Micro luôn TẮT (Muted)
+        _isMicrophoneMuted = true;
+        _isOutputMuted = false;
 
         await EnsureInitializedAndLoggedInAsync();
     }
@@ -94,6 +140,30 @@ public class NetworkVoiceManager : MonoBehaviour
 
             IsInitialized = (VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized && VivoxService.Instance.IsLoggedIn);
             Debug.Log($"[VOICE] Vivox login thành công. IsInitialized={IsInitialized}");
+
+            if (IsInitialized)
+            {
+                // Áp dụng trạng thái mute an toàn vào Vivox ngay khi login xong
+                if (_isMicrophoneMuted)
+                {
+                    VivoxService.Instance.MuteInputDevice();
+                }
+                else
+                {
+                    VivoxService.Instance.UnmuteInputDevice();
+                }
+
+                if (_isOutputMuted)
+                {
+                    VivoxService.Instance.MuteOutputDevice();
+                }
+                else
+                {
+                    VivoxService.Instance.UnmuteOutputDevice();
+                }
+                Debug.Log($"[VOICE] Đã thiết lập trạng thái mute ban đầu cho Vivox: MicMuted={_isMicrophoneMuted}, OutputMuted={_isOutputMuted}");
+            }
+
             return IsInitialized;
         }
         catch (Exception e)
@@ -175,11 +245,13 @@ public class NetworkVoiceManager : MonoBehaviour
 
             CurrentChannelName = channelName;
             IsInLobbyVoice = true;
-            IsMicrophoneMuted = VivoxService.Instance.IsInputDeviceMuted;
-            IsOutputMuted = VivoxService.Instance.IsOutputDeviceMuted;
 
-            Debug.Log($"VOICE | Đã tham gia thành công kênh thoại: {channelName}");
-            SetMicrophoneMuted(false);
+            // QUY TẮC BẢO MẬT VOICE: Tuyệt đối KHÔNG tự bật micro khi vào kênh thoại!
+            // Áp dụng trạng thái người chơi đã chọn (_isMicrophoneMuted mặc định = true)
+            SetMicrophoneMuted(_isMicrophoneMuted);
+            SetOutputMuted(_isOutputMuted);
+
+            Debug.Log($"VOICE | Đã tham gia thành công kênh thoại: {channelName}. MicMuted={IsMicrophoneMuted}, OutputMuted={IsOutputMuted}");
         }
         catch (Exception e)
         {
@@ -405,6 +477,8 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public void SetMicrophoneMuted(bool muted)
     {
+        _isMicrophoneMuted = muted;
+
         if (IsInitialized && VivoxService.Instance != null && VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized)
         {
             if (muted)
@@ -417,14 +491,22 @@ public class NetworkVoiceManager : MonoBehaviour
             }
         }
 
-        IsMicrophoneMuted = muted;
-        Debug.Log($"VOICE | Microphone: {(muted ? "OFF" : "ON")}");
-        OnMicrophoneMuteChanged?.Invoke(muted);
+        bool actualState = IsMicrophoneMuted;
+        Debug.Log($"VOICE | Microphone: {(actualState ? "OFF (MUTED)" : "ON (UNMUTED)")} (Vivox={actualState})");
+        OnMicrophoneMuteChanged?.Invoke(actualState);
     }
 
     public void SetMicrophoneActive(bool active)
     {
         SetMicrophoneMuted(!active);
+    }
+
+    /// <summary>
+    /// Đặt lại micro về trạng thái TẮT an toàn (ví dụ khi vào Game Scene, đổi Scene, bắt đầu ván mới).
+    /// </summary>
+    public void ResetToSafeDefaultMute()
+    {
+        SetMicrophoneMuted(true);
     }
 
     // =========================================================
@@ -438,6 +520,8 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public void SetOutputMuted(bool muted)
     {
+        _isOutputMuted = muted;
+
         if (IsInitialized && VivoxService.Instance != null && VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized)
         {
             if (muted)
@@ -450,9 +534,9 @@ public class NetworkVoiceManager : MonoBehaviour
             }
         }
 
-        IsOutputMuted = muted;
-        Debug.Log($"VOICE | Output (Loa): {(muted ? "OFF" : "ON")}");
-        OnOutputMuteChanged?.Invoke(muted);
+        bool actualState = IsOutputMuted;
+        Debug.Log($"VOICE | Output (Loa): {(actualState ? "OFF (MUTED)" : "ON (UNMUTED)")} (Vivox={actualState})");
+        OnOutputMuteChanged?.Invoke(actualState);
     }
 
     public void SetOutputActive(bool active)

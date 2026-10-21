@@ -4,6 +4,9 @@ using UnityEngine.Tilemaps;
 
 public class HunterTilemapManager : MonoBehaviour
 {
+    public enum TrapType { None = 0, BearTrap = 1, SpikePit = 2 }
+    public enum FlagState { None = 0, BearFlag = 1, SpikeFlag = 2 }
+
     [Header("References")]
     [SerializeField] private Camera cam;
     [SerializeField] private Tilemap groundTilemap;
@@ -14,20 +17,27 @@ public class HunterTilemapManager : MonoBehaviour
     [SerializeField] private TileBase coverTile;
     [SerializeField] private TileBase clearedTile;
     [SerializeField] private TileBase flagTile;
-    [SerializeField] private TileBase trapTile;
-    [SerializeField] private TileBase[] numberTiles; // Assign 8 tiles (1 to 8)
+    [SerializeField] private TileBase spikeFlagTile; // Optional: leave empty to auto-tint standard flagTile red!
+    [SerializeField] private TileBase bearTrapTile;
+    [SerializeField] private TileBase spikePitTile;  // Assign your new Spike Pit sprite tile here
+    [SerializeField] private TileBase[] numberTiles; // Assign tiles 1 through 8 (or up to 16)
 
     [Header("Board Config")]
     [SerializeField] private int width = 10;
     [SerializeField] private int height = 10;
-    [SerializeField] private int totalTraps = 15;
+    [SerializeField] private int bearTrapCount = 12;
+    [SerializeField] private int spikePitCount = 3;
+
+    [Header("Spike Pit Visuals")]
+    [SerializeField] private Color spikeClueTint = new Color(1f, 0.55f, 0.2f, 1f); // Orange warning tint on numbers
 
     private struct CellData
     {
-        public bool isTrap;
+        public TrapType trapType;
         public bool isRevealed;
-        public bool isFlagged;
-        public int adjacentTraps;
+        public FlagState flagState;
+        public int adjacentTrapSum;
+        public bool touchesSpikePit;
     }
 
     private CellData[,] grid;
@@ -49,29 +59,46 @@ public class HunterTilemapManager : MonoBehaviour
         firstTap = true;
         isGameOver = false;
 
-        groundTilemap.ClearAllTiles();
-        coverTilemap.ClearAllTiles();
-        markerTilemap.ClearAllTiles();
+        BoundsInt bounds = new BoundsInt(0, 0, 0, width, height, 1);
+        int totalCells = width * height;
 
+        TileBase[] coverBlock = new TileBase[totalCells];
+        TileBase[] groundBlock = new TileBase[totalCells];
+        TileBase[] emptyBlock = new TileBase[totalCells];
+
+        for (int i = 0; i < totalCells; i++)
+        {
+            coverBlock[i] = coverTile;
+            groundBlock[i] = clearedTile;
+            emptyBlock[i] = null;
+        }
+
+        groundTilemap.SetTilesBlock(bounds, groundBlock);
+        coverTilemap.SetTilesBlock(bounds, coverBlock);
+        markerTilemap.SetTilesBlock(bounds, emptyBlock);
+
+        // Reset any tile colors from previous rounds
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
-                coverTilemap.SetTile(pos, coverTile);
-                groundTilemap.SetTile(pos, clearedTile);
+                groundTilemap.SetTileFlags(pos, TileFlags.None);
+                groundTilemap.SetColor(pos, Color.white);
+                markerTilemap.SetTileFlags(pos, TileFlags.None);
+                markerTilemap.SetColor(pos, Color.white);
             }
         }
     }
 
     private void CenterEverything()
     {
-        // 1. Shift the Grid GameObject itself so its center is at (0, 0, 0)
-        // We use transform.root or groundTilemap.layoutGrid.transform so it works no matter where the script is attached!
-        Transform gridTransform = groundTilemap.layoutGrid.transform;
-        gridTransform.position = new Vector3(-width * 0.5f, -height * 0.5f, 0f);
+        if (groundTilemap != null && groundTilemap.layoutGrid != null)
+        {
+            Transform gridTransform = groundTilemap.layoutGrid.transform;
+            gridTransform.position = new Vector3(-width * 0.5f, -height * 0.5f, 0f);
+        }
 
-        // 2. Put Camera at (0, 0, -10) and zoom to fit the whole board
         if (cam != null)
         {
             cam.transform.position = new Vector3(0f, 0f, -10f);
@@ -90,18 +117,18 @@ public class HunterTilemapManager : MonoBehaviour
         int x = cellPos.x;
         int y = cellPos.y;
 
-        if (grid[x, y].isFlagged || grid[x, y].isRevealed) return;
+        if (grid[x, y].flagState != FlagState.None || grid[x, y].isRevealed) return;
 
         if (firstTap)
         {
-            PlantTraps(x, y);
+            PlantAllTraps(x, y);
             CalculateClues();
             firstTap = false;
         }
 
-        if (grid[x, y].isTrap)
+        if (grid[x, y].trapType != TrapType.None)
         {
-            TriggerGameOver(x, y);
+            TriggerGameOver(x, y, grid[x, y].trapType);
             return;
         }
 
@@ -118,35 +145,63 @@ public class HunterTilemapManager : MonoBehaviour
 
         if (grid[x, y].isRevealed) return;
 
-        grid[x, y].isFlagged = !grid[x, y].isFlagged;
+        // Cycle: None -> BearFlag (1) -> SpikeFlag (2) -> None
+        FlagState nextState = (FlagState)(((int)grid[x, y].flagState + 1) % 3);
+        grid[x, y].flagState = nextState;
 
-        if (grid[x, y].isFlagged)
+        markerTilemap.SetTileFlags(cellPos, TileFlags.None);
+
+        switch (nextState)
         {
-            markerTilemap.SetTile(cellPos, flagTile);
-#if UNITY_ANDROID || UNITY_IOS
-            Handheld.Vibrate();
-#endif
-        }
-        else
-        {
-            markerTilemap.SetTile(cellPos, null);
+            case FlagState.None:
+                markerTilemap.SetTile(cellPos, null);
+                markerTilemap.SetColor(cellPos, Color.white);
+                break;
+
+            case FlagState.BearFlag:
+                markerTilemap.SetTile(cellPos, flagTile);
+                markerTilemap.SetColor(cellPos, Color.white);
+                break;
+
+            case FlagState.SpikeFlag:
+                // Uses spikeFlagTile if assigned, otherwise reuses flagTile tinted bright red
+                if (spikeFlagTile != null)
+                {
+                    markerTilemap.SetTile(cellPos, spikeFlagTile);
+                    markerTilemap.SetColor(cellPos, Color.white);
+                }
+                else
+                {
+                    markerTilemap.SetTile(cellPos, flagTile);
+                    markerTilemap.SetColor(cellPos, new Color(1f, 0.3f, 0.3f, 1f));
+                }
+                break;
         }
     }
 
-    private void PlantTraps(int safeX, int safeY)
+    private void PlantAllTraps(int safeX, int safeY)
+    {
+        int availableCells = (width * height) - 9;
+        int targetSpikes = Mathf.Min(spikePitCount, availableCells);
+        int targetBears = Mathf.Min(bearTrapCount, availableCells - targetSpikes);
+
+        PlantTrapType(safeX, safeY, targetSpikes, TrapType.SpikePit);
+        PlantTrapType(safeX, safeY, targetBears, TrapType.BearTrap);
+    }
+
+    private void PlantTrapType(int safeX, int safeY, int countToPlace, TrapType type)
     {
         int placed = 0;
-        int maxPossibleTraps = Mathf.Min(totalTraps, (width * height) - 9);
-
-        while (placed < maxPossibleTraps)
+        while (placed < countToPlace)
         {
             int rx = Random.Range(0, width);
             int ry = Random.Range(0, height);
 
-            if ((Mathf.Abs(rx - safeX) <= 1 && Mathf.Abs(ry - safeY) <= 1) || grid[rx, ry].isTrap)
+            // Keep 3x3 starting area trap-free
+            if ((Mathf.Abs(rx - safeX) <= 1 && Mathf.Abs(ry - safeY) <= 1) || grid[rx, ry].trapType != TrapType.None)
                 continue;
 
-            grid[rx, ry].isTrap = true;
+            grid[rx, ry].trapType = type;
             placed++;
         }
     }
@@ -157,38 +212,58 @@ public class HunterTilemapManager : MonoBehaviour
         {
             for (int y = 0; y < height; y++)
             {
-                if (grid[x, y].isTrap) continue;
+                if (grid[x, y].trapType != TrapType.None) continue;
 
-                int count = 0;
+                int sum = 0;
+                bool nearSpike = false;
+
                 foreach (var (nx, ny) in GetNeighbors(x, y))
                 {
-                    if (grid[nx, ny].isTrap) count++;
+                    if (grid[nx, ny].trapType == TrapType.BearTrap)
+                    {
+                        sum += 1;
+                    }
+                    else if (grid[nx, ny].trapType == TrapType.SpikePit)
+                    {
+                        sum += 2; // Spike Pit counts as 2!
+                        nearSpike = true;
+                    }
                 }
-                grid[x, y].adjacentTraps = count;
+
+                grid[x, y].adjacentTrapSum = sum;
+                grid[x, y].touchesSpikePit = nearSpike;
             }
         }
     }
 
     private void RevealCell(int x, int y)
     {
-        if (!IsInBounds(x, y) || grid[x, y].isRevealed || grid[x, y].isFlagged) return;
+        if (!IsInBounds(x, y) || grid[x, y].isRevealed || grid[x, y].flagState != FlagState.None) return;
 
         grid[x, y].isRevealed = true;
         Vector3Int pos = new Vector3Int(x, y, 0);
 
         coverTilemap.SetTile(pos, null);
 
-        int clues = grid[x, y].adjacentTraps;
+        int clues = grid[x, y].adjacentTrapSum;
 
         if (clues > 0)
         {
-            if (numberTiles != null && clues <= numberTiles.Length && numberTiles[clues - 1] != null)
+            if (numberTiles != null && numberTiles.Length > 0)
             {
-                groundTilemap.SetTile(pos, numberTiles[clues - 1]);
+                // Clamp index in case sum exceeds 8 (e.g., surrounded by multiple Spike Pits)
+                int tileIndex = Mathf.Clamp(clues - 1, 0, numberTiles.Length - 1);
+                if (numberTiles[tileIndex] != null)
+                {
+                    groundTilemap.SetTile(pos, numberTiles[tileIndex]);
+                }
             }
-            else
+
+            // Apply warning orange tint if touching at least one Spike Pit
+            if (grid[x, y].touchesSpikePit)
             {
-                Debug.LogWarning($"Clue is {clues}, but NumberTiles slot {clues - 1} is empty in Inspector!");
+                groundTilemap.SetTileFlags(pos, TileFlags.None);
+                groundTilemap.SetColor(pos, spikeClueTint);
             }
         }
         else
@@ -196,7 +271,7 @@ public class HunterTilemapManager : MonoBehaviour
             groundTilemap.SetTile(pos, clearedTile);
             foreach (var (nx, ny) in GetNeighbors(x, y))
             {
-                if (!grid[nx, ny].isTrap)
+                if (grid[nx, ny].trapType == TrapType.None)
                 {
                     RevealCell(nx, ny);
                 }
@@ -204,22 +279,44 @@ public class HunterTilemapManager : MonoBehaviour
         }
     }
 
-    private void TriggerGameOver(int hitX, int hitY)
+    private void TriggerGameOver(int hitX, int hitY, TrapType hitType)
     {
         isGameOver = true;
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
-                if (grid[x, y].isTrap)
+                if (grid[x, y].trapType != TrapType.None)
                 {
                     Vector3Int pos = new Vector3Int(x, y, 0);
                     coverTilemap.SetTile(pos, null);
-                    groundTilemap.SetTile(pos, trapTile);
+
+                    if (grid[x, y].trapType == TrapType.SpikePit)
+                    {
+                        // Use spikePitTile if assigned, otherwise fallback to bearTrapTile tinted red
+                        if (spikePitTile != null)
+                        {
+                            groundTilemap.SetTile(pos, spikePitTile);
+                        }
+                        else
+                        {
+                            groundTilemap.SetTile(pos, bearTrapTile);
+                            groundTilemap.SetTileFlags(pos, TileFlags.None);
+                            groundTilemap.SetColor(pos, Color.red);
+                        }
+                    }
+                    else
+                    {
+                        groundTilemap.SetTile(pos, bearTrapTile);
+                    }
                 }
             }
         }
-        Debug.Log($"*SNAP!* Stepped on a trap at ({hitX}, {hitY})! Game Over.");
+
+        if (hitType == TrapType.SpikePit)
+            Debug.Log($"*CRASH!* Fell into a massive Spike Pit at ({hitX}, {hitY})! Game Over.");
+        else
+            Debug.Log($"*SNAP!* Stepped on a Bear Trap at ({hitX}, {hitY})! Game Over.");
     }
 
     private void CheckWinCondition()
@@ -229,7 +326,7 @@ public class HunterTilemapManager : MonoBehaviour
         {
             for (int y = 0; y < height; y++)
             {
-                if (!grid[x, y].isTrap && !grid[x, y].isRevealed)
+                if (grid[x, y].trapType == TrapType.None && !grid[x, y].isRevealed)
                     unrevealedSafeCells++;
             }
         }
@@ -237,7 +334,7 @@ public class HunterTilemapManager : MonoBehaviour
         if (unrevealedSafeCells == 0)
         {
             isGameOver = true;
-            Debug.Log("All traps found! You Win!");
+            Debug.Log("All Bear Traps and Spike Pits avoided! You Win!");
         }
     }
 

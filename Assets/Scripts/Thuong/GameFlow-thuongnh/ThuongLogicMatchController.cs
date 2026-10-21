@@ -78,6 +78,7 @@ public sealed class ThuongLogicMatchController : MonoBehaviour
         abilitySystem.SetMatchRunning(false);
         nightSystem.ResetForNewMatch();
         voteSystem.StartVote();
+        LoverManager.Instance?.ResetForNewMatch();
         foreach (var player in players.players) player.ResetForNewMatch();
         roles.AssignConfiguredRoles();
         phaseController.ResetLogicMatch();

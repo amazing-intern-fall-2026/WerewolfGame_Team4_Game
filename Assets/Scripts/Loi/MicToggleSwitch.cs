@@ -72,7 +72,7 @@ public class MicToggleSwitch : MonoBehaviour, IPointerClickHandler, IBeginDragHa
 
     [Header("Initial State")]
     [Tooltip("Trạng thái Mic ban đầu (true = Bật / Unmuted, false = Tắt / Muted)")]
-    [SerializeField] private bool isOn = true;
+    [SerializeField] private bool isOn = false;
 
     [Header("Events")]
     public UnityEvent<bool> onToggleChanged;
@@ -120,6 +120,15 @@ public class MicToggleSwitch : MonoBehaviour, IPointerClickHandler, IBeginDragHa
             {
                 isOn = active;
                 UpdateVisualsInstant(isOn);
+            }
+        }
+        else
+        {
+            // Mặc định an toàn: micro luôn tắt khi chưa khởi tạo xong
+            if (isOn)
+            {
+                isOn = false;
+                UpdateVisualsInstant(false);
             }
         }
     }
