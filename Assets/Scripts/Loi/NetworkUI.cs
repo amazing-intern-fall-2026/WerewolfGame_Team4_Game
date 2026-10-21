@@ -29,12 +29,19 @@ public class NetworkUI : MonoBehaviour
 
     private void Start()
     {
+        SetupAuthEvents();
         SetupButtonListeners();
-        SetStatus("Sẵn sàng. Tạo phòng hoặc nhập mã 6 số để tham gia.", Color.white);
+        
+        bool isSignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
+        string playerId = AuthManager.Instance != null ? AuthManager.Instance.PlayerId : null;
+        string username = AuthManager.Instance != null ? AuthManager.Instance.CurrentUsername : null;
+        UpdateAuthGating(isSignedIn, playerId, username);
     }
 
     private void OnDestroy()
     {
+        TeardownAuthEvents();
+
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
@@ -64,6 +71,22 @@ public class NetworkUI : MonoBehaviour
             Transform cb = canvas.transform.Find("ClientButton");
             if (cb != null) clientButton = cb.GetComponent<Button>();
         }
+
+        // Đảm bảo AuthUI hoạt động trong scene
+        if (FindFirstObjectByType<AuthUI>() == null)
+        {
+            gameObject.AddComponent<AuthUI>();
+        }
+
+        // Dọn dẹp các thành phần UI xác thực cũ nếu còn sót lại trên Canvas
+        Transform oldGoogle = canvas.transform.Find("GoogleSignInButton");
+        if (oldGoogle != null) Destroy(oldGoogle.gameObject);
+        Transform oldGuest = canvas.transform.Find("GuestSignInButton");
+        if (oldGuest != null) Destroy(oldGuest.gameObject);
+        Transform oldAuthText = canvas.transform.Find("AuthAccountText");
+        if (oldAuthText != null) Destroy(oldAuthText.gameObject);
+        Transform oldSignOut = canvas.transform.Find("SignOutButton");
+        if (oldSignOut != null) Destroy(oldSignOut.gameObject);
 
         // Tìm hoặc tạo ô nhập mã phòng
         if (roomCodeInput == null)
@@ -135,7 +158,14 @@ public class NetworkUI : MonoBehaviour
         textRect.offsetMin = new Vector2(10, 0);
         textRect.offsetMax = new Vector2(-10, 0);
 
+        TMP_FontAsset font = AuthUI.GetVietnameseFont();
+
         TextMeshProUGUI textComp = textObj.GetComponent<TextMeshProUGUI>();
+        if (font != null)
+        {
+            textComp.font = font;
+            textComp.fontSharedMaterial = font.material;
+        }
         textComp.fontSize = 18;
         textComp.color = Color.white;
         textComp.alignment = TextAlignmentOptions.Center;
@@ -151,6 +181,11 @@ public class NetworkUI : MonoBehaviour
         phRect.offsetMax = new Vector2(-10, 0);
 
         TextMeshProUGUI phComp = placeholderObj.GetComponent<TextMeshProUGUI>();
+        if (font != null)
+        {
+            phComp.font = font;
+            phComp.fontSharedMaterial = font.material;
+        }
         phComp.text = "Nhập mã 6 số...";
         phComp.fontSize = 15;
         phComp.fontStyle = FontStyles.Italic;
@@ -183,9 +218,64 @@ public class NetworkUI : MonoBehaviour
         rect.sizeDelta = new Vector2(340, 50);
 
         statusText = statusObj.GetComponent<TextMeshProUGUI>();
+        TMP_FontAsset font = AuthUI.GetVietnameseFont();
+        if (font != null)
+        {
+            statusText.font = font;
+            statusText.fontSharedMaterial = font.material;
+        }
         statusText.fontSize = 14;
         statusText.alignment = TextAlignmentOptions.Center;
         statusText.textWrappingMode = TextWrappingModes.Normal;
+    }
+
+    private void SetupAuthEvents()
+    {
+        if (AuthManager.Instance != null)
+        {
+            AuthManager.Instance.OnAuthStateChanged += OnAuthStateChanged;
+        }
+    }
+
+    private void TeardownAuthEvents()
+    {
+        if (AuthManager.Instance != null)
+        {
+            AuthManager.Instance.OnAuthStateChanged -= OnAuthStateChanged;
+        }
+    }
+
+    private void OnAuthStateChanged(AuthManager.AuthState state, string playerId, string username)
+    {
+        bool isSignedIn = state == AuthManager.AuthState.RegisteredUser || state == AuthManager.AuthState.Guest;
+        UpdateAuthGating(isSignedIn, playerId, username);
+    }
+
+    private void UpdateAuthGating(bool isSignedIn, string playerId, string username)
+    {
+        if (hostButton != null)
+        {
+            hostButton.interactable = isSignedIn;
+        }
+
+        if (clientButton != null)
+        {
+            clientButton.interactable = isSignedIn;
+        }
+
+        if (roomCodeInput != null)
+        {
+            roomCodeInput.interactable = isSignedIn;
+        }
+
+        if (isSignedIn)
+        {
+            SetStatus("Sẵn sàng. Tạo phòng hoặc nhập mã 6 số để tham gia.", Color.white);
+        }
+        else
+        {
+            SetStatus("Vui lòng Đăng nhập, Đăng ký hoặc chọn Chơi ngay để bắt đầu.", new Color(0.95f, 0.8f, 0.3f));
+        }
     }
 
     private void SetupButtonListeners()
@@ -239,6 +329,12 @@ public class NetworkUI : MonoBehaviour
     {
         if (isConnecting)
             return;
+
+        if (AuthManager.Instance == null || !AuthManager.Instance.IsSignedIn)
+        {
+            SetStatus("Vui lòng Đăng nhập, Đăng ký hoặc chọn Chơi ngay trước khi tạo phòng!", Color.red);
+            return;
+        }
 
         Debug.Log("NETWORK UI | Nhấn nút Tạo Phòng (Host)");
 
@@ -336,6 +432,12 @@ public class NetworkUI : MonoBehaviour
     {
         if (isConnecting)
             return;
+
+        if (AuthManager.Instance == null || !AuthManager.Instance.IsSignedIn)
+        {
+            SetStatus("Vui lòng Đăng nhập, Đăng ký hoặc chọn Chơi ngay trước khi vào phòng!", Color.red);
+            return;
+        }
 
         string code = roomCodeInput != null ? roomCodeInput.text.Trim() : "";
 
