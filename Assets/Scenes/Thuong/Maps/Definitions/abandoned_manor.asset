@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: abandoned_manor
   m_EditorClassIdentifier: Assembly-CSharp::Thuong.Maps.ThuongMapDefinition
   mapId: abandoned_manor
-  contentRevision: 1
+  contentRevision: 2
   displayName: "Dinh Th\u1EF1 B\u1ECF Hoang"
   thumbnail: {fileID: 21300000, guid: 64bdf326c2f38bf46832baa203ef117b, type: 3}
   worldPrefab: {fileID: 4443352292444500267, guid: 606e35b3889e25b4c840166190149ea8, type: 3}
@@ -47,53 +47,33 @@ MonoBehaviour:
   - {x: 1.85, y: 1.7}
   - {x: 2.7, y: 1.7}
   stations:
-  - stationId: thuong.task.water
+  - stationId: thuong.task.wood
     maskSlot: 0
-    task: {fileID: 11400000, guid: a7d138fd0ed157044a7fab8d6c25bf04, type: 2}
-    position: {x: -8, y: 1}
-    sprite: {fileID: 21300000, guid: d3e73c4cc1b049e4c857fdcb8a22166c, type: 3}
+    task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
+    position: {x: -7, y: -5}
+    sprite: {fileID: 21300000, guid: 1bdd61c2e1d73154c88f545f326b4c05, type: 3}
   - stationId: thuong.task.harvest
     maskSlot: 1
     task: {fileID: 11400000, guid: 1cdc42f9ab30ef640be91e670d03a1fb, type: 2}
     position: {x: -6, y: 4}
     sprite: {fileID: 21300000, guid: 21ae89fd9fec43e4d9c2e841f1487fd7, type: 3}
-  - stationId: thuong.task.fence
-    maskSlot: 2
-    task: {fileID: 11400000, guid: e8a06f1884f594f44a9f49538eee055e, type: 2}
-    position: {x: 8, y: 5}
-    sprite: {fileID: 21300000, guid: e4ec409286d59444fbb67795844dde30, type: 3}
-  - stationId: thuong.task.wood
-    maskSlot: 3
-    task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
-    position: {x: -7, y: -5}
-    sprite: {fileID: 21300000, guid: 1bdd61c2e1d73154c88f545f326b4c05, type: 3}
-  - stationId: thuong.task.storage
-    maskSlot: 4
-    task: {fileID: 11400000, guid: 79805d788b79b1e47b9adb48ce523d15, type: 2}
-    position: {x: 8, y: -4}
-    sprite: {fileID: 21300000, guid: aa0db576f064c934fac21d98f3617b1a, type: 3}
-  - stationId: thuong.task.lamps
-    maskSlot: 5
-    task: {fileID: 11400000, guid: ebcd5f678b4ded64dabacedd93d31451, type: 2}
-    position: {x: 1, y: 7}
-    sprite: {fileID: 21300000, guid: 39827bc98f6f8c64fbfd781c1e5c27b0, type: 3}
   - stationId: thuong.task.eggs
-    maskSlot: 6
+    maskSlot: 2
     task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
     position: {x: -8, y: -2}
     sprite: {fileID: 21300000, guid: 02f2584555665d34ea4789835148ebad, type: 3}
   - stationId: thuong.task.potion
-    maskSlot: 7
+    maskSlot: 3
     task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
     position: {x: 6, y: 2}
     sprite: {fileID: 21300000, guid: 2d808eea6698ad341b349bfb0e5e0484, type: 3}
   - stationId: thuong.task.defender
-    maskSlot: 8
+    maskSlot: 4
     task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
     position: {x: 9, y: -7}
     sprite: {fileID: 21300000, guid: 79c7ebbc4c11e6148a236a0ede57a3a2, type: 3}
   - stationId: thuong.task.traps
-    maskSlot: 9
+    maskSlot: 5
     task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
     position: {x: -2, y: -7}
     sprite: {fileID: 21300000, guid: a3bf236dc178f8041a1f87c6e21b4054, type: 3}

@@ -268,6 +268,7 @@ public class GameRoleManager : MonoBehaviour
         if (observedDeathSystem != null) observedDeathSystem.DeathResolved -= HandleDeath;
         observedDeathSystem = null;
         NightManager.Instance?.ResetForNewMatch();
+        EventManager.Instance?.ResetForNewMatch();
         started = resolving = false;
         manualLogicPrototype = true;
         enabled = false;

@@ -20,10 +20,15 @@ public static class ThuongMinigameInstaller
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Stop Play Mode first.");
         EnsureFolder(Root + "/Resources"); EnsureFolder(Root + "/Tasks"); EnsureFolder(Root + "/Ingredients"); EnsureFolder(Root + "/Prefabs");
         var catalog = AssetDatabase.LoadAssetAtPath<ThuongMinigameCatalog>(CatalogPath);
-        // Re-running the installer never resets tuned rules, art or station positions.
-        if (catalog != null && catalog.schemaVersion == 1)
+        // Re-running the installer never resets tuned rules or art. Version 2 moves
+        // all station placement into map definitions.
+        if (catalog != null && catalog.schemaVersion >= 1 && catalog.entries.Count == 6)
         {
+            catalog.additionalStations.Clear();
+            catalog.stationPrefab = null;
+            catalog.schemaVersion = 2;
             if (!catalog.Validate(out string existingError)) throw new InvalidOperationException(existingError);
+            EditorUtility.SetDirty(catalog); AssetDatabase.SaveAssets();
             Debug.Log("THUONG_MINIGAME_ASSETS_ALREADY_INSTALLED"); return;
         }
         if (catalog == null)
@@ -32,7 +37,7 @@ public static class ThuongMinigameInstaller
             AssetDatabase.CreateAsset(catalog, CatalogPath);
         }
         catalog.entries.Clear(); catalog.additionalStations.Clear();
-        catalog.stationPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Scenes/Thuong/Prototype/Integration/Prefabs/TaskStation.prefab");
+        catalog.stationPrefab = null;
         var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Scenes/Thuong/Prototype/Art/World.mat");
         foreach (ThuongMinigameKind kind in Enum.GetValues(typeof(ThuongMinigameKind)))
         {
@@ -67,10 +72,6 @@ public static class ThuongMinigameInstaller
         defender.obstacle = SceneSprite("Assets/Minigames/Defender Game/Defend.unity", "PlayerCenter");
         Entry(catalog, ThuongMinigameKind.Trapsweeper, "thuong.task.traps", NewTask("Traps", "Gỡ bẫy"),
             "Mở 22 ô an toàn trên bàn 5×5 có 3 bẫy. Lần mở đầu an toàn. Chuột phải hoặc bật Cắm cờ cho cảm ứng.", 22, 0, 40, 15, 1.5f);
-        catalog.additionalStations.Add(new ThuongExtraTaskStation { task = eggs.task, position = new Vector2(-7, 3) });
-        catalog.additionalStations.Add(new ThuongExtraTaskStation { task = potion.task, position = new Vector2(6, 5) });
-        catalog.additionalStations.Add(new ThuongExtraTaskStation { task = defender.task, position = new Vector2(8, -4) });
-        catalog.additionalStations.Add(new ThuongExtraTaskStation { task = catalog.entries.Last().task, position = new Vector2(-6, -5) });
         catalog.ingredients = new[]
         {
             Ingredient("Healing", "Thảo dược", IngredientType.Healing, 2, SpriteAt("Assets/Minigames/Potion Making/alchhemy pack/aloe vera 32.png")),
@@ -80,7 +81,7 @@ public static class ThuongMinigameInstaller
         catalog.trapCover = TileSprite("e4ed6653d9243c64d90bcc227c2b4767");
         catalog.trapFlag = TileSprite("37cea9c523ea2b44698954399f072226");
         catalog.trapCleared = TileSprite("e0a432aeb79ccff448983d3fe1d7bb63");
-        catalog.schemaVersion = 1;
+        catalog.schemaVersion = 2;
         if (!catalog.Validate(out string error)) throw new InvalidOperationException(error);
         EditorUtility.SetDirty(catalog); AssetDatabase.SaveAssets();
         Debug.Log("THUONG_MINIGAME_ASSETS_INSTALLED: six task adapters; no saved scene, demo or project setting changed.");

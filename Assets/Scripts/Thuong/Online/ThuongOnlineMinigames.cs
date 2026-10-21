@@ -37,7 +37,7 @@ namespace Thuong.Online
             string error = "Không tìm thấy catalog minigame. Chạy Tools/Thuong/Minigames/Install Assets.";
             minigamesReady = minigameCatalog != null && minigameCatalog.Validate(out error);
             if (!minigamesReady) { Debug.LogError("[Thuong Minigames] " + error); return; }
-            // Map bindings now own all ten locations and mask slots. The catalog owns rules only.
+            // Map bindings own the six minigame locations and mask slots. The catalog owns rules only.
         }
 
         private void RegisterMinigameMessages()
@@ -56,7 +56,7 @@ namespace Thuong.Online
             if (IsPlayingTask) return;
             if (!minigamesReady) { localActionFeedback = "Chưa có cấu hình minigame hợp lệ."; return; }
             if (minigameCatalog.Find(stations[station].task) == null)
-            { SendAction(ThuongOnlineAction.CompleteTask, station); return; }
+            { localActionFeedback = "Nhiệm vụ này chưa được cấu hình minigame."; return; }
             minigamePendingUntil = MinigameTime + 3;
             SendMinigameRequest(0, station, 0, default);
         }

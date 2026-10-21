@@ -50,6 +50,7 @@ namespace Thuong.Online
             { if (!QaAlive(output)) yield break; yield return null; }
             if (host)
             {
+                ApplyMapVariant(new Thuong.Maps.ThuongMapVariant(mapCatalog.Find("village"), GameEventType.None));
                 while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
                 for (int i=0;i<6;i++)
                 {
@@ -64,7 +65,7 @@ namespace Thuong.Online
                         { restore.WriteValueSafe(true); network.CustomMessagingManager.SendNamedMessage("thuong.qa.restore",serverPlayers.Keys.First(id=>id!=network.LocalClientId),restore); }
                     }
                     while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
-                    QaCheck(SelectedMap!=null && stations.Length==10,"Full map asset and stations loaded in player");
+                    QaCheck(SelectedMap!=null && stations.Length==6,"Full map asset and minigame stations loaded in player");
                     foreach (var spawn in SelectedMap.spawns) QaCheck(Thuong.Maps.ThuongMapCollision.IsFree(SelectedMap,spawn),"Valid spawn");
                 }
                 yield return QaBenchmark(output);
@@ -87,8 +88,8 @@ namespace Thuong.Online
                 foreach (GameEventType type in Enum.GetValues(typeof(GameEventType)))
                 {
                     if (type==GameEventType.None) continue;
-                    typeof(EventManager).GetProperty("SelectedEvent").SetValue(EventManager.Instance,type);
-                    typeof(EventManager).GetProperty("ScheduledDay").SetValue(EventManager.Instance,game.currentDay);
+                    selectedMapEvent = type;
+                    EventManager.Instance.ConfigureMapVariant(type);
                     foreach (GamePhase phase in new[]{GamePhase.Task,GamePhase.Night})
                     {
                         game.SetPhase(phase); BroadcastSnapshot(); BroadcastSnapshot();
@@ -98,7 +99,8 @@ namespace Thuong.Online
                     }
                 }
                 game.currentDay++; game.SetPhase(GamePhase.Task); BroadcastSnapshot();
-                QaCheck(publicEvent==GameEventType.None && eventPresentation.OverlayCount==0,"Next day clears event");
+                QaCheck(publicEvent==selectedMapEvent && EventManager.Instance.GetEventForDay(game.currentDay)==selectedMapEvent,
+                    "Next day retains the chosen event map");
                 using (var end=new FastBufferWriter(1,Allocator.Temp))
                 { end.WriteValueSafe(true); network.CustomMessagingManager.SendNamedMessage("thuong.qa.done",client,end); }
                 yield return new WaitForSecondsRealtime(1);

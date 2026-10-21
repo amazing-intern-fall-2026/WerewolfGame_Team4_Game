@@ -28,7 +28,7 @@ namespace Thuong.Online
         // OK confirms the role locally; Ready need not wait for the round trip.
         private bool CanToggleLobbyReady => connected && !busy && network != null &&
             network.IsListening && !matchStarted && HasLocalRole &&
-            (HasReadRole || localRoleConfirmed) && !ShowRoleCard;
+            localMapReady && (HasReadRole || localRoleConfirmed) && !ShowRoleCard;
 
         private void RefreshLobbyView()
         {
@@ -96,7 +96,8 @@ namespace Thuong.Online
                 row.Name.text = $"P{member.PlayerId + 1:00}  {member.Name}" +
                     (member.ClientId == network.LocalClientId ? "  (Bạn)" : string.Empty);
                 row.Status.text = !member.MapReady ? "ĐANG TẢI MAP" : member.Ready ? "READY" : "NOT READY";
-                row.StatusBadge.color = member.Ready ? new Color32(57, 105, 65, 255) : new Color32(111, 90, 70, 255);
+                row.StatusBadge.color = !member.MapReady ? new Color32(139, 91, 40, 255)
+                    : member.Ready ? new Color32(57, 105, 65, 255) : new Color32(111, 90, 70, 255);
             }
             foreach (var pair in lobbyRows)
                 if (!activeIds.Contains(pair.Key)) pair.Value.Root.SetActive(false);
@@ -179,7 +180,7 @@ namespace Thuong.Online
             lobbyRoleLabel = lobbyRoleButton.GetComponentInChildren<TMP_Text>();
             lobbyStartButton = LobbyButton("Lobby Start", card, "BẮT ĐẦU GAME", new Vector2(.685f, .035f), new Vector2(.825f, .12f), StartMatchOnServer);
             LobbyButton("Leave lobby", card, "RỜI PHÒNG", new Vector2(.845f, .035f), new Vector2(.975f, .12f), LeaveSession);
-            LobbyText("Lobby limit", card, "TỐI ĐA 25 NGƯỜI", new Vector2(.025f, .035f), new Vector2(.265f, .12f), 18, TextAlignmentOptions.Center);
+            mapSettingsButton = LobbyButton("Map settings button", card, "MAP: NGẪU NHIÊN", new Vector2(.025f, .035f), new Vector2(.265f, .12f), OpenMapSettings);
         }
 
         private LobbyRow CreateLobbyRow(int playerId)

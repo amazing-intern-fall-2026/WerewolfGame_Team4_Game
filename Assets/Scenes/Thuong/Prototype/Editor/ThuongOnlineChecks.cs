@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Thuong.Maps;
 using Thuong.Online;
 using TMPro;
 using Unity.Collections;
@@ -30,6 +31,7 @@ public static class ThuongOnlineChecks
         public int Skin;
         public uint MapEpoch;
         public string MapId;
+        public GameEventType MapEvent;
         public string Result;
         public int PrivatePlayerId = -1, PublicLocalPlayerId = -1;
     }
@@ -42,10 +44,15 @@ public static class ThuongOnlineChecks
     private static int exitCode;
     private static double cleanupDeadline;
     private static int mapCycle;
+    private static int mapSettingsStage;
+    private static ThuongMapVariant[] mapVariants;
 
     public static void Run()
     {
         mapCycle = 0;
+        mapSettingsStage = 0;
+        mapVariants = Resources.Load<ThuongMapCatalog>(ThuongMapCatalog.ResourcePath)
+            .GetVariants(Resources.Load<ThuongEventPresentationCatalog>(ThuongEventPresentationCatalog.ResourcePath));
         Directory.CreateDirectory(Output);
         for (int count = 1; count <= 25; count++)
         for (int seed = 0; seed < 32; seed++)
@@ -81,6 +88,9 @@ public static class ThuongOnlineChecks
             session = ThuongOnlineSession.Active;
             if (session == null || Time.time < .5f) return;
             hud = Object.FindAnyObjectByType<GameHUD>();
+            // Entering Play Mode reloads the editor domain and clears this cache.
+            mapVariants ??= Resources.Load<ThuongMapCatalog>(ThuongMapCatalog.ResourcePath)
+                .GetVariants(Resources.Load<ThuongEventPresentationCatalog>(ThuongEventPresentationCatalog.ResourcePath));
             switch (stage)
             {
                 case 0:
@@ -88,7 +98,16 @@ public static class ThuongOnlineChecks
                     Require(!hud.GetComponent<Canvas>().enabled, "Gameplay canvas hidden in lobby");
                     Set(session, "portText", Port.ToString());
                     Invoke(session, "SetLobbyCapacity", 25);
+                    Require(Field<bool>(session, "randomMapSelection"), "Random remains the default map mode");
+                    Require(!(bool)Invoke(session, "SetHostMapSelection", false, "missing-map", GameEventType.None), "Invalid manual selection does not replace the current configuration");
                     Invoke(session, "HostLan");
+                    Require(Field<bool>(session, "mapDrawComplete") && mapVariants.Any(v => v.Map == session.SelectedMap && v.EventType == session.SelectedMapEvent),
+                        "Creating a room automatically draws a released normal/event map");
+                    uint initialMapEpoch = Field<uint>(session, "mapEpoch");
+                    var initialMap = session.SelectedMap; var initialMapEvent = session.SelectedMapEvent;
+                    Invoke(session, "EnsureRoomMapSelection"); Invoke(session, "EnsureRoomMapSelection");
+                    Require(Field<uint>(session, "mapEpoch") == initialMapEpoch && session.SelectedMap == initialMap && session.SelectedMapEvent == initialMapEvent,
+                        "Repeated initialization never rerolls the room's map");
                     for (int i = 1; i < 25; i++) AddPeer(i);
                     stage = 1;
                     break;
@@ -99,14 +118,16 @@ public static class ThuongOnlineChecks
                     if (peers.Any(peer => !members.Any(member => Field<ulong>(member, "ClientId") == peer.Network.LocalClientId &&
                         Field<int>(member, "CharacterIndex") == peer.Skin))) return;
                     if (members.Any(member => !Field<bool>(member, "MapReady"))) return;
-                    if (mapCycle < 6)
+                    Require(peers.All(peer => peer.MapId == session.SelectedMap.mapId && peer.MapEvent == session.SelectedMapEvent),
+                        "All transports receive the same base map and normal/event variant");
+                    if (mapCycle < mapVariants.Length)
                     {
-                        Require(peers.All(peer => peer.MapId == session.SelectedMap.mapId), "All transports receive selected map and revision");
-                        Invoke(session, "SelectMap", 1); mapCycle++;
+                        Require((bool)Invoke(session, "ApplyMapVariant", mapVariants[mapCycle++]), "QA can traverse each normal/event map");
                         Require(!(bool)typeof(ThuongOnlineSession).GetProperty("AllMapsReady",BindingFlags.Instance | BindingFlags.NonPublic).GetValue(session), "Changing map invalidates client acknowledgements");
                         Invoke(session, "AssignLobbyRolesOnServer"); Require(!session.RolesAssigned,"Cannot assign roles before fresh map acknowledgements");
                         return;
                     }
+                    if (!CheckMapSelectionControls()) return;
                     Require(members.All(member => !Field<bool>(member, "Ready")), "Readiness is locked until roles are assigned and read");
                     Invoke(session, "RefreshLobbyView");
                     var lobbyContent = Field<RectTransform>(session, "lobbyContent");
@@ -115,6 +136,9 @@ public static class ThuongOnlineChecks
                         $"Twenty-five lobby rows use selected avatars (rows={avatars.Length}, sprites={avatars.Select(image => image.sprite).Distinct().Count()})");
                     Require(lobbyContent.GetComponentInParent<ScrollRect>().verticalScrollbar != null, "Full lobby has a draggable scrollbar");
                     Require(Field<Canvas>(session, "lobbyCanvas").enabled, "Native lobby canvas is visible before role assignment");
+                    Require(Field<Button>(session, "mapSettingsButton").interactable, "Host can configure map mode before assigning roles");
+                    Require(Field<TMP_Text>(session, "mapVariantLabel").text == (session.SelectedMapEvent == GameEventType.None ? "MAP BÌNH THƯỜNG" : ThuongEventPresentationCatalog.Name(session.SelectedMapEvent)),
+                        "Lobby shows the selected normal/event map");
                     var thumbnail=Field<Image>(session,"mapPreview").rectTransform;
                     var capacityButton=Field<Button>(session,"lobbyIncreaseButton").GetComponent<RectTransform>();
                     var thumbnailCorners=new Vector3[4]; var capacityCorners=new Vector3[4];
@@ -129,6 +153,13 @@ public static class ThuongOnlineChecks
                     Field<Button>(session, "lobbyRoleButton").onClick.Invoke();
                     Require(session.RolesAssigned && !session.MatchStarted && Field<uint>(session, "snapshotRevision") > previous, "Role assignment preserves snapshot revision and waits before gameplay");
                     Require(RoleManager.Instance.playerRoles.Count == 25 && GameRoleManager.Instance.currentState == GameState.RoleReveal, "Twenty-five server roles and real reveal phase");
+                    Require(EventManager.Instance.IsMapVariant && EventManager.Instance.GetEventForDay(1) == session.SelectedMapEvent &&
+                        EventManager.Instance.GetEventForDay(8) == session.SelectedMapEvent, "Role assignment keeps the event map for the full match");
+                    uint lockedMapEpoch = Field<uint>(session, "mapEpoch");
+                    Require(!(bool)Invoke(session, "SetHostMapSelection", false, "village", GameEventType.None) && Field<uint>(session, "mapEpoch") == lockedMapEpoch,
+                        "Map settings cannot change after role assignment");
+                    Invoke(session, "RefreshLobbyView");
+                    Require(!Field<Button>(session, "mapSettingsButton").interactable, "Map settings button locks after assigning roles");
                     assignedRoles = RoleManager.Instance.playerRoles.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToArray();
                     next = EditorApplication.timeSinceStartup + 1;
                     stage = 2;
@@ -250,9 +281,11 @@ public static class ThuongOnlineChecks
                     break;
                 case 10:
                     if (session.GetComponent<NetworkManager>().IsListening) return;
-                    Require(!session.MatchStarted && PlayerManager.Instance.players.Count == 0, "Disconnect clears gameplay state");
+                    Require(!session.MatchStarted && PlayerManager.Instance.players.Count == 0 && !Field<bool>(session, "mapDrawComplete"), "Disconnect clears gameplay and map-draw state");
+                    Require((bool)Invoke(session, "SetHostMapSelection", false, "lantern_cemetery", GameEventType.Fog), "Manual selection is available before creating a room");
                     Invoke(session, "HostLan");
-                    Require(session.GetComponent<NetworkManager>().IsHost && !session.MatchStarted, "Fresh host can be created after leaving match");
+                    Require(session.GetComponent<NetworkManager>().IsHost && !session.MatchStarted && Field<bool>(session, "mapDrawComplete"), "Fresh host draws another map after leaving match");
+                    Require(session.SelectedMap.mapId == "lantern_cemetery" && session.SelectedMapEvent == GameEventType.Fog, "Creating a manual room retains the configured map and event instead of rerolling");
                     Invoke(session, "LeaveSession");
                     stage = 11;
                     next = EditorApplication.timeSinceStartup + .7;
@@ -265,6 +298,66 @@ public static class ThuongOnlineChecks
         }
         catch (Exception exception) { Finish(exception); }
     }
+
+    private static bool CheckMapSelectionControls()
+    {
+        Invoke(session, "RefreshLobbyView");
+        switch (mapSettingsStage)
+        {
+            case 0:
+                uint previousEpoch = Field<uint>(session, "mapEpoch");
+                var previousMap = session.SelectedMap; var previousEvent = session.SelectedMapEvent;
+                Field<Button>(session, "mapSettingsButton").onClick.Invoke();
+                Field<Button>(session, "manualMapOption").onClick.Invoke();
+                Field<Button>(session, "nextDraftMap").onClick.Invoke();
+                ClickMapSettings("Cancel map settings");
+                Require(Field<uint>(session, "mapEpoch") == previousEpoch && session.SelectedMap == previousMap && session.SelectedMapEvent == previousEvent &&
+                    Field<bool>(session, "randomMapSelection"), "Cancel leaves map, event and selection mode unchanged");
+                Field<Button>(session, "mapSettingsButton").onClick.Invoke();
+                Field<Button>(session, "manualMapOption").onClick.Invoke();
+                Set(session, "draftMapId", "village"); Set(session, "draftMapEvent", GameEventType.None);
+                Invoke(session, "RefreshMapSettings");
+                Require(Field<Button>(session, "nextDraftMap").interactable && Field<Button>(session, "nextDraftEvent").interactable,
+                    "Manual mode enables map and event controls");
+                ThuongMedievalSceneChecks.SavePreview(Output + "/map-settings-manual.png");
+                ClickMapSettings("Apply map settings");
+                Require(!Field<bool>(session, "randomMapSelection") && session.SelectedMap.mapId == "village" && session.SelectedMapEvent == GameEventType.None,
+                    "Applying manual normal map uses the selected layout without an event");
+                Require(!Field<GameObject>(session, "mapSettingsRoot").activeSelf &&
+                    !(bool)typeof(ThuongOnlineSession).GetProperty("AllMapsReady", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(session),
+                    "Applying settings closes the dialog and requires fresh client acknowledgements");
+                mapSettingsStage++;
+                return false;
+            case 1:
+                Require(session.SelectedMap.mapId == "village" && session.SelectedMapEvent == GameEventType.None, "All peers acknowledge the manually selected normal map");
+                ThuongMedievalSceneChecks.SavePreview(Output + "/lobby-manual-normal.png");
+                Field<Button>(session, "mapSettingsButton").onClick.Invoke();
+                Field<Button>(session, "nextDraftMap").onClick.Invoke();
+                Field<Button>(session, "nextDraftEvent").onClick.Invoke();
+                ClickMapSettings("Apply map settings");
+                Require(session.SelectedMap.mapId == "harvest_market" && session.SelectedMapEvent == GameEventType.BloodMoon,
+                    "Map and event arrow controls select a specific event map");
+                mapSettingsStage++;
+                return false;
+            case 2:
+                Require(session.SelectedMap.mapId == "harvest_market" && session.SelectedMapEvent == GameEventType.BloodMoon,
+                    "All peers acknowledge the manually selected event map");
+                Field<Button>(session, "mapSettingsButton").onClick.Invoke();
+                Field<Button>(session, "randomMapOption").onClick.Invoke();
+                Require(!Field<Button>(session, "nextDraftMap").interactable && !Field<Button>(session, "nextDraftEvent").interactable,
+                    "Random mode disables manual controls");
+                ThuongMedievalSceneChecks.SavePreview(Output + "/map-settings-random.png");
+                ClickMapSettings("Apply map settings");
+                Require(Field<bool>(session, "randomMapSelection") && mapVariants.Any(v => v.Map == session.SelectedMap && v.EventType == session.SelectedMapEvent),
+                    "Switching back to random rolls one valid normal/event map");
+                mapSettingsStage++;
+                return false;
+            default: return true;
+        }
+    }
+
+    private static void ClickMapSettings(string name) => Field<GameObject>(session, "mapSettingsRoot")
+        .GetComponentsInChildren<Button>(true).Single(button => button.name == name).onClick.Invoke();
 
     private static void NormalizeRoles()
     {
@@ -355,6 +448,7 @@ public static class ThuongOnlineChecks
         Require(eventRevision == ThuongEventPresentationCatalog.ContentRevision && definition!=null && mapRevision == definition.contentRevision,"Map/event content versions synchronized");
         Require(mapEvent <= 6 && (mapEvent == 0 ? eventDay == 0 : eventDay > 0),"Snapshot exposes only current public event");
         peer.MapId = mapId.ToString();
+        peer.MapEvent = (GameEventType)mapEvent;
         if (peer.MapEpoch != mapEpoch)
         {
             peer.MapEpoch = mapEpoch;

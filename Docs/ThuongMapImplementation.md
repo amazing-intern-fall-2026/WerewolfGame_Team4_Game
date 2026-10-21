@@ -2,7 +2,9 @@
 
 ## Phạm vi
 
-Triển khai trên nhánh `codex/thuong-map-events`, bắt đầu từ `7ab0950`.
+Triển khai ban đầu trên nhánh `codex/thuong-map-events`, bắt đầu từ `7ab0950`;
+đã ghép `origin/main` tại `8f25ece` với thay đổi local trên nhánh `thuong` ngày
+21/10/2026. Cấu hình trạm bên dưới giữ yêu cầu chỉ hoàn thành nhiệm vụ qua minigame.
 Scene dùng để chơi vẫn là `Assets/Scenes/Thuong/OnlineSceneGamePlay.unity`.
 Map được instantiate trong scene này; không đổi active scene để đổi map.
 
@@ -17,10 +19,17 @@ vách có cơ chế giảm che khuất nhân vật. Đây là bản đầu cần
 ## Cách dùng
 
 1. Mở scene online, Host LAN hoặc Relay như trước.
-2. Trong lobby, chủ phòng dùng hai nút MAP dưới khung nhân vật để chọn layout.
+2. Trước khi tạo phòng, chọn **Ngẫu nhiên** (mặc định) hoặc **Chọn map**.
+   Chọn map cho phép chọn layout và Bình thường hoặc một event cụ thể.
+   Ngẫu nhiên bốc từ 42 biến thể: sáu map thường và 36 map event (sáu layout
+   × sáu event), mỗi biến thể có xác suất bằng nhau.
 3. Mỗi client dựng world từ registry nội bộ rồi xác nhận ID, revision và epoch.
    Chỉ khi tất cả xác nhận map/event mới được Phân vai và Bắt đầu game.
-4. Sau khi phân vai, map khóa đến khi kết thúc/rời phòng. Flow đọc role, Ready,
+4. Trong lobby, chủ phòng bấm nút **MAP** ở góc dưới trái để đổi chế độ,
+   chọn map/event và bấm **Áp dụng**. Áp dụng chế độ Ngẫu nhiên bốc lại một
+   lần; Hủy giữ nguyên thiết lập. Mọi thay đổi yêu cầu client xác nhận lại.
+   Client chỉ xem kết quả; sau khi phân vai, thiết lập map bị khóa.
+5. Map/event đã chốt giữ nguyên trong suốt ván. Flow đọc role, Ready,
    nhiệm vụ, minigame, vote và kết quả tiếp tục dùng hệ thống hiện có.
 
 Nếu thiếu map hoặc revision khác, lobby báo cần dùng cùng bản game và chặn
@@ -37,36 +46,38 @@ trong bước connection approval.
   Chỉ truy vấn obstacle của definition; không truy vấn collider người chơi hoặc
   local physics scene của minigame. Các BoxCollider2D trong prefab dùng cùng footprint.
 - Snapshot: `thuong.online.snapshot.v5`; roster: `thuong.online.roster.v3`.
-  Header thêm map ID/revision/epoch, event content revision, event hiện tại/ngày.
-  Không gửi lịch event tương lai hoặc role bí mật trong header.
+  Header thêm map ID/revision/epoch, event content revision 2, biến thể event/ngày.
+  Biến thể được công khai ngay trong lobby; không gửi role bí mật trong header.
 - Map-ready: `thuong.online.map-ready.v1`. Đổi map vô hiệu hóa ack cũ; gói ack
   khác ID/revision/epoch không mở khóa bắt đầu.
-- Mỗi map có 25 spawn và mười slot giống nhau. Tăng `contentRevision` khi thay
+- Mỗi map có 25 spawn và sáu slot minigame giống nhau. Tăng `contentRevision` khi thay
   đổi layout/collision/binding; các build cùng phòng phải có cùng nội dung.
-  Đầm Sương và Trại Rừng hiện revision 2; bốn layout còn lại revision 1.
+  Đầm Sương và Trại Rừng hiện revision 3; bốn layout còn lại revision 2.
 
 | Slot | ID ổn định | Nhiệm vụ |
 | --- | --- | --- |
-| 0 | thuong.task.water | Lấy nước |
+| 0 | thuong.task.wood | Chặt gỗ |
 | 1 | thuong.task.harvest | Thu hoạch |
-| 2 | thuong.task.fence | Sửa rào |
-| 3 | thuong.task.wood | Gom củi |
-| 4 | thuong.task.storage | Dọn kho |
-| 5 | thuong.task.lamps | Thắp đèn |
-| 6 | thuong.task.eggs | Thu gom trứng |
-| 7 | thuong.task.potion | Pha chế thuốc |
-| 8 | thuong.task.defender | Bảo vệ khu vực |
-| 9 | thuong.task.traps | Gỡ bẫy |
+| 2 | thuong.task.eggs | Thu gom trứng |
+| 3 | thuong.task.potion | Pha chế thuốc |
+| 4 | thuong.task.defender | Bảo vệ khu vực |
+| 5 | thuong.task.traps | Gỡ bẫy |
 
-Catalog minigame giữ mapping và luật; tọa độ additionalStations cũ không còn
-được dùng để sinh trạm online. Bốn nhiệm vụ được chọn mỗi ngày, mask 16 bit,
+Catalog minigame schema v2 giữ mapping và luật; `additionalStations` rỗng và
+`stationPrefab` của catalog bằng null. Prefab trạm và vị trí thuộc map definition.
+Bốn minigame được chọn mỗi ngày từ sáu trạm, mask 16 bit,
 tốc độ 3 unit/giây và luật vai/trận không đổi. Tương tác server kiểm tra cả
 khoảng cách và đường tiếp cận, không nhận thao tác xuyên vật cản.
+Gói `CompleteTask` cũ không cộng tiến độ; phần thưởng chỉ do server cấp sau
+khi lượt minigame hợp lệ hoàn thành.
 
 ## Sự kiện
 
-Một event được server lập lịch cho một ngày của ván, như trước. Client chỉ áp
-trạng thái server gửi. Cùng sáu bộ presentation dùng cho mọi map:
+Biến thể map đã bốc quyết định event cho cả ván. Map thường (`None`) giữ
+nguyên trạng thái bình thường trong mọi ngày. Map event giữ cùng loại event
+qua các ngày và hiển thị theo pha phù hợp bên dưới. Client nhận kết quả từ
+server, không tự random riêng. Luồng offline vẫn giữ lịch event một ngày cũ.
+Cùng sáu bộ presentation dùng cho mọi map:
 
 - BloodMoon: tint đỏ và than hồng trong Night/ResolveNight.
 - Fog: dải sương chuyển động ở Day/Night; tắt trong các pha hội thoại.
@@ -77,8 +88,9 @@ trạng thái server gửi. Cùng sáu bộ presentation dùng cho mọi map:
   âm thanh giảm ở ban ngày, tắt trong hội thoại/vote.
 
 Overlay không có collider hoặc manager riêng. Áp lại snapshot không nhân đôi
-world, đèn hoặc audio. Qua ngày, GameOver, Leave hoặc đổi map đều dọn overlay,
-dừng audio và trả màu gốc. Tint chỉ áp SpriteRenderer/Tilemap thuộc world, giữ
+world, đèn hoặc audio. Qua ngày, overlay được dựng lại cho cùng biến thể;
+GameOver, Leave hoặc đổi map đều dọn overlay, dừng audio và trả màu gốc.
+Tint chỉ áp SpriteRenderer/Tilemap thuộc world, giữ
 marker/nhãn trạm sáng; không chạm HUD hoặc RenderTexture của minigame.
 Sương không giới hạn thông tin server, Trăng Máu không buff sói và không hồi sinh.
 

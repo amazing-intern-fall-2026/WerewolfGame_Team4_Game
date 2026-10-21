@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96f9f0e9120ba524daf471a58f9e0af8, type: 3}
   m_Name: ThuongMinigameCatalog
   m_EditorClassIdentifier: Assembly-CSharp::Thuong.Minigames.ThuongMinigameCatalog
-  schemaVersion: 1
+  schemaVersion: 2
   entries:
   - taskId: thuong.task.wood
     task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
@@ -122,16 +122,8 @@ MonoBehaviour:
     subject: {fileID: 0}
     tool: {fileID: 0}
     obstacle: {fileID: 0}
-  additionalStations:
-  - task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
-    position: {x: -7, y: 3}
-  - task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
-    position: {x: 6, y: 5}
-  - task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
-    position: {x: 8, y: -4}
-  - task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
-    position: {x: -6, y: -5}
-  stationPrefab: {fileID: 4248278775423850136, guid: e43143587cc774f40ae9263de27adc53, type: 3}
+  additionalStations: []
+  stationPrefab: {fileID: 0}
   ingredients:
   - {fileID: 11400000, guid: 11d6e7c2d0971d84ab58e78f55cafda0, type: 2}
   - {fileID: 11400000, guid: ccdf3e37bc56151499829b16e21605da, type: 2}

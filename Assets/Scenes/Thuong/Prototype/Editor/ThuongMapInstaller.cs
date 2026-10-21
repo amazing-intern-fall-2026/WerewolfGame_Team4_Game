@@ -66,14 +66,14 @@ public static class ThuongMapInstaller
             else { world = new GameObject(names[index]); BuildWorld(world.transform, index); }
             world.name = "World " + ids[index];
             var definition = Asset<ThuongMapDefinition>(Root + "/Definitions/" + ids[index] + ".asset");
-            definition.mapId = ids[index]; definition.displayName = names[index]; definition.contentRevision = index==3||index==4?2:1;
+            definition.mapId = ids[index]; definition.displayName = names[index]; definition.contentRevision = index==3||index==4?3:2;
             definition.boundsMin = new(-13, -11); definition.boundsMax = new(15, 13);
             definition.obstacles = blockers.ToArray();
             definition.spawns = Enumerable.Range(0, 25).Select(i => new Vector2(1 + (i % 5 - 2) * .85f, (i / 5 - 2) * .85f)).ToArray();
             definition.plaza = new Vector2(1, 0); definition.gate = new Vector2(1, -9);
             definition.stage = new[] { new Vector2(-4,6),new Vector2(4,-8),new Vector2(5,-9),new Vector2(4,8),new Vector2(1,-8),new Vector2(-9,8) }[index];
             definition.lanterns = new[] { new Vector2(-4, -3), new Vector2(5, -3), new Vector2(-4, 4), new Vector2(6, 4), new Vector2(-9, 1), new Vector2(10, 0) };
-            definition.stationPrefab = minigames.stationPrefab;
+            definition.stationPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Scenes/Thuong/Prototype/Integration/Prefabs/TaskStation.prefab");
             definition.stations = BuildStations(index, minigames);
             definition.worldPrefab = PrefabUtility.SaveAsPrefabAsset(world, Root + "/Prefabs/" + ids[index] + ".prefab");
             // Render the actual world as a thumbnail, rather than a schematic mockup.
@@ -105,11 +105,15 @@ public static class ThuongMapInstaller
             new[] { new Vector2(-8,1), new Vector2(-6,6), new Vector2(8,5), new Vector2(-7,-5), new Vector2(8,-4), new Vector2(1,7), new Vector2(-8,-2), new Vector2(6,2), new Vector2(9,-7), new Vector2(-2,-7) };
         if (index == 4) positions = new[] {new Vector2(-6,2),new Vector2(-9,6),new Vector2(10,3),new Vector2(-8,-6),new Vector2(6,-4),new Vector2(1,7),new Vector2(-9,-3),new Vector2(6,6),new Vector2(10,-8),new Vector2(-3,-8)};
         if (index == 5) positions[1] = new Vector2(-6,4);
-        return Enumerable.Range(0, 10).Select(slot => new ThuongMapStation
+        return catalog.entries.Select((entry, slot) =>
         {
-            stationId = "thuong.task." + Ids[slot], maskSlot = slot, position = positions[slot], sprite = Sprite(Icons[slot]),
-            task = slot < 6 ? AssetDatabase.LoadAssetAtPath<TaskData>("Assets/Scenes/Thuong/Prototype/Data/Task" + (slot + 1) + ".asset") :
-                AssetDatabase.LoadAssetAtPath<TaskData>("Assets/Scenes/Thuong/Prototype/Integration/Minigames/Tasks/" + char.ToUpperInvariant(Ids[slot][0]) + Ids[slot].Substring(1) + ".asset")
+            int anchor = Array.FindIndex(Ids, id => entry.taskId == "thuong.task." + id);
+            if (anchor < 0) throw new Exception("Missing map anchor for minigame " + entry.taskId);
+            return new ThuongMapStation
+            {
+                stationId = entry.taskId, maskSlot = slot, position = positions[anchor],
+                sprite = Sprite(Icons[anchor]), task = entry.task
+            };
         }).ToArray();
     }
 

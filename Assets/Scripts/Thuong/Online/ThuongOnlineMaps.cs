@@ -22,18 +22,20 @@ namespace Thuong.Online
         private string mapError = "";
         private uint mapEpoch = 1;
         private uint acknowledgedMapEpoch;
+        private bool mapDrawComplete;
+        private GameEventType selectedMapEvent;
         private GameEventType publicEvent;
         private int publicEventDay;
-        private TMP_Text mapLabel;
+        private TMP_Text mapLabel, mapVariantLabel;
         private Image mapPreview;
         private Image bloodMoonIcon;
         private Sprite bloodMoonSprite;
         private Texture2D bloodMoonTexture;
-        private Button previousMap, nextMap;
         public ThuongMapDefinition SelectedMap => mapRuntime != null ? mapRuntime.Definition : null;
+        public GameEventType SelectedMapEvent => selectedMapEvent;
         public bool MapReady => localMapReady;
         public GameEventType VisibleEvent => publicEvent;
-        private bool AllMapsReady => localMapReady && serverPlayers.Count > 0 && serverPlayers.Values.All(p => p.MapReady);
+        private bool AllMapsReady => mapDrawComplete && localMapReady && serverPlayers.Count > 0 && serverPlayers.Values.All(p => p.MapReady);
 
         private void PrepareOnlineMaps()
         {
@@ -67,13 +69,26 @@ namespace Thuong.Online
             return localMapReady;
         }
 
-        private void SelectMap(int direction)
+        private bool EnsureRoomMapSelection()
         {
-            if (busy || roomLocked || matchStarted || mapCatalog == null || network.IsListening && !network.IsServer) return;
-            var maps = mapCatalog.Released;
-            if (maps.Length == 0) return;
-            int index = Array.IndexOf(maps, SelectedMap);
-            if (!BindOnlineMap(maps[(index + direction + maps.Length) % maps.Length])) return;
+            if (mapDrawComplete) return true;
+            var variants = mapCatalog?.GetVariants(eventCatalog) ?? Array.Empty<ThuongMapVariant>();
+            if (variants.Length == 0) { status = "Không có map khả dụng."; return false; }
+            var chosen = randomMapSelection ? variants[UnityEngine.Random.Range(0, variants.Length)]
+                : variants.FirstOrDefault(v => v.Map.mapId == configuredMapId && v.EventType == configuredMapEvent);
+            if (chosen.Map == null) { status = "Map đã chọn không có trong bản game này."; return false; }
+            return ApplyMapVariant(chosen);
+        }
+
+        private bool ApplyMapVariant(ThuongMapVariant variant)
+        {
+            if (roomLocked || matchStarted || network.IsListening && !network.IsServer) return false;
+            if (variant.EventType != GameEventType.None && eventCatalog?.Find(variant.EventType) == null) return false;
+            if (!BindOnlineMap(variant.Map)) return false;
+            selectedMapEvent = variant.EventType;
+            publicEvent = selectedMapEvent;
+            publicEventDay = publicEvent == GameEventType.None ? 0 : Mathf.Max(1, game.currentDay);
+            mapDrawComplete = true;
             mapEpoch++;
             foreach (var member in serverPlayers.Values)
             {
@@ -83,6 +98,23 @@ namespace Thuong.Online
             }
             rosterDirty = true;
             if (network.IsServer) { BroadcastRoster(); BroadcastSnapshot(); }
+            return true;
+        }
+
+#if UNITY_EDITOR || THUONG_MAP_QA
+        // Deterministic traversal for content/network checks only; no player controls.
+        private void SelectMap(int direction)
+        {
+            var maps = mapCatalog.Released;
+            int index = Array.IndexOf(maps, SelectedMap);
+            if (maps.Length > 0) ApplyMapVariant(new ThuongMapVariant(maps[(index + direction % maps.Length + maps.Length) % maps.Length], selectedMapEvent));
+        }
+#endif
+
+        private void ConfigureMapEventForMatch()
+        {
+            var events = EventManager.Instance != null ? EventManager.Instance : game.gameObject.AddComponent<EventManager>();
+            events.ConfigureMapVariant(selectedMapEvent);
         }
 
         private void WriteMapState(FastBufferWriter writer, int day)
@@ -90,7 +122,7 @@ namespace Thuong.Online
             FixedString64Bytes id = Fixed64(SelectedMap != null ? SelectedMap.mapId : "");
             writer.WriteValueSafe(id); writer.WriteValueSafe(SelectedMap != null ? SelectedMap.contentRevision : 0);
             writer.WriteValueSafe(mapEpoch); writer.WriteValueSafe(ThuongEventPresentationCatalog.ContentRevision);
-            publicEvent = matchStarted && matchResult == null ? EventManager.Instance?.GetEventForDay(day) ?? GameEventType.None : GameEventType.None;
+            publicEvent = mapDrawComplete && matchResult == null ? selectedMapEvent : GameEventType.None;
             publicEventDay = publicEvent == GameEventType.None ? 0 : day;
             writer.WriteValueSafe((byte)publicEvent); writer.WriteValueSafe(publicEventDay);
             RefreshMapPresentation();
@@ -102,6 +134,7 @@ namespace Thuong.Online
             reader.ReadValueSafe(out uint epoch); reader.ReadValueSafe(out int eventsRevision);
             reader.ReadValueSafe(out byte eventType); reader.ReadValueSafe(out publicEventDay);
             publicEvent = Enum.IsDefined(typeof(GameEventType), (int)eventType) ? (GameEventType)eventType : GameEventType.None;
+            selectedMapEvent = publicEvent;
             var definition = mapCatalog?.Find(id.ToString());
             bool same = localMapReady && SelectedMap == definition && definition != null && definition.contentRevision == revision && mapEpoch == epoch && acknowledgedMapEpoch == epoch;
             bool compatible = definition != null && definition.contentRevision == revision && eventsRevision == ThuongEventPresentationCatalog.ContentRevision;
@@ -113,6 +146,7 @@ namespace Thuong.Online
                 status = mapError;
             }
             else if (!same) BindOnlineMap(definition);
+            mapDrawComplete = compatible && localMapReady;
             if (!same) { SendMapAcknowledgement(id, revision, epoch, localMapReady && compatible); if (compatible && localMapReady) acknowledgedMapEpoch = epoch; }
         }
 
@@ -150,7 +184,9 @@ namespace Thuong.Online
 
         private void ClearMapPresentation()
         {
+            CloseMapSettings();
             eventPresentation?.Clear(); publicEvent = GameEventType.None; publicEventDay = 0;
+            mapDrawComplete = false; selectedMapEvent = GameEventType.None;
             acknowledgedMapEpoch = 0;
             foreach (var member in serverPlayers.Values) member.MapReady = false;
         }
@@ -159,8 +195,8 @@ namespace Thuong.Online
         {
             // Shares the character pane; map controls occupy the lower portion.
             mapLabel = LobbyText("Selected map", parent, "", new Vector2(.03f, .228f), new Vector2(.26f, .268f), 16, TextAlignmentOptions.Center);
-            previousMap = LobbyButton("Previous map", parent, "< MAP", new Vector2(.035f, .278f), new Vector2(.135f, .318f), () => SelectMap(-1));
-            nextMap = LobbyButton("Next map", parent, "MAP >", new Vector2(.14f, .278f), new Vector2(.26f, .318f), () => SelectMap(1));
+            mapVariantLabel = LobbyText("Map variant", parent, "HỆ THỐNG CHỌN NGẪU NHIÊN", new Vector2(.03f, .278f), new Vector2(.26f, .318f), 14, TextAlignmentOptions.Center);
+            mapVariantLabel.enableAutoSizing = true; mapVariantLabel.fontSizeMin = 10;
             mapPreview = LobbyPanel("Map thumbnail", parent, new Vector2(.075f, .325f), new Vector2(.225f, .365f), false).GetComponent<Image>();
             mapPreview.preserveAspect = true; mapPreview.raycastTarget = false;
         }
@@ -168,19 +204,22 @@ namespace Thuong.Online
         private void RefreshMapSelector()
         {
             if (mapLabel == null) return;
-            mapLabel.text = !localMapReady ? "MAP CHƯA SẴN SÀNG" : SelectedMap != null ? SelectedMap.displayName : mapError;
-            mapPreview.sprite = localMapReady ? SelectedMap?.thumbnail : null;
+            mapLabel.text = !localMapReady ? "MAP CHƯA SẴN SÀNG" : !mapDrawComplete ? "ĐANG NHẬN MAP…" : SelectedMap != null ? SelectedMap.displayName : mapError;
+            mapVariantLabel.text = !mapDrawComplete ? "HỆ THỐNG CHỌN NGẪU NHIÊN" : selectedMapEvent == GameEventType.None ? "MAP BÌNH THƯỜNG" : ThuongEventPresentationCatalog.Name(selectedMapEvent);
+            mapPreview.sprite = localMapReady && mapDrawComplete ? SelectedMap?.thumbnail : null;
             mapPreview.enabled = mapPreview.sprite != null;
-            previousMap.interactable = nextMap.interactable = !busy && !roomLocked && network.IsServer;
+            if (mapSettingsButton != null)
+            {
+                mapSettingsButton.interactable = CanConfigureMap && network.IsServer;
+                mapSettingsButton.GetComponentInChildren<TMP_Text>().text = !network.IsServer ? "MAP ĐÃ CHỌN"
+                    : randomMapSelection ? "MAP: NGẪU NHIÊN" : "MAP: TỰ CHỌN";
+            }
+            if (!CanConfigureMap) CloseMapSettings();
         }
 
         private void DrawMapSelector()
         {
-            GUILayout.Label("MAP: " + (SelectedMap != null ? SelectedMap.displayName : mapError));
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("< Map trước")) SelectMap(-1);
-            if (GUILayout.Button("Map sau >")) SelectMap(1);
-            GUILayout.EndHorizontal();
+            DrawMapSelectionOptions();
         }
 
         private void RefreshEventBadge(GameHUD hud)

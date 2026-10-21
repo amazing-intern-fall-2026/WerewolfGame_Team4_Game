@@ -13,13 +13,13 @@ namespace Thuong.Maps
             if (map == null || string.IsNullOrWhiteSpace(map.mapId) || map.mapId.Length > 48 || map.contentRevision < 1 ||
                 map.worldPrefab == null || map.stationPrefab == null || map.thumbnail == null ||
                 map.stationPrefab.GetComponent<TaskStation>() == null || map.boundsMax.x <= map.boundsMin.x ||
-                map.boundsMax.y <= map.boundsMin.y || map.spawns == null || map.spawns.Length < 25 || map.stations?.Length != 10 ||
+                map.boundsMax.y <= map.boundsMin.y || map.spawns == null || map.spawns.Length < 25 || map.stations?.Length != 6 ||
                 map.obstacles == null || map.lanterns == null) return false;
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var slots = new HashSet<int>(); var tasks = new HashSet<TaskData>();
             foreach (var station in map.stations)
                 if (station == null || string.IsNullOrEmpty(station.stationId) || !ids.Add(station.stationId) ||
-                    station.maskSlot < 0 || station.maskSlot >= 10 || !slots.Add(station.maskSlot) || station.task == null ||
+                    station.maskSlot < 0 || station.maskSlot >= map.stations.Length || !slots.Add(station.maskSlot) || station.task == null ||
                     !tasks.Add(station.task) || !ThuongMapCollision.IsFree(map, station.position))
                 { error = "Trạm không hợp lệ: " + station?.stationId + " slot=" + station?.maskSlot + " task=" + station?.task +
                     " free=" + (station != null && ThuongMapCollision.IsFree(map,station.position)); return false; }

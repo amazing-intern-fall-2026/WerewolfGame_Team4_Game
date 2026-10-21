@@ -35,12 +35,16 @@ public class PlayerData
     public PlayerStatus status = new PlayerStatus();
 
     public ThuongRoleDefinition roleDefinition;
+    [System.NonSerialized] public bool useNetworkCanVote;
+    [System.NonSerialized] public bool networkCanVote;
     public bool hasDeathRecord;
     public DeathCause lastDeathCause;
     public System.Collections.Generic.List<StatusEffectInstance> effects = new();
 
     public string DisplayName => string.IsNullOrWhiteSpace(playerName) ? $"Player {playerID + 1}" : playerName;
-    public bool CanVote => isAlive && !HasEffect(StatusEffectType.CannotVote);
+    public bool CanVote => useNetworkCanVote
+        ? isAlive && networkCanVote
+        : isAlive && !HasEffect(StatusEffectType.CannotVote);
     public int GetVoteWeight() => CanVote ? Mathf.Max(1, votePower) + GetEffectStrength(StatusEffectType.ExtraVote) : 0;
     public bool HasEffect(StatusEffectType type) => effects != null && effects.Exists(effect => effect.Type == type);
     public int GetEffectStrength(StatusEffectType type)
@@ -67,6 +71,8 @@ public class PlayerData
         status = new PlayerStatus();
         effects ??= new();
         effects.Clear();
+        useNetworkCanVote = false;
+        networkCanVote = false;
         NotifyChanged();
     }
 }

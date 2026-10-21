@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Thuong.Maps;
+using Thuong.Minigames;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -10,6 +11,13 @@ using Object = UnityEngine.Object;
 public static class ThuongMapChecks
 {
     private static int checks;
+    [MenuItem("Tools/Thuong/Maps/Check Random Maps With 25 Players")]
+    public static void RunRandomMapsAndOnline()
+    {
+        Run();
+        ThuongMinigameOnlineChecks.Run();
+    }
+
     [MenuItem("Tools/Thuong/Maps/Check Content Collision And Events")]
     public static void Run()
     {
@@ -17,6 +25,33 @@ public static class ThuongMapChecks
         var report = new StringBuilder();
         var catalog = Resources.Load<ThuongMapCatalog>(ThuongMapCatalog.ResourcePath);
         Require(catalog != null && catalog.Released.Length == 6, "Six maps included in runtime catalog");
+        var minigames = Resources.Load<ThuongMinigameCatalog>(ThuongMinigameCatalog.ResourcePath);
+        Require(minigames != null && minigames.Validate(out _), "Minigame rules catalog is valid");
+        var eventCatalog = Resources.Load<ThuongEventPresentationCatalog>(ThuongEventPresentationCatalog.ResourcePath);
+        var variants = catalog.GetVariants(eventCatalog);
+        Require(variants.Length == 42 && variants.Select(v => (v.Map.mapId, v.EventType)).Distinct().Count() == 42,
+            "Random pool contains six normal maps and 36 distinct event maps");
+        foreach (var map in catalog.Released)
+            Require(variants.Count(v => v.Map == map) == 7 && variants.Count(v => v.Map == map && v.EventType == GameEventType.None) == 1,
+                "Each released layout has one normal choice and all six event choices");
+        var eventCheckRoot = new GameObject("Map variant event lifecycle check");
+        try
+        {
+            var manager = eventCheckRoot.AddComponent<EventManager>();
+            foreach (var type in variants.Select(v => v.EventType).Distinct())
+            {
+                manager.ConfigureMapVariant(type);
+                Require(manager.InitializeForMatch(8) && manager.IsMapVariant && manager.SelectedEvent == type,
+                    "Match initialization retains the system-selected map variant, including normal maps");
+                for (int day = 1; day <= 8; day++)
+                    Require(manager.GetEventForDay(day) == type, "Map variant stays the same across days");
+            }
+            manager.ResetForNewMatch();
+            Require(!manager.HasSchedule && !manager.IsMapVariant, "Leaving clears the previous map event");
+            Require(manager.InitializeForMatch(8) && !manager.IsMapVariant && manager.ScheduledDay >= 1 && manager.ScheduledDay <= 8,
+                "Offline matches retain their existing random-day schedule");
+        }
+        finally { Object.DestroyImmediate(eventCheckRoot); }
         foreach(string name in new[]{"Water","FloorPlank"})
         {
             var tileSprite=AssetDatabase.LoadAssetAtPath<Sprite>(ThuongMapInstaller.Root+"/Art/"+name+".png");
@@ -33,6 +68,7 @@ public static class ThuongMapChecks
         foreach (var map in catalog.Released)
         {
             Require(ThuongMapValidator.Validate(map, out string error), map.mapId + ": " + error);
+            Require(map.stations.Length == minigames.entries.Count && map.stations.All(s => minigames.Find(s.task) != null), "Every map station uses a minigame");
             Require(map.stations.OrderBy(s => s.maskSlot).Select(s => (s.stationId, s.task)).SequenceEqual(reference), "Same explicit task slots on " + map.mapId);
             foreach (var spawn in map.spawns) Require(ThuongMapCollision.IsFree(map, spawn), "Spawn footprint free");
             foreach (var spawn in map.spawns)
@@ -46,7 +82,7 @@ public static class ThuongMapChecks
                 Require(Vector2.Distance(station.position,map.stage)>2,"Event stage stays clear of task anchors");
             }
             var distances = ThuongMapValidator.WalkingDistances(map, map.spawns[12]);
-            Require(distances.All(float.IsFinite), "All ten stations reachable on " + map.mapId);
+            Require(distances.All(float.IsFinite), "All six minigame stations reachable on " + map.mapId);
             report.AppendLine(map.mapId + " seconds at 3 units/s: " + string.Join(", ", distances.Select(d => (d / 3).ToString("F2"))));
             foreach (var obstacle in map.obstacles.Where(r => r.width > .1f && r.height > .1f))
             {
@@ -62,7 +98,7 @@ public static class ThuongMapChecks
             Require(ThuongMapCollision.Move(map, map.spawns[0], new Vector2(float.NaN,0)) == map.spawns[0], "Reject nonfinite movement");
             var root = new GameObject("Map lifecycle check");
             var runtime = root.AddComponent<ThuongMapRuntime>();
-            Require(runtime.Bind(map,out error) && runtime.Stations.Length == 10, "Runtime binds all stations");
+            Require(runtime.Bind(map,out error) && runtime.Stations.Length == 6, "Runtime binds all minigame stations");
             var world = runtime.World; Require(runtime.Bind(map,out error) && runtime.World == world, "Repeated bind reuses world");
             var events = root.AddComponent<ThuongEventPresentation>();
             var visuals = Resources.Load<ThuongEventPresentationCatalog>(ThuongEventPresentationCatalog.ResourcePath);

@@ -16,7 +16,7 @@ public sealed class ThuongEventVisual
 public sealed class ThuongEventPresentationCatalog : ScriptableObject
 {
     public const string ResourcePath = "ThuongEventPresentationCatalog";
-    public const int ContentRevision = 1;
+    public const int ContentRevision = 2;
     public ThuongEventVisual[] events = Array.Empty<ThuongEventVisual>();
     public Sprite lantern, banner, stage, tuongMask;
     public ThuongEventVisual Find(GameEventType type) => Array.Find(events, e => e != null && e.type == type);

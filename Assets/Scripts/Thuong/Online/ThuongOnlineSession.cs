@@ -291,6 +291,7 @@ namespace Thuong.Online
         private void HandleServerStarted()
         {
             RegisterMessageHandlers();
+            if (!EnsureRoomMapSelection()) { network.Shutdown(); return; }
             status = "Server đã sẵn sàng.";
         }
 
@@ -509,6 +510,8 @@ namespace Thuong.Online
         private void SetServerReady(ulong clientId, bool ready)
         {
             if (matchStarted || !rolesAssigned || !serverPlayers.TryGetValue(clientId, out ThuongOnlineServerPlayer member)) return;
+            if (ready && !member.MapReady)
+            { Reply(member, "Chưa thể Ready: map/revision chưa tải xong."); return; }
             // Ready is also an explicit acknowledgement of the assigned role.
             // This covers a delayed OK acknowledgement.
             if (ready) member.RevealRead = true;
@@ -652,6 +655,7 @@ namespace Thuong.Online
             game.manualLogicPrototype = false;
             // Assign the real roles now, then hold the simulation until the lobby is ready.
             game.enabled = false;
+            ConfigureMapEventForMatch();
             game.BeginGame();
             if (roles.playerRoles.Count != serverPlayers.Count)
             {
@@ -1062,21 +1066,10 @@ namespace Thuong.Online
         private bool TryCompleteTask(ThuongOnlineServerPlayer member, PlayerData actor, int stationId,
             out string feedback)
         {
-            if (!member.MapReady || !localMapReady) { feedback = "Chưa xác nhận map."; return false; }
             if (stationId < 0 || stationId >= stations.Length || stationId >= 16 || tasks == null)
             { feedback = "Trạm nhiệm vụ không hợp lệ."; return false; }
-            TaskStation station = stations[stationId];
-            if (!minigamesReady || minigameCatalog.Find(station.task) != null || minigameAuthority.IsPlaying(member.ClientId))
-            { feedback = "Nhiệm vụ này yêu cầu hoàn thành minigame trước."; return false; }
-            if (!actor.isAlive || game == null || game.currentState != GameState.Day)
-            { feedback = "Chỉ người còn sống mới làm nhiệm vụ ban ngày."; return false; }
-            if (Vector2.Distance(member.Position, station.transform.position) > station.interactionRadius + 0.25f)
-            { feedback = "Bạn đang đứng quá xa trạm nhiệm vụ."; return false; }
-            if (!Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, member.Position, station.transform.position))
-            { feedback = "Địa hình đang chắn trạm nhiệm vụ."; return false; }
-            bool accepted = tasks.TryCompleteTask(actor.playerID, station.task);
-            feedback = accepted ? "Hoàn thành nhiệm vụ." : "Nhiệm vụ không còn khả dụng.";
-            return accepted;
+            feedback = "Nhiệm vụ online chỉ được hoàn thành qua minigame.";
+            return false;
         }
 
         private static bool TryUseShaman(PlayerData actor, int targetId, bool good, out string feedback)

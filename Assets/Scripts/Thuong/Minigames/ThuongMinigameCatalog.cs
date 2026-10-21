@@ -52,7 +52,7 @@ namespace Thuong.Minigames
 
         public bool Validate(out string error)
         {
-            if (schemaVersion != 1) { error = "Catalog chưa cài đặt hoàn tất hoặc sai phiên bản."; return false; }
+            if (schemaVersion != 2) { error = "Catalog chưa cài đặt hoàn tất hoặc sai phiên bản."; return false; }
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var tasks = new HashSet<TaskData>();
             foreach (var entry in entries)
@@ -63,12 +63,11 @@ namespace Thuong.Minigames
                 { error = "Catalog có ID/task trùng, luật hoặc prefab không hợp lệ."; return false; }
             if (ingredients == null || ingredients.Length != 3 || Array.Exists(ingredients, item => item == null || item.potency < 1 || item.potency > 3))
             { error = "Cần ba nguyên liệu hợp lệ cho pha thuốc."; return false; }
-            var extra = new HashSet<TaskData>();
-            foreach (var station in additionalStations)
-                if (station == null || !tasks.Contains(station.task) || !extra.Add(station.task))
-                { error = "Nhiệm vụ bổ sung phải có mapping duy nhất."; return false; }
-            if (additionalStations.Count > 0 && (stationPrefab == null || stationPrefab.GetComponent<TaskStation>() == null))
-            { error = "Thiếu prefab trạm nhiệm vụ."; return false; }
+            // Station positions and prefabs belong to ThuongMapDefinition/Registry.
+            // Keep the serialized legacy fields so older assets migrate without data loss,
+            // but version 2 requires them to be empty.
+            if (additionalStations == null || additionalStations.Count != 0 || stationPrefab != null)
+            { error = "Catalog minigame v2 không được chứa cấu hình vị trí trạm."; return false; }
             error = null;
             return true;
         }

@@ -164,7 +164,8 @@ public static class ThuongMinigameChecks
     {
         var catalog = AssetDatabase.LoadAssetAtPath<ThuongMinigameCatalog>(ThuongMinigameInstaller.CatalogPath);
         Require(catalog != null && catalog.Validate(out _), "Valid build-time catalog");
-        Require(catalog.entries.Count == 6 && catalog.additionalStations.Count == 4, "Six games and four new tasks");
+        Require(catalog.schemaVersion == 2 && catalog.entries.Count == 6 && catalog.additionalStations.Count == 0 && catalog.stationPrefab == null,
+            "Six games with station placement owned by map definitions");
         Require(catalog.entries.All(entry => !entry.viewPrefab.GetComponentsInChildren<Component>(true).Any(component =>
             component is Camera || component is AudioListener || component is UnityEngine.EventSystems.EventSystem)), "Task prefab has no extra camera/listener/event system");
         Require(catalog.entries.Where(entry => entry.kind != ThuongMinigameKind.Trapsweeper).All(entry => entry.subject != null), "Source sprite for each task adapter");
