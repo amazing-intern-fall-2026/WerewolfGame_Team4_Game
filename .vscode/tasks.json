@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Temporary Unity batch compile",
+			"type": "shell",
+			"command": "C:\\Program Files\\Unity\\Hub\\Editor\\6000.6.0f1\\Editor\\Unity.exe",
+			"args": [
+				"-batchmode",
+				"-nographics",
+				"-quit",
+				"-projectPath",
+				"c:\\Users\\whali\\Desktop\\WerewolfGame_Team4_Game\\WerewolfGame_Team4_Game",
+				"-logFile",
+				"c:\\Users\\whali\\Desktop\\WerewolfGame_Team4_Game\\WerewolfGame_Team4_Game\\Temp\\UnityBatchCompile.log"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

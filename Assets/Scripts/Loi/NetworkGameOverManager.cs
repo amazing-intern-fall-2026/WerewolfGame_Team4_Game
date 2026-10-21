@@ -794,6 +794,8 @@ public class NetworkGameOverManager : MonoBehaviour
                 TaskManager.Instance.currentTasks.Clear();
             }
 
+            LoverManager.Instance?.ResetForNewMatch();
+
             // BƯỚC 3: Reset trạng thái sống/chết của toàn bộ Player
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer && PlayerManager.Instance != null)
             {

@@ -40,6 +40,12 @@ public class WinConditionManager : MonoBehaviour
             return;
         }
 
+        if (FoxSpiritHasWon())
+        {
+            game.FoxSpiritWin();
+            return;
+        }
+
         if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
         {
             game.VillagerWin();
@@ -53,6 +59,7 @@ public class WinConditionManager : MonoBehaviour
         int aliveVillagers = 0;
         int aliveWhiteWolf = 0;
         int aliveThirdParty = 0;
+        int aliveKillers = 0;
 
         foreach (var player in PlayerManager.Instance.players)
         {
@@ -64,7 +71,11 @@ public class WinConditionManager : MonoBehaviour
             else if (player.faction == FactionType.Monster)
                 aliveMonsters++;
             else if (player.roleType == RoleType.Madman || player.roleType == RoleType.FoxSpirit || player.roleType == RoleType.Killer)
+            {
                 aliveThirdParty++;
+                if (player.roleType == RoleType.Killer)
+                    aliveKillers++;
+            }
             else
                 aliveVillagers++;
         }
@@ -76,20 +87,17 @@ public class WinConditionManager : MonoBehaviour
         }
 
         // Phe trắng thắng khi chỉ còn mỗi WhiteHound và 2 dân làng
-        if (aliveWhiteWolf > 0 && aliveMonsters == 0 && aliveVillagers <= 2)
+        if (aliveWhiteWolf == 1 && aliveMonsters == 0 && aliveKillers == 0 && aliveVillagers <= 2)
         {
             game.WhiteWolfWin();
             return;
         }
 
         // Sát nhân thắng nếu chỉ còn sát nhân và 2 dân làng
-        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers <= 2)
+        if (aliveKillers == 1 && aliveMonsters == 0 && aliveWhiteWolf == 0 && aliveVillagers <= 2)
         {
-            if (PlayerManager.Instance.players.Exists(p => p != null && p.roleType == RoleType.Killer && p.isAlive))
-            {
-                game.KillerWin();
-                return;
-            }
+            game.KillerWin();
+            return;
         }
 
         if (dayFinished && game.currentDay >= maxDay)
