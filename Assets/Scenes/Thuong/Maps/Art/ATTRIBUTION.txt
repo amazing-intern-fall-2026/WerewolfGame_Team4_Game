@@ -1,0 +1,35 @@
+THUONG MAP EXPANSION ART
+
+Grave, GraveRound, Memorial, Lantern, MarketAwning, Curtain, Tent, Campfire,
+StageBoards, Banner and FloorPlank are extracted from the existing LPC Medieval
+Village Decorations sheet. The original unused flat green placeholder color was
+removed from these extracted sprites; the source sheet is unchanged.
+The complete author/source notice is in CREDITS-decorations-medieval.txt.
+These derivatives use the original CC BY-SA 3.0 terms.
+
+Water is cropped from LPC Farming sandwater.png by Daniel Eddeland (daneeklu).
+Original README and full credits remain in Prototype/Art/Medieval/Source/LPCFarming
+and are included in StreamingAssets/ThuongCredits. License: CC BY-SA 3.0.
+
+ManorWall is a crop of the already imported Hypnobius Medieval Village Exterior
+Walls.png. Its original license remains in Prototype/Art/Medieval/Source/Hypnobius
+and StreamingAssets/ThuongCredits/Hypnobius-LICENSE.txt. This is not LPC artwork.
+
+TuongTheatreSign.png is a new AI-generated decorative asset made on 2026-10-21
+with the built-in imagegen tool for this project. It is a stylized interpretation
+of Vietnamese Tuong face painting. It is not sourced from the LPC/Hypnobius packs.
+Prompt and generation provenance are documented in Docs/ThuongMapImplementation.md.
+
+Dark Swamp Starter Pack v1.0 and Rural Cabin Exterior v1.0 — Hypnobius
+https://hypnobius.itch.io/dark-swamp-pack
+https://hypnobius.itch.io/rural-cabin-exterior
+Official free downloads obtained on 2026-10-21. Original LICENSE/README notices
+are preserved beside these sprites and in StreamingAssets/ThuongCredits.
+Derivatives: SwampGround, nine sets of three animated SwampWater tiles,
+SwampBridge/SwampBridgeHorizontal, SwampReed, SwampAltar0-3, RuralPath,
+and the composed RuralCabin. These are NOT LPC assets. Their original author
+license applies; do not redistribute these as a standalone asset pack.
+Original archives and source sheets are retained in Logs/Maps/Downloads.
+
+Thumbnail_* images are Unity renders of the corresponding world prefabs and
+contain the credited artwork above. No paid asset was purchased.

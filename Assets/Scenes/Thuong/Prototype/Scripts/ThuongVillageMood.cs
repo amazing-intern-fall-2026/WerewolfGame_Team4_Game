@@ -14,7 +14,7 @@ public sealed class ThuongVillageMood : MonoBehaviour
 
     private void Start()
     {
-        renderers = FindObjectsByType<SpriteRenderer>(FindObjectsInactive.Include)
+        renderers = GetComponentsInChildren<SpriteRenderer>(true)
             .Where(r => r.GetComponent<ThuongSpriteLoop>()?.staysBrightAtNight != true).ToArray();
         originalColors = renderers.Select(r => r.color).ToArray();
         terrain = GetComponentsInChildren<Tilemap>();

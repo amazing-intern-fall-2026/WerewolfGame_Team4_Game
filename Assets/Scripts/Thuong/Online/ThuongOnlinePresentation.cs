@@ -257,7 +257,9 @@ namespace Thuong.Online
             if (hud.dailyProgressSlider != null) { hud.dailyProgressSlider.maxValue = 100; hud.dailyProgressSlider.value = visibleDailyProgress; }
             if (hud.progressText != null) hud.progressText.text = $"{visibleProgress:0}%";
             if (hud.dailyProgressText != null) hud.dailyProgressText.text = $"HÔM NAY  |  {visibleDailyProgress:0}%";
-            if (hud.phaseText != null) hud.phaseText.text = $"NGÀY {visibleDay}  /  {PhaseName(visibleState)}";
+            if (hud.phaseText != null) hud.phaseText.text = $"NGÀY {visibleDay}  /  {PhaseName(visibleState)}" +
+                (publicEventDay == visibleDay && publicEvent != GameEventType.None ? "  •  " + ThuongEventPresentationCatalog.Name(publicEvent) : "");
+            RefreshEventBadge(hud);
             int seconds = Mathf.CeilToInt(Mathf.Max(0, visibleRemaining));
             if (hud.timerText != null) hud.timerText.text = $"{seconds / 60:00}:{seconds % 60:00}";
             if (hud.taskListText != null)

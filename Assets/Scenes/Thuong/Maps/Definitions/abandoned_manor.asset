@@ -1,0 +1,326 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9762de2f534f04144b1e2beb07c2364c, type: 3}
+  m_Name: abandoned_manor
+  m_EditorClassIdentifier: Assembly-CSharp::Thuong.Maps.ThuongMapDefinition
+  mapId: abandoned_manor
+  contentRevision: 1
+  displayName: "Dinh Th\u1EF1 B\u1ECF Hoang"
+  thumbnail: {fileID: 21300000, guid: 64bdf326c2f38bf46832baa203ef117b, type: 3}
+  worldPrefab: {fileID: 4443352292444500267, guid: 606e35b3889e25b4c840166190149ea8, type: 3}
+  stationPrefab: {fileID: 4248278775423850136, guid: e43143587cc774f40ae9263de27adc53, type: 3}
+  boundsMin: {x: -13, y: -11}
+  boundsMax: {x: 15, y: 13}
+  spawns:
+  - {x: -0.70000005, y: -1.7}
+  - {x: 0.14999998, y: -1.7}
+  - {x: 1, y: -1.7}
+  - {x: 1.85, y: -1.7}
+  - {x: 2.7, y: -1.7}
+  - {x: -0.70000005, y: -0.85}
+  - {x: 0.14999998, y: -0.85}
+  - {x: 1, y: -0.85}
+  - {x: 1.85, y: -0.85}
+  - {x: 2.7, y: -0.85}
+  - {x: -0.70000005, y: 0}
+  - {x: 0.14999998, y: 0}
+  - {x: 1, y: 0}
+  - {x: 1.85, y: 0}
+  - {x: 2.7, y: 0}
+  - {x: -0.70000005, y: 0.85}
+  - {x: 0.14999998, y: 0.85}
+  - {x: 1, y: 0.85}
+  - {x: 1.85, y: 0.85}
+  - {x: 2.7, y: 0.85}
+  - {x: -0.70000005, y: 1.7}
+  - {x: 0.14999998, y: 1.7}
+  - {x: 1, y: 1.7}
+  - {x: 1.85, y: 1.7}
+  - {x: 2.7, y: 1.7}
+  stations:
+  - stationId: thuong.task.water
+    maskSlot: 0
+    task: {fileID: 11400000, guid: a7d138fd0ed157044a7fab8d6c25bf04, type: 2}
+    position: {x: -8, y: 1}
+    sprite: {fileID: 21300000, guid: d3e73c4cc1b049e4c857fdcb8a22166c, type: 3}
+  - stationId: thuong.task.harvest
+    maskSlot: 1
+    task: {fileID: 11400000, guid: 1cdc42f9ab30ef640be91e670d03a1fb, type: 2}
+    position: {x: -6, y: 4}
+    sprite: {fileID: 21300000, guid: 21ae89fd9fec43e4d9c2e841f1487fd7, type: 3}
+  - stationId: thuong.task.fence
+    maskSlot: 2
+    task: {fileID: 11400000, guid: e8a06f1884f594f44a9f49538eee055e, type: 2}
+    position: {x: 8, y: 5}
+    sprite: {fileID: 21300000, guid: e4ec409286d59444fbb67795844dde30, type: 3}
+  - stationId: thuong.task.wood
+    maskSlot: 3
+    task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
+    position: {x: -7, y: -5}
+    sprite: {fileID: 21300000, guid: 1bdd61c2e1d73154c88f545f326b4c05, type: 3}
+  - stationId: thuong.task.storage
+    maskSlot: 4
+    task: {fileID: 11400000, guid: 79805d788b79b1e47b9adb48ce523d15, type: 2}
+    position: {x: 8, y: -4}
+    sprite: {fileID: 21300000, guid: aa0db576f064c934fac21d98f3617b1a, type: 3}
+  - stationId: thuong.task.lamps
+    maskSlot: 5
+    task: {fileID: 11400000, guid: ebcd5f678b4ded64dabacedd93d31451, type: 2}
+    position: {x: 1, y: 7}
+    sprite: {fileID: 21300000, guid: 39827bc98f6f8c64fbfd781c1e5c27b0, type: 3}
+  - stationId: thuong.task.eggs
+    maskSlot: 6
+    task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
+    position: {x: -8, y: -2}
+    sprite: {fileID: 21300000, guid: 02f2584555665d34ea4789835148ebad, type: 3}
+  - stationId: thuong.task.potion
+    maskSlot: 7
+    task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
+    position: {x: 6, y: 2}
+    sprite: {fileID: 21300000, guid: 2d808eea6698ad341b349bfb0e5e0484, type: 3}
+  - stationId: thuong.task.defender
+    maskSlot: 8
+    task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
+    position: {x: 9, y: -7}
+    sprite: {fileID: 21300000, guid: 79c7ebbc4c11e6148a236a0ede57a3a2, type: 3}
+  - stationId: thuong.task.traps
+    maskSlot: 9
+    task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
+    position: {x: -2, y: -7}
+    sprite: {fileID: 21300000, guid: a3bf236dc178f8041a1f87c6e21b4054, type: 3}
+  obstacles:
+  - serializedVersion: 2
+    x: -7.5
+    y: 5.7
+    width: 5
+    height: 0.45
+  - serializedVersion: 2
+    x: 4.5
+    y: 5.7
+    width: 5
+    height: 0.45
+  - serializedVersion: 2
+    x: -7.5
+    y: -3.3
+    width: 5
+    height: 0.45
+  - serializedVersion: 2
+    x: 4.5
+    y: -3.3
+    width: 5
+    height: 0.45
+  - serializedVersion: 2
+    x: 0.19999999
+    y: 10
+    width: 1.6
+    height: 0.6
+  - serializedVersion: 2
+    x: -12.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.3
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: -10.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -10.3
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: -8.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -8.3
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: -6.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -6.3
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: -4.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -4.3
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: -2.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -0.3
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 1.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 3.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 5.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 5.7
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: 7.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 7.7
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: 9.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 9.7
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: 11.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 11.7
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: 13.7
+    y: 11.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 13.7
+    y: -10.6
+    width: 0.6
+    height: 0.25
+  - serializedVersion: 2
+    x: -12.55
+    y: -8
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: -8
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.55
+    y: -5
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: -5
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.55
+    y: -2
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: -2
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.55
+    y: 1
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: 1
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.55
+    y: 4
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: 4
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.55
+    y: 7
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: 7
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.55
+    y: 10
+    width: 0.5
+    height: 0.4
+  - serializedVersion: 2
+    x: 14.05
+    y: 10
+    width: 0.5
+    height: 0.4
+  plaza: {x: 1, y: 0}
+  stage: {x: -9, y: 8}
+  gate: {x: 1, y: -9}
+  lanterns:
+  - {x: -4, y: -3}
+  - {x: 5, y: -3}
+  - {x: -4, y: 4}
+  - {x: 6, y: 4}
+  - {x: -9, y: 1}
+  - {x: 10, y: 0}
+  released: 1

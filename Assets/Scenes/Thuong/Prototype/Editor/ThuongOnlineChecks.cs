@@ -28,6 +28,8 @@ public static class ThuongOnlineChecks
         public int PublicCount, RosterCount, VoteTally;
         public bool Started, HasRole, RolesAssigned, HasRead;
         public int Skin;
+        public uint MapEpoch;
+        public string MapId;
         public string Result;
         public int PrivatePlayerId = -1, PublicLocalPlayerId = -1;
     }
@@ -39,9 +41,11 @@ public static class ThuongOnlineChecks
     private static BaseRole[] assignedRoles;
     private static int exitCode;
     private static double cleanupDeadline;
+    private static int mapCycle;
 
     public static void Run()
     {
+        mapCycle = 0;
         Directory.CreateDirectory(Output);
         for (int count = 1; count <= 25; count++)
         for (int seed = 0; seed < 32; seed++)
@@ -94,6 +98,15 @@ public static class ThuongOnlineChecks
                     var members = Field<System.Collections.IEnumerable>(session, "lobby").Cast<object>().ToArray();
                     if (peers.Any(peer => !members.Any(member => Field<ulong>(member, "ClientId") == peer.Network.LocalClientId &&
                         Field<int>(member, "CharacterIndex") == peer.Skin))) return;
+                    if (members.Any(member => !Field<bool>(member, "MapReady"))) return;
+                    if (mapCycle < 6)
+                    {
+                        Require(peers.All(peer => peer.MapId == session.SelectedMap.mapId), "All transports receive selected map and revision");
+                        Invoke(session, "SelectMap", 1); mapCycle++;
+                        Require(!(bool)typeof(ThuongOnlineSession).GetProperty("AllMapsReady",BindingFlags.Instance | BindingFlags.NonPublic).GetValue(session), "Changing map invalidates client acknowledgements");
+                        Invoke(session, "AssignLobbyRolesOnServer"); Require(!session.RolesAssigned,"Cannot assign roles before fresh map acknowledgements");
+                        return;
+                    }
                     Require(members.All(member => !Field<bool>(member, "Ready")), "Readiness is locked until roles are assigned and read");
                     Invoke(session, "RefreshLobbyView");
                     var lobbyContent = Field<RectTransform>(session, "lobbyContent");
@@ -102,6 +115,11 @@ public static class ThuongOnlineChecks
                         $"Twenty-five lobby rows use selected avatars (rows={avatars.Length}, sprites={avatars.Select(image => image.sprite).Distinct().Count()})");
                     Require(lobbyContent.GetComponentInParent<ScrollRect>().verticalScrollbar != null, "Full lobby has a draggable scrollbar");
                     Require(Field<Canvas>(session, "lobbyCanvas").enabled, "Native lobby canvas is visible before role assignment");
+                    var thumbnail=Field<Image>(session,"mapPreview").rectTransform;
+                    var capacityButton=Field<Button>(session,"lobbyIncreaseButton").GetComponent<RectTransform>();
+                    var thumbnailCorners=new Vector3[4]; var capacityCorners=new Vector3[4];
+                    thumbnail.GetWorldCorners(thumbnailCorners); capacityButton.GetWorldCorners(capacityCorners);
+                    Require(!new Rect(thumbnailCorners[0],thumbnailCorners[2]-thumbnailCorners[0]).Overlaps(new Rect(capacityCorners[0],capacityCorners[2]-capacityCorners[0])),"Map thumbnail does not cover capacity controls");
                     ThuongMedievalSceneChecks.SavePreview(Output + "/lobby.png");
                     Invoke(session, "SetLobbyCapacity", 2);
                     Require(Field<int>(session, "lobbyCapacity") == 25, "Capacity cannot exclude connected players");
@@ -278,7 +296,7 @@ public static class ThuongOnlineChecks
         network.NetworkConfig = new NetworkConfig
         {
             NetworkTransport = transport, ConnectionApproval = true, EnableSceneManagement = false, TickRate = 30,
-            ConnectionData = Encoding.UTF8.GetBytes("Người chơi " + index + "_" + new string('A', 24))
+            ConnectionData = Encoding.UTF8.GetBytes("THUONG5|Người chơi " + index + "_" + new string('A', 24))
         };
         transport.SetConnectionData("127.0.0.1", Port);
         var peer = new Peer { Network = network, Skin = index % 20 }; peers.Add(peer);
@@ -291,7 +309,7 @@ public static class ThuongOnlineChecks
             SendReady(network);
         };
         Require(network.StartClient(), "LAN client starts");
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v2", (_, reader) =>
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v3", (_, reader) =>
         {
             reader.ReadValueSafe(out int capacity); reader.ReadValueSafe(out ushort count);
             Require(capacity == 25, "Lobby capacity synchronized"); peer.RosterCount = count;
@@ -305,7 +323,7 @@ public static class ThuongOnlineChecks
             peer.HasRead = (flags & 2048) != 0;
             peer.HasRole = true;
         });
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v4", (_, reader) => ReadSnapshot(peer, reader));
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v5", (_, reader) => ReadSnapshot(peer, reader));
     }
 
     private static void SendReady(NetworkManager network)
@@ -330,6 +348,20 @@ public static class ThuongOnlineChecks
         reader.ReadValueSafe(out peer.Started); reader.ReadValueSafe(out peer.RolesAssigned);
         reader.ReadValueSafe(out bool eliminationWin);
         reader.ReadValueSafe(out int parityMinimum); reader.ReadValueSafe(out int villageLimit); reader.ReadValueSafe(out int maxDay);
+        reader.ReadValueSafe(out FixedString64Bytes mapId); reader.ReadValueSafe(out int mapRevision);
+        reader.ReadValueSafe(out uint mapEpoch); reader.ReadValueSafe(out int eventRevision);
+        reader.ReadValueSafe(out byte mapEvent); reader.ReadValueSafe(out int eventDay);
+        var definition=Resources.Load<Thuong.Maps.ThuongMapCatalog>(Thuong.Maps.ThuongMapCatalog.ResourcePath).Find(mapId.ToString());
+        Require(eventRevision == ThuongEventPresentationCatalog.ContentRevision && definition!=null && mapRevision == definition.contentRevision,"Map/event content versions synchronized");
+        Require(mapEvent <= 6 && (mapEvent == 0 ? eventDay == 0 : eventDay > 0),"Snapshot exposes only current public event");
+        peer.MapId = mapId.ToString();
+        if (peer.MapEpoch != mapEpoch)
+        {
+            peer.MapEpoch = mapEpoch;
+            using var ack = new FastBufferWriter(100,Allocator.Temp);
+            ack.WriteValueSafe(mapId); ack.WriteValueSafe(mapRevision); ack.WriteValueSafe(mapEpoch); ack.WriteValueSafe(eventRevision); ack.WriteValueSafe(true);
+            peer.Network.CustomMessagingManager.SendNamedMessage("thuong.online.map-ready.v1",0,ack);
+        }
         reader.ReadValueSafe(out byte state); reader.ReadValueSafe(out byte phase);
         reader.ReadValueSafe(out int day);
         for (int i = 0; i < 3; i++) reader.ReadValueSafe(out float value);

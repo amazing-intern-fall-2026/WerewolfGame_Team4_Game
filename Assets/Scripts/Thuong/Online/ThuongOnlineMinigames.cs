@@ -37,29 +37,7 @@ namespace Thuong.Online
             string error = "Không tìm thấy catalog minigame. Chạy Tools/Thuong/Minigames/Install Assets.";
             minigamesReady = minigameCatalog != null && minigameCatalog.Validate(out error);
             if (!minigamesReady) { Debug.LogError("[Thuong Minigames] " + error); return; }
-            foreach (var extra in minigameCatalog.additionalStations)
-            {
-                // These stations exist only in the online scene, leaving both offline prototypes intact.
-                var root = Instantiate(minigameCatalog.stationPrefab, extra.position, Quaternion.identity);
-                SceneManager.MoveGameObjectToScene(root, game.gameObject.scene);
-                root.name = "Minigame station - " + minigameCatalog.Find(extra.task).taskId;
-                var station = root.GetComponent<TaskStation>();
-                station.task = extra.task; station.player = null; station.enabled = false;
-                foreach (var text in root.GetComponentsInChildren<TMP_Text>(true)) text.text = extra.task.taskName;
-                var art = root.transform.Find("Medieval station art");
-                if (art != null)
-                {
-                    var renderer = art.GetComponentInChildren<SpriteRenderer>();
-                    var entry = minigameCatalog.Find(extra.task);
-                    if (renderer != null) renderer.sprite = entry.subject != null ? entry.subject : minigameCatalog.trapCover;
-                }
-                if (!tasks.allTasks.Contains(extra.task)) tasks.allTasks.Add(extra.task);
-            }
-            if (FindObjectsByType<TaskStation>().Length > 16)
-            {
-                minigamesReady = false;
-                Debug.LogError("[Thuong Minigames] Số trạm vượt mask 16 bit; không thể mở nhiệm vụ.");
-            }
+            // Map bindings now own all ten locations and mask slots. The catalog owns rules only.
         }
 
         private void RegisterMinigameMessages()
@@ -115,6 +93,7 @@ namespace Thuong.Online
         {
             reason = "Nhiệm vụ không còn khả dụng.";
             if (busy || !minigamesReady || !matchStarted || matchResult != null || game == null ||
+                !member.MapReady || !localMapReady ||
                 game.currentState != GameState.Day || game.currentDay != day || tasks == null ||
                 players?.GetplayerByID(member.PlayerId)?.isAlive != true) return false;
             if (station < 0 || station >= stations.Length || station >= 16) return false;
@@ -122,6 +101,8 @@ namespace Thuong.Online
             if (target == null || target.task == null || !tasks.currentTasks.Contains(target.task) || tasks.IsCompleted(target.task)) return false;
             if (Vector2.Distance(member.Position, target.transform.position) > target.interactionRadius + .25f)
             { reason = "Bạn đang đứng quá xa trạm nhiệm vụ."; return false; }
+            if (!Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, member.Position, target.transform.position))
+            { reason = "Địa hình đang chắn trạm nhiệm vụ."; return false; }
             reason = null; return true;
         }
 
