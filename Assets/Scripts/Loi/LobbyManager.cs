@@ -363,6 +363,11 @@ public class LobbyManager : NetworkBehaviour
         string playerName =
             "Player " + (NetworkManager.Singleton.LocalClientId + 1);
 
+        if (AuthManager.Instance != null && AuthManager.Instance.IsSignedIn && !string.IsNullOrEmpty(AuthManager.Instance.CurrentUsername))
+        {
+            playerName = AuthManager.Instance.CurrentUsername;
+        }
+
         if (playerNameInput != null)
         {
             string input = playerNameInput.text.Trim();

@@ -83,8 +83,44 @@ public class NetworkVoiceManager : MonoBehaviour
         // Mặc định an toàn: Micro luôn TẮT (Muted)
         _isMicrophoneMuted = true;
         _isOutputMuted = false;
+    }
 
-        await EnsureInitializedAndLoggedInAsync();
+    private void Start()
+    {
+        if (AuthManager.Instance != null)
+        {
+            AuthManager.Instance.OnAuthStateChanged += OnAuthStateChanged;
+            if (AuthManager.Instance.IsSignedIn)
+            {
+                _ = EnsureInitializedAndLoggedInAsync();
+            }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (AuthManager.Instance != null)
+        {
+            AuthManager.Instance.OnAuthStateChanged -= OnAuthStateChanged;
+        }
+    }
+
+    private void OnAuthStateChanged(AuthManager.AuthState state, string playerId, string username)
+    {
+        bool isSignedIn = state == AuthManager.AuthState.RegisteredUser || state == AuthManager.AuthState.Guest;
+        if (isSignedIn)
+        {
+            Debug.Log("[VOICE] Nhận thông báo xác thực từ AuthManager. Bắt đầu chuẩn bị Vivox...");
+            _ = EnsureInitializedAndLoggedInAsync();
+        }
+        else
+        {
+            if (VivoxService.Instance != null && VivoxService.Instance.IsLoggedIn)
+            {
+                _ = VivoxService.Instance.LogoutAsync();
+            }
+            IsInitialized = false;
+        }
     }
 
     private void OnApplicationQuit()
@@ -116,8 +152,8 @@ public class NetworkVoiceManager : MonoBehaviour
 
             if (!AuthenticationService.Instance.IsSignedIn)
             {
-                Debug.Log("[VOICE] Đang đăng nhập AuthenticationService (Anonymous)...");
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                Debug.Log("[VOICE] Chưa đăng nhập Authentication. Chờ người chơi hoàn tất đăng nhập hoặc Chơi ngay...");
+                return false;
             }
 
             if (VivoxService.Instance == null)
