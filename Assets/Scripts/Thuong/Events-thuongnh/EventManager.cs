@@ -11,6 +11,7 @@ public class EventManager : MonoBehaviour
 
     public int ScheduledDay { get; private set; }
     public bool HasSchedule { get; private set; }
+    public bool IsMapVariant { get; private set; }
 
     // Một ván chỉ có một ngày event, nên chỉ cần một cờ chống log trùng.
     private bool hasLoggedScheduledDay;
@@ -87,10 +88,23 @@ public class EventManager : MonoBehaviour
 
     public GameEventType GetEventForDay(int day)
     {
-        if (!HasSchedule || day != ScheduledDay)
+        if (!HasSchedule || day < 1 || !IsMapVariant && day != ScheduledDay)
             return GameEventType.None;
 
         return SelectedEvent;
+    }
+
+    // Online rooms choose their normal/event map once. None deliberately disables
+    // the legacy random-day schedule instead of allowing it to roll another event.
+    public void ConfigureMapVariant(GameEventType eventType)
+    {
+        if (!Enum.IsDefined(typeof(GameEventType), eventType))
+            throw new ArgumentOutOfRangeException(nameof(eventType));
+        SelectedEvent = eventType;
+        ScheduledDay = 0;
+        HasSchedule = true;
+        IsMapVariant = true;
+        hasLoggedScheduledDay = false;
     }
 
     public static string GetDisplayName(GameEventType eventType)
@@ -98,22 +112,22 @@ public class EventManager : MonoBehaviour
         switch (eventType)
         {
             case GameEventType.BloodMoon:
-                return "blood moon event";
+                return "Đêm Trăng Máu";
             case GameEventType.Fog:
-                return "fog event";
+                return "Làng Trong Sương";
             case GameEventType.HarvestFestival:
-                return "festival event";
+                return "Hội Mùa Gặt";
             case GameEventType.ClearSky:
-                return "clear sky event";
+                return "Ngày Trời Quang";
             case GameEventType.GhostMonth:
-                return "ghost month event";
+                return "Đêm Đèn Tưởng Niệm";
             case GameEventType.TuongNight:
-                return "tuong night event";
+                return "Đêm Diễn Tuồng";
             case GameEventType.None:
                 return string.Empty;
             default:
                 // Khi thêm enum mới, bổ sung tên chính thức ở switch này.
-                return eventType.ToString().ToLowerInvariant() + " event";
+                return eventType.ToString();
         }
     }
 
@@ -148,6 +162,7 @@ public class EventManager : MonoBehaviour
         SelectedEvent = GameEventType.None;
         ScheduledDay = 0;
         HasSchedule = false;
+        IsMapVariant = false;
         hasLoggedScheduledDay = false;
     }
 }

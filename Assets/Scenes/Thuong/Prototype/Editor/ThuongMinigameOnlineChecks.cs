@@ -46,7 +46,9 @@ public static class ThuongMinigameOnlineChecks
         stations = Field<TaskStation[]>(session, "stations");
         wood = Array.FindIndex(stations, station => catalog.Find(station.task)?.kind == ThuongMinigameKind.ChopWood);
         traps = Array.FindIndex(stations, station => catalog.Find(station.task)?.kind == ThuongMinigameKind.Trapsweeper);
-        Require(stations.Length == 10 && TaskManager.Instance.allTasks.Count == 10, "Six existing tasks plus four separate new tasks");
+        Require(stations.Length == 6 && TaskManager.Instance.allTasks.Count == 6 &&
+            TaskManager.Instance.allTasks.All(task => catalog.Find(task) != null),
+            "Online task pool contains only the six mapped minigames");
         TaskManager.Instance.currentTasks.Clear(); TaskManager.Instance.currentTasks.AddRange(TaskManager.Instance.allTasks);
         TaskManager.Instance.progress = 0;
         DayTimer.Instance.dayDuration = 100; DayTimer.Instance.StartTimer();

@@ -1,4 +1,5 @@
 using System.Linq;
+using Thuong.Online;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -14,7 +15,9 @@ public sealed class ThuongVillageMood : MonoBehaviour
 
     private void Start()
     {
-        renderers = FindObjectsByType<SpriteRenderer>(FindObjectsInactive.Include)
+        // Mood is scoped to its own map root. UI, avatars and minigame renderers
+        // must never be captured when another map is loaded in the online scene.
+        renderers = GetComponentsInChildren<SpriteRenderer>(true)
             .Where(r => r.GetComponent<ThuongSpriteLoop>()?.staysBrightAtNight != true).ToArray();
         originalColors = renderers.Select(r => r.color).ToArray();
         terrain = GetComponentsInChildren<Tilemap>();
@@ -23,7 +26,9 @@ public sealed class ThuongVillageMood : MonoBehaviour
     private void LateUpdate()
     {
         if (originalColors == null) return;
-        bool night = GameRoleManager.Instance != null && GameRoleManager.Instance.currentState == GameState.Night;
+        bool night = ThuongOnlineSession.Active != null
+            ? ThuongOnlineSession.Active.VisibleState == GameState.Night
+            : GameRoleManager.Instance != null && GameRoleManager.Instance.currentState == GameState.Night;
         darkness = Mathf.MoveTowards(darkness, night ? 1 : 0, Time.unscaledDeltaTime * 2);
         Color tint = Color.Lerp(Color.white, nightTint, darkness);
         for (int i = 0; i < renderers.Length; i++)

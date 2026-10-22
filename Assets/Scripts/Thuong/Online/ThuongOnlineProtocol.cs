@@ -22,6 +22,7 @@ namespace Thuong.Online
         public string Name;
         public int CharacterIndex;
         public bool Ready;
+        public bool MapReady;
     }
 
     internal struct ThuongOnlinePublicPlayer
@@ -41,6 +42,7 @@ namespace Thuong.Online
         public string Name;
         public int CharacterIndex;
         public bool Ready;
+        public bool MapReady;
         public Vector2 Position;
         public bool RevealRead;
         public Vector2 Input;
@@ -55,8 +57,8 @@ namespace Thuong.Online
         public const string Ready = "thuong.online.ready.v1";
         public const string Input = "thuong.online.input.v1";
         public const string Action = "thuong.online.action.v2";
-        public const string Roster = "thuong.online.roster.v2";
-        public const string Snapshot = "thuong.online.snapshot.v4";
+        public const string Roster = "thuong.online.roster.v3";
+        public const string Snapshot = "thuong.online.snapshot.v5";
         public const string PrivateState = "thuong.online.private.v2";
     }
 

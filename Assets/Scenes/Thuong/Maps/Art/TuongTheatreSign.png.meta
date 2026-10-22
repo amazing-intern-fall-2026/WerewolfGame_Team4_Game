@@ -1,0 +1,808 @@
+fileFormatVersion: 2
+guid: 17a1c20c6862aa9459d0d99f87ae3d2b
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3197311641160355819
+    second: TuongTheatreSign_0
+  - first:
+      213: -232024912086251605
+    second: TuongTheatreSign_1
+  - first:
+      213: 252554685859775126
+    second: TuongTheatreSign_2
+  - first:
+      213: -2498147019297231551
+    second: TuongTheatreSign_3
+  - first:
+      213: -7374662692088019463
+    second: TuongTheatreSign_4
+  - first:
+      213: 2697379950353105083
+    second: TuongTheatreSign_5
+  - first:
+      213: 3580577109640477608
+    second: TuongTheatreSign_6
+  - first:
+      213: 9171886443558482521
+    second: TuongTheatreSign_7
+  - first:
+      213: -1116594929416208331
+    second: TuongTheatreSign_8
+  - first:
+      213: 3590438302580020289
+    second: TuongTheatreSign_9
+  - first:
+      213: 5405453281081826197
+    second: TuongTheatreSign_10
+  - first:
+      213: -4355657589885586825
+    second: TuongTheatreSign_11
+  - first:
+      213: -6100445861599099502
+    second: TuongTheatreSign_12
+  - first:
+      213: -7511724498944710036
+    second: TuongTheatreSign_13
+  - first:
+      213: -1239152222209451382
+    second: TuongTheatreSign_14
+  - first:
+      213: -6472388500147619699
+    second: TuongTheatreSign_15
+  - first:
+      213: -2789277277322162113
+    second: TuongTheatreSign_16
+  - first:
+      213: 2348432739591270701
+    second: TuongTheatreSign_17
+  - first:
+      213: 4340200985085767032
+    second: TuongTheatreSign_18
+  - first:
+      213: -4289916428345349328
+    second: TuongTheatreSign_19
+  - first:
+      213: 7210518072092633050
+    second: TuongTheatreSign_20
+  - first:
+      213: -6337317272228044782
+    second: TuongTheatreSign_21
+  - first:
+      213: 2664948300737010783
+    second: TuongTheatreSign_22
+  - first:
+      213: -1642050006485199464
+    second: TuongTheatreSign_23
+  - first:
+      213: -5617598453669463641
+    second: TuongTheatreSign_24
+  - first:
+      213: 7928321799840327652
+    second: TuongTheatreSign_25
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 7
+  spritePivot: {x: 0.5, y: 0}
+  spritePixelsToUnits: 384
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: TuongTheatreSign_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 23
+        width: 1521
+        height: 1001
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5107a60a00ed0a3d0800000000000000
+      internalID: -3197311641160355819
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_1
+      rect:
+        serializedVersion: 2
+        x: 1424
+        y: 375
+        width: 14
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ba7ce00629ea7ccf0800000000000000
+      internalID: -232024912086251605
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_2
+      rect:
+        serializedVersion: 2
+        x: 1470
+        y: 303
+        width: 7
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 69248011621418300800000000000000
+      internalID: 252554685859775126
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_3
+      rect:
+        serializedVersion: 2
+        x: 214
+        y: 159
+        width: 9
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 14d661e858cc45dd0800000000000000
+      internalID: -2498147019297231551
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_4
+      rect:
+        serializedVersion: 2
+        x: 1352
+        y: 187
+        width: 9
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9f584cbaa5fe7a990800000000000000
+      internalID: -7374662692088019463
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_5
+      rect:
+        serializedVersion: 2
+        x: 1368
+        y: 165
+        width: 9
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bb0ce0506c40f6520800000000000000
+      internalID: 2697379950353105083
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_6
+      rect:
+        serializedVersion: 2
+        x: 253
+        y: 133
+        width: 18
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8abf30719e3c0b130800000000000000
+      internalID: 3580577109640477608
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_7
+      rect:
+        serializedVersion: 2
+        x: 422
+        y: 109
+        width: 27
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 952368c2026194f70800000000000000
+      internalID: 9171886443558482521
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_8
+      rect:
+        serializedVersion: 2
+        x: 426
+        y: 135
+        width: 21
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5300522e3de0180f0800000000000000
+      internalID: -1116594929416208331
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_9
+      rect:
+        serializedVersion: 2
+        x: 1112
+        y: 127
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1441d3dfc9cc3d130800000000000000
+      internalID: 3590438302580020289
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_10
+      rect:
+        serializedVersion: 2
+        x: 1262
+        y: 118
+        width: 19
+        height: 34
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 59b1adcae17040b40800000000000000
+      internalID: 5405453281081826197
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_11
+      rect:
+        serializedVersion: 2
+        x: 334
+        y: 117
+        width: 9
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 772b2afcf789d83c0800000000000000
+      internalID: -4355657589885586825
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_12
+      rect:
+        serializedVersion: 2
+        x: 340
+        y: 108
+        width: 11
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 29542e77fccd65ba0800000000000000
+      internalID: -6100445861599099502
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_13
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 99
+        width: 9
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c6a2dc5fd5ef0c790800000000000000
+      internalID: -7511724498944710036
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_14
+      rect:
+        serializedVersion: 2
+        x: 902
+        y: 109
+        width: 41
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a8ad1948e95adcee0800000000000000
+      internalID: -1239152222209451382
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_15
+      rect:
+        serializedVersion: 2
+        x: 306
+        y: 73
+        width: 47
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d88b06883f47d26a0800000000000000
+      internalID: -6472388500147619699
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_16
+      rect:
+        serializedVersion: 2
+        x: 488
+        y: 95
+        width: 15
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f30d421381f7a49d0800000000000000
+      internalID: -2789277277322162113
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_17
+      rect:
+        serializedVersion: 2
+        x: 502
+        y: 94
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d213c36522f479020800000000000000
+      internalID: 2348432739591270701
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_18
+      rect:
+        serializedVersion: 2
+        x: 894
+        y: 94
+        width: 9
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 87d66d1fccd7b3c30800000000000000
+      internalID: 4340200985085767032
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_19
+      rect:
+        serializedVersion: 2
+        x: 1216
+        y: 101
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 03bec54ccb72774c0800000000000000
+      internalID: -4289916428345349328
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_20
+      rect:
+        serializedVersion: 2
+        x: 298
+        y: 80
+        width: 9
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ad7ad9dcbf7e01460800000000000000
+      internalID: 7210518072092633050
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_21
+      rect:
+        serializedVersion: 2
+        x: 366
+        y: 57
+        width: 13
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 21066e774835d08a0800000000000000
+      internalID: -6337317272228044782
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_22
+      rect:
+        serializedVersion: 2
+        x: 406
+        y: 70
+        width: 23
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f5cd53a2c5ccbf420800000000000000
+      internalID: 2664948300737010783
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_23
+      rect:
+        serializedVersion: 2
+        x: 1189
+        y: 79
+        width: 24
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 895950418344639e0800000000000000
+      internalID: -1642050006485199464
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_24
+      rect:
+        serializedVersion: 2
+        x: 904
+        y: 63
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7a97f3e38f74a02b0800000000000000
+      internalID: -5617598453669463641
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TuongTheatreSign_25
+      rect:
+        serializedVersion: 2
+        x: 928
+        y: 65
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4e7e770cbae070e60800000000000000
+      internalID: 7928321799840327652
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      TuongTheatreSign_0: -3197311641160355819
+      TuongTheatreSign_1: -232024912086251605
+      TuongTheatreSign_10: 5405453281081826197
+      TuongTheatreSign_11: -4355657589885586825
+      TuongTheatreSign_12: -6100445861599099502
+      TuongTheatreSign_13: -7511724498944710036
+      TuongTheatreSign_14: -1239152222209451382
+      TuongTheatreSign_15: -6472388500147619699
+      TuongTheatreSign_16: -2789277277322162113
+      TuongTheatreSign_17: 2348432739591270701
+      TuongTheatreSign_18: 4340200985085767032
+      TuongTheatreSign_19: -4289916428345349328
+      TuongTheatreSign_2: 252554685859775126
+      TuongTheatreSign_20: 7210518072092633050
+      TuongTheatreSign_21: -6337317272228044782
+      TuongTheatreSign_22: 2664948300737010783
+      TuongTheatreSign_23: -1642050006485199464
+      TuongTheatreSign_24: -5617598453669463641
+      TuongTheatreSign_25: 7928321799840327652
+      TuongTheatreSign_3: -2498147019297231551
+      TuongTheatreSign_4: -7374662692088019463
+      TuongTheatreSign_5: 2697379950353105083
+      TuongTheatreSign_6: 3580577109640477608
+      TuongTheatreSign_7: 9171886443558482521
+      TuongTheatreSign_8: -1116594929416208331
+      TuongTheatreSign_9: 3590438302580020289
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

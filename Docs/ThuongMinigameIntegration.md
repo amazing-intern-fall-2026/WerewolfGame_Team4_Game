@@ -5,11 +5,11 @@
 - Nguồn Trapsweeper: `origin/Bảo`, commit `74aa3074b2f364c4e34714157ecb01bab0633e06`; đã rà cả commit `6bd18d3`. Chỉ nhập `Assets/Minigames/Trapsweeper` và meta của thư mục. Không lấy thay đổi DefenderGameTiles, Recovery, Potion Making hoặc tetoris.gif.
 - Runtime nằm trong `Assets/Scripts/Thuong/Minigames`, namespace `Thuong.Minigames`. Scene demo, role Hunter, scene Lợi và prototype offline giữ hành vi cũ.
 - Asset nhiệm vụ nằm trong `Assets/Scenes/Thuong/Prototype/Integration/Minigames`. Catalog được đóng gói qua Resources; không dùng AssetDatabase hoặc InstanceID trong build.
-- Bốn nhiệm vụ mới được thêm theo lựa chọn của người dùng, không đổi tên Lấy nước, Sửa rào, Dọn kho hay Thắp đèn. Bốn trạm mới chỉ được tạo trong runtime online. Tổng cộng 10 trạm, vẫn nằm trong mask 16 bit.
+- Bốn nhiệm vụ minigame mới được tạo trong runtime online. Scene vẫn có tổng cộng 10 trạm để không làm hỏng dữ liệu prototype, nhưng pool nhiệm vụ online chỉ gồm sáu task có minigame; các task cũ không có mapping không còn được chọn.
 
 ## Cách chơi và cấu hình
 
-Mở `OnlineSceneGamePlay`, Host/Join như trước. Sau khi đọc role, Ready và bắt đầu trận, đến điểm nhiệm vụ đang khả dụng và nhấn E. Thắng thử thách mới được cộng `TaskData.progressValue`; thua, Hủy/Esc hoặc hết hạn không cộng điểm. Nút Thử lại xin một lượt mới. Các task không có mapping tiếp tục dùng E như trước.
+Mở `OnlineSceneGamePlay`, Host/Join như trước. Sau khi đọc role, Ready và bắt đầu trận, đến điểm nhiệm vụ đang khả dụng và nhấn E. Mọi nhiệm vụ online đều mở minigame; chỉ khi thắng thử thách mới được cộng `TaskData.progressValue`. Thua, Hủy/Esc hoặc hết hạn không cộng điểm. Nút Thử lại xin một lượt mới.
 
 | Task ID | Nhiệm vụ | Điều kiện mặc định | Giới hạn | Ban ngày còn ít nhất |
 | --- | --- | --- | --- | --- |
@@ -25,7 +25,7 @@ Thời hạn thực tế được giới hạn bởi thời gian ban ngày còn 
 ## Vòng đời và online
 
 - Server kiểm tra trận, ngày, sống/chết, khoảng cách, danh sách task hôm nay, hoàn tất và khóa theo task ID/ngày. Mỗi chủ sở hữu chỉ có một lượt. Khóa áp dụng chung nếu nhiều station dùng cùng TaskData.
-- `attemptId` mới cho mỗi lượt; kiểm tra chủ sở hữu, ngày, station, sequence và hạn dùng trên từng thao tác. Lượt được tiêu thụ trước khi gọi TaskManager; không có gói client khai báo đã thắng. Đường CompleteTask cũ từ chối task có minigame.
+- `attemptId` mới cho mỗi lượt; kiểm tra chủ sở hữu, ngày, station, sequence và hạn dùng trên từng thao tác. Lượt được tiêu thụ trước khi gọi TaskManager; không có gói client khai báo đã thắng. Đường CompleteTask cũ luôn bị từ chối trong phiên online.
 - Chặt/thu hoạch được kiểm tra theo cửa sổ thời gian server. Giỏ/khiên có tốc độ di chuyển/xoay giới hạn và kiểm tra với lịch sinh đợt của server. Không gửi timestamp client để yêu cầu quay ngược thời gian hoặc replay physics.
 - Pha thuốc kiểm tra đủ ba chỉ số nguyên liệu và kết quả công thức. Trapsweeper giữ bàn bẫy/RNG trên server, chỉ gửi ô đã mở hoặc cắm cờ; không gửi seed hoặc bàn ẩn.
 - Đổi giai đoạn/ngày, bị loại, task không còn khả dụng, rời phiên, mất kết nối hoặc kết thúc ván đều đóng/vô hiệu hóa lượt. Gói trùng, gói cũ hay sai chủ không cộng tiến độ. Server cũng khóa di chuyển; UI không phải lớp bảo vệ duy nhất.

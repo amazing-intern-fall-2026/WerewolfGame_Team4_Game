@@ -11,9 +11,13 @@ public static class GameVoiceTests
     [InitializeOnLoadMethod]
     private static void OnEditorReload()
     {
+        // This check opens and saves Game.unity. Do not interrupt another batch
+        // check or a play-mode session when scripts reload.
+        if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode) return;
         // Tự động chạy khi Unity compile xong
         EditorApplication.delayCall += () =>
         {
+            if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode) return;
             RunAllTests();
         };
     }

@@ -1,0 +1,89 @@
+{
+  "source": "Existing LPC Decorations and LPC Farming source sheets",
+  "rectangles_top_left": {
+    "Grave": [
+      0,
+      0,
+      32,
+      64
+    ],
+    "GraveRound": [
+      64,
+      64,
+      32,
+      32
+    ],
+    "Memorial": [
+      172,
+      312,
+      80,
+      88
+    ],
+    "Lantern": [
+      416,
+      64,
+      32,
+      32
+    ],
+    "MarketAwning": [
+      192,
+      800,
+      64,
+      160
+    ],
+    "MarketAwningGreen": [
+      320,
+      800,
+      64,
+      160
+    ],
+    "Curtain": [
+      0,
+      1216,
+      192,
+      96
+    ],
+    "Tent": [
+      0,
+      1600,
+      224,
+      224
+    ],
+    "Campfire": [
+      256,
+      1504,
+      32,
+      64
+    ],
+    "StageBoards": [
+      0,
+      1088,
+      128,
+      96
+    ],
+    "Banner": [
+      96,
+      1216,
+      32,
+      96
+    ],
+    "FloorPlank": [
+      32,
+      1120,
+      32,
+      32
+    ]
+  },
+  "ppu": 48,
+  "water_ppu": 32,
+  "filter": "Point",
+  "tuong": "TuongTheatreSign.png generated with the built-in imagegen tool; original source retained outside project",
+  "additional_packs": {
+    "DarkSwamp": "https://hypnobius.itch.io/dark-swamp-pack",
+    "RuralCabin": "https://hypnobius.itch.io/rural-cabin-exterior",
+    "versions": "v1.0",
+    "raw_archives": "Logs/Maps/Downloads",
+    "water": "3 frames x 9 autotile variants, 48 PPU, centered pivot",
+    "cabin": "240x240 composition of original wall/roof/window/door pixels"
+  }
+}

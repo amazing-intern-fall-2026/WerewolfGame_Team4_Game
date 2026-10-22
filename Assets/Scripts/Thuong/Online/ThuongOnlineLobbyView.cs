@@ -28,16 +28,20 @@ namespace Thuong.Online
         // OK confirms the role locally; Ready need not wait for the round trip.
         private bool CanToggleLobbyReady => connected && !busy && network != null &&
             network.IsListening && !matchStarted && HasLocalRole &&
-            (HasReadRole || localRoleConfirmed) && !ShowRoleCard;
+            localMapReady && (HasReadRole || localRoleConfirmed) && !ShowRoleCard;
 
         private void RefreshLobbyView()
         {
+#if THUONG_MAP_QA
+            if(qaPresentationOverride) return;
+#endif
             bool visible = connected && !matchStarted && !ShowRoleCard;
             if (lobbyCanvas == null && connected) BuildLobbyView();
             if (lobbyCanvas == null) return;
             lobbyCanvas.enabled = visible;
             lobbyRaycaster.enabled = visible;
             if (!visible) return;
+            RefreshMapSelector();
 
             var local = lobby.FirstOrDefault(member => member.ClientId == network.LocalClientId);
             bool ready = local != null && local.Ready;
@@ -63,10 +67,10 @@ namespace Thuong.Online
                 : ready ? "HỦY READY" : "READY / SẴN SÀNG";
             lobbyRoleLabel.text = rolesAssigned ? HasLocalRole ? "XEM PHÂN VAI" : "ĐANG NHẬN ROLE…"
                 : network.IsServer ? "PHÂN VAI" : "CHỜ PHÂN VAI";
-            lobbyRoleButton.interactable = !busy && (rolesAssigned ? HasLocalRole : network.IsServer && lobby.Count >= 2);
+            lobbyRoleButton.interactable = !busy && (rolesAssigned ? HasLocalRole : network.IsServer && lobby.Count >= 2 && AllMapsReady);
             lobbyStartButton.gameObject.SetActive(network.IsServer && rolesAssigned);
             lobbyStartButton.interactable = !busy && rolesAssigned && lobby.Count >= 2 &&
-                serverPlayers.Values.All(member => member.RevealRead && member.Ready);
+                AllMapsReady && serverPlayers.Values.All(member => member.RevealRead && member.Ready);
             lobbyHintLabel.text = rolesAssigned
                 ? $"{readyCount}/{lobby.Count} người Ready. " + (!HasLocalRole ? "Đang nhận thẻ role từ chủ phòng…"
                     : !HasReadRole && !localRoleConfirmed ? "Bấm Xem phân vai, đọc rồi bấm OK. Không giới hạn thời gian."
@@ -74,6 +78,9 @@ namespace Thuong.Online
                     : ready ? "Đang chờ những người chơi còn lại sẵn sàng." : "Bấm Ready khi bạn sẵn sàng.")
                 : network.IsServer ? "Chờ đủ người rồi bấm Phân vai. Danh sách được khóa sau khi phân vai."
                 : "Chờ chủ phòng chốt danh sách và phân vai. Bạn có thể đổi nhân vật lúc này.";
+            if (!localMapReady) lobbyHintLabel.text = mapError;
+            else if (!rolesAssigned && network.IsServer && !AllMapsReady)
+                lobbyHintLabel.text = "Đang chờ mọi người xác nhận map. Nếu chưa hoàn tất, hãy kiểm tra tất cả đang dùng cùng bản game.";
             if (lobby.Count == 2)
                 lobbyHintLabel.text += "  •  Phòng thử 2 người: tắt thắng do cân bằng quân số.";
 
@@ -88,8 +95,9 @@ namespace Thuong.Online
                 row.Avatar.enabled = row.Avatar.sprite != null;
                 row.Name.text = $"P{member.PlayerId + 1:00}  {member.Name}" +
                     (member.ClientId == network.LocalClientId ? "  (Bạn)" : string.Empty);
-                row.Status.text = member.Ready ? "READY" : "NOT READY";
-                row.StatusBadge.color = member.Ready ? new Color32(57, 105, 65, 255) : new Color32(111, 90, 70, 255);
+                row.Status.text = !member.MapReady ? "ĐANG TẢI MAP" : member.Ready ? "READY" : "NOT READY";
+                row.StatusBadge.color = !member.MapReady ? new Color32(139, 91, 40, 255)
+                    : member.Ready ? new Color32(57, 105, 65, 255) : new Color32(111, 90, 70, 255);
             }
             foreach (var pair in lobbyRows)
                 if (!activeIds.Contains(pair.Key)) pair.Value.Root.SetActive(false);
@@ -120,16 +128,17 @@ namespace Thuong.Online
 
             var character = LobbyPanel("Character selection", card, new Vector2(.025f, .205f), new Vector2(.265f, .80f));
             LobbyText("Character heading", character, "NHÂN VẬT CỦA BẠN", new Vector2(.025f, .88f), new Vector2(.975f, .98f), 20, TextAlignmentOptions.Center);
-            var portrait = LobbyPanel("Portrait frame", character, new Vector2(.14f, .38f), new Vector2(.86f, .85f));
+            var portrait = LobbyPanel("Portrait frame", character, new Vector2(.22f, .61f), new Vector2(.78f, .85f));
             lobbyPortrait = LobbyPanel("Character avatar", portrait, new Vector2(.12f, .08f), new Vector2(.88f, .92f), false).GetComponent<Image>();
             lobbyPortrait.preserveAspect = true;
             lobbyPortrait.raycastTarget = false;
-            lobbyCharacterLabel = LobbyText("Character number", character, "", new Vector2(.03f, .28f), new Vector2(.97f, .37f), 21, TextAlignmentOptions.Center);
-            lobbyPreviousButton = LobbyButton("Previous character", character, "< TRƯỚC", new Vector2(.035f, .19f), new Vector2(.475f, .27f), () => SelectCharacter(selectedCharacterIndex - 1));
-            lobbyNextButton = LobbyButton("Next character", character, "SAU >", new Vector2(.525f, .19f), new Vector2(.965f, .27f), () => SelectCharacter(selectedCharacterIndex + 1));
-            lobbyCapacityLabel = LobbyText("Lobby capacity", character, "", new Vector2(.025f, .10f), new Vector2(.975f, .18f), 20, TextAlignmentOptions.Center);
-            lobbyDecreaseButton = LobbyButton("Decrease capacity", character, "−", new Vector2(.12f, .015f), new Vector2(.44f, .095f), () => SetLobbyCapacity(lobbyCapacity - 1));
-            lobbyIncreaseButton = LobbyButton("Increase capacity", character, "+", new Vector2(.56f, .015f), new Vector2(.88f, .095f), () => SetLobbyCapacity(lobbyCapacity + 1));
+            lobbyCharacterLabel = LobbyText("Character number", character, "", new Vector2(.03f, .52f), new Vector2(.97f, .60f), 19, TextAlignmentOptions.Center);
+            lobbyPreviousButton = LobbyButton("Previous character", character, "< TRƯỚC", new Vector2(.035f, .44f), new Vector2(.475f, .515f), () => SelectCharacter(selectedCharacterIndex - 1));
+            lobbyNextButton = LobbyButton("Next character", character, "SAU >", new Vector2(.525f, .44f), new Vector2(.965f, .515f), () => SelectCharacter(selectedCharacterIndex + 1));
+            lobbyCapacityLabel = LobbyText("Lobby capacity", character, "", new Vector2(.025f, .36f), new Vector2(.975f, .435f), 18, TextAlignmentOptions.Center);
+            lobbyDecreaseButton = LobbyButton("Decrease capacity", character, "−", new Vector2(.12f, .275f), new Vector2(.44f, .35f), () => SetLobbyCapacity(lobbyCapacity - 1));
+            lobbyIncreaseButton = LobbyButton("Increase capacity", character, "+", new Vector2(.56f, .275f), new Vector2(.88f, .35f), () => SetLobbyCapacity(lobbyCapacity + 1));
+            BuildMapSelector(card);
 
             var table = LobbyPanel("Lobby table", card, new Vector2(.285f, .205f), new Vector2(.975f, .80f));
             var columns = LobbyPanel("TopBar", table, new Vector2(.015f, .89f), new Vector2(.985f, .99f));
@@ -171,7 +180,7 @@ namespace Thuong.Online
             lobbyRoleLabel = lobbyRoleButton.GetComponentInChildren<TMP_Text>();
             lobbyStartButton = LobbyButton("Lobby Start", card, "BẮT ĐẦU GAME", new Vector2(.685f, .035f), new Vector2(.825f, .12f), StartMatchOnServer);
             LobbyButton("Leave lobby", card, "RỜI PHÒNG", new Vector2(.845f, .035f), new Vector2(.975f, .12f), LeaveSession);
-            LobbyText("Lobby limit", card, "TỐI ĐA 25 NGƯỜI", new Vector2(.025f, .035f), new Vector2(.265f, .12f), 18, TextAlignmentOptions.Center);
+            mapSettingsButton = LobbyButton("Map settings button", card, "MAP: NGẪU NHIÊN", new Vector2(.025f, .035f), new Vector2(.265f, .12f), OpenMapSettings);
         }
 
         private LobbyRow CreateLobbyRow(int playerId)

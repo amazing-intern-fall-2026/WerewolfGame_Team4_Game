@@ -8,6 +8,11 @@ public class DayTimer : MonoBehaviour
     private void Awake() { Instance = this; }
     public void StartTimer() { TimeRemaining = Mathf.Max(0.1f, dayDuration); running = true; }
     public void StopTimer() { running = false; }
+    public void ApplyNetworkTime(float seconds)
+    {
+        running = false;
+        TimeRemaining = Mathf.Max(0f, seconds);
+    }
     private void Update()
     {
         if (!running) return;

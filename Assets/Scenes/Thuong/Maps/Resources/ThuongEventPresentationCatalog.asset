@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bab4fd1630c571478263fd06f8c5f08, type: 3}
+  m_Name: ThuongEventPresentationCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::ThuongEventPresentationCatalog
+  events:
+  - type: 1
+    displayName: "\u0110\xCAM TR\u0102NG M\xC1U"
+    dayTint: {r: 1, g: 1, b: 1, a: 1}
+    nightTint: {r: 0.65, g: 0.25, b: 0.3, a: 1}
+    decoration: {fileID: 21300000, guid: 39827bc98f6f8c64fbfd781c1e5c27b0, type: 3}
+    volume: 0
+  - type: 2
+    displayName: "L\xC0NG TRONG S\u01AF\u01A0NG"
+    dayTint: {r: 0.75, g: 0.85, b: 0.88, a: 1}
+    nightTint: {r: 0.4, g: 0.48, b: 0.68, a: 1}
+    decoration: {fileID: 21300000, guid: 2d0f04e9edd2aed488180d3e939c5d2c, type: 3}
+    volume: 0.012
+  - type: 3
+    displayName: "H\u1ED8I M\xD9A G\u1EB6T"
+    dayTint: {r: 1, g: 1, b: 1, a: 1}
+    nightTint: {r: 0.4, g: 0.48, b: 0.68, a: 1}
+    decoration: {fileID: 21300000, guid: 2d0f04e9edd2aed488180d3e939c5d2c, type: 3}
+    volume: 0.012
+  - type: 4
+    displayName: "NG\xC0Y TR\u1EDCI QUANG"
+    dayTint: {r: 1, g: 0.96, b: 0.86, a: 1}
+    nightTint: {r: 0.4, g: 0.48, b: 0.68, a: 1}
+    decoration: {fileID: 21300000, guid: 2d0f04e9edd2aed488180d3e939c5d2c, type: 3}
+    volume: 0
+  - type: 5
+    displayName: "\u0110\xCAM \u0110\xC8N T\u01AF\u1EDENG NI\u1EC6M"
+    dayTint: {r: 1, g: 1, b: 1, a: 1}
+    nightTint: {r: 0.42, g: 0.57, b: 0.69, a: 1}
+    decoration: {fileID: 21300000, guid: 2d0f04e9edd2aed488180d3e939c5d2c, type: 3}
+    volume: 0.012
+  - type: 6
+    displayName: "\u0110\xCAM DI\u1EC4N TU\u1ED2NG"
+    dayTint: {r: 1, g: 1, b: 1, a: 1}
+    nightTint: {r: 0.4, g: 0.48, b: 0.68, a: 1}
+    decoration: {fileID: 21300000, guid: 2d0f04e9edd2aed488180d3e939c5d2c, type: 3}
+    volume: 0.025
+  lantern: {fileID: 21300000, guid: 2d0f04e9edd2aed488180d3e939c5d2c, type: 3}
+  banner: {fileID: 21300000, guid: 1d8ce5c2f7044874aaf43b4f325091b7, type: 3}
+  stage: {fileID: 21300000, guid: 47ba66b2a16a0a44699041918c46cfb8, type: 3}
+  tuongMask: {fileID: 21300000, guid: 17a1c20c6862aa9459d0d99f87ae3d2b, type: 3}
