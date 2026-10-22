@@ -20,6 +20,24 @@ public class NetworkTargetListUI : MonoBehaviour
     [SerializeField]
     private UnityEngine.UI.Button hudPlayerListButton;
 
+    public static NetworkTargetListUI Instance;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     private void Start()
     {
         if (closeButton != null)
@@ -40,6 +58,14 @@ public class NetworkTargetListUI : MonoBehaviour
         if (targetPanel != null)
         {
             targetPanel.SetActive(false);
+        }
+    }
+
+    public void Refresh()
+    {
+        if (targetPanel != null && targetPanel.activeSelf)
+        {
+            ShowTargetList(currentSubActionId);
         }
     }
 
@@ -209,6 +235,17 @@ public class NetworkTargetListUI : MonoBehaviour
                 return;
             }
 
+            NetworkPlayerStateSync stateSync =
+                player.GetComponent<NetworkPlayerStateSync>();
+
+            bool isDisconnected = (stateSync != null && stateSync.State.Value == NetworkPlayerStateType.Disconnected) ||
+                                  (PlayerManager.Instance != null && PlayerManager.Instance.IsDisconnected(playerID));
+
+            if (isDisconnected)
+            {
+                continue;
+            }
+
             GameObject card =
                 Instantiate(
                     playerCardPrefab,
@@ -236,9 +273,6 @@ public class NetworkTargetListUI : MonoBehaviour
             // ==========================================
 
             bool isAlive = true;
-
-            NetworkPlayerStateSync stateSync =
-                player.GetComponent<NetworkPlayerStateSync>();
 
             if (stateSync != null)
             {

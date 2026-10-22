@@ -62,7 +62,7 @@ public static class GameVoiceInstaller
         rt.anchorMax = new Vector2(1f, 1f);
         rt.pivot = new Vector2(1f, 1f);
         rt.anchoredPosition = new Vector2(-20f, -20f);
-        rt.sizeDelta = new Vector2(220f, 96f);
+        rt.sizeDelta = new Vector2(248f, 116f);
 
         // Gọi EnsureUIReferences để tạo/kết nối các component con
         hud.EnsureUIReferences();
@@ -95,7 +95,7 @@ public static class GameVoiceInstaller
         voiceHUDObj.transform.SetAsLastSibling();
 
         Log($"[THÀNH CÔNG] GameVoiceHUD đã được cài đặt:");
-        Log($"  - Vị trí: Top-Right anchor (1,1), Pos: (-20, -20), Size: 220x96");
+        Log($"  - Vị trí: Top-Right anchor (1,1), Pos: (-20, -20), Size: 248x116");
         Log($"  - VoiceMicPanel: {(micT != null ? "OK" : "THIẾU")}");
         Log($"  - VoiceSpeakerPanel: {(spkT != null ? "OK" : "THIẾU")}");
 

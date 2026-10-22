@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -532,5 +532,37 @@ public class NetworkPlayerVote : NetworkBehaviour
         Debug.Log(
             "NETWORK VOTE: Đã reset lựa chọn Network."
         );
+    }
+
+    public static void RemoveDisconnectedPlayerVotes(int disconnectedPlayerId)
+    {
+        // 1. Xóa lựa chọn vote của voter đã disconnect
+        if (currentChoices.ContainsKey(disconnectedPlayerId))
+        {
+            currentChoices.Remove(disconnectedPlayerId);
+        }
+
+        // 2. Xóa vote của người khác bầu cho người đã disconnect
+        List<int> votersToReset = new List<int>();
+        foreach (var kvp in currentChoices)
+        {
+            if (kvp.Value == disconnectedPlayerId)
+            {
+                votersToReset.Add(kvp.Key);
+            }
+        }
+        foreach (int voter in votersToReset)
+        {
+            currentChoices.Remove(voter);
+        }
+
+        // 3. Nếu là Server, đồng bộ lại danh sách vote
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            SyncVoteCounts();
+        }
+
+        OnVoteCountChanged?.Invoke(disconnectedPlayerId, 0);
+        Debug.Log($"NETWORK VOTE: Đã xóa toàn bộ vote liên quan đến Player {disconnectedPlayerId}");
     }
 }

@@ -112,9 +112,13 @@ public class LobbyManager : NetworkBehaviour
         if (IsServer)
         {
             NetworkManager.OnClientConnectedCallback += OnClientConnected;
-            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
-
             SyncPlayersWithConnectedClients();
+        }
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
         }
 
         EnsureRoomCodeUI();
@@ -232,25 +236,40 @@ public class LobbyManager : NetworkBehaviour
 
     private void OnClientDisconnected(ulong clientId)
     {
-        if (!IsServer)
-            return;
-
-        Debug.Log(
-            "Lobby: Player " + (clientId + 1) + " đã rời Lobby"
-        );
-
-        SyncPlayersWithConnectedClients();
+        if (IsServer)
+        {
+            Debug.Log($"Lobby: Player {clientId + 1} đã rời Lobby (ClientId={clientId})");
+            RemovePlayer(clientId);
+            NetworkGamePlayerNameSetup.Remove(clientId);
+            SyncPlayersWithConnectedClients(clientId);
+        }
+        else
+        {
+            // Nếu là Client và Host bị disconnect hoặc local client bị ngắt kết nối
+            if (clientId == NetworkManager.ServerClientId || (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId))
+            {
+                Debug.Log($"Lobby: Client nhận disconnect khỏi Host (clientId={clientId}) -> Về MainMenu.");
+                SceneLoader.Instance?.LeaveRoomToMainMenu();
+            }
+        }
     }
 
-    public void SyncPlayersWithConnectedClients()
+    public void SyncPlayersWithConnectedClients(ulong excludedClientId = ulong.MaxValue)
     {
         if (!IsServer || NetworkManager.Singleton == null)
             return;
 
-        // 1. Loại bỏ các player không còn kết nối thực tế trong ConnectedClientsIds
+        // 1. Loại bỏ các player không còn kết nối thực tế trong ConnectedClientsIds hoặc là excludedClientId
         for (int i = players.Count - 1; i >= 0; i--)
         {
             ulong cid = players[i].ClientId;
+            if (cid == excludedClientId)
+            {
+                Debug.Log($"LOBBY MANAGER | Xóa player ClientId {cid} khỏi Lobby vì đã disconnect.");
+                players.RemoveAt(i);
+                continue;
+            }
+
             bool isStillConnected = false;
             var connectedList = NetworkManager.Singleton.ConnectedClientsIds;
             if (connectedList != null)
@@ -272,18 +291,24 @@ public class LobbyManager : NetworkBehaviour
             }
         }
 
-        // 2. Thêm các client đang kết nối thực tế mà chưa có trong players
-        foreach (ulong cid in NetworkManager.Singleton.ConnectedClientsIds)
+        // 2. Thêm các client đang kết nối thực tế mà chưa có trong players (bỏ qua excludedClientId)
+        if (NetworkManager.Singleton.ConnectedClientsIds != null)
         {
-            if (FindPlayerIndex(cid) < 0)
+            foreach (ulong cid in NetworkManager.Singleton.ConnectedClientsIds)
             {
-                string name = NetworkGamePlayerNameSetup.GetName(cid);
-                if (string.IsNullOrWhiteSpace(name))
+                if (cid == excludedClientId)
+                    continue;
+
+                if (FindPlayerIndex(cid) < 0)
                 {
-                    name = "Player " + (cid + 1);
+                    string name = NetworkGamePlayerNameSetup.GetName(cid);
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        name = "Player " + (cid + 1);
+                    }
+                    players.Add(new PlayerLobbyData(cid, name));
+                    Debug.Log($"LOBBY MANAGER | Thêm player ClientId {cid} ({name}) vào Lobby.");
                 }
-                players.Add(new PlayerLobbyData(cid, name));
-                Debug.Log($"LOBBY MANAGER | Thêm player ClientId {cid} ({name}) vào Lobby.");
             }
         }
 
@@ -612,7 +637,7 @@ public class LobbyManager : NetworkBehaviour
             }
         }
 
-        Vector2 panelPos = new Vector2(718, 110);
+        Vector2 panelPos = new Vector2(700, -30);
         Transform parentTransform = canvas.transform;
 
         GameObject micPanelObj = new GameObject("VoiceMicPanel", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
@@ -623,7 +648,7 @@ public class LobbyManager : NetworkBehaviour
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
         panelRect.anchoredPosition = panelPos;
-        panelRect.sizeDelta = new Vector2(242, 56);
+        panelRect.sizeDelta = new Vector2(320, 78);
 
         UnityEngine.UI.Image panelBg = micPanelObj.GetComponent<UnityEngine.UI.Image>();
         panelBg.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
@@ -634,12 +659,12 @@ public class LobbyManager : NetworkBehaviour
         titleRect.anchorMin = new Vector2(0, 0.5f);
         titleRect.anchorMax = new Vector2(0, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
-        titleRect.anchoredPosition = new Vector2(75, 7);
-        titleRect.sizeDelta = new Vector2(120, 22);
+        titleRect.anchoredPosition = new Vector2(90, 8);
+        titleRect.sizeDelta = new Vector2(170, 32);
 
         TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
         titleText.text = "Micro (Mic)";
-        titleText.fontSize = 18;
+        titleText.fontSize = 24;
         titleText.fontStyle = FontStyles.Bold;
         titleText.color = Color.white;
         titleText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -651,7 +676,7 @@ public class LobbyManager : NetworkBehaviour
         switchRect.anchorMax = new Vector2(1, 0.5f);
         switchRect.pivot = new Vector2(0.5f, 0.5f);
         switchRect.anchoredPosition = new Vector2(-46, 0);
-        switchRect.sizeDelta = new Vector2(62, 30);
+        switchRect.sizeDelta = new Vector2(76, 38);
 
         UnityEngine.UI.Image switchBg = switchObj.GetComponent<UnityEngine.UI.Image>();
         switchBg.color = new Color(0.2f, 0.8f, 0.35f, 1f);
@@ -662,8 +687,8 @@ public class LobbyManager : NetworkBehaviour
         handleRect.anchorMin = new Vector2(0.5f, 0.5f);
         handleRect.anchorMax = new Vector2(0.5f, 0.5f);
         handleRect.pivot = new Vector2(0.5f, 0.5f);
-        handleRect.anchoredPosition = new Vector2(16, 0);
-        handleRect.sizeDelta = new Vector2(24, 24);
+        handleRect.anchoredPosition = new Vector2(18, 0);
+        handleRect.sizeDelta = new Vector2(30, 30);
 
         UnityEngine.UI.Image handleImg = handleObj.GetComponent<UnityEngine.UI.Image>();
         handleImg.color = Color.white;
@@ -674,12 +699,12 @@ public class LobbyManager : NetworkBehaviour
         statusRect.anchorMin = new Vector2(0, 0.5f);
         statusRect.anchorMax = new Vector2(0, 0.5f);
         statusRect.pivot = new Vector2(0.5f, 0.5f);
-        statusRect.anchoredPosition = new Vector2(75, -13);
-        statusRect.sizeDelta = new Vector2(120, 18);
+        statusRect.anchoredPosition = new Vector2(90, -18);
+        statusRect.sizeDelta = new Vector2(170, 26);
 
         TextMeshProUGUI statusLabel = statusLabelObj.GetComponent<TextMeshProUGUI>();
         statusLabel.text = "BẬT";
-        statusLabel.fontSize = 13;
+        statusLabel.fontSize = 18;
         statusLabel.fontStyle = FontStyles.Bold;
         statusLabel.color = new Color(0.2f, 0.85f, 0.45f, 1f);
         statusLabel.alignment = TextAlignmentOptions.MidlineLeft;
@@ -748,7 +773,7 @@ public class LobbyManager : NetworkBehaviour
             RectTransform micRect = micPanelT.GetComponent<RectTransform>();
             if (micRect != null)
             {
-                panelPos = new Vector2(micRect.anchoredPosition.x, micRect.anchoredPosition.y - 64);
+                panelPos = new Vector2(micRect.anchoredPosition.x, micRect.anchoredPosition.y - 104);
             }
         }
 
@@ -760,7 +785,7 @@ public class LobbyManager : NetworkBehaviour
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
         panelRect.anchoredPosition = panelPos;
-        panelRect.sizeDelta = new Vector2(242, 56);
+        panelRect.sizeDelta = new Vector2(320, 78);
 
         UnityEngine.UI.Image panelBg = speakerPanelObj.GetComponent<UnityEngine.UI.Image>();
         panelBg.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
@@ -771,12 +796,12 @@ public class LobbyManager : NetworkBehaviour
         titleRect.anchorMin = new Vector2(0, 0.5f);
         titleRect.anchorMax = new Vector2(0, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
-        titleRect.anchoredPosition = new Vector2(75, 7);
-        titleRect.sizeDelta = new Vector2(120, 22);
+        titleRect.anchoredPosition = new Vector2(90, 8);
+        titleRect.sizeDelta = new Vector2(170, 32);
 
         TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
         titleText.text = "Loa (Speaker)";
-        titleText.fontSize = 18;
+        titleText.fontSize = 24;
         titleText.fontStyle = FontStyles.Bold;
         titleText.color = Color.white;
         titleText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -788,7 +813,7 @@ public class LobbyManager : NetworkBehaviour
         switchRect.anchorMax = new Vector2(1, 0.5f);
         switchRect.pivot = new Vector2(0.5f, 0.5f);
         switchRect.anchoredPosition = new Vector2(-46, 0);
-        switchRect.sizeDelta = new Vector2(62, 30);
+        switchRect.sizeDelta = new Vector2(76, 38);
 
         UnityEngine.UI.Image switchBg = switchObj.GetComponent<UnityEngine.UI.Image>();
         switchBg.color = new Color(0.2f, 0.8f, 0.35f, 1f);
@@ -799,8 +824,8 @@ public class LobbyManager : NetworkBehaviour
         handleRect.anchorMin = new Vector2(0.5f, 0.5f);
         handleRect.anchorMax = new Vector2(0.5f, 0.5f);
         handleRect.pivot = new Vector2(0.5f, 0.5f);
-        handleRect.anchoredPosition = new Vector2(16, 0);
-        handleRect.sizeDelta = new Vector2(24, 24);
+        handleRect.anchoredPosition = new Vector2(18, 0);
+        handleRect.sizeDelta = new Vector2(30, 30);
 
         UnityEngine.UI.Image handleImg = handleObj.GetComponent<UnityEngine.UI.Image>();
         handleImg.color = Color.white;
@@ -811,12 +836,12 @@ public class LobbyManager : NetworkBehaviour
         statusRect.anchorMin = new Vector2(0, 0.5f);
         statusRect.anchorMax = new Vector2(0, 0.5f);
         statusRect.pivot = new Vector2(0.5f, 0.5f);
-        statusRect.anchoredPosition = new Vector2(75, -13);
-        statusRect.sizeDelta = new Vector2(120, 18);
+        statusRect.anchoredPosition = new Vector2(90, -18);
+        statusRect.sizeDelta = new Vector2(170, 26);
 
         TextMeshProUGUI statusLabel = statusLabelObj.GetComponent<TextMeshProUGUI>();
         statusLabel.text = "BẬT";
-        statusLabel.fontSize = 13;
+        statusLabel.fontSize = 18;
         statusLabel.fontStyle = FontStyles.Bold;
         statusLabel.color = new Color(0.2f, 0.85f, 0.45f, 1f);
         statusLabel.alignment = TextAlignmentOptions.MidlineLeft;
@@ -869,8 +894,8 @@ public class LobbyManager : NetworkBehaviour
         badgeRect.anchorMin = new Vector2(0.5f, 1f);
         badgeRect.anchorMax = new Vector2(0.5f, 1f);
         badgeRect.pivot = new Vector2(0.5f, 1f);
-        badgeRect.anchoredPosition = new Vector2(0, -75);
-        badgeRect.sizeDelta = new Vector2(260, 42);
+        badgeRect.anchoredPosition = new Vector2(0, -90);
+        badgeRect.sizeDelta = new Vector2(420, 76);
 
         UnityEngine.UI.Image badgeBg = badgeObj.GetComponent<UnityEngine.UI.Image>();
         badgeBg.color = new Color(0.12f, 0.16f, 0.22f, 0.95f);
@@ -880,12 +905,12 @@ public class LobbyManager : NetworkBehaviour
         textObj.transform.SetParent(badgeObj.transform, false);
         RectTransform textRect = textObj.GetComponent<RectTransform>();
         textRect.anchorMin = new Vector2(0, 0);
-        textRect.anchorMax = new Vector2(0.65f, 1);
-        textRect.offsetMin = new Vector2(12, 0);
+        textRect.anchorMax = new Vector2(0.62f, 1);
+        textRect.offsetMin = new Vector2(16, 0);
         textRect.offsetMax = new Vector2(0, 0);
 
         roomCodeDisplayText = textObj.GetComponent<TextMeshProUGUI>();
-        roomCodeDisplayText.fontSize = 17;
+        roomCodeDisplayText.fontSize = 28;
         roomCodeDisplayText.fontStyle = FontStyles.Bold;
         roomCodeDisplayText.color = new Color(1f, 0.85f, 0.2f, 1f);
         roomCodeDisplayText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -895,8 +920,8 @@ public class LobbyManager : NetworkBehaviour
         GameObject copyBtnObj = new GameObject("CopyButton", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
         copyBtnObj.transform.SetParent(badgeObj.transform, false);
         RectTransform copyRect = copyBtnObj.GetComponent<RectTransform>();
-        copyRect.anchorMin = new Vector2(0.66f, 0.15f);
-        copyRect.anchorMax = new Vector2(0.96f, 0.85f);
+        copyRect.anchorMin = new Vector2(0.63f, 0.12f);
+        copyRect.anchorMax = new Vector2(0.97f, 0.88f);
         copyRect.offsetMin = Vector2.zero;
         copyRect.offsetMax = Vector2.zero;
 
@@ -913,7 +938,7 @@ public class LobbyManager : NetworkBehaviour
 
         TextMeshProUGUI copyLabel = copyTextObj.GetComponent<TextMeshProUGUI>();
         copyLabel.text = "CHÉP MÃ";
-        copyLabel.fontSize = 13;
+        copyLabel.fontSize = 22;
         copyLabel.fontStyle = FontStyles.Bold;
         copyLabel.color = Color.white;
         copyLabel.alignment = TextAlignmentOptions.Center;

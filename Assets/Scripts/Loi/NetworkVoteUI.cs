@@ -14,9 +14,35 @@ public class NetworkVoteUI : MonoBehaviour
     [SerializeField]
     private Transform voteCardContainer;
 
+    public static NetworkVoteUI Instance;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     private NetworkPhaseSync phaseSync;
 
     private bool isVoting;
+
+    public void Refresh()
+    {
+        if (votePanel != null && votePanel.activeSelf)
+        {
+            CreateVoteCards();
+        }
+    }
 
     private void Start()
     {
@@ -184,6 +210,12 @@ public class NetworkVoteUI : MonoBehaviour
 
             NetworkPlayerStateSync stateSync =
                 player.GetComponent<NetworkPlayerStateSync>();
+
+            bool isDisconnected = (stateSync != null && stateSync.State.Value == NetworkPlayerStateType.Disconnected) ||
+                                  (PlayerManager.Instance != null && PlayerManager.Instance.IsDisconnected(playerID));
+
+            if (isDisconnected)
+                continue;
 
             bool isAlive = true;
 

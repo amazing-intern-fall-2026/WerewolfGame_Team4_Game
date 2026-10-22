@@ -7,7 +7,8 @@ public enum NetworkPlayerStateType
     Alive,
     Dead,
     Sleeping,
-    Spectating
+    Spectating,
+    Disconnected
 }
 
 public class NetworkPlayerStateSync : NetworkBehaviour
@@ -168,6 +169,21 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             "SERVER: Player "
             + (OwnerClientId + 1)
             + " → Spectating."
+        );
+    }
+
+    // Server đánh dấu Player Disconnected
+    public void SetDisconnected()
+    {
+        if (!IsServer)
+            return;
+
+        State.Value = NetworkPlayerStateType.Disconnected;
+
+        Debug.Log(
+            "SERVER: Player "
+            + (OwnerClientId + 1)
+            + " → Disconnected."
         );
     }
 

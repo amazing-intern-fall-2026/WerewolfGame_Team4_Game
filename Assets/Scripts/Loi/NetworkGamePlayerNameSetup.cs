@@ -37,6 +37,11 @@ public static class NetworkGamePlayerNameSetup
         return playerNames.ContainsKey(clientId);
     }
 
+    public static void Remove(ulong clientId)
+    {
+        playerNames.Remove(clientId);
+    }
+
     public static void Clear()
     {
         playerNames.Clear();

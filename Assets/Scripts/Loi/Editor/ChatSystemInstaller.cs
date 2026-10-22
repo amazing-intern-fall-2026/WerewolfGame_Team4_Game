@@ -86,7 +86,7 @@ public static class ChatSystemInstaller
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
             rt.anchoredPosition = new Vector2(20, -20);
-            rt.sizeDelta = new Vector2(200, 220);
+            rt.sizeDelta = new Vector2(280, 310);
 
             Debug.Log("[LAYOUT] PlayerIdentityCard đã chuyển sang góc trên bên trái (Top-Left), hoàn toàn không che khung chat hay nút kỹ năng.");
         }
@@ -99,8 +99,8 @@ public static class ChatSystemInstaller
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(20, -248);
-            rt.sizeDelta = new Vector2(200, 38);
+            rt.anchoredPosition = new Vector2(20, -345);
+            rt.sizeDelta = new Vector2(280, 78);
 
             Debug.Log("[LAYOUT] PlayerListHUDButton đã chuyển xuống dưới thẻ người chơi tại Top-Left.");
         }
@@ -151,7 +151,7 @@ public static class ChatSystemInstaller
         fbRt.anchorMax = new Vector2(0f, 0f);
         fbRt.pivot = new Vector2(0f, 0f);
         fbRt.anchoredPosition = new Vector2(16, 16);
-        fbRt.sizeDelta = new Vector2(52, 52); // Chuẩn 52 dp di động
+        fbRt.sizeDelta = new Vector2(56, 56); // Chuẩn tối đa 56 dp di động
 
         Image fbImg = fbObj.GetComponent<Image>();
         fbImg.color = new Color(0.10f, 0.15f, 0.24f, 0.95f);
@@ -177,7 +177,7 @@ public static class ChatSystemInstaller
         iconRt.sizeDelta = Vector2.zero;
         if (fontAsset != null) iconTmp.font = fontAsset;
         iconTmp.text = "CHAT";
-        iconTmp.fontSize = 13;
+        iconTmp.fontSize = 14;
         iconTmp.fontStyle = FontStyles.Bold;
         iconTmp.color = new Color(0.35f, 0.85f, 1f, 1f);
         iconTmp.alignment = TextAlignmentOptions.Center;
@@ -317,7 +317,7 @@ public static class ChatSystemInstaller
         minRt.anchorMax = new Vector2(1, 0.5f);
         minRt.pivot = new Vector2(1, 0.5f);
         minRt.anchoredPosition = new Vector2(-6, 0);
-        minRt.sizeDelta = new Vector2(28, 24);
+        minRt.sizeDelta = new Vector2(36, 32);
 
         Image minImg = minObj.GetComponent<Image>();
         minImg.color = new Color(0.22f, 0.28f, 0.38f, 0.85f);
@@ -342,7 +342,7 @@ public static class ChatSystemInstaller
         ciRt.sizeDelta = Vector2.zero;
         if (fontAsset != null) closeIconTmp.font = fontAsset;
         closeIconTmp.text = "✕";
-        closeIconTmp.fontSize = 14;
+        closeIconTmp.fontSize = 18;
         closeIconTmp.fontStyle = FontStyles.Bold;
         closeIconTmp.color = Color.white;
         closeIconTmp.alignment = TextAlignmentOptions.Center;
@@ -443,7 +443,7 @@ public static class ChatSystemInstaller
         irRt.anchorMax = new Vector2(1, 0);
         irRt.pivot = new Vector2(0.5f, 0);
         irRt.anchoredPosition = new Vector2(0, 6);
-        irRt.sizeDelta = new Vector2(-16, 36);
+        irRt.sizeDelta = new Vector2(-16, 48);
 
         // Send Button
         Transform sendTrans = irObj.transform.Find("SendButton");
@@ -462,7 +462,7 @@ public static class ChatSystemInstaller
         sendRt.anchorMax = new Vector2(1, 1);
         sendRt.pivot = new Vector2(1, 0.5f);
         sendRt.anchoredPosition = Vector2.zero;
-        sendRt.sizeDelta = new Vector2(62, 0);
+        sendRt.sizeDelta = new Vector2(80, 0);
 
         Image sendImg = sendObj.GetComponent<Image>();
         sendImg.color = new Color(0.15f, 0.55f, 0.95f, 0.95f);
@@ -487,7 +487,7 @@ public static class ChatSystemInstaller
         stRt.sizeDelta = Vector2.zero;
         if (fontAsset != null) stTmp.font = fontAsset;
         stTmp.text = "GỬI";
-        stTmp.fontSize = 14;
+        stTmp.fontSize = 18;
         stTmp.fontStyle = FontStyles.Bold;
         stTmp.color = Color.white;
         stTmp.alignment = TextAlignmentOptions.Center;
@@ -509,7 +509,7 @@ public static class ChatSystemInstaller
         inpRt.anchorMin = new Vector2(0, 0);
         inpRt.anchorMax = new Vector2(1, 1);
         inpRt.offsetMin = Vector2.zero;
-        inpRt.offsetMax = new Vector2(-68, 0);
+        inpRt.offsetMax = new Vector2(-88, 0);
 
         Image inpImg = inpObj.GetComponent<Image>();
         inpImg.color = new Color(0.12f, 0.16f, 0.24f, 0.95f);
@@ -530,8 +530,8 @@ public static class ChatSystemInstaller
         RectTransform taRt = taObj.GetComponent<RectTransform>();
         taRt.anchorMin = Vector2.zero;
         taRt.anchorMax = Vector2.one;
-        taRt.offsetMin = new Vector2(8, 2);
-        taRt.offsetMax = new Vector2(-8, -2);
+        taRt.offsetMin = new Vector2(10, 4);
+        taRt.offsetMax = new Vector2(-10, -4);
 
         Transform phTrans = taObj.transform.Find("Placeholder");
         TextMeshProUGUI phTmp;
@@ -551,7 +551,7 @@ public static class ChatSystemInstaller
         phRt.sizeDelta = Vector2.zero;
         if (fontAsset != null) phTmp.font = fontAsset;
         phTmp.text = "Nhập tin nhắn...";
-        phTmp.fontSize = 14;
+        phTmp.fontSize = 18;
         phTmp.fontStyle = FontStyles.Italic;
         phTmp.color = new Color(0.6f, 0.65f, 0.75f, 0.75f);
         phTmp.alignment = TextAlignmentOptions.Left;
@@ -573,13 +573,14 @@ public static class ChatSystemInstaller
         tCompRt.anchorMax = Vector2.one;
         tCompRt.sizeDelta = Vector2.zero;
         if (fontAsset != null) textTmp.font = fontAsset;
-        textTmp.fontSize = 14;
+        textTmp.fontSize = 18;
         textTmp.color = Color.white;
         textTmp.alignment = TextAlignmentOptions.Left;
 
         inputField.textViewport = taRt;
-        inputField.placeholder = phTmp;
         inputField.textComponent = textTmp;
+        inputField.placeholder = phTmp;
+        inputField.pointSize = 18;
         inputField.characterLimit = NetworkChatManager.MaxMessageLength;
 
         // Wire NetworkChatUI SerializedObject
@@ -601,8 +602,8 @@ public static class ChatSystemInstaller
         fbObj.transform.SetAsLastSibling();
         cpObj.transform.SetAsLastSibling();
 
-        // Mặc định ẩn chatPanel khi khởi đầu scene, chỉ hiện nút nổi
-        cpObj.SetActive(false);
+        // Giữ active trong scene để kiểm thử và hierarchy nhận diện (NetworkChatUI.Start tự ẩn khi vào trận)
+        cpObj.SetActive(true);
         fbObj.SetActive(true);
 
         Debug.Log("[SCENE] Cấu hình SerializedObject cho NetworkChatUI hoàn tất.");

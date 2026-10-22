@@ -118,6 +118,12 @@ public static class GameVoiceTests
 
             if (hud != null)
             {
+                if (voiceMgr == null || NetworkVoiceManager.Instance == null)
+                {
+                    GameObject vmObj = new GameObject("NetworkVoiceManager");
+                    voiceMgr = vmObj.AddComponent<NetworkVoiceManager>();
+                }
+
                 // Giả lập Awake / Start
                 hud.EnsureUIReferences();
                 AssertTest("Test 3.2: Vào Game Scene, Micro mặc định TẮT", hud.IsMicrophoneOn == false, $"IsMicrophoneOn={hud.IsMicrophoneOn}");

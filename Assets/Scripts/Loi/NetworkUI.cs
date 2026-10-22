@@ -137,14 +137,14 @@ public class NetworkUI : MonoBehaviour
         rect.pivot = new Vector2(0.5f, 0.5f);
 
         // Đặt ở vị trí giữa nút Host và nút Join hoặc ngay trên nút Join
-        Vector2 pos = new Vector2(-350, -75);
+        Vector2 pos = new Vector2(-350, -80);
         if (clientButton != null)
         {
             RectTransform cbRect = clientButton.GetComponent<RectTransform>();
-            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y + 45);
+            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y + 125);
         }
         rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(180, 36);
+        rect.sizeDelta = new Vector2(400, 88);
 
         Image bg = inputObj.GetComponent<Image>();
         bg.color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
@@ -155,8 +155,8 @@ public class NetworkUI : MonoBehaviour
         RectTransform textRect = textObj.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = new Vector2(10, 0);
-        textRect.offsetMax = new Vector2(-10, 0);
+        textRect.offsetMin = new Vector2(20, 0);
+        textRect.offsetMax = new Vector2(-20, 0);
 
         TMP_FontAsset font = AuthUI.GetVietnameseFont();
 
@@ -166,7 +166,7 @@ public class NetworkUI : MonoBehaviour
             textComp.font = font;
             textComp.fontSharedMaterial = font.material;
         }
-        textComp.fontSize = 18;
+        textComp.fontSize = 28;
         textComp.color = Color.white;
         textComp.alignment = TextAlignmentOptions.Center;
         textComp.fontStyle = FontStyles.Bold;
@@ -177,8 +177,8 @@ public class NetworkUI : MonoBehaviour
         RectTransform phRect = placeholderObj.GetComponent<RectTransform>();
         phRect.anchorMin = Vector2.zero;
         phRect.anchorMax = Vector2.one;
-        phRect.offsetMin = new Vector2(10, 0);
-        phRect.offsetMax = new Vector2(-10, 0);
+        phRect.offsetMin = new Vector2(20, 0);
+        phRect.offsetMax = new Vector2(-20, 0);
 
         TextMeshProUGUI phComp = placeholderObj.GetComponent<TextMeshProUGUI>();
         if (font != null)
@@ -187,7 +187,7 @@ public class NetworkUI : MonoBehaviour
             phComp.fontSharedMaterial = font.material;
         }
         phComp.text = "Nhập mã 6 số...";
-        phComp.fontSize = 15;
+        phComp.fontSize = 26;
         phComp.fontStyle = FontStyles.Italic;
         phComp.color = new Color(0.7f, 0.7f, 0.7f, 0.6f);
         phComp.alignment = TextAlignmentOptions.Center;
@@ -208,14 +208,14 @@ public class NetworkUI : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
 
-        Vector2 pos = new Vector2(-350, -170);
+        Vector2 pos = new Vector2(-350, -322);
         if (clientButton != null)
         {
             RectTransform cbRect = clientButton.GetComponent<RectTransform>();
-            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y - 45);
+            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y - 117);
         }
         rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(340, 50);
+        rect.sizeDelta = new Vector2(480, 75);
 
         statusText = statusObj.GetComponent<TextMeshProUGUI>();
         TMP_FontAsset font = AuthUI.GetVietnameseFont();
@@ -224,7 +224,7 @@ public class NetworkUI : MonoBehaviour
             statusText.font = font;
             statusText.fontSharedMaterial = font.material;
         }
-        statusText.fontSize = 14;
+        statusText.fontSize = 24;
         statusText.alignment = TextAlignmentOptions.Center;
         statusText.textWrappingMode = TextWrappingModes.Normal;
     }

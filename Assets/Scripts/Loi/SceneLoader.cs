@@ -174,16 +174,16 @@ public class SceneLoader : MonoBehaviour
         if (NetworkManager.Singleton == null)
             return;
 
-        if (clientId != NetworkManager.Singleton.LocalClientId)
-            return;
-
-        Debug.Log(
-            "SceneLoader: Client bị disconnect khỏi Host."
-        );
-
-        isLeaving = true;
-
-        StartCoroutine(ShutdownThenLoadMainMenu());
+        // Nếu là Client (không phải Server) và nhận disconnect cho chính mình HOẶC cho Server (Host shutdown)
+        if (!NetworkManager.Singleton.IsServer)
+        {
+            if (clientId == NetworkManager.Singleton.LocalClientId || clientId == NetworkManager.ServerClientId)
+            {
+                Debug.Log($"SceneLoader: Client bị disconnect khỏi Host (clientId={clientId}, localId={NetworkManager.Singleton.LocalClientId}).");
+                isLeaving = true;
+                StartCoroutine(ShutdownThenLoadMainMenu());
+            }
+        }
     }
 
     // =========================================================

@@ -57,6 +57,13 @@ public class NetworkPlayerAction : NetworkBehaviour
         );
     }
 
+    public static void RemoveDisconnectedPlayerAction(ulong clientId)
+    {
+        playersActionNightCycle.Remove(clientId);
+        pendingActionNightCycle.Remove(clientId);
+        Debug.Log($"SERVER ACTION DATA: Đã xóa action lock của clientId {clientId}");
+    }
+
     // =========================================================
     // NETWORK SPAWN & DESPAWN
     // =========================================================
@@ -357,11 +364,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             ||
             requesterState.State.Value ==
                 NetworkPlayerStateType.Spectating
+            ||
+            requesterState.State.Value ==
+                NetworkPlayerStateType.Disconnected
         )
         {
             SendActionResultToClient(
                 false,
-                "Player đã chết, không thể Action!",
+                "Player đã chết hoặc ngắt kết nối, không thể Action!",
                 requesterClientId
             );
 
@@ -533,11 +543,14 @@ public class NetworkPlayerAction : NetworkBehaviour
             ||
             targetState.State.Value ==
                 NetworkPlayerStateType.Spectating
+            ||
+            targetState.State.Value ==
+                NetworkPlayerStateType.Disconnected
         )
         {
             SendActionResultToClient(
                 false,
-                "Target đã chết!",
+                "Target đã chết hoặc ngắt kết nối!",
                 requesterClientId
             );
 
