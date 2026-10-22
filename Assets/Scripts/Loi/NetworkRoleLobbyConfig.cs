@@ -115,7 +115,7 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
 
     public void InitializeDefaultRolesForPlayerCount(int playerCount)
     {
-        if (!IsServer)
+        if (NetworkManager.Singleton != null && !IsServer)
             return;
 
         if (hasCustomizedRoles)

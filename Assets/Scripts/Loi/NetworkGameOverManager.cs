@@ -256,7 +256,7 @@ public class NetworkGameOverManager : MonoBehaviour
     ///   - Phe thứ 3: Kẻ Điên (bị vote ngày 1), Cáo Tinh (mê hoặc 2 người), Bạch Khuyển (thức tỉnh còn sống và quái vật sạch), Sát Nhân, Cặp đôi
     ///   - Khi tất cả cùng chết hoặc nhiều phe cùng bị tiêu diệt: Phân định theo đòn kết liễu cuối cùng (Thợ săn trả thù, treo cổ, sói cắn...)
     /// </summary>
-    private void CheckServerWinCondition()
+    public void CheckServerWinCondition()
     {
         if (isGameOver || GameEnded) return;
 
@@ -605,7 +605,7 @@ public class NetworkGameOverManager : MonoBehaviour
         cardRect.anchorMin = new Vector2(0.5f, 0.5f);
         cardRect.anchorMax = new Vector2(0.5f, 0.5f);
         cardRect.pivot = new Vector2(0.5f, 0.5f);
-        cardRect.sizeDelta = new Vector2(600, 420);
+        cardRect.sizeDelta = new Vector2(860, 540);
 
         Image cardBg = card.GetComponent<Image>();
         cardBg.color = new Color(0.12f, 0.12f, 0.22f, 1f);
@@ -617,14 +617,14 @@ public class NetworkGameOverManager : MonoBehaviour
         // --- Tiêu đề ---
         CreateLabel(card.transform, "TitleLabel",
             "KẾT THÚC VÁN",
-            new Vector2(0, 145), new Vector2(520, 50),
-            24, new Color(0.95f, 0.8f, 1f));
+            new Vector2(0, 190), new Vector2(720, 60),
+            42, new Color(0.95f, 0.8f, 1f));
 
         // --- Phe thắng ---
         CreateLabel(card.transform, "WinnerLabel",
             FormatWinner(winner),
-            new Vector2(0, 65), new Vector2(540, 70),
-            30, Color.white);
+            new Vector2(0, 95), new Vector2(760, 80),
+            46, Color.white);
 
         // --- Mô tả phụ ---
         string sub = GetWinnerSubtext(winner);
@@ -632,49 +632,51 @@ public class NetworkGameOverManager : MonoBehaviour
         {
             CreateLabel(card.transform, "SubLabel",
                 sub,
-                new Vector2(0, -10), new Vector2(500, 45),
-                16, new Color(0.8f, 0.8f, 0.9f));
+                new Vector2(0, 0), new Vector2(740, 60),
+                26, new Color(0.8f, 0.8f, 0.9f));
         }
 
         // --- Nút bấm ---
         bool isHost = NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer || NetworkManager.Singleton.IsHost;
-        float btnY = -140f;
+        float btnY = -180f;
 
         if (isHost)
         {
             // Host thấy 3 nút: Chơi Lại, Về Lobby (cùng phòng), và Rời Phòng (về MainMenu)
+            // Khoảng cách giữa các nút chính xác là 26px
             CreateButton(card.transform, "PlayAgainBtn",
                 "CHƠI LẠI",
-                new Vector2(-180f, btnY), new Vector2(165, 56),
+                new Vector2(-270f, btnY), new Vector2(244, 88),
                 new Color(0.15f, 0.65f, 0.25f),
-                OnPlayAgainClicked);
+                OnPlayAgainClicked, 28);
 
             CreateButton(card.transform, "LobbyBtn",
                 "VỀ LOBBY",
-                new Vector2(0f, btnY), new Vector2(165, 56),
+                new Vector2(0f, btnY), new Vector2(244, 88),
                 new Color(0.20f, 0.45f, 0.75f),
-                OnReturnToLobbyClicked);
+                OnReturnToLobbyClicked, 28);
 
             CreateButton(card.transform, "LeaveBtn",
                 "RỜI PHÒNG",
-                new Vector2(180f, btnY), new Vector2(165, 56),
+                new Vector2(270f, btnY), new Vector2(244, 88),
                 new Color(0.65f, 0.20f, 0.25f),
-                OnLeaveRoomClicked);
+                OnLeaveRoomClicked, 28);
         }
         else
         {
             // Client thấy 2 nút: Về Lobby (cùng phòng) và Rời Phòng (về MainMenu)
+            // Khoảng cách giữa 2 nút chính xác là 28px
             CreateButton(card.transform, "LobbyBtn",
                 "VỀ LOBBY",
-                new Vector2(-100f, btnY), new Vector2(180, 56),
+                new Vector2(-184f, btnY), new Vector2(340, 88),
                 new Color(0.20f, 0.45f, 0.75f),
-                OnReturnToLobbyClicked);
+                OnReturnToLobbyClicked, 28);
 
             CreateButton(card.transform, "LeaveBtn",
                 "RỜI PHÒNG",
-                new Vector2(100f, btnY), new Vector2(180, 56),
+                new Vector2(184f, btnY), new Vector2(340, 88),
                 new Color(0.65f, 0.20f, 0.25f),
-                OnLeaveRoomClicked);
+                OnLeaveRoomClicked, 28);
         }
     }
 
@@ -1087,7 +1089,7 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private static void CreateButton(Transform parent, string name, string label,
         Vector2 anchoredPos, Vector2 size, Color bgColor,
-        UnityEngine.Events.UnityAction onClick)
+        UnityEngine.Events.UnityAction onClick, int fontSize = 28)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
         go.transform.SetParent(parent, false);
@@ -1130,7 +1132,7 @@ public class NetworkGameOverManager : MonoBehaviour
         }
 
         tmp.text = label;
-        tmp.fontSize = 18;
+        tmp.fontSize = fontSize;
         tmp.color = Color.white;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         tmp.fontStyle = TMPro.FontStyles.Bold;

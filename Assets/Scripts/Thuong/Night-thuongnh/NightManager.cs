@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class NightManager : MonoBehaviour
 {
@@ -28,6 +28,16 @@ public class NightManager : MonoBehaviour
         nextActionSequence = 0;
         monsterTarget = protectedTarget = killerTarget = -1;
         monsterSourceRole = RoleType.DogSpirit;
+    }
+
+    public void CancelDisconnectedPlayerActions(int playerId)
+    {
+        actions.RemoveAll(action => (action.actor != null && action.actor.playerID == playerId) ||
+                                    (action.target != null && action.target.playerID == playerId));
+        if (monsterTarget == playerId) monsterTarget = -1;
+        if (protectedTarget == playerId) protectedTarget = -1;
+        if (killerTarget == playerId) killerTarget = -1;
+        Debug.Log($"NIGHT MANAGER: Đã hủy các action đêm liên quan đến Player {playerId}");
     }
     public void QueueAbility(PlayerData actor, PlayerData target, ThuongRoleDefinition role)
     {

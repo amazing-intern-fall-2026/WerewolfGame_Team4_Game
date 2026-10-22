@@ -438,29 +438,29 @@ public class AuthUI : MonoBehaviour
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        // Tiêu đề to nổi bật (30px Bold)
-        CreateText(panel.transform, "TitleText", "🐺 ĐĂNG NHẬP MA SÓI", new Vector2(0, 230), new Vector2(600, 46), 30, Color.white, FontStyles.Bold);
+        // Tiêu đề to nổi bật (42px Bold)
+        CreateText(panel.transform, "TitleText", "🐺 ĐĂNG NHẬP MA SÓI", new Vector2(0, 280), new Vector2(700, 60), 42, Color.white, FontStyles.Bold);
 
-        // Phụ đề hướng dẫn (15px)
-        CreateText(panel.transform, "SubGuideText", "Đăng nhập tài khoản hoặc chọn Chơi ngay để bắt đầu", new Vector2(0, 188), new Vector2(600, 30), 15, new Color(0.72f, 0.78f, 0.88f), FontStyles.Italic);
+        // Phụ đề hướng dẫn (24px)
+        CreateText(panel.transform, "SubGuideText", "Đăng nhập tài khoản hoặc chọn Chơi ngay để bắt đầu", new Vector2(0, 224), new Vector2(700, 36), 24, new Color(0.72f, 0.78f, 0.88f), FontStyles.Italic);
 
-        // Ô nhập Username: Rộng 540 x 54, font 18px
-        loginUsernameInput = CreateInputField(panel.transform, "LoginUsernameInput", "Tên tài khoản...", new Vector2(0, 128), new Vector2(540, 54), false);
+        // Ô nhập Username: Rộng 560 x 88, font 28px
+        loginUsernameInput = CreateInputField(panel.transform, "LoginUsernameInput", "Tên tài khoản...", new Vector2(0, 138), new Vector2(560, 88), false);
 
-        // Ô nhập Password: Rộng 540 x 54, font 18px
-        loginPasswordInput = CreateInputField(panel.transform, "LoginPasswordInput", "Mật khẩu...", new Vector2(0, 62), new Vector2(540, 54), true);
+        // Ô nhập Password: Rộng 560 x 88, font 28px (Khoảng cách với username: 24px)
+        loginPasswordInput = CreateInputField(panel.transform, "LoginPasswordInput", "Mật khẩu...", new Vector2(0, 26), new Vector2(560, 88), true);
 
-        // Nút ĐĂNG NHẬP: 540 x 54, font 19px Bold
-        loginSubmitButton = CreateButton(panel.transform, "LoginSubmitBtn", "ĐĂNG NHẬP", new Vector2(0, -8), new Vector2(540, 54), new Color(0.18f, 0.48f, 0.88f, 1f), 19);
+        // Nút ĐĂNG NHẬP: 560 x 96, font 32px Bold (Khoảng cách với ô mật khẩu: 30px)
+        loginSubmitButton = CreateButton(panel.transform, "LoginSubmitBtn", "ĐĂNG NHẬP", new Vector2(0, -96), new Vector2(560, 96), new Color(0.18f, 0.48f, 0.88f, 1f), 32);
 
-        // Nút CHƠI NGAY (KHÁCH): To nổi bật 540 x 56, font 19px Bold (Xanh ngọc Emerald)
-        playAsGuestButton = CreateButton(panel.transform, "PlayAsGuestBtn", "⚡ CHƠI NGAY (KHÁCH - MIỄN PHÍ)", new Vector2(0, -74), new Vector2(540, 56), new Color(0.16f, 0.65f, 0.46f, 1f), 19);
+        // Nút CHƠI NGAY (KHÁCH): To nổi bật 560 x 96, font 30px Bold (Khoảng cách với nút Đăng nhập: 28px)
+        playAsGuestButton = CreateButton(panel.transform, "PlayAsGuestBtn", "⚡ CHƠI NGAY (KHÁCH - MIỄN PHÍ)", new Vector2(0, -220), new Vector2(560, 96), new Color(0.16f, 0.65f, 0.46f, 1f), 30);
 
-        // Nút Chuyển sang Đăng ký: 540 x 44, font 15px Bold
-        goToRegisterButton = CreateButton(panel.transform, "GoToRegisterBtn", "Chưa có tài khoản? Đăng ký ngay", new Vector2(0, -138), new Vector2(540, 44), new Color(0.16f, 0.20f, 0.28f, 0.95f), 15);
+        // Nút Chuyển sang Đăng ký: 560 x 76, font 26px Bold (Khoảng cách với nút Khách: 26px)
+        goToRegisterButton = CreateButton(panel.transform, "GoToRegisterBtn", "Chưa có tài khoản? Đăng ký ngay", new Vector2(0, -332), new Vector2(560, 76), new Color(0.16f, 0.20f, 0.28f, 0.95f), 26);
 
-        // Text thông báo trạng thái: 600 x 56, font 14px
-        loginStatusText = CreateText(panel.transform, "LoginStatusText", "Sẵn sàng đăng nhập hoặc chọn Chơi ngay.", new Vector2(0, -204), new Vector2(600, 56), 14, new Color(0.8f, 0.86f, 0.95f), FontStyles.Normal);
+        // Text thông báo trạng thái: 700 x 44, font 24px
+        loginStatusText = CreateText(panel.transform, "LoginStatusText", "Sẵn sàng đăng nhập hoặc chọn Chơi ngay.", new Vector2(0, -400), new Vector2(700, 44), 24, new Color(0.8f, 0.86f, 0.95f), FontStyles.Normal);
     }
 
     private void CreateRegisterPanelUI(Transform parent)
@@ -476,29 +476,29 @@ public class AuthUI : MonoBehaviour
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        // Tiêu đề To Đẹp (30px Bold)
-        CreateText(panel.transform, "RegTitleText", "📝 ĐĂNG KÝ TÀI KHOẢN", new Vector2(0, 230), new Vector2(600, 46), 30, Color.white, FontStyles.Bold);
+        // Tiêu đề To Đẹp (42px Bold)
+        CreateText(panel.transform, "RegTitleText", "📝 ĐĂNG KÝ TÀI KHOẢN", new Vector2(0, 290), new Vector2(700, 60), 42, Color.white, FontStyles.Bold);
 
-        // Hướng dẫn quy định tài khoản (15px)
-        CreateText(panel.transform, "RegSubGuideText", "Nhập thông tin đăng ký tài khoản người chơi Ma Sói mới", new Vector2(0, 188), new Vector2(600, 30), 15, new Color(0.72f, 0.78f, 0.88f), FontStyles.Italic);
+        // Hướng dẫn quy định tài khoản (22px)
+        CreateText(panel.transform, "RegSubGuideText", "Nhập thông tin đăng ký tài khoản người chơi Ma Sói mới", new Vector2(0, 236), new Vector2(700, 36), 22, new Color(0.72f, 0.78f, 0.88f), FontStyles.Italic);
 
-        // Ô nhập Username: Rộng 540 x 54, font 18px
-        regUsernameInput = CreateInputField(panel.transform, "RegUsernameInput", "Tên tài khoản (3 - 20 ký tự)...", new Vector2(0, 128), new Vector2(540, 54), false);
+        // Ô nhập Username: Rộng 560 x 82, font 28px
+        regUsernameInput = CreateInputField(panel.transform, "RegUsernameInput", "Tên tài khoản (3 - 20 ký tự)...", new Vector2(0, 150), new Vector2(560, 82), false);
 
-        // Ô nhập Password: Rộng 540 x 54, font 18px
-        regPasswordInput = CreateInputField(panel.transform, "RegPasswordInput", "Mật khẩu (8 - 30 ký tự, có hoa, số, ký tự đặc biệt)...", new Vector2(0, 62), new Vector2(540, 54), true);
+        // Ô nhập Password: Rộng 560 x 82, font 28px (Khoảng cách với username: 24px)
+        regPasswordInput = CreateInputField(panel.transform, "RegPasswordInput", "Mật khẩu (8 - 30 ký tự, có hoa, số, ký tự đặc biệt)...", new Vector2(0, 44), new Vector2(560, 82), true);
 
-        // Ô nhập lại Password: Rộng 540 x 54, font 18px
-        regConfirmPasswordInput = CreateInputField(panel.transform, "RegConfirmPasswordInput", "Nhập lại mật khẩu để xác nhận...", new Vector2(0, -4), new Vector2(540, 54), true);
+        // Ô nhập lại Password: Rộng 560 x 82, font 28px (Khoảng cách với password: 24px)
+        regConfirmPasswordInput = CreateInputField(panel.transform, "RegConfirmPasswordInput", "Nhập lại mật khẩu để xác nhận...", new Vector2(0, -62), new Vector2(560, 82), true);
 
-        // Nút Đăng ký: To nổi bật 540 x 56, font 19px Bold
-        registerSubmitButton = CreateButton(panel.transform, "RegisterSubmitBtn", "TẠO TÀI KHOẢN MỚI", new Vector2(0, -76), new Vector2(540, 56), new Color(0.18f, 0.48f, 0.88f, 1f), 19);
+        // Nút Đăng ký: To nổi bật 560 x 96, font 32px Bold (Khoảng cách với ô nhập: 31px)
+        registerSubmitButton = CreateButton(panel.transform, "RegisterSubmitBtn", "TẠO TÀI KHOẢN MỚI", new Vector2(0, -182), new Vector2(560, 96), new Color(0.18f, 0.48f, 0.88f, 1f), 32);
 
-        // Nút Quay lại Đăng nhập: 540 x 46, font 15px Bold
-        backToLoginButton = CreateButton(panel.transform, "BackToLoginBtn", "← ĐÃ CÓ TÀI KHOẢN? QUAY LẠI ĐĂNG NHẬP", new Vector2(0, -142), new Vector2(540, 46), new Color(0.16f, 0.20f, 0.28f, 0.95f), 15);
+        // Nút Quay lại Đăng nhập: 560 x 76, font 26px Bold (Khoảng cách với nút Đăng ký: 24px)
+        backToLoginButton = CreateButton(panel.transform, "BackToLoginBtn", "← ĐÃ CÓ TÀI KHOẢN? QUAY LẠI ĐĂNG NHẬP", new Vector2(0, -292), new Vector2(560, 76), new Color(0.16f, 0.20f, 0.28f, 0.95f), 26);
 
-        // Text thông báo lỗi / trạng thái: 600 x 56, font 14px
-        regStatusText = CreateText(panel.transform, "RegStatusText", "", new Vector2(0, -208), new Vector2(600, 56), 14, new Color(0.82f, 0.88f, 0.98f), FontStyles.Normal);
+        // Text thông báo lỗi / trạng thái: 700 x 44, font 24px
+        regStatusText = CreateText(panel.transform, "RegStatusText", "", new Vector2(0, -362), new Vector2(700, 44), 24, new Color(0.82f, 0.88f, 0.98f), FontStyles.Normal);
     }
 
     private void CreateUserBadgeUI(Transform canvasTransform)
@@ -512,18 +512,18 @@ public class AuthUI : MonoBehaviour
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-348, 25); // Nằm ngay phía trên nút Host ở bên trái
-        rect.sizeDelta = new Vector2(300, 44);
+        rect.anchoredPosition = new Vector2(-350, 165); // Nằm ngay phía trên nút Host ở bên trái với khoảng cách thoáng
+        rect.sizeDelta = new Vector2(420, 76);
 
         Image bg = badgeObj.GetComponent<Image>();
         bg.color = new Color(0.11f, 0.14f, 0.20f, 0.96f);
 
         // Text thông tin user
-        userBadgeText = CreateText(badgeObj.transform, "UserBadgeText", "👤 Đã đăng nhập", new Vector2(-46, 0), new Vector2(190, 32), 14, Color.white, FontStyles.Bold);
+        userBadgeText = CreateText(badgeObj.transform, "UserBadgeText", "👤 Đã đăng nhập", new Vector2(-65, 0), new Vector2(270, 50), 24, Color.white, FontStyles.Bold);
         userBadgeText.alignment = TextAlignmentOptions.Left;
 
         // Nút Đăng xuất
-        signOutButton = CreateButton(badgeObj.transform, "SignOutBtn", "Đăng xuất", new Vector2(105, 0), new Vector2(80, 30), new Color(0.52f, 0.18f, 0.18f, 0.95f), 12);
+        signOutButton = CreateButton(badgeObj.transform, "SignOutBtn", "Đăng xuất", new Vector2(145, 0), new Vector2(115, 54), new Color(0.52f, 0.18f, 0.18f, 0.95f), 22);
     }
 
     // =========================================================
@@ -622,8 +622,8 @@ public class AuthUI : MonoBehaviour
         RectTransform textRect = textObj.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = new Vector2(16, 0); // Đệm chữ thụt vào trong
-        textRect.offsetMax = new Vector2(-16, 0);
+        textRect.offsetMin = new Vector2(24, 0); // Đệm chữ thụt vào trong thoải mái
+        textRect.offsetMax = new Vector2(-24, 0);
 
         TextMeshProUGUI textComp = textObj.GetComponent<TextMeshProUGUI>();
         if (font != null)
@@ -631,7 +631,7 @@ public class AuthUI : MonoBehaviour
             textComp.font = font;
             textComp.fontSharedMaterial = font.material;
         }
-        textComp.fontSize = 18;
+        textComp.fontSize = 28;
         textComp.color = Color.white;
         textComp.alignment = TextAlignmentOptions.Left;
 
@@ -641,8 +641,8 @@ public class AuthUI : MonoBehaviour
         RectTransform phRect = phObj.GetComponent<RectTransform>();
         phRect.anchorMin = Vector2.zero;
         phRect.anchorMax = Vector2.one;
-        phRect.offsetMin = new Vector2(16, 0);
-        phRect.offsetMax = new Vector2(-16, 0);
+        phRect.offsetMin = new Vector2(24, 0);
+        phRect.offsetMax = new Vector2(-24, 0);
 
         TextMeshProUGUI phComp = phObj.GetComponent<TextMeshProUGUI>();
         if (font != null)
@@ -651,7 +651,7 @@ public class AuthUI : MonoBehaviour
             phComp.fontSharedMaterial = font.material;
         }
         phComp.text = placeholderText;
-        phComp.fontSize = 16;
+        phComp.fontSize = 26;
         phComp.fontStyle = FontStyles.Italic;
         phComp.color = new Color(0.6f, 0.68f, 0.78f, 0.75f);
         phComp.alignment = TextAlignmentOptions.Left;

@@ -10,7 +10,8 @@ public class PlayerData
 
     public FactionType faction;
 
-    public bool isAlive =true ;
+    public bool isAlive = true;
+    public bool isDisconnected = false;
 
     public bool wasVotedOut;
 
@@ -40,7 +41,7 @@ public class PlayerData
     public System.Collections.Generic.List<StatusEffectInstance> effects = new();
 
     public string DisplayName => string.IsNullOrWhiteSpace(playerName) ? $"Player {playerID + 1}" : playerName;
-    public bool CanVote => isAlive && !HasEffect(StatusEffectType.CannotVote);
+    public bool CanVote => isAlive && !isDisconnected && !HasEffect(StatusEffectType.CannotVote);
     public int GetVoteWeight() => CanVote ? Mathf.Max(1, votePower) + GetEffectStrength(StatusEffectType.ExtraVote) : 0;
     public bool HasEffect(StatusEffectType type) => effects != null && effects.Exists(effect => effect.Type == type);
     public int GetEffectStrength(StatusEffectType type)
@@ -57,6 +58,7 @@ public class PlayerData
     public void ResetForNewMatch()
     {
         isAlive = true;
+        isDisconnected = false;
         hasDeathRecord = false;
         lastDeathCause = default;
         hasVoted = hasUseNightAction = false;

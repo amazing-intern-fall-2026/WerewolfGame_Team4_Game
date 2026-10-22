@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerManager : MonoBehaviour
@@ -7,8 +7,25 @@ public class PlayerManager : MonoBehaviour
 
     [SerializeField]
     public List<PlayerData> players = new List<PlayerData>();
+    [SerializeField]
+    public List<PlayerData> disconnectedPlayers = new List<PlayerData>();
     [Header("Offline prototype")]
     [Min(0)] public int prototypeLobbySize;
+
+    public int ConnectedPlayerCount => players != null ? players.Count : 0;
+    public int AlivePlayerCount => GetAlivePlayerCount();
+
+    public int GetAlivePlayerCount()
+    {
+        if (players == null) return 0;
+        int count = 0;
+        foreach (var p in players)
+        {
+            if (p != null && p.isAlive && !p.isDisconnected)
+                count++;
+        }
+        return count;
+    }
 
     private void Awake()
     {
@@ -62,13 +79,22 @@ public class PlayerManager : MonoBehaviour
 
     public PlayerData GetplayerByID(int playerID)
     {
-        if (players == null)
-            return null;
-
-        foreach (var player in players)
+        if (players != null)
         {
-            if (player != null && player.playerID == playerID)
-                return player;
+            foreach (var player in players)
+            {
+                if (player != null && player.playerID == playerID)
+                    return player;
+            }
+        }
+
+        if (disconnectedPlayers != null)
+        {
+            foreach (var player in disconnectedPlayers)
+            {
+                if (player != null && player.playerID == playerID)
+                    return player;
+            }
         }
 
         return null;
@@ -77,7 +103,51 @@ public class PlayerManager : MonoBehaviour
     public bool IsAlive(int playerID)
     {
         PlayerData player = GetplayerByID(playerID);
-        return player != null && player.isAlive;
+        return player != null && player.isAlive && !player.isDisconnected;
+    }
+
+    public bool IsDisconnected(int playerID)
+    {
+        if (disconnectedPlayers != null)
+        {
+            foreach (var player in disconnectedPlayers)
+            {
+                if (player != null && player.playerID == playerID)
+                    return true;
+            }
+        }
+
+        PlayerData p = GetplayerByID(playerID);
+        return p != null && p.isDisconnected;
+    }
+
+    public bool RemoveDisconnectedPlayer(int playerID)
+    {
+        if (players == null)
+            return false;
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i] != null && players[i].playerID == playerID)
+            {
+                PlayerData p = players[i];
+                p.isDisconnected = true;
+                p.isAlive = false;
+                p.hasVoted = false;
+                p.hasUseNightAction = false;
+                players.RemoveAt(i);
+                disconnectedPlayers ??= new List<PlayerData>();
+                if (!disconnectedPlayers.Contains(p))
+                {
+                    disconnectedPlayers.Add(p);
+                }
+                p.NotifyChanged();
+                Debug.Log($"[PlayerManager] Đã loại player {playerID} (Disconnected). Số player active còn lại: {players.Count}");
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public IEnumerable<PlayerData> GetAlivePlayers()
@@ -87,7 +157,7 @@ public class PlayerManager : MonoBehaviour
 
         foreach (PlayerData player in players)
         {
-            if (player != null && player.isAlive)
+            if (player != null && player.isAlive && !player.isDisconnected)
                 yield return player;
         }
     }

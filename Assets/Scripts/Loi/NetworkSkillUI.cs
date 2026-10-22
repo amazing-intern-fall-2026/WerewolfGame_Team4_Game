@@ -710,14 +710,14 @@ public class NetworkSkillUI : MonoBehaviour
         shamanPromptPanel.transform.SetParent(parentTransform, false);
 
         RectTransform rect = shamanPromptPanel.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(460, 220);
+        rect.sizeDelta = new Vector2(660, 340);
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = Vector2.zero;
 
         UnityEngine.UI.Image bgImage = shamanPromptPanel.GetComponent<UnityEngine.UI.Image>();
-        bgImage.color = new Color(0.12f, 0.14f, 0.18f, 0.96f);
+        bgImage.color = new Color(0.10f, 0.12f, 0.18f, 0.98f);
 
         // Title
         GameObject titleObj = new GameObject(
@@ -730,12 +730,12 @@ public class NetworkSkillUI : MonoBehaviour
         titleRect.anchorMin = new Vector2(0, 1);
         titleRect.anchorMax = new Vector2(1, 1);
         titleRect.pivot = new Vector2(0.5f, 1);
-        titleRect.anchoredPosition = new Vector2(0, -15);
-        titleRect.sizeDelta = new Vector2(-20, 35);
+        titleRect.anchoredPosition = new Vector2(0, -20);
+        titleRect.sizeDelta = new Vector2(-40, 50);
 
         TMPro.TextMeshProUGUI titleText = titleObj.GetComponent<TMPro.TextMeshProUGUI>();
         titleText.text = "THÔNG BÁO BÙA LỢI PHÁP SƯ";
-        titleText.fontSize = 18;
+        titleText.fontSize = 32;
         titleText.fontStyle = TMPro.FontStyles.Bold;
         titleText.color = new Color(0.95f, 0.77f, 0.25f);
         titleText.alignment = TMPro.TextAlignmentOptions.Center;
@@ -748,14 +748,14 @@ public class NetworkSkillUI : MonoBehaviour
         );
         msgObj.transform.SetParent(shamanPromptPanel.transform, false);
         RectTransform msgRect = msgObj.GetComponent<RectTransform>();
-        msgRect.anchorMin = new Vector2(0, 0.35f);
-        msgRect.anchorMax = new Vector2(1, 0.85f);
+        msgRect.anchorMin = new Vector2(0, 0.38f);
+        msgRect.anchorMax = new Vector2(1, 0.82f);
         msgRect.pivot = new Vector2(0.5f, 0.5f);
         msgRect.anchoredPosition = Vector2.zero;
-        msgRect.sizeDelta = new Vector2(-40, 0);
+        msgRect.sizeDelta = new Vector2(-60, 0);
 
         shamanPromptText = msgObj.GetComponent<TMPro.TextMeshProUGUI>();
-        shamanPromptText.fontSize = 15;
+        shamanPromptText.fontSize = 24;
         shamanPromptText.color = Color.white;
         shamanPromptText.alignment = TMPro.TextAlignmentOptions.Center;
         shamanPromptText.textWrappingMode = TMPro.TextWrappingModes.Normal;
@@ -768,10 +768,10 @@ public class NetworkSkillUI : MonoBehaviour
         btnContainer.transform.SetParent(shamanPromptPanel.transform, false);
         RectTransform btnContainerRect = btnContainer.GetComponent<RectTransform>();
         btnContainerRect.anchorMin = new Vector2(0, 0);
-        btnContainerRect.anchorMax = new Vector2(1, 0.35f);
+        btnContainerRect.anchorMax = new Vector2(1, 0.38f);
         btnContainerRect.pivot = new Vector2(0.5f, 0);
         btnContainerRect.anchoredPosition = Vector2.zero;
-        btnContainerRect.sizeDelta = new Vector2(-30, 0);
+        btnContainerRect.sizeDelta = new Vector2(-40, 0);
 
         // Save Button (Cứu)
         GameObject saveBtnObj = new GameObject(
@@ -782,13 +782,13 @@ public class NetworkSkillUI : MonoBehaviour
         );
         saveBtnObj.transform.SetParent(btnContainer.transform, false);
         RectTransform saveBtnRect = saveBtnObj.GetComponent<RectTransform>();
-        saveBtnRect.anchorMin = new Vector2(0.05f, 0.2f);
-        saveBtnRect.anchorMax = new Vector2(0.48f, 0.85f);
+        saveBtnRect.anchorMin = new Vector2(0.04f, 0.15f);
+        saveBtnRect.anchorMax = new Vector2(0.48f, 0.88f);
         saveBtnRect.offsetMin = Vector2.zero;
         saveBtnRect.offsetMax = Vector2.zero;
 
         UnityEngine.UI.Image saveImg = saveBtnObj.GetComponent<UnityEngine.UI.Image>();
-        saveImg.color = new Color(0.18f, 0.55f, 0.28f);
+        saveImg.color = new Color(0.18f, 0.58f, 0.28f);
 
         shamanPromptSaveButton = saveBtnObj.GetComponent<UnityEngine.UI.Button>();
         shamanPromptSaveButton.onClick.AddListener(OnPromptSaveClicked);
@@ -806,7 +806,7 @@ public class NetworkSkillUI : MonoBehaviour
         saveTextRect.offsetMax = Vector2.zero;
         TMPro.TextMeshProUGUI saveText = saveTextObj.GetComponent<TMPro.TextMeshProUGUI>();
         saveText.text = "CỨU MỤC TIÊU";
-        saveText.fontSize = 15;
+        saveText.fontSize = 26;
         saveText.fontStyle = TMPro.FontStyles.Bold;
         saveText.color = Color.white;
         saveText.alignment = TMPro.TextAlignmentOptions.Center;
@@ -820,13 +820,13 @@ public class NetworkSkillUI : MonoBehaviour
         );
         dismissBtnObj.transform.SetParent(btnContainer.transform, false);
         RectTransform dismissBtnRect = dismissBtnObj.GetComponent<RectTransform>();
-        dismissBtnRect.anchorMin = new Vector2(0.52f, 0.2f);
-        dismissBtnRect.anchorMax = new Vector2(0.95f, 0.85f);
+        dismissBtnRect.anchorMin = new Vector2(0.52f, 0.15f);
+        dismissBtnRect.anchorMax = new Vector2(0.96f, 0.88f);
         dismissBtnRect.offsetMin = Vector2.zero;
         dismissBtnRect.offsetMax = Vector2.zero;
 
         UnityEngine.UI.Image dismissImg = dismissBtnObj.GetComponent<UnityEngine.UI.Image>();
-        dismissImg.color = new Color(0.45f, 0.48f, 0.52f);
+        dismissImg.color = new Color(0.45f, 0.48f, 0.54f);
 
         shamanPromptDismissButton = dismissBtnObj.GetComponent<UnityEngine.UI.Button>();
         shamanPromptDismissButton.onClick.AddListener(OnPromptDismissClicked);
@@ -844,7 +844,7 @@ public class NetworkSkillUI : MonoBehaviour
         dismissTextRect.offsetMax = Vector2.zero;
         TMPro.TextMeshProUGUI dismissText = dismissTextObj.GetComponent<TMPro.TextMeshProUGUI>();
         dismissText.text = "KHÔNG CỨU";
-        dismissText.fontSize = 15;
+        dismissText.fontSize = 26;
         dismissText.fontStyle = TMPro.FontStyles.Bold;
         dismissText.color = Color.white;
         dismissText.alignment = TMPro.TextAlignmentOptions.Center;

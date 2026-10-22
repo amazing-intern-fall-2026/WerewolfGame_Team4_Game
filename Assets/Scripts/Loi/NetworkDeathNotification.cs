@@ -66,7 +66,11 @@ public class NetworkDeathNotification : MonoBehaviour
         }
 
         if (deathText != null)
+        {
             deathText.text = "Bạn đã chết";
+            deathText.fontSize = 44;
+            deathText.fontStyle = FontStyles.Bold;
+        }
 
         // Tự động đóng sau autoHideDuration giây
         if (hideCoroutine != null)
@@ -121,8 +125,8 @@ public class NetworkDeathNotification : MonoBehaviour
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = new Vector2(0f, -55f);
-        rt.sizeDelta = new Vector2(160f, 44f);
+        rt.anchoredPosition = new Vector2(0f, -80f);
+        rt.sizeDelta = new Vector2(260f, 78f);
 
         Image img = btnGO.GetComponent<Image>();
         img.color = new Color(0.15f, 0.15f, 0.22f, 0.95f);
@@ -143,7 +147,7 @@ public class NetworkDeathNotification : MonoBehaviour
 
         TextMeshProUGUI tmp = textGO.AddComponent<TextMeshProUGUI>();
         tmp.text = "ĐÓNG (X)";
-        tmp.fontSize = 20;
+        tmp.fontSize = 28;
         tmp.fontStyle = FontStyles.Bold;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = Color.white;

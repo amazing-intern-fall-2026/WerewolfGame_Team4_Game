@@ -39,7 +39,7 @@ public class GameVoiceHUD : MonoBehaviour
 
     [Header("Layout Settings")]
     [SerializeField] private Vector2 panelPosition = new Vector2(-20f, -20f);
-    [SerializeField] private Vector2 panelSize = new Vector2(220f, 96f);
+    [SerializeField] private Vector2 panelSize = new Vector2(248f, 116f);
 
     public bool IsMicrophoneOn => micToggle != null && micToggle.IsOn;
     public bool IsSpeakerOn => speakerToggle != null && speakerToggle.IsOn;
@@ -194,9 +194,9 @@ public class GameVoiceHUD : MonoBehaviour
         {
             micToggle.Toggle();
         }
-        else if (NetworkVoiceManager.Instance != null)
+        if (NetworkVoiceManager.Instance != null)
         {
-            NetworkVoiceManager.Instance.ToggleMicrophone();
+            NetworkVoiceManager.Instance.SetMicrophoneMuted(!IsMicrophoneOn);
         }
     }
 
@@ -206,9 +206,9 @@ public class GameVoiceHUD : MonoBehaviour
         {
             speakerToggle.Toggle();
         }
-        else if (NetworkVoiceManager.Instance != null)
+        if (NetworkVoiceManager.Instance != null)
         {
-            NetworkVoiceManager.Instance.ToggleOutputAudio();
+            NetworkVoiceManager.Instance.SetOutputMuted(!IsSpeakerOn);
         }
     }
 
@@ -267,7 +267,7 @@ public class GameVoiceHUD : MonoBehaviour
             }
             else
             {
-                speakerPanel = CreatePanelObject("VoiceSpeakerPanel", -50f, "Loa (Speaker)", "🔊", isMic: false);
+                speakerPanel = CreatePanelObject("VoiceSpeakerPanel", -58f, "Loa (Speaker)", "🔊", isMic: false);
             }
         }
 
@@ -294,7 +294,7 @@ public class GameVoiceHUD : MonoBehaviour
         rt.anchorMax = new Vector2(1f, 1f);
         rt.pivot = new Vector2(0.5f, 1f);
         rt.anchoredPosition = new Vector2(0f, yOffset);
-        rt.sizeDelta = new Vector2(0f, 44f);
+        rt.sizeDelta = new Vector2(0f, 54f);
 
         Image bg = panelObj.GetComponent<Image>();
         bg.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
@@ -314,12 +314,12 @@ public class GameVoiceHUD : MonoBehaviour
         iconRt.anchorMin = new Vector2(0f, 0.5f);
         iconRt.anchorMax = new Vector2(0f, 0.5f);
         iconRt.pivot = new Vector2(0.5f, 0.5f);
-        iconRt.anchoredPosition = new Vector2(18f, 0f);
-        iconRt.sizeDelta = new Vector2(24f, 24f);
+        iconRt.anchoredPosition = new Vector2(20f, 0f);
+        iconRt.sizeDelta = new Vector2(28f, 28f);
 
         TextMeshProUGUI iconTmp = iconObj.GetComponent<TextMeshProUGUI>();
         iconTmp.text = iconStr;
-        iconTmp.fontSize = 16;
+        iconTmp.fontSize = 18;
         iconTmp.alignment = TextAlignmentOptions.Center;
 
         // Title
@@ -329,12 +329,12 @@ public class GameVoiceHUD : MonoBehaviour
         titleRt.anchorMin = new Vector2(0f, 0.5f);
         titleRt.anchorMax = new Vector2(0f, 0.5f);
         titleRt.pivot = new Vector2(0f, 0.5f);
-        titleRt.anchoredPosition = new Vector2(34f, 7f);
-        titleRt.sizeDelta = new Vector2(110f, 18f);
+        titleRt.anchoredPosition = new Vector2(40f, 9f);
+        titleRt.sizeDelta = new Vector2(125f, 22f);
 
         TextMeshProUGUI titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
         titleTmp.text = title;
-        titleTmp.fontSize = 13;
+        titleTmp.fontSize = 15;
         titleTmp.fontStyle = FontStyles.Bold;
         titleTmp.color = Color.white;
         titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
@@ -346,12 +346,12 @@ public class GameVoiceHUD : MonoBehaviour
         statusRt.anchorMin = new Vector2(0f, 0.5f);
         statusRt.anchorMax = new Vector2(0f, 0.5f);
         statusRt.pivot = new Vector2(0f, 0.5f);
-        statusRt.anchoredPosition = new Vector2(34f, -9f);
-        statusRt.sizeDelta = new Vector2(110f, 16f);
+        statusRt.anchoredPosition = new Vector2(40f, -10f);
+        statusRt.sizeDelta = new Vector2(125f, 18f);
 
         TextMeshProUGUI statusTmp = statusObj.GetComponent<TextMeshProUGUI>();
         statusTmp.text = isMic ? "TẮT" : "BẬT";
-        statusTmp.fontSize = 11;
+        statusTmp.fontSize = 13;
         statusTmp.fontStyle = FontStyles.Bold;
         statusTmp.color = isMic ? new Color(0.9f, 0.35f, 0.35f, 1f) : new Color(0.2f, 0.85f, 0.45f, 1f);
         statusTmp.alignment = TextAlignmentOptions.MidlineLeft;
@@ -369,7 +369,7 @@ public class GameVoiceHUD : MonoBehaviour
         switchRt.anchorMax = new Vector2(1f, 0.5f);
         switchRt.pivot = new Vector2(1f, 0.5f);
         switchRt.anchoredPosition = new Vector2(-12f, 0f);
-        switchRt.sizeDelta = new Vector2(50f, 24f);
+        switchRt.sizeDelta = new Vector2(62f, 32f);
 
         Image switchBg = switchObj.GetComponent<Image>();
         switchBg.color = isMic ? new Color(0.5f, 0.5f, 0.5f, 1f) : new Color(0.2f, 0.8f, 0.35f, 1f);
@@ -381,8 +381,8 @@ public class GameVoiceHUD : MonoBehaviour
         handleRt.anchorMin = new Vector2(0.5f, 0.5f);
         handleRt.anchorMax = new Vector2(0.5f, 0.5f);
         handleRt.pivot = new Vector2(0.5f, 0.5f);
-        handleRt.anchoredPosition = new Vector2(isMic ? -13f : 13f, 0f);
-        handleRt.sizeDelta = new Vector2(18f, 18f);
+        handleRt.anchoredPosition = new Vector2(isMic ? -16f : 16f, 0f);
+        handleRt.sizeDelta = new Vector2(24f, 24f);
 
         Image handleImg = handleObj.GetComponent<Image>();
         handleImg.color = Color.white;

@@ -130,6 +130,15 @@ public class NetworkRoleDetailUI : NetworkBehaviour
         }
     }
 
+    public void OnPlayerDisconnected(int disconnectedPlayerId)
+    {
+        if (IsOpen && currentDisplayedPlayerId == disconnectedPlayerId)
+        {
+            Debug.Log($"[NetworkRoleDetailUI] Người chơi {disconnectedPlayerId} đang xem chi tiết đã ngắt kết nối -> Đóng Panel.");
+            Close();
+        }
+    }
+
     /// <summary>
     /// Hiển thị thông tin Role của chính người chơi local (được cấp quyền 100%).
     /// </summary>

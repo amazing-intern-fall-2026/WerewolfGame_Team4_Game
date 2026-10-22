@@ -57,7 +57,7 @@ public static class RoleDetailUIInstaller
             RectTransform rootRect = root.GetComponent<RectTransform>();
             if (rootRect != null)
             {
-                rootRect.sizeDelta = new Vector2(200, 145);
+                rootRect.sizeDelta = new Vector2(270, 195);
             }
 
             // PlayerName
@@ -67,17 +67,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = nameTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, 44);
-                rt.sizeDelta = new Vector2(175, 30);
+                rt.anchoredPosition = new Vector2(0, 62);
+                rt.sizeDelta = new Vector2(245, 36);
 
                 TextMeshProUGUI tmp = nameTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 22;
+                    tmp.fontSize = 26;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 14;
-                    tmp.fontSizeMax = 24;
+                    tmp.fontSizeMin = 18;
+                    tmp.fontSizeMax = 28;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                     tmp.text = "TÊN NGƯỜI CHƠI";
@@ -91,8 +91,8 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = avatarTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, 2);
-                rt.sizeDelta = new Vector2(58, 58);
+                rt.anchoredPosition = new Vector2(0, 4);
+                rt.sizeDelta = new Vector2(80, 80);
             }
 
             // StatusText
@@ -102,17 +102,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = statusTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, -44);
-                rt.sizeDelta = new Vector2(150, 24);
+                rt.anchoredPosition = new Vector2(0, -62);
+                rt.sizeDelta = new Vector2(210, 32);
 
                 TextMeshProUGUI tmp = statusTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 16;
+                    tmp.fontSize = 20;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 12;
-                    tmp.fontSizeMax = 18;
+                    tmp.fontSizeMin = 16;
+                    tmp.fontSizeMax = 22;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                     tmp.text = "CÒN SỐNG";
@@ -137,7 +137,7 @@ public static class RoleDetailUIInstaller
             infoRt.anchorMax = new Vector2(1, 1);
             infoRt.pivot = new Vector2(1, 1);
             infoRt.anchoredPosition = new Vector2(-6, -6);
-            infoRt.sizeDelta = new Vector2(28, 28);
+            infoRt.sizeDelta = new Vector2(36, 36);
 
             Image infoImg = infoBtnObj.GetComponent<Image>();
             infoImg.color = new Color(0.12f, 0.15f, 0.22f, 0.95f);
@@ -164,7 +164,7 @@ public static class RoleDetailUIInstaller
             iconRt.sizeDelta = Vector2.zero;
             if (fontAsset != null) iconTmp.font = fontAsset;
             iconTmp.text = "i";
-            iconTmp.fontSize = 17;
+            iconTmp.fontSize = 22;
             iconTmp.fontStyle = FontStyles.Bold;
             iconTmp.color = new Color(0.3f, 0.85f, 1f, 1f); // Cyan
             iconTmp.alignment = TextAlignmentOptions.Center;
@@ -206,7 +206,7 @@ public static class RoleDetailUIInstaller
             RectTransform rootRect = root.GetComponent<RectTransform>();
             if (rootRect != null)
             {
-                rootRect.sizeDelta = new Vector2(200, 135);
+                rootRect.sizeDelta = new Vector2(270, 190);
             }
 
             // PlayerName
@@ -216,17 +216,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = nameTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, 44);
-                rt.sizeDelta = new Vector2(175, 28);
+                rt.anchoredPosition = new Vector2(0, 60);
+                rt.sizeDelta = new Vector2(245, 36);
 
                 TextMeshProUGUI tmp = nameTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 20;
+                    tmp.fontSize = 26;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 14;
-                    tmp.fontSizeMax = 22;
+                    tmp.fontSizeMin = 18;
+                    tmp.fontSizeMax = 28;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                 }
@@ -240,7 +240,7 @@ public static class RoleDetailUIInstaller
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.anchoredPosition = new Vector2(0, 4);
-                rt.sizeDelta = new Vector2(54, 54);
+                rt.sizeDelta = new Vector2(76, 76);
             }
 
             // StatusText
@@ -250,17 +250,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = statusTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(-42, -44);
-                rt.sizeDelta = new Vector2(85, 24);
+                rt.anchoredPosition = new Vector2(-55, -62);
+                rt.sizeDelta = new Vector2(120, 32);
 
                 TextMeshProUGUI tmp = statusTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 15;
+                    tmp.fontSize = 20;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 12;
-                    tmp.fontSizeMax = 17;
+                    tmp.fontSizeMin = 16;
+                    tmp.fontSizeMax = 22;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                 }
@@ -273,17 +273,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = voteTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(42, -44);
-                rt.sizeDelta = new Vector2(85, 24);
+                rt.anchoredPosition = new Vector2(55, -62);
+                rt.sizeDelta = new Vector2(120, 32);
 
                 TextMeshProUGUI tmp = voteTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 15;
+                    tmp.fontSize = 20;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 12;
-                    tmp.fontSizeMax = 17;
+                    tmp.fontSizeMin = 16;
+                    tmp.fontSizeMax = 22;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                 }
@@ -307,7 +307,7 @@ public static class RoleDetailUIInstaller
             infoRt.anchorMax = new Vector2(1, 1);
             infoRt.pivot = new Vector2(1, 1);
             infoRt.anchoredPosition = new Vector2(-6, -6);
-            infoRt.sizeDelta = new Vector2(26, 26);
+            infoRt.sizeDelta = new Vector2(36, 36);
 
             Image infoImg = infoBtnObj.GetComponent<Image>();
             infoImg.color = new Color(0.12f, 0.15f, 0.22f, 0.95f);
@@ -334,7 +334,7 @@ public static class RoleDetailUIInstaller
             iconRt.sizeDelta = Vector2.zero;
             if (fontAsset != null) iconTmp.font = fontAsset;
             iconTmp.text = "i";
-            iconTmp.fontSize = 16;
+            iconTmp.fontSize = 22;
             iconTmp.fontStyle = FontStyles.Bold;
             iconTmp.color = new Color(0.3f, 0.85f, 1f, 1f);
             iconTmp.alignment = TextAlignmentOptions.Center;
@@ -381,7 +381,7 @@ public static class RoleDetailUIInstaller
             cardRt.anchorMin = new Vector2(0f, 1f);
             cardRt.anchorMax = new Vector2(0f, 1f);
             cardRt.pivot = new Vector2(0f, 1f);
-            cardRt.sizeDelta = new Vector2(200, 220);
+            cardRt.sizeDelta = new Vector2(280, 310);
             cardRt.anchoredPosition = new Vector2(20, -20);
 
             Image cardImg = identityCard.GetComponent<Image>();
@@ -413,17 +413,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = playerNameTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, 85);
-                rt.sizeDelta = new Vector2(195, 34);
+                rt.anchoredPosition = new Vector2(0, 120);
+                rt.sizeDelta = new Vector2(260, 42);
 
                 TextMeshProUGUI tmp = playerNameTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 22;
+                    tmp.fontSize = 26;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 16;
-                    tmp.fontSizeMax = 26;
+                    tmp.fontSizeMin = 20;
+                    tmp.fontSizeMax = 28;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                     tmp.raycastTarget = false;
@@ -436,8 +436,8 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = charImgTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, 6);
-                rt.sizeDelta = new Vector2(130, 130);
+                rt.anchoredPosition = new Vector2(0, 8);
+                rt.sizeDelta = new Vector2(170, 170);
 
                 Image cImg = charImgTrans.GetComponent<Image>();
                 if (cImg != null) cImg.raycastTarget = false;
@@ -449,17 +449,17 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = roleNameTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, -82);
-                rt.sizeDelta = new Vector2(195, 32);
+                rt.anchoredPosition = new Vector2(0, -118);
+                rt.sizeDelta = new Vector2(260, 40);
 
                 TextMeshProUGUI tmp = roleNameTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 20;
+                    tmp.fontSize = 24;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 14;
-                    tmp.fontSizeMax = 22;
+                    tmp.fontSizeMin = 18;
+                    tmp.fontSizeMax = 26;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
                     tmp.raycastTarget = false;
@@ -519,7 +519,7 @@ public static class RoleDetailUIInstaller
         if (targetPanel != null)
         {
             RectTransform tpRt = targetPanel.GetComponent<RectTransform>();
-            tpRt.sizeDelta = new Vector2(980, 530);
+            tpRt.sizeDelta = new Vector2(1360, 760);
 
             Transform cardContainer = targetPanel.transform.Find("CardContainer");
             if (cardContainer != null)
@@ -527,8 +527,8 @@ public static class RoleDetailUIInstaller
                 GridLayoutGroup grid = cardContainer.GetComponent<GridLayoutGroup>();
                 if (grid != null)
                 {
-                    grid.cellSize = new Vector2(200, 145);
-                    grid.spacing = new Vector2(16, 16);
+                    grid.cellSize = new Vector2(270, 195);
+                    grid.spacing = new Vector2(24, 24);
                 }
             }
 
@@ -544,7 +544,7 @@ public static class RoleDetailUIInstaller
                 rt.anchorMax = new Vector2(1, 1);
                 rt.pivot = new Vector2(1, 1);
                 rt.anchoredPosition = new Vector2(-15, -15);
-                rt.sizeDelta = new Vector2(120, 38);
+                rt.sizeDelta = new Vector2(220, 76);
 
                 Image img = closeBtnObj.GetComponent<Image>();
                 img.color = new Color(0.85f, 0.2f, 0.2f, 0.95f);
@@ -561,7 +561,7 @@ public static class RoleDetailUIInstaller
                 TextMeshProUGUI btnTmp = textObj.GetComponent<TextMeshProUGUI>();
                 if (fontAsset != null) btnTmp.font = fontAsset;
                 btnTmp.text = "ĐÓNG";
-                btnTmp.fontSize = 18;
+                btnTmp.fontSize = 28;
                 btnTmp.fontStyle = FontStyles.Bold;
                 btnTmp.alignment = TextAlignmentOptions.Center;
                 btnTmp.color = Color.white;
@@ -589,14 +589,17 @@ public static class RoleDetailUIInstaller
         GameObject votePanel = vpTrans != null ? vpTrans.gameObject : GameObject.Find("VotePanel");
         if (votePanel != null)
         {
+            RectTransform vpRt = votePanel.GetComponent<RectTransform>();
+            vpRt.sizeDelta = new Vector2(1360, 760);
+
             Transform voteContainer = votePanel.transform.Find("VoteCardContainer");
             if (voteContainer != null)
             {
                 GridLayoutGroup grid = voteContainer.GetComponent<GridLayoutGroup>();
                 if (grid != null)
                 {
-                    grid.cellSize = new Vector2(200, 135);
-                    grid.spacing = new Vector2(12, 12);
+                    grid.cellSize = new Vector2(270, 190);
+                    grid.spacing = new Vector2(24, 24);
                 }
             }
         }
@@ -708,7 +711,7 @@ public static class RoleDetailUIInstaller
         windowRt.anchorMax = new Vector2(0.5f, 0.5f);
         windowRt.pivot = new Vector2(0.5f, 0.5f);
         windowRt.anchoredPosition = Vector2.zero;
-        windowRt.sizeDelta = new Vector2(720, 540);
+        windowRt.sizeDelta = new Vector2(960, 720);
 
         Image windowImg = windowObj.GetComponent<Image>();
         windowImg.color = new Color(0.07f, 0.09f, 0.13f, 0.98f); // Dark luxury glassmorphism
@@ -716,19 +719,19 @@ public static class RoleDetailUIInstaller
 
         // Các component con của DetailWindow:
         // HeaderTitle
-        TextMeshProUGUI headerTmp = EnsureChildTMP(windowObj.transform, "HeaderTitle", new Vector2(0, 230), new Vector2(660, 44), fontAsset, 26, FontStyles.Bold, new Color(1f, 0.85f, 0.25f), TextAlignmentOptions.Center);
+        TextMeshProUGUI headerTmp = EnsureChildTMP(windowObj.transform, "HeaderTitle", new Vector2(0, 310), new Vector2(880, 52), fontAsset, 34, FontStyles.Bold, new Color(1f, 0.85f, 0.25f), TextAlignmentOptions.Center);
         headerTmp.text = "THÔNG TIN VAI TRÒ";
 
         // PlayerName
-        TextMeshProUGUI playerNameTmp = EnsureChildTMP(windowObj.transform, "PlayerNameText", new Vector2(-150, 175), new Vector2(340, 36), fontAsset, 22, FontStyles.Bold, Color.white, TextAlignmentOptions.Left);
+        TextMeshProUGUI playerNameTmp = EnsureChildTMP(windowObj.transform, "PlayerNameText", new Vector2(-200, 240), new Vector2(460, 44), fontAsset, 26, FontStyles.Bold, Color.white, TextAlignmentOptions.Left);
         playerNameTmp.text = "Người chơi: <color=#FFDD44>Player 1</color>";
 
         // RoleName
-        TextMeshProUGUI roleNameTmp = EnsureChildTMP(windowObj.transform, "RoleNameText", new Vector2(-150, 135), new Vector2(340, 36), fontAsset, 24, FontStyles.Bold, new Color(0.2f, 1f, 0.65f), TextAlignmentOptions.Left);
+        TextMeshProUGUI roleNameTmp = EnsureChildTMP(windowObj.transform, "RoleNameText", new Vector2(-200, 190), new Vector2(460, 44), fontAsset, 28, FontStyles.Bold, new Color(0.2f, 1f, 0.65f), TextAlignmentOptions.Left);
         roleNameTmp.text = "Vai trò: <color=#00FFAA>Tiên tri</color>";
 
         // FactionText
-        TextMeshProUGUI factionTmp = EnsureChildTMP(windowObj.transform, "FactionText", new Vector2(-150, 95), new Vector2(340, 34), fontAsset, 20, FontStyles.Bold, new Color(0.3f, 0.85f, 1f), TextAlignmentOptions.Left);
+        TextMeshProUGUI factionTmp = EnsureChildTMP(windowObj.transform, "FactionText", new Vector2(-200, 140), new Vector2(460, 40), fontAsset, 24, FontStyles.Bold, new Color(0.3f, 0.85f, 1f), TextAlignmentOptions.Left);
         factionTmp.text = "Phe: <color=#44CCFF>Phe Dân làng</color>";
 
         // RoleImage
@@ -747,26 +750,26 @@ public static class RoleDetailUIInstaller
         RectTransform roleImgRt = roleImg.GetComponent<RectTransform>();
         roleImgRt.anchorMin = new Vector2(0.5f, 0.5f);
         roleImgRt.anchorMax = new Vector2(0.5f, 0.5f);
-        roleImgRt.anchoredPosition = new Vector2(230, 135);
-        roleImgRt.sizeDelta = new Vector2(115, 115);
+        roleImgRt.anchoredPosition = new Vector2(320, 190);
+        roleImgRt.sizeDelta = new Vector2(160, 160);
         roleImg.preserveAspect = true;
 
         // DescriptionText
-        TextMeshProUGUI descTmp = EnsureChildTMP(windowObj.transform, "DescriptionText", new Vector2(0, 15), new Vector2(650, 80), fontAsset, 16, FontStyles.Normal, new Color(0.92f, 0.92f, 0.95f), TextAlignmentOptions.TopLeft);
+        TextMeshProUGUI descTmp = EnsureChildTMP(windowObj.transform, "DescriptionText", new Vector2(0, 40), new Vector2(880, 100), fontAsset, 20, FontStyles.Normal, new Color(0.92f, 0.92f, 0.95f), TextAlignmentOptions.TopLeft);
         descTmp.textWrappingMode = TextWrappingModes.Normal;
         descTmp.text = "Mô tả vai trò chi tiết sẽ được hiển thị ở đây.";
 
         // SkillNameText
-        TextMeshProUGUI skillNameTmp = EnsureChildTMP(windowObj.transform, "SkillNameText", new Vector2(0, -45), new Vector2(650, 32), fontAsset, 20, FontStyles.Bold, new Color(0.3f, 0.85f, 1f), TextAlignmentOptions.Left);
+        TextMeshProUGUI skillNameTmp = EnsureChildTMP(windowObj.transform, "SkillNameText", new Vector2(0, -35), new Vector2(880, 40), fontAsset, 24, FontStyles.Bold, new Color(0.3f, 0.85f, 1f), TextAlignmentOptions.Left);
         skillNameTmp.text = "Kỹ năng: <color=#44CCFF>Thấu thị</color>";
 
         // SkillDescriptionText
-        TextMeshProUGUI skillDescTmp = EnsureChildTMP(windowObj.transform, "SkillDescriptionText", new Vector2(0, -95), new Vector2(650, 60), fontAsset, 16, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f), TextAlignmentOptions.TopLeft);
+        TextMeshProUGUI skillDescTmp = EnsureChildTMP(windowObj.transform, "SkillDescriptionText", new Vector2(0, -95), new Vector2(880, 75), fontAsset, 20, FontStyles.Normal, new Color(0.9f, 0.9f, 0.9f), TextAlignmentOptions.TopLeft);
         skillDescTmp.textWrappingMode = TextWrappingModes.Normal;
         skillDescTmp.text = "Cách sử dụng kỹ năng trong các giai đoạn của ván chơi.";
 
         // RestrictionsText
-        TextMeshProUGUI restrictTmp = EnsureChildTMP(windowObj.transform, "RestrictionsText", new Vector2(0, -155), new Vector2(650, 48), fontAsset, 15, FontStyles.Italic, new Color(1f, 0.68f, 0.28f), TextAlignmentOptions.TopLeft);
+        TextMeshProUGUI restrictTmp = EnsureChildTMP(windowObj.transform, "RestrictionsText", new Vector2(0, -165), new Vector2(880, 60), fontAsset, 18, FontStyles.Italic, new Color(1f, 0.68f, 0.28f), TextAlignmentOptions.TopLeft);
         restrictTmp.textWrappingMode = TextWrappingModes.Normal;
         restrictTmp.text = "Giới hạn & Điều kiện sử dụng kỹ năng.";
 
@@ -785,15 +788,15 @@ public static class RoleDetailUIInstaller
         RectTransform closeBtnRt = closeBtnObj.GetComponent<RectTransform>();
         closeBtnRt.anchorMin = new Vector2(0.5f, 0.5f);
         closeBtnRt.anchorMax = new Vector2(0.5f, 0.5f);
-        closeBtnRt.anchoredPosition = new Vector2(0, -225);
-        closeBtnRt.sizeDelta = new Vector2(170, 44);
+        closeBtnRt.anchoredPosition = new Vector2(0, -305);
+        closeBtnRt.sizeDelta = new Vector2(260, 78);
 
         Image closeImg = closeBtnObj.GetComponent<Image>();
         closeImg.color = new Color(0.85f, 0.2f, 0.2f, 0.95f);
         Button closeBtn = closeBtnObj.GetComponent<Button>();
         closeBtn.targetGraphic = closeImg;
 
-        TextMeshProUGUI closeTxt = EnsureChildTMP(closeBtnObj.transform, "Text (TMP)", Vector2.zero, Vector2.zero, fontAsset, 19, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
+        TextMeshProUGUI closeTxt = EnsureChildTMP(closeBtnObj.transform, "Text (TMP)", Vector2.zero, Vector2.zero, fontAsset, 28, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
         RectTransform closeTxtRt = closeTxt.GetComponent<RectTransform>();
         closeTxtRt.anchorMin = Vector2.zero;
         closeTxtRt.anchorMax = Vector2.one;
@@ -815,15 +818,15 @@ public static class RoleDetailUIInstaller
         debugRt.anchorMin = new Vector2(0, 1);
         debugRt.anchorMax = new Vector2(0, 1);
         debugRt.pivot = new Vector2(0, 1);
-        debugRt.anchoredPosition = new Vector2(15, -15);
-        debugRt.sizeDelta = new Vector2(125, 30);
+        debugRt.anchoredPosition = new Vector2(20, -20);
+        debugRt.sizeDelta = new Vector2(160, 44);
 
         Image debugImg = debugBtnObj.GetComponent<Image>();
         debugImg.color = new Color(0.18f, 0.2f, 0.28f, 0.9f);
         Button debugBtn = debugBtnObj.GetComponent<Button>();
         debugBtn.targetGraphic = debugImg;
 
-        TextMeshProUGUI debugStatusTmp = EnsureChildTMP(debugBtnObj.transform, "DebugStatusText", Vector2.zero, Vector2.zero, fontAsset, 12, FontStyles.Bold, new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.Center);
+        TextMeshProUGUI debugStatusTmp = EnsureChildTMP(debugBtnObj.transform, "DebugStatusText", Vector2.zero, Vector2.zero, fontAsset, 15, FontStyles.Bold, new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.Center);
         RectTransform dbgTxtRt = debugStatusTmp.GetComponent<RectTransform>();
         dbgTxtRt.anchorMin = Vector2.zero;
         dbgTxtRt.anchorMax = Vector2.one;
@@ -898,15 +901,15 @@ public static class RoleDetailUIInstaller
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(0f, 1f);
         rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2(20, -248);
-        rt.sizeDelta = new Vector2(200, 38);
+        rt.anchoredPosition = new Vector2(20, -345);
+        rt.sizeDelta = new Vector2(280, 78);
 
         Image img = btnObj.GetComponent<Image>();
         img.color = new Color(0.12f, 0.16f, 0.24f, 0.95f);
         Button btn = btnObj.GetComponent<Button>();
         btn.targetGraphic = img;
 
-        TextMeshProUGUI txt = EnsureChildTMP(btnObj.transform, "Text (TMP)", Vector2.zero, Vector2.zero, fontAsset, 16, FontStyles.Bold, new Color(1f, 0.88f, 0.35f), TextAlignmentOptions.Center);
+        TextMeshProUGUI txt = EnsureChildTMP(btnObj.transform, "Text (TMP)", Vector2.zero, Vector2.zero, fontAsset, 24, FontStyles.Bold, new Color(1f, 0.88f, 0.35f), TextAlignmentOptions.Center);
         RectTransform txtRt = txt.GetComponent<RectTransform>();
         txtRt.anchorMin = Vector2.zero;
         txtRt.anchorMax = Vector2.one;
