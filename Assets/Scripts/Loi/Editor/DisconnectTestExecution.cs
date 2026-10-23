@@ -6,6 +6,15 @@ using UnityEngine;
 
 public static class DisconnectTestExecution
 {
+    [InitializeOnLoadMethod]
+    private static void OnEditorReload()
+    {
+        EditorApplication.delayCall += () =>
+        {
+            RunBatch();
+        };
+    }
+
     [MenuItem("Tools/Tests/Run Disconnect Tests Batch")]
     public static void RunBatch()
     {

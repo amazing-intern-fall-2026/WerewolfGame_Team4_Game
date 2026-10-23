@@ -624,6 +624,9 @@ public static class RoleDetailUIInstaller
             }
         }
 
+        // 8. Thêm nút "Thoát phòng" (Leave Room) ngay bên dưới nút Danh sách người chơi
+        CreateOrUpdateInGameLeaveButton(canvas.transform, fontAsset);
+
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[SCENE] Game.unity đã lưu toàn bộ cấu hình UI thành công.");
@@ -914,6 +917,48 @@ public static class RoleDetailUIInstaller
         txtRt.anchorMin = Vector2.zero;
         txtRt.anchorMax = Vector2.one;
         txt.text = "DANH SÁCH NGƯỜI CHƠI";
+
+        return btn;
+    }
+
+    private static Button CreateOrUpdateInGameLeaveButton(Transform canvasTrans, TMP_FontAsset fontAsset)
+    {
+        Transform existing = canvasTrans.Find("InGameLeaveButton");
+        GameObject btnObj;
+        if (existing == null)
+        {
+            btnObj = new GameObject("InGameLeaveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            btnObj.transform.SetParent(canvasTrans, false);
+        }
+        else
+        {
+            btnObj = existing.gameObject;
+        }
+
+        RectTransform rt = btnObj.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(20, -435);
+        rt.sizeDelta = new Vector2(280, 72);
+
+        Image img = btnObj.GetComponent<Image>();
+        img.color = new Color(0.48f, 0.12f, 0.12f, 0.95f);
+        Button btn = btnObj.GetComponent<Button>();
+        btn.targetGraphic = img;
+
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() =>
+        {
+            Debug.Log("[NetworkGameManager] InGameLeaveButton clicked -> LeaveRoomToMainMenu");
+            SceneLoader.Instance?.LeaveRoomToMainMenu();
+        });
+
+        TextMeshProUGUI txt = EnsureChildTMP(btnObj.transform, "Text (TMP)", Vector2.zero, Vector2.zero, fontAsset, 24, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
+        RectTransform txtRt = txt.GetComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txt.text = "THOÁT PHÒNG";
 
         return btn;
     }

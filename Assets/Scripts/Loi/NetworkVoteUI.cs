@@ -214,8 +214,17 @@ public class NetworkVoteUI : MonoBehaviour
             bool isDisconnected = (stateSync != null && stateSync.State.Value == NetworkPlayerStateType.Disconnected) ||
                                   (PlayerManager.Instance != null && PlayerManager.Instance.IsDisconnected(playerID));
 
-            if (isDisconnected)
+            bool isServer = NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
+            bool notInServerClients = isServer && (NetworkManager.Singleton.ConnectedClients == null || !NetworkManager.Singleton.ConnectedClients.ContainsKey((ulong)playerID));
+
+            // Bỏ qua hoàn toàn nếu player đã thoát, ngắt kết nối, hoặc không còn trong danh sách active players
+            if (isDisconnected ||
+                NetworkGameManager.IsPlayerLeft((ulong)playerID) ||
+                notInServerClients ||
+                (PlayerManager.Instance != null && !PlayerManager.Instance.IsActivePlayer(playerID)))
+            {
                 continue;
+            }
 
             bool isAlive = true;
 
