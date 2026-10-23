@@ -43,11 +43,46 @@ public class PlayerController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        if ((NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains(OwnerClientId)) ||
+            (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch(OwnerClientId)))
+        {
+            Debug.Log($"[PlayerController] Client {OwnerClientId} đã rời phòng hoặc không thuộc ván đấu hiện tại -> Tiêu hủy GameObject.");
+            if (IsServer)
+            {
+                var netObj = GetComponent<NetworkObject>();
+                if (netObj != null && netObj.IsSpawned) netObj.Despawn(true);
+            }
+            Destroy(gameObject);
+            return;
+        }
+
         State.OnValueChanged += OnStateChanged;
 
         if (IsServer)
         {
             ApplyStateFromGameState();
+        }
+
+        if (PlayerManager.Instance != null)
+        {
+            int pId = (int)OwnerClientId;
+            if (PlayerManager.Instance.GetplayerByID(pId) == null &&
+                !NetworkGameManager.LeftPlayerClientIds.Contains(OwnerClientId) &&
+                (!NetworkGamePlayerSetup.HasActiveMatchSetup || NetworkGamePlayerSetup.IsClientInMatch(OwnerClientId)))
+            {
+                string pName = NetworkGamePlayerNameSetup.GetName(OwnerClientId);
+                if (string.IsNullOrWhiteSpace(pName)) pName = "Player " + (pId + 1);
+                PlayerManager.Instance.RegisterPlayer(new PlayerData
+                {
+                    playerID = pId,
+                    playerName = pName,
+                    isAlive = State.Value == PlayerState.Alive,
+                    votePower = 1,
+                    hasVoted = false,
+                    hasUseNightAction = false,
+                    status = new PlayerStatus()
+                });
+            }
         }
     }
 

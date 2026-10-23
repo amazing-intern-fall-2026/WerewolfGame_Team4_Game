@@ -374,6 +374,8 @@ public class NetworkUI : MonoBehaviour
 
                 if (transport != null)
                 {
+                    transport.DisconnectTimeoutMS = 3000;
+                    transport.HeartbeatTimeoutMS = 500;
                     transport.SetConnectionData("127.0.0.1", portToTest, "127.0.0.1");
                 }
 
@@ -486,6 +488,8 @@ public class NetworkUI : MonoBehaviour
             var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
             if (transport != null)
             {
+                transport.DisconnectTimeoutMS = 3000;
+                transport.HeartbeatTimeoutMS = 500;
                 Debug.Log($"NETWORK UI | Client cấu hình kết nối tới {session.hostAddress}:{session.hostPort} (Phòng {session.roomCode})");
                 transport.SetConnectionData(session.hostAddress, session.hostPort);
             }

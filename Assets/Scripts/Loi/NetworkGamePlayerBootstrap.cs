@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -35,17 +37,6 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
             return;
         }
 
-        // Chỉ Server tạo PlayerData
-        if (!networkManager.IsServer)
-        {
-            Debug.Log(
-                "NETWORK GAME BOOTSTRAP: "
-                + "Không phải Server → bỏ qua."
-            );
-
-            return;
-        }
-
         PlayerManager playerManager =
             PlayerManager.Instance;
 
@@ -65,20 +56,115 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
             return;
         }
 
-        Debug.Log(
-            "NETWORK GAME BOOTSTRAP: "
-            + "Connected Clients = "
-            + networkManager.ConnectedClientsIds.Count
-        );
-
-        foreach (
-            ulong clientId
-            in networkManager.ConnectedClientsIds)
+        if (networkManager.IsServer)
         {
-            RegisterPlayer(
-                playerManager,
-                clientId
+            var connectedIds = networkManager.ConnectedClientsIds;
+            var validActiveIds = new HashSet<ulong>();
+
+            foreach (ulong cid in connectedIds)
+            {
+                if (!NetworkGameManager.LeftPlayerClientIds.Contains(cid) && NetworkGamePlayerSetup.IsClientInMatch(cid))
+                {
+                    validActiveIds.Add(cid);
+                }
+                else
+                {
+                    NetworkGameManager.LeftPlayerClientIds.Add(cid);
+                    if (networkManager.ConnectedClients.ContainsKey(cid))
+                    {
+                        networkManager.DisconnectClient(cid);
+                    }
+                }
+            }
+
+            // 1. Tiêu hủy mọi PlayerController GameObject mồ côi (của client đã ngắt kết nối / văng game / không thuộc active session)
+            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in controllers)
+            {
+                if (pc != null)
+                {
+                    ulong cid = pc.OwnerClientId;
+                    if (!validActiveIds.Contains(cid) || NetworkGameManager.LeftPlayerClientIds.Contains(cid))
+                    {
+                        Debug.Log($"[NetworkGamePlayerBootstrap] Tiêu hủy PlayerController GameObject mồ côi ClientId={cid}");
+                        var no = pc.GetComponent<NetworkObject>();
+                        if (no != null && no.IsSpawned)
+                        {
+                            no.Despawn(true);
+                        }
+                        Destroy(pc.gameObject);
+                    }
+                }
+            }
+
+            playerManager.disconnectedPlayers?.Clear();
+
+            playerManager.players.RemoveAll(p => p == null 
+                || !validActiveIds.Contains((ulong)p.playerID) 
+                || NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID)
+                || p.isDisconnected);
+
+            Debug.Log(
+                "NETWORK GAME BOOTSTRAP: "
+                + "Valid Active Clients = "
+                + validActiveIds.Count
             );
+
+            foreach (ulong clientId in validActiveIds)
+            {
+                RegisterPlayer(playerManager, clientId);
+            }
+
+            // Đồng bộ toàn bộ người chơi đang kết nối về Alive
+            NetworkPlayerStateSync.ResetAllPlayersAlive();
+
+            // Đồng bộ danh sách active và left players sang tất cả Client
+            if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.IsSpawned)
+            {
+                NetworkPhaseSync.Instance.SyncActiveSessionClientRpc(
+                    validActiveIds.ToArray(),
+                    NetworkGameManager.LeftPlayerClientIds.ToArray()
+                );
+            }
+        }
+        else
+        {
+            // Client: Tiêu hủy mọi PlayerController GameObject của client đã bị đánh dấu Left hoặc không trong NetworkGamePlayerSetup
+            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in controllers)
+            {
+                if (pc != null && (NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) || !NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId)))
+                {
+                    Debug.Log($"[NetworkGamePlayerBootstrap] Client tiêu hủy PlayerController mồ côi ClientId={pc.OwnerClientId}");
+                    Destroy(pc.gameObject);
+                }
+            }
+
+            playerManager.disconnectedPlayers?.Clear();
+            controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            Debug.Log($"NETWORK GAME BOOTSTRAP (Client): Tìm thấy {controllers.Length} PlayerControllers.");
+            var activeIds = new HashSet<ulong>();
+            foreach (var pc in controllers)
+            {
+                if (pc != null && !NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) && NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId))
+                {
+                    activeIds.Add(pc.OwnerClientId);
+                }
+            }
+
+            playerManager.players.RemoveAll(p => p == null 
+                || !activeIds.Contains((ulong)p.playerID) 
+                || NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID)
+                || (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)p.playerID))
+                || p.isDisconnected);
+
+            foreach (var pc in controllers)
+            {
+                if (pc != null && !NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) && NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId))
+                {
+                    RegisterPlayer(playerManager, pc.OwnerClientId);
+                }
+            }
         }
 
         Debug.Log(

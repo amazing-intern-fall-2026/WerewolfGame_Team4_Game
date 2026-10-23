@@ -32,8 +32,12 @@ public class RoleManager : MonoBehaviour
             return;
         }
 
+        PlayerManager.Instance.PurgeNonActivePlayers();
+
         List<PlayerData> list = new List<PlayerData>(PlayerManager.Instance.players);
-        list.RemoveAll(player => player == null);
+        list.RemoveAll(player => player == null ||
+            (NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains((ulong)player.playerID)) ||
+            (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)player.playerID)));
         if (list.Count == 0)
         {
             Debug.LogWarning("[ROLE] Lobby chưa có người chơi hợp lệ để phân vai.");

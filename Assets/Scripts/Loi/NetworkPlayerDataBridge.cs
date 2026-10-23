@@ -46,6 +46,13 @@ public class NetworkPlayerDataBridge : NetworkBehaviour
         if (registered)
             return;
 
+        if ((NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains(OwnerClientId)) ||
+            (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch(OwnerClientId)))
+        {
+            Debug.Log($"NETWORK PLAYER DATA BRIDGE: Player {OwnerClientId} đã rời phòng hoặc không trong ván đấu. Bỏ qua đăng ký.");
+            return;
+        }
+
         int playerID =
             (int)OwnerClientId;
 

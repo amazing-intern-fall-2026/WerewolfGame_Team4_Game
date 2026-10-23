@@ -1,5 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
 public class NetworkGameManager : NetworkBehaviour
 {
@@ -12,6 +14,9 @@ public class NetworkGameManager : NetworkBehaviour
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server
         );
+
+    public static readonly System.Collections.Generic.HashSet<ulong> LeftPlayerClientIds = new System.Collections.Generic.HashSet<ulong>();
+    public static bool IsPlayerLeft(ulong clientId) => LeftPlayerClientIds.Contains(clientId);
 
     private void Awake()
     {
@@ -34,10 +39,17 @@ public class NetworkGameManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
         }
 
+        EnsureInGameLeaveButton();
+
         Debug.Log(
             "NetworkGameManager Spawned | Current State = "
             + CurrentState.Value
         );
+    }
+
+    private void Start()
+    {
+        EnsureInGameLeaveButton();
     }
 
     public override void OnNetworkDespawn()
@@ -66,6 +78,28 @@ public class NetworkGameManager : NetworkBehaviour
     // DISCONNECT HANDLING
     // =========================================================
 
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestLeaveRoomServerRpc(ulong clientId, ServerRpcParams rpcParams = default)
+    {
+        ulong senderId = rpcParams.Receive.SenderClientId;
+        if (senderId != clientId)
+        {
+            Debug.LogWarning($"[NetworkGameManager] RequestLeaveRoomServerRpc sender mismatch: sender={senderId}, param={clientId}");
+            clientId = senderId;
+        }
+
+        Debug.Log($"[NetworkGameManager] Client {clientId} yêu cầu rời phòng qua ServerRpc.");
+        HandleServerPlayerDisconnect(clientId);
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer && clientId != NetworkManager.ServerClientId)
+        {
+            if (NetworkManager.Singleton.ConnectedClients.ContainsKey(clientId))
+            {
+                NetworkManager.Singleton.DisconnectClient(clientId);
+            }
+        }
+    }
+
     private void OnClientDisconnected(ulong clientId)
     {
         if (IsServer)
@@ -86,41 +120,26 @@ public class NetworkGameManager : NetworkBehaviour
     private void HandleServerPlayerDisconnect(ulong clientId)
     {
         int playerId = (int)clientId;
+        LeftPlayerClientIds.Add(clientId);
         Debug.Log($"[NetworkGameManager] SERVER XỬ LÝ DISCONNECT: ClientId={clientId}, PlayerId={playerId}");
 
-        // 1. Tìm và despawn NetworkObject của PlayerController tương ứng
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.ConnectedClients != null &&
-            NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) && client.PlayerObject != null)
+        // 1. Tìm, despawn và tiêu hủy hoàn toàn GameObject của PlayerController tương ứng
+        PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        foreach (var pc in controllers)
         {
-            var stateSync = client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
-            if (stateSync != null)
+            if (pc != null && pc.OwnerClientId == clientId)
             {
-                stateSync.SetDisconnected();
-            }
-            if (client.PlayerObject.IsSpawned)
-            {
-                client.PlayerObject.Despawn(true);
-            }
-        }
-        else
-        {
-            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-            foreach (var pc in controllers)
-            {
-                if (pc.OwnerClientId == clientId)
+                var stateSync = pc.GetComponent<NetworkPlayerStateSync>();
+                if (stateSync != null)
                 {
-                    var stateSync = pc.GetComponent<NetworkPlayerStateSync>();
-                    if (stateSync != null)
-                    {
-                        stateSync.SetDisconnected();
-                    }
-                    var no = pc.GetComponent<NetworkObject>();
-                    if (no != null && no.IsSpawned)
-                    {
-                        no.Despawn(true);
-                    }
-                    break;
+                    stateSync.SetDisconnected();
                 }
+                var no = pc.GetComponent<NetworkObject>();
+                if (no != null && no.IsSpawned)
+                {
+                    no.Despawn(true);
+                }
+                Destroy(pc.gameObject);
             }
         }
 
@@ -177,7 +196,18 @@ public class NetworkGameManager : NetworkBehaviour
         if (IsServer) return;
 
         int playerId = (int)disconnectedClientId;
+        LeftPlayerClientIds.Add(disconnectedClientId);
         Debug.Log($"[NetworkGameManager] CLIENT NHẬN THÔNG BÁO DISCONNECT: PlayerId={playerId}");
+
+        // Tiêu hủy GameObject của player ngắt kết nối trên máy Client
+        PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        foreach (var pc in controllers)
+        {
+            if (pc != null && pc.OwnerClientId == disconnectedClientId)
+            {
+                Destroy(pc.gameObject);
+            }
+        }
 
         // 1. Cập nhật PlayerManager trên Client
         if (PlayerManager.Instance != null)
@@ -227,6 +257,78 @@ public class NetworkGameManager : NetworkBehaviour
         {
             if (r != null) r.Refresh();
         }
+    }
+
+    public static void EnsureInGameLeaveButton()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null) return;
+
+        Transform existing = canvas.transform.Find("InGameLeaveButton");
+        GameObject btnObj;
+        if (existing == null)
+        {
+            btnObj = new GameObject("InGameLeaveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            btnObj.transform.SetParent(canvas.transform, false);
+        }
+        else
+        {
+            btnObj = existing.gameObject;
+        }
+
+        RectTransform rt = btnObj.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(20, -435);
+        rt.sizeDelta = new Vector2(280, 72);
+
+        Image img = btnObj.GetComponent<Image>();
+        img.color = new Color(0.48f, 0.12f, 0.12f, 0.95f);
+        Button btn = btnObj.GetComponent<Button>();
+        btn.targetGraphic = img;
+
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() =>
+        {
+            Debug.Log("[NetworkGameManager] InGameLeaveButton clicked -> LeaveRoomToMainMenu");
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer && NetworkManager.Singleton.IsConnectedClient)
+            {
+                ulong localId = NetworkManager.Singleton.LocalClientId;
+                if (Instance != null && Instance.IsSpawned)
+                {
+                    Instance.RequestLeaveRoomServerRpc(localId);
+                }
+            }
+            SceneLoader.Instance?.LeaveRoomToMainMenu();
+        });
+
+        Transform txtChild = btnObj.transform.Find("Text (TMP)");
+        TextMeshProUGUI txt;
+        if (txtChild == null)
+        {
+            GameObject txtObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtObj.transform.SetParent(btnObj.transform, false);
+            txt = txtObj.GetComponent<TextMeshProUGUI>();
+        }
+        else
+        {
+            txt = txtChild.GetComponent<TextMeshProUGUI>();
+        }
+
+        RectTransform txtRt = txt.GetComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = Vector2.zero;
+        txtRt.offsetMax = Vector2.zero;
+
+        var sceneTmp = FindFirstObjectByType<TextMeshProUGUI>();
+        if (sceneTmp != null && sceneTmp.font != null) txt.font = sceneTmp.font;
+        txt.fontSize = 24;
+        txt.fontStyle = FontStyles.Bold;
+        txt.color = Color.white;
+        txt.alignment = TextAlignmentOptions.Center;
+        txt.text = "THOÁT PHÒNG";
     }
 
     // Chỉ Server được quyền đổi NetworkGameState
