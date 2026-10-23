@@ -38,6 +38,6 @@ Kết quả ngày 22/10/2026: 96 kiểm tra logic, 14 kiểm tra thao tác offli
 
 ## Đồng bộ với main ngày 23/10/2026
 
-Bản tích hợp dựa trên `795c810` và giữ phần xử lý mất kết nối mới của main. Xung đột ở `PlayerData.CanVote` được kết hợp để chặn cả người mất kết nối và người có CannotVote, kể cả khi quyền mạng vẫn đang bật. Kho người mất kết nối và cơ chế hủy hành động đêm liên quan được giữ nguyên.
+Bản tích hợp được cập nhật tới `8003350`, giữ cả xử lý mất kết nối, phiên đăng nhập khi rời phòng và lọc người đã rời khỏi ván mới của main. Xung đột ở `PlayerData.CanVote` được kết hợp để chặn cả người mất kết nối và người có CannotVote, kể cả khi quyền mạng vẫn đang bật. Kho người mất kết nối và cơ chế hủy hành động đêm liên quan được giữ nguyên.
 
 Bổ sung 7 kiểm tra hồi quy cho trường hợp kết hợp này; bộ logic có 103 kiểm tra. Các chỉnh sửa local về scene, font, cấu hình và báo cáo ngoài tác vụ không được đưa vào commit tích hợp.
