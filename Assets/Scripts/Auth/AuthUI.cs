@@ -51,8 +51,16 @@ public class AuthUI : MonoBehaviour
         SetupButtonListeners();
         SetupAuthEvents();
 
-        // Luôn hiển thị Form Đăng nhập khi mở game, không tự động chuyển vào tài khoản khách
-        ShowLoginPanel();
+        // Kiểm tra nếu đã đăng nhập trước đó (ví dụ vừa thoát phòng từ Game/Lobby về MainMenu)
+        if (AuthManager.Instance != null && AuthManager.Instance.IsSignedIn)
+        {
+            UpdateUIState(AuthManager.Instance.CurrentState, AuthManager.Instance.PlayerId, AuthManager.Instance.CurrentUsername);
+        }
+        else
+        {
+            // Lần đầu mở game hoặc chưa đăng nhập: hiển thị Form Đăng nhập
+            ShowLoginPanel();
+        }
     }
 
     private void OnDestroy()
@@ -114,11 +122,11 @@ public class AuthUI : MonoBehaviour
             {
                 if (state == AuthManager.AuthState.RegisteredUser)
                 {
-                    userBadgeText.text = $"👤 <color=#68D391>Tài khoản:</color> <b>{username}</b>";
+                    userBadgeText.text = $"<color=#68D391>Tài khoản:</color> <b>{username}</b>";
                 }
                 else
                 {
-                    userBadgeText.text = $"⚡ <color=#F6AD55>Chế độ Khách:</color> <b>{username}</b>";
+                    userBadgeText.text = $"<color=#F6AD55>Chế độ Khách:</color> <b>{username}</b>";
                 }
             }
 
@@ -161,7 +169,7 @@ public class AuthUI : MonoBehaviour
         if (registerPanel != null) registerPanel.SetActive(true);
         if (userBadgePanel != null) userBadgePanel.SetActive(false);
 
-        SetCurrentStatus("Quy định: Tên 3-20 ký tự. Mật khẩu 8-30 ký tự (chứa hoa, thường, số, ký tự đặc biệt).", new Color(0.82f, 0.88f, 0.98f));
+        SetCurrentStatus("Quy định: Tên 3-20 ký tự. Mật khẩu cần ít nhất 6 ký tự, bao gồm chữ cái và chữ số.", new Color(0.82f, 0.88f, 0.98f));
     }
 
     private void SetCurrentStatus(string message, Color color)
@@ -424,6 +432,11 @@ public class AuthUI : MonoBehaviour
 
         // 5. Tạo User Badge Panel (hiển thị khi đã đăng nhập)
         CreateUserBadgeUI(canvasTransform);
+
+        // Khởi tạo trạng thái hiển thị ban đầu dựa trên trạng thái đăng nhập thực tế (tránh chớp tắt frame khi vừa thoát phòng)
+        bool alreadySignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
+        if (authCardRoot != null) authCardRoot.SetActive(!alreadySignedIn);
+        if (userBadgePanel != null) userBadgePanel.SetActive(alreadySignedIn);
     }
 
     private void CreateLoginPanelUI(Transform parent)
@@ -439,7 +452,7 @@ public class AuthUI : MonoBehaviour
         rect.offsetMax = Vector2.zero;
 
         // Tiêu đề to nổi bật (42px Bold)
-        CreateText(panel.transform, "TitleText", "🐺 ĐĂNG NHẬP MA SÓI", new Vector2(0, 280), new Vector2(700, 60), 42, Color.white, FontStyles.Bold);
+        CreateText(panel.transform, "TitleText", "ĐĂNG NHẬP MA SÓI", new Vector2(0, 280), new Vector2(700, 60), 42, Color.white, FontStyles.Bold);
 
         // Phụ đề hướng dẫn (24px)
         CreateText(panel.transform, "SubGuideText", "Đăng nhập tài khoản hoặc chọn Chơi ngay để bắt đầu", new Vector2(0, 224), new Vector2(700, 36), 24, new Color(0.72f, 0.78f, 0.88f), FontStyles.Italic);
@@ -454,7 +467,7 @@ public class AuthUI : MonoBehaviour
         loginSubmitButton = CreateButton(panel.transform, "LoginSubmitBtn", "ĐĂNG NHẬP", new Vector2(0, -96), new Vector2(560, 96), new Color(0.18f, 0.48f, 0.88f, 1f), 32);
 
         // Nút CHƠI NGAY (KHÁCH): To nổi bật 560 x 96, font 30px Bold (Khoảng cách với nút Đăng nhập: 28px)
-        playAsGuestButton = CreateButton(panel.transform, "PlayAsGuestBtn", "⚡ CHƠI NGAY (KHÁCH - MIỄN PHÍ)", new Vector2(0, -220), new Vector2(560, 96), new Color(0.16f, 0.65f, 0.46f, 1f), 30);
+        playAsGuestButton = CreateButton(panel.transform, "PlayAsGuestBtn", "CHƠI NGAY (KHÁCH - MIỄN PHÍ)", new Vector2(0, -220), new Vector2(560, 96), new Color(0.16f, 0.65f, 0.46f, 1f), 30);
 
         // Nút Chuyển sang Đăng ký: 560 x 76, font 26px Bold (Khoảng cách với nút Khách: 26px)
         goToRegisterButton = CreateButton(panel.transform, "GoToRegisterBtn", "Chưa có tài khoản? Đăng ký ngay", new Vector2(0, -332), new Vector2(560, 76), new Color(0.16f, 0.20f, 0.28f, 0.95f), 26);
@@ -477,7 +490,7 @@ public class AuthUI : MonoBehaviour
         rect.offsetMax = Vector2.zero;
 
         // Tiêu đề To Đẹp (42px Bold)
-        CreateText(panel.transform, "RegTitleText", "📝 ĐĂNG KÝ TÀI KHOẢN", new Vector2(0, 290), new Vector2(700, 60), 42, Color.white, FontStyles.Bold);
+        CreateText(panel.transform, "RegTitleText", "ĐĂNG KÝ TÀI KHOẢN", new Vector2(0, 290), new Vector2(700, 60), 42, Color.white, FontStyles.Bold);
 
         // Hướng dẫn quy định tài khoản (22px)
         CreateText(panel.transform, "RegSubGuideText", "Nhập thông tin đăng ký tài khoản người chơi Ma Sói mới", new Vector2(0, 236), new Vector2(700, 36), 22, new Color(0.72f, 0.78f, 0.88f), FontStyles.Italic);
@@ -486,7 +499,7 @@ public class AuthUI : MonoBehaviour
         regUsernameInput = CreateInputField(panel.transform, "RegUsernameInput", "Tên tài khoản (3 - 20 ký tự)...", new Vector2(0, 150), new Vector2(560, 82), false);
 
         // Ô nhập Password: Rộng 560 x 82, font 28px (Khoảng cách với username: 24px)
-        regPasswordInput = CreateInputField(panel.transform, "RegPasswordInput", "Mật khẩu (8 - 30 ký tự, có hoa, số, ký tự đặc biệt)...", new Vector2(0, 44), new Vector2(560, 82), true);
+        regPasswordInput = CreateInputField(panel.transform, "RegPasswordInput", "Mật khẩu (tối thiểu 6 ký tự, gồm chữ cái và số)...", new Vector2(0, 44), new Vector2(560, 82), true);
 
         // Ô nhập lại Password: Rộng 560 x 82, font 28px (Khoảng cách với password: 24px)
         regConfirmPasswordInput = CreateInputField(panel.transform, "RegConfirmPasswordInput", "Nhập lại mật khẩu để xác nhận...", new Vector2(0, -62), new Vector2(560, 82), true);
@@ -495,7 +508,7 @@ public class AuthUI : MonoBehaviour
         registerSubmitButton = CreateButton(panel.transform, "RegisterSubmitBtn", "TẠO TÀI KHOẢN MỚI", new Vector2(0, -182), new Vector2(560, 96), new Color(0.18f, 0.48f, 0.88f, 1f), 32);
 
         // Nút Quay lại Đăng nhập: 560 x 76, font 26px Bold (Khoảng cách với nút Đăng ký: 24px)
-        backToLoginButton = CreateButton(panel.transform, "BackToLoginBtn", "← ĐÃ CÓ TÀI KHOẢN? QUAY LẠI ĐĂNG NHẬP", new Vector2(0, -292), new Vector2(560, 76), new Color(0.16f, 0.20f, 0.28f, 0.95f), 26);
+        backToLoginButton = CreateButton(panel.transform, "BackToLoginBtn", "ĐÃ CÓ TÀI KHOẢN? QUAY LẠI ĐĂNG NHẬP", new Vector2(0, -292), new Vector2(560, 76), new Color(0.16f, 0.20f, 0.28f, 0.95f), 26);
 
         // Text thông báo lỗi / trạng thái: 700 x 44, font 24px
         regStatusText = CreateText(panel.transform, "RegStatusText", "", new Vector2(0, -362), new Vector2(700, 44), 24, new Color(0.82f, 0.88f, 0.98f), FontStyles.Normal);
@@ -519,7 +532,7 @@ public class AuthUI : MonoBehaviour
         bg.color = new Color(0.11f, 0.14f, 0.20f, 0.96f);
 
         // Text thông tin user
-        userBadgeText = CreateText(badgeObj.transform, "UserBadgeText", "👤 Đã đăng nhập", new Vector2(-65, 0), new Vector2(270, 50), 24, Color.white, FontStyles.Bold);
+        userBadgeText = CreateText(badgeObj.transform, "UserBadgeText", "Đã đăng nhập", new Vector2(-65, 0), new Vector2(270, 50), 24, Color.white, FontStyles.Bold);
         userBadgeText.alignment = TextAlignmentOptions.Left;
 
         // Nút Đăng xuất

@@ -320,17 +320,94 @@ public class NetworkPhaseSync : NetworkBehaviour
     }
 
     // =========================================================
+    // CLIENT RPC: SYNC ACTIVE SESSION PLAYERS
+    // =========================================================
+
+    [ClientRpc]
+    public void SyncActiveSessionClientRpc(ulong[] activeClientIds, ulong[] leftClientIds)
+    {
+        Debug.Log("[NetworkPhaseSync] SyncActiveSessionClientRpc nhận danh sách active và left players từ Server.");
+
+        if (leftClientIds != null)
+        {
+            foreach (ulong leftId in leftClientIds)
+            {
+                NetworkGameManager.LeftPlayerClientIds.Add(leftId);
+            }
+        }
+
+        if (activeClientIds != null && activeClientIds.Length > 0)
+        {
+            NetworkGamePlayerSetup.SetActiveMatchClientIds(activeClientIds);
+        }
+
+        var activeSet = new System.Collections.Generic.HashSet<ulong>(activeClientIds ?? System.Array.Empty<ulong>());
+
+        // 1. Tiêu hủy PlayerController GameObject mồ côi (không nằm trong activeSet hoặc nằm trong LeftPlayerClientIds)
+        PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        foreach (var pc in controllers)
+        {
+            if (pc != null && (!activeSet.Contains(pc.OwnerClientId) || NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId)))
+            {
+                Debug.Log($"[NetworkPhaseSync] SyncActiveSession: Client tiêu hủy PlayerController mồ côi ClientId={pc.OwnerClientId}");
+                Destroy(pc.gameObject);
+            }
+        }
+
+        // 2. Dọn dẹp PlayerManager trên client
+        if (PlayerManager.Instance != null && PlayerManager.Instance.players != null)
+        {
+            PlayerManager.Instance.players.RemoveAll(p => p == null 
+                || !activeSet.Contains((ulong)p.playerID) 
+                || NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID));
+        }
+
+        NetworkGameManager.RefreshAllGameUI(-1);
+    }
+
+    // =========================================================
     // CLIENT RPC: RESET CLIENT MATCH STATE
     // =========================================================
 
     [ClientRpc]
-    public void ResetClientMatchStateClientRpc()
+    public void ResetClientMatchStateClientRpc(ulong[] activeClientIds)
     {
-        Debug.Log("[NetworkPhaseSync] ResetClientMatchStateClientRpc: Đặt lại UI và Skill trên Client.");
+        Debug.Log("[NetworkPhaseSync] ResetClientMatchStateClientRpc: Đặt lại UI, Skill và dọn dẹp player mồ côi trên Client.");
         NetworkGameOverManager.Instance?.ResetUIState();
         NetworkSkillUI.Instance?.ResetForNewMatch();
         NetworkHunterDeathUI.Instance?.ResetForNewMatch();
         NetworkDeathNotification.Instance?.HideDeathNotification();
+
+        if (activeClientIds != null && activeClientIds.Length > 0)
+        {
+            NetworkGamePlayerSetup.SetActiveMatchClientIds(activeClientIds);
+            var activeSet = new System.Collections.Generic.HashSet<ulong>(activeClientIds);
+
+            // 1. Dọn dẹp PlayerController mồ côi trên client
+            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in controllers)
+            {
+                if (pc != null && (!activeSet.Contains(pc.OwnerClientId) || NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId)))
+                {
+                    Debug.Log($"[NetworkPhaseSync] Client tiêu hủy PlayerController mồ côi ClientId={pc.OwnerClientId}");
+                    Destroy(pc.gameObject);
+                }
+            }
+
+            // 2. Dọn dẹp PlayerManager trên client
+            if (PlayerManager.Instance != null && PlayerManager.Instance.players != null)
+            {
+                PlayerManager.Instance.players.RemoveAll(p => p == null 
+                    || !activeSet.Contains((ulong)p.playerID)
+                    || NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID));
+                foreach (var p in PlayerManager.Instance.players)
+                {
+                    p?.ResetForNewMatch();
+                }
+            }
+        }
+
+        NetworkGameManager.RefreshAllGameUI(-1);
     }
 
     // =========================================================

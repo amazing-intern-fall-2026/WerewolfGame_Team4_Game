@@ -92,6 +92,25 @@ public class SceneLoader : MonoBehaviour
     {
         Debug.Log("SceneLoader: Bắt đầu quy trình Leave và Shutdown...");
 
+        // 0. Nếu là Client (không phải Server/Host), gửi RPC thông báo cho Host/Server trước khi ngắt kết nối
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer && NetworkManager.Singleton.IsConnectedClient)
+        {
+            ulong localId = NetworkManager.Singleton.LocalClientId;
+            if (NetworkGameManager.Instance != null && NetworkGameManager.Instance.IsSpawned)
+            {
+                Debug.Log($"SceneLoader: [0/3] Gửi RequestLeaveRoomServerRpc cho Client {localId}...");
+                NetworkGameManager.Instance.RequestLeaveRoomServerRpc(localId);
+            }
+            else if (LobbyManager.Instance != null && LobbyManager.Instance.IsSpawned)
+            {
+                Debug.Log($"SceneLoader: [0/3] Gửi RequestLeaveLobbyServerRpc cho Client {localId}...");
+                LobbyManager.Instance.RequestLeaveLobbyServerRpc(localId);
+            }
+
+            // Đợi 0.15s để transport kịp gửi gói tin RPC đi trước khi đóng kết nối
+            yield return new WaitForSecondsRealtime(0.15f);
+        }
+
         // 1. Rời kênh thoại Vivox và đồng bộ chờ hoàn tất trước
         if (NetworkVoiceManager.Instance != null)
         {
@@ -218,5 +237,30 @@ public class SceneLoader : MonoBehaviour
         Debug.Log("→ LOAD MAIN MENU");
 
         SceneManager.LoadScene("MainMenu");
+    }
+
+    private void OnApplicationQuit()
+    {
+        Debug.Log("SceneLoader: OnApplicationQuit() -> Gửi tín hiệu rời phòng và đóng kết nối sạch sẽ.");
+        try
+        {
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer && NetworkManager.Singleton.IsConnectedClient)
+            {
+                ulong localId = NetworkManager.Singleton.LocalClientId;
+                if (NetworkGameManager.Instance != null && NetworkGameManager.Instance.IsSpawned)
+                {
+                    NetworkGameManager.Instance.RequestLeaveRoomServerRpc(localId);
+                }
+                else if (LobbyManager.Instance != null && LobbyManager.Instance.IsSpawned)
+                {
+                    LobbyManager.Instance.RequestLeaveLobbyServerRpc(localId);
+                }
+                NetworkManager.Singleton.Shutdown();
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[SceneLoader] Ngoại lệ khi OnApplicationQuit: {ex.Message}");
+        }
     }
 }

@@ -241,12 +241,15 @@ public class GameVoiceHUD : MonoBehaviour
             }
             else
             {
-                micPanel = CreatePanelObject("VoiceMicPanel", 0f, "Micro (Mic)", "🎤", isMic: true);
+                micPanel = CreatePanelObject("VoiceMicPanel", 0f, "Micro (Mic)", "", isMic: true);
             }
         }
 
         if (micPanel != null)
         {
+            Transform micIcon = micPanel.Find("Icon");
+            if (micIcon != null) Destroy(micIcon.gameObject);
+
             if (micToggle == null)
             {
                 micToggle = micPanel.GetComponentInChildren<MicToggleSwitch>(true);
@@ -267,12 +270,15 @@ public class GameVoiceHUD : MonoBehaviour
             }
             else
             {
-                speakerPanel = CreatePanelObject("VoiceSpeakerPanel", -58f, "Loa (Speaker)", "🔊", isMic: false);
+                speakerPanel = CreatePanelObject("VoiceSpeakerPanel", -58f, "Loa (Speaker)", "", isMic: false);
             }
         }
 
         if (speakerPanel != null)
         {
+            Transform spkIcon = speakerPanel.Find("Icon");
+            if (spkIcon != null) Destroy(spkIcon.gameObject);
+
             if (speakerToggle == null)
             {
                 speakerToggle = speakerPanel.GetComponentInChildren<SpeakerToggleSwitch>(true);
@@ -307,30 +313,15 @@ public class GameVoiceHUD : MonoBehaviour
         cb.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
         btn.colors = cb;
 
-        // Icon
-        GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(TextMeshProUGUI));
-        iconObj.transform.SetParent(panelObj.transform, false);
-        RectTransform iconRt = iconObj.GetComponent<RectTransform>();
-        iconRt.anchorMin = new Vector2(0f, 0.5f);
-        iconRt.anchorMax = new Vector2(0f, 0.5f);
-        iconRt.pivot = new Vector2(0.5f, 0.5f);
-        iconRt.anchoredPosition = new Vector2(20f, 0f);
-        iconRt.sizeDelta = new Vector2(28f, 28f);
-
-        TextMeshProUGUI iconTmp = iconObj.GetComponent<TextMeshProUGUI>();
-        iconTmp.text = iconStr;
-        iconTmp.fontSize = 18;
-        iconTmp.alignment = TextAlignmentOptions.Center;
-
-        // Title
+        // Title (canh lề thoáng đẹp không icon unicode)
         GameObject titleObj = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
         titleObj.transform.SetParent(panelObj.transform, false);
         RectTransform titleRt = titleObj.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 0.5f);
         titleRt.anchorMax = new Vector2(0f, 0.5f);
         titleRt.pivot = new Vector2(0f, 0.5f);
-        titleRt.anchoredPosition = new Vector2(40f, 9f);
-        titleRt.sizeDelta = new Vector2(125f, 22f);
+        titleRt.anchoredPosition = new Vector2(16f, 9f);
+        titleRt.sizeDelta = new Vector2(145f, 22f);
 
         TextMeshProUGUI titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
         titleTmp.text = title;
@@ -346,8 +337,8 @@ public class GameVoiceHUD : MonoBehaviour
         statusRt.anchorMin = new Vector2(0f, 0.5f);
         statusRt.anchorMax = new Vector2(0f, 0.5f);
         statusRt.pivot = new Vector2(0f, 0.5f);
-        statusRt.anchoredPosition = new Vector2(40f, -10f);
-        statusRt.sizeDelta = new Vector2(125f, 18f);
+        statusRt.anchoredPosition = new Vector2(16f, -10f);
+        statusRt.sizeDelta = new Vector2(145f, 18f);
 
         TextMeshProUGUI statusTmp = statusObj.GetComponent<TextMeshProUGUI>();
         statusTmp.text = isMic ? "TẮT" : "BẬT";

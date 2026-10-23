@@ -53,8 +53,23 @@ public class PlayerManager : MonoBehaviour
         if (player == null)
             return;
 
+        if (NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains((ulong)player.playerID))
+            return;
+
+        if (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)player.playerID))
+            return;
+
         if (!players.Contains(player))
             players.Add(player);
+    }
+
+    public void PurgeNonActivePlayers()
+    {
+        if (players == null) return;
+        players.RemoveAll(p => p == null
+            || (NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID))
+            || (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)p.playerID))
+            || p.isDisconnected);
     }
 
     public void CreateTestPlayer(int count)
@@ -148,6 +163,33 @@ public class PlayerManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    public bool IsActivePlayer(int playerID)
+    {
+        if (players == null) return false;
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i] != null && players[i].playerID == playerID && !players[i].isDisconnected)
+                return true;
+        }
+        return false;
+    }
+
+    public void ResetForNewMatch()
+    {
+        if (disconnectedPlayers != null)
+        {
+            disconnectedPlayers.Clear();
+        }
+        if (players != null)
+        {
+            players.RemoveAll(p => p == null || p.isDisconnected);
+            foreach (var p in players)
+            {
+                p?.ResetForNewMatch();
+            }
+        }
     }
 
     public IEnumerable<PlayerData> GetAlivePlayers()

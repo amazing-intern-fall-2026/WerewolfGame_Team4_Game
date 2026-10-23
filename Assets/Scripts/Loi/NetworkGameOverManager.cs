@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
@@ -129,6 +130,12 @@ public class NetworkGameOverManager : MonoBehaviour
             cachedPhaseSync.Winner.OnValueChanged -= OnNetworkWinnerChanged;
             cachedPhaseSync.Winner.OnValueChanged += OnNetworkWinnerChanged;
         }
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+        }
     }
 
     private void UnsubscribeFromEvents()
@@ -142,6 +149,24 @@ public class NetworkGameOverManager : MonoBehaviour
         {
             cachedPhaseSync.CurrentPhase.OnValueChanged -= OnNetworkPhaseChanged;
             cachedPhaseSync.Winner.OnValueChanged -= OnNetworkWinnerChanged;
+        }
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    private void OnClientDisconnected(ulong clientId)
+    {
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            Debug.Log($"[NetworkGameOverManager] Client {clientId} đã ngắt kết nối.");
+            NetworkGameManager.LeftPlayerClientIds.Add(clientId);
+            if (PlayerManager.Instance != null)
+            {
+                PlayerManager.Instance.RemoveDisconnectedPlayer((int)clientId);
+            }
         }
     }
 
@@ -798,25 +823,66 @@ public class NetworkGameOverManager : MonoBehaviour
 
             LoverManager.Instance?.ResetForNewMatch();
 
-            // BƯỚC 3: Reset trạng thái sống/chết của toàn bộ Player
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer && PlayerManager.Instance != null)
+            // BƯỚC 3: Dọn dẹp kết nối mồ côi và xác định danh sách người chơi active thực tế
+            var activeIds = new List<ulong>();
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
             {
-                var connectedClients = NetworkManager.Singleton.ConnectedClients;
-                if (PlayerManager.Instance.players != null)
+                // Ngắt kết nối dứt điểm các client đã rời phòng / văng game
+                foreach (ulong leftId in NetworkGameManager.LeftPlayerClientIds.ToArray())
                 {
-                    PlayerManager.Instance.players.RemoveAll(p => p == null || !connectedClients.ContainsKey((ulong)p.playerID));
+                    if (NetworkManager.Singleton.ConnectedClients.ContainsKey(leftId))
+                    {
+                        Debug.Log($"[NetworkGameOverManager] Ngắt kết nối dứt điểm client {leftId} trước khi Chơi lại.");
+                        NetworkManager.Singleton.DisconnectClient(leftId);
+                    }
                 }
 
-                // Đảm bảo tất cả client đang kết nối đều có PlayerData trong PlayerManager
-                foreach (var kvp in connectedClients)
+                foreach (ulong cid in NetworkManager.Singleton.ConnectedClientsIds)
                 {
-                    ulong clientId = kvp.Key;
-                    if (PlayerManager.Instance.GetplayerByID((int)clientId) == null)
+                    if (!NetworkGameManager.LeftPlayerClientIds.Contains(cid))
                     {
-                        string pName = NetworkGamePlayerNameSetup.GetName(clientId);
+                        activeIds.Add(cid);
+                    }
+                }
+            }
+
+            // Thiết lập danh sách người chơi chính thức cho ván đấu
+            NetworkGamePlayerSetup.SetActiveMatchClientIds(activeIds);
+
+            // Tiêu hủy mọi PlayerController GameObject mồ côi trên Server
+            PlayerController[] allControllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in allControllers)
+            {
+                if (pc != null)
+                {
+                    ulong cid = pc.OwnerClientId;
+                    if (!activeIds.Contains(cid) || NetworkGameManager.LeftPlayerClientIds.Contains(cid))
+                    {
+                        Debug.Log($"[NetworkGameOverManager] Tiêu hủy PlayerController GameObject mồ côi của client {cid}.");
+                        var no = pc.GetComponent<NetworkObject>();
+                        if (no != null && no.IsSpawned)
+                        {
+                            no.Despawn(true);
+                        }
+                        Destroy(pc.gameObject);
+                    }
+                }
+            }
+
+            // Cập nhật PlayerManager trên Server
+            if (PlayerManager.Instance != null)
+            {
+                PlayerManager.Instance.disconnectedPlayers?.Clear();
+                PlayerManager.Instance.PurgeNonActivePlayers();
+
+                foreach (ulong cid in activeIds)
+                {
+                    if (PlayerManager.Instance.GetplayerByID((int)cid) == null)
+                    {
+                        string pName = NetworkGamePlayerNameSetup.GetName(cid);
                         PlayerManager.Instance.RegisterPlayer(new PlayerData
                         {
-                            playerID = (int)clientId,
+                            playerID = (int)cid,
                             playerName = pName,
                             isAlive = true,
                             votePower = 1,
@@ -826,13 +892,13 @@ public class NetworkGameOverManager : MonoBehaviour
                         });
                     }
                 }
-            }
 
-            if (PlayerManager.Instance != null && PlayerManager.Instance.players != null)
-            {
-                foreach (var player in PlayerManager.Instance.players)
+                if (PlayerManager.Instance.players != null)
                 {
-                    player?.ResetForNewMatch();
+                    foreach (var player in PlayerManager.Instance.players)
+                    {
+                        player?.ResetForNewMatch();
+                    }
                 }
             }
 
@@ -863,6 +929,24 @@ public class NetworkGameOverManager : MonoBehaviour
             // Reset UI local
             ResetUIState();
 
+            // Đồng bộ roster và left player sang tất cả Client trước khi chia Role
+            if (NetworkPhaseSync.Instance != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+            {
+                NetworkPhaseSync.Instance.SyncActiveSessionClientRpc(
+                    activeIds.ToArray(),
+                    NetworkGameManager.LeftPlayerClientIds.ToArray()
+                );
+                NetworkPhaseSync.Instance.ResetClientMatchStateClientRpc(activeIds.ToArray());
+            }
+
+            // Tự động điều chỉnh cấu hình Role từ Lobby cho khớp đúng sĩ số người chơi thực tế
+            int remainingPlayerCount = activeIds.Count;
+            if (NetworkGameRoleSetup.HasSetup() && NetworkGameRoleSetup.GetTotalRoleAmount() != remainingPlayerCount)
+            {
+                Debug.Log($"[NetworkGameOverManager] Số role ({NetworkGameRoleSetup.GetTotalRoleAmount()}) không khớp sĩ số còn lại ({remainingPlayerCount}). Reset để tự cân bằng vai trò.");
+                NetworkGameRoleSetup.Clear();
+            }
+
             // BƯỚC 6: Khởi tạo Role và dữ liệu ván mới theo cơ chế hiện tại
             if (GameRoleManager.Instance != null)
             {
@@ -887,7 +971,6 @@ public class NetworkGameOverManager : MonoBehaviour
             if (NetworkPhaseSync.Instance != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
             {
                 NetworkPhaseSync.Instance.CurrentPhase.Value = GamePhase.RoleReveal;
-                NetworkPhaseSync.Instance.ResetClientMatchStateClientRpc();
             }
 
             Debug.Log("[NetworkGameOverManager] Khởi tạo ván mới hoàn tất thành công!");
@@ -1015,6 +1098,19 @@ public class NetworkGameOverManager : MonoBehaviour
 
         // Reset NetworkGameRoleSetup để Lobby thiết lập role mới cho ván kế tiếp
         NetworkGameRoleSetup.Clear();
+
+        // Ngắt kết nối dứt điểm các client đã rời phòng / văng game trước khi tải Lobby
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            foreach (ulong leftId in NetworkGameManager.LeftPlayerClientIds)
+            {
+                if (NetworkManager.Singleton.ConnectedClients.ContainsKey(leftId))
+                {
+                    Debug.Log($"[NetworkGameOverManager] Ngắt kết nối client {leftId} trước khi về Lobby.");
+                    NetworkManager.Singleton.DisconnectClient(leftId);
+                }
+            }
+        }
 
         if (NetworkManager.Singleton.SceneManager != null)
         {
