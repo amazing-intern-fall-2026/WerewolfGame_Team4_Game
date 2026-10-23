@@ -34,6 +34,9 @@ public static class ThuongOnlineChecks
         public GameEventType MapEvent;
         public string Result;
         public int PrivatePlayerId = -1, PublicLocalPlayerId = -1;
+        public bool HasMatchResult;
+        public byte MatchWinner, MatchReason;
+        public int MatchPlayerCount, MatchWinnerCount;
     }
     private static readonly List<Peer> peers = new();
     private static int stage, checks;
@@ -275,11 +278,25 @@ public static class ThuongOnlineChecks
                     break;
                 case 9:
                     if (peers.Any(peer => peer.VoteRevision != 3 || peer.Result != "Không có phiếu hợp lệ.")) return;
-                    foreach (var peer in peers) peer.Network.Shutdown();
+                    TaskManager.Instance.progress = 100;
+                    Invoke(session, "EvaluateOnlineWin", false);
+                    Require(GameRoleManager.Instance.currentState == GameState.GameOver, "Completing all tasks ends the authoritative match");
+                    Invoke(session, "BroadcastSnapshot");
                     stage = 10;
-                    next = EditorApplication.timeSinceStartup + .7;
+                    next = EditorApplication.timeSinceStartup + .5;
                     break;
                 case 10:
+                    if (peers.Any(peer => !peer.HasMatchResult)) return;
+                    byte villagers = OutcomeValue("Thuong.Online.ThuongWinner", "Villagers");
+                    byte tasks = OutcomeValue("Thuong.Online.ThuongWinReason", "Tasks");
+                    Require(peers.All(peer => peer.MatchWinner == villagers && peer.MatchReason == tasks &&
+                        peer.MatchPlayerCount == 25 && peer.MatchWinnerCount == 24),
+                        "All LAN clients receive the task winner, reason and complete per-player win roster");
+                    foreach (var peer in peers) peer.Network.Shutdown();
+                    stage = 11;
+                    next = EditorApplication.timeSinceStartup + .7;
+                    break;
+                case 11:
                     if (session.GetComponent<NetworkManager>().IsListening) return;
                     Require(!session.MatchStarted && PlayerManager.Instance.players.Count == 0 && !Field<bool>(session, "mapDrawComplete"), "Disconnect clears gameplay and map-draw state");
                     Require((bool)Invoke(session, "SetHostMapSelection", false, "lantern_cemetery", GameEventType.Fog), "Manual selection is available before creating a room");
@@ -287,10 +304,10 @@ public static class ThuongOnlineChecks
                     Require(session.GetComponent<NetworkManager>().IsHost && !session.MatchStarted && Field<bool>(session, "mapDrawComplete"), "Fresh host draws another map after leaving match");
                     Require(session.SelectedMap.mapId == "lantern_cemetery" && session.SelectedMapEvent == GameEventType.Fog, "Creating a manual room retains the configured map and event instead of rerolling");
                     Invoke(session, "LeaveSession");
-                    stage = 11;
+                    stage = 12;
                     next = EditorApplication.timeSinceStartup + .7;
                     break;
-                case 11:
+                case 12:
                     if (session.GetComponent<NetworkManager>().IsListening) return;
                     Finish(null);
                     break;
@@ -478,16 +495,18 @@ public static class ThuongOnlineChecks
             reader.ReadValueSafe(out int player); reader.ReadValueSafe(out int tally); peer.VoteTally += tally;
         }
         reader.ReadValueSafe(out bool hasResult);
+        peer.HasMatchResult = hasResult;
         if (hasResult)
         {
-            reader.ReadValueSafe(out byte resultWinner); reader.ReadValueSafe(out byte reason);
+            reader.ReadValueSafe(out peer.MatchWinner); reader.ReadValueSafe(out peer.MatchReason);
             reader.ReadValueSafe(out int resultDay); reader.ReadValueSafe(out byte resultPhase);
-            reader.ReadValueSafe(out ushort finalCount);
+            reader.ReadValueSafe(out ushort finalCount); peer.MatchPlayerCount = finalCount; peer.MatchWinnerCount = 0;
             for (int i = 0; i < finalCount; i++)
             {
                 reader.ReadValueSafe(out int id); reader.ReadValueSafe(out FixedString64Bytes finalName);
                 reader.ReadValueSafe(out int character); reader.ReadValueSafe(out byte role); reader.ReadValueSafe(out byte faction);
                 reader.ReadValueSafe(out bool alive); reader.ReadValueSafe(out bool awakened); reader.ReadValueSafe(out bool won);
+                if (won) peer.MatchWinnerCount++;
             }
         }
         Require(reader.Position == reader.Length, "Full fragmented snapshot decodes without missing or extra fields");
@@ -508,6 +527,9 @@ public static class ThuongOnlineChecks
         if (session != null && session.GetComponent<NetworkManager>().IsListening) session.GetComponent<NetworkManager>().Shutdown();
         EditorApplication.update += CompleteShutdown;
     }
+
+    private static byte OutcomeValue(string typeName, string name) => Convert.ToByte(Enum.Parse(
+        typeof(WinConditionManager).Assembly.GetType(typeName, true), name));
 
     private static void CompleteShutdown()
     {
