@@ -40,11 +40,12 @@ public class PlayerData
     [System.NonSerialized] public bool networkCanVote;
     public bool hasDeathRecord;
     public DeathCause lastDeathCause;
+    public int lastDeathSourceID = -1;
     public System.Collections.Generic.List<StatusEffectInstance> effects = new();
 
     public string DisplayName => string.IsNullOrWhiteSpace(playerName) ? $"Player {playerID + 1}" : playerName;
     public bool CanVote => !isDisconnected && (useNetworkCanVote
-        ? isAlive && networkCanVote
+        ? isAlive && networkCanVote && !HasEffect(StatusEffectType.CannotVote)
         : isAlive && !HasEffect(StatusEffectType.CannotVote));
     public int GetVoteWeight() => CanVote ? Mathf.Max(1, votePower) + GetEffectStrength(StatusEffectType.ExtraVote) : 0;
     public bool HasEffect(StatusEffectType type) => effects != null && effects.Exists(effect => effect.Type == type);
@@ -57,7 +58,11 @@ public class PlayerData
         return total;
     }
 
-    public void NotifyChanged() => Changed?.Invoke(this);
+    public void NotifyChanged()
+    {
+        Changed?.Invoke(this);
+        WinConditionManager.Instance?.NotifyMatchStateChanged();
+    }
 
     public void ResetForNewMatch()
     {
@@ -65,6 +70,8 @@ public class PlayerData
         isDisconnected = false;
         hasDeathRecord = false;
         lastDeathCause = default;
+        lastDeathSourceID = -1;
+        wasVotedOut = false;
         hasVoted = hasUseNightAction = false;
         votePower = 1;
         serpentNightCount = 0;

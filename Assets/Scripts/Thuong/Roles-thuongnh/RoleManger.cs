@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -68,6 +68,36 @@ public class RoleManger : MonoBehaviour
     }
 
     public bool UseNightAbility(int playerID, int targetID, out string feedback)
+    {
+        if (!ThuongLogicSceneScope.IsActive) return UseUnintegratedNightAbility(playerID, targetID, out feedback);
+        var actor = PlayerManager.Instance?.GetplayerByID(playerID);
+        if (RoleManager.UsesConfiguredAbility(actor))
+        {
+            if (AbilitySystem.Instance == null) { feedback = "Chưa có hệ thống kỹ năng."; return false; }
+            var configured = AbilitySystem.Instance.TryUseAbility(actor, PlayerManager.Instance.GetplayerByID(targetID));
+            feedback = configured.Message;
+            return configured.IsValid;
+        }
+        if (!playerRoles.TryGetValue(playerID, out BaseRole role) ||
+            role.owner == null || role.owner.playerID != playerID)
+        {
+            feedback = "Người chơi chưa được gán Role hợp lệ.";
+            return false;
+        }
+        var actorValidation = AbilityValidator.ValidateLegacyActor(GameRoleManager.Instance, role);
+        if (!actorValidation.IsValid) { feedback = actorValidation.Message; return false; }
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
+        var targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
+        if (!targetValidation.IsValid) { feedback = targetValidation.Message; return false; }
+
+        if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
+            return false;
+        role.owner.hasUseNightAction = role is not FoxSpiritRole fox || fox.HasUsedAllNightActions;
+        role.owner.NotifyChanged();
+        return true;
+    }
+
+    private bool UseUnintegratedNightAbility(int playerID, int targetID, out string feedback)
     {
         if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Night)
         {

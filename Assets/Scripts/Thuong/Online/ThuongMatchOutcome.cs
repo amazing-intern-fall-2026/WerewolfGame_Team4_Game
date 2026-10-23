@@ -12,11 +12,11 @@ namespace Thuong.Online
         public int specialWinVillageLimit = 2;
     }
 
-    internal enum ThuongWinner : byte { Villagers, Werewolves, Lovers, Madman, FoxSpirit, WhiteHound, Killer, Draw }
+    internal enum ThuongWinner : byte { Villagers, Werewolves, Lovers, Madman, FoxSpirit, WhiteHound, Killer, Draw, Neutral }
     internal enum ThuongWinReason : byte
     {
         Tasks, NoThreats, Parity, DayLimit, LoversLastTwo, MadmanVoted,
-        FoxCharmed, WhiteHoundSurvived, KillerSurvived, NobodyAlive, Stalemate, TimeLimitDraw, NoOpponents
+        FoxCharmed, WhiteHoundSurvived, KillerSurvived, NobodyAlive, Stalemate, TimeLimitDraw, NoOpponents, NeutralRule
     }
 
     // Captured only on the authoritative server, and published only after GameOver.
@@ -27,6 +27,10 @@ namespace Thuong.Online
         public readonly RoleType Role;
         public readonly FactionType Faction;
         public readonly bool Alive, VotedOut, Awakened, FoxQualified;
+        public readonly bool HasDeathRecord;
+        public readonly DeathCause DeathCause;
+        public readonly int DeathSourceID;
+        public readonly string QualifiedNeutralLabel;
         public bool IsWhiteHound => Awakened && (Role == RoleType.WhiteHound || Role == RoleType.WhiteWolf);
         public bool IsKiller => Role == RoleType.Killer;
         public bool IsWolf => Faction == FactionType.Monster && !IsWhiteHound && !IsKiller;
@@ -34,10 +38,13 @@ namespace Thuong.Online
             Role != RoleType.FoxSpirit && Role != RoleType.Madman;
 
         public ThuongWinPlayer(int id, string name, int characterIndex, RoleType role, FactionType faction,
-            bool alive, bool votedOut, int loverId, bool awakened, bool foxQualified)
+            bool alive, bool votedOut, int loverId, bool awakened, bool foxQualified,
+            bool hasDeathRecord = false, DeathCause deathCause = default, int deathSourceID = -1, string qualifiedNeutralLabel = null)
         {
             Id = id; Name = name; CharacterIndex = characterIndex; Role = role; Faction = faction;
             Alive = alive; VotedOut = votedOut; LoverId = loverId; Awakened = awakened; FoxQualified = foxQualified;
+            HasDeathRecord = hasDeathRecord; DeathCause = deathCause; DeathSourceID = deathSourceID;
+            QualifiedNeutralLabel = qualifiedNeutralLabel;
         }
     }
 
@@ -48,11 +55,15 @@ namespace Thuong.Online
         public readonly RoleType Role;
         public readonly FactionType Faction;
         public readonly bool Alive, Awakened, Won;
+        public readonly bool HasDeathRecord;
+        public readonly DeathCause DeathCause;
+        public readonly int DeathSourceID;
         public ThuongFinalPlayer(int id, string name, int characterIndex, RoleType role, FactionType faction,
-            bool alive, bool awakened, bool won)
+            bool alive, bool awakened, bool won, bool hasDeathRecord = false, DeathCause deathCause = default, int deathSourceID = -1)
         {
             Id = id; Name = name; CharacterIndex = characterIndex; Role = role; Faction = faction;
             Alive = alive; Awakened = awakened; Won = won;
+            HasDeathRecord = hasDeathRecord; DeathCause = deathCause; DeathSourceID = deathSourceID;
         }
     }
 
@@ -62,19 +73,21 @@ namespace Thuong.Online
         public ThuongWinReason Reason { get; }
         public int Day { get; }
         public GamePhase Phase { get; }
+        public string NeutralWinnerLabel { get; }
         public IReadOnlyList<ThuongFinalPlayer> Players { get; }
         public string WinnerId => Winner switch
         {
             ThuongWinner.Villagers => "Villagers", ThuongWinner.Werewolves => "Werewolves",
             ThuongWinner.Lovers => "Lovers", ThuongWinner.Madman => "Madman",
             ThuongWinner.FoxSpirit => "Fox Spirit", ThuongWinner.WhiteHound => "White Wolf",
-            ThuongWinner.Killer => "Killer", _ => "Draw"
+            ThuongWinner.Killer => "Killer", ThuongWinner.Neutral => NeutralWinnerLabel, _ => "Draw"
         };
 
         public ThuongMatchResult(ThuongWinner winner, ThuongWinReason reason, int day, GamePhase phase,
-            IEnumerable<ThuongFinalPlayer> players)
+            IEnumerable<ThuongFinalPlayer> players, string neutralWinnerLabel = null)
         {
             Winner = winner; Reason = reason; Day = day; Phase = phase;
+            NeutralWinnerLabel = string.IsNullOrWhiteSpace(neutralWinnerLabel) ? "Neutral" : neutralWinnerLabel;
             Players = Array.AsReadOnly(players.OrderBy(player => player.Id).ToArray());
         }
     }
@@ -87,13 +100,18 @@ namespace Thuong.Online
         {
             if (players.Count == 0) return null;
             var alive = players.Where(player => player.Alive).ToArray();
-            ThuongMatchResult Finish(ThuongWinner winner, ThuongWinReason reason, Func<ThuongWinPlayer, bool> wins) =>
+            ThuongMatchResult Finish(ThuongWinner winner, ThuongWinReason reason, Func<ThuongWinPlayer, bool> wins, string neutralLabel = null) =>
                 new(winner, reason, day, phase, players.Select(player => new ThuongFinalPlayer(
                     player.Id, player.Name, player.CharacterIndex, player.Role, player.Faction,
-                    player.Alive, player.Awakened, wins(player))));
+                    player.Alive, player.Awakened, wins(player), player.HasDeathRecord, player.DeathCause, player.DeathSourceID)), neutralLabel);
             ThuongMatchResult Draw(ThuongWinReason reason) => Finish(ThuongWinner.Draw, reason, _ => false);
 
             if (alive.Length == 0) return Draw(ThuongWinReason.NobodyAlive);
+            foreach (var candidate in alive)
+                if (candidate.Faction == FactionType.Neutral && candidate.QualifiedNeutralLabel != null)
+                    return Finish(ThuongWinner.Neutral, ThuongWinReason.NeutralRule,
+                        player => player.Alive && player.Faction == FactionType.Neutral &&
+                            player.QualifiedNeutralLabel == candidate.QualifiedNeutralLabel, candidate.QualifiedNeutralLabel);
             if (dayFinished && day == 1 && players.Any(player => player.Role == RoleType.Madman && !player.Alive && player.VotedOut))
                 return Finish(ThuongWinner.Madman, ThuongWinReason.MadmanVoted,
                     player => player.Role == RoleType.Madman && !player.Alive && player.VotedOut);
@@ -125,7 +143,7 @@ namespace Thuong.Online
                     return Finish(ThuongWinner.Villagers, ThuongWinReason.NoThreats, player => player.IsVillager);
                 if (wolves > 0 && wolves == alive.Length)
                     return Finish(ThuongWinner.Werewolves, ThuongWinReason.NoOpponents, player => player.IsWolf);
-                if (players.Count >= Math.Max(3, settings.minimumPlayersForParity) && wolves > 0 &&
+                if (players.Count >= Math.Max(1, settings.minimumPlayersForParity) && wolves > 0 &&
                     whiteHounds + killers == 0 && wolves >= alive.Length - wolves)
                     return Finish(ThuongWinner.Werewolves, ThuongWinReason.Parity, player => player.IsWolf);
             }
