@@ -233,7 +233,7 @@ public class GameRoleManager : MonoBehaviour
     {
         // Online evaluates standalone deaths in LateUpdate, after all chained deaths.
         if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
-        if (currentPhase == GamePhase.Night && NightManager.Instance != null && NightManager.Instance.PendingActionCount > 0) return;
+        if (currentPhase == GamePhase.Night && NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution) return;
         if (started && HasIntegratedLogic && !resolving)
             WinConditionManager.Instance.CheckWinCondition();
     }

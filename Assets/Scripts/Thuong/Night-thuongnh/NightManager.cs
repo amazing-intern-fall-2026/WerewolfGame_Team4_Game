@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using UnityEngine;
 
 public class NightManager : MonoBehaviour
@@ -11,13 +14,22 @@ public class NightManager : MonoBehaviour
     private int evilNightCount = 0;
     public int CurrentNightNumber => evilNightCount;
     private readonly System.Collections.Generic.List<QueuedAction> actions = new();
+    private readonly List<PeekAction> peekActions = new();
     private int nextActionSequence;
+    private bool bratPeekPending;
     public int PendingActionCount => actions.Count;
+    public bool HasUnresolvedNightResolution => actions.Count > 0 || peekActions.Count > 0 || bratPeekPending ||
+        monsterTarget != -1 || protectedTarget != -1 || killerTarget != -1;
     private sealed class QueuedAction
     {
         public PlayerData actor, target;
         public ThuongRoleDefinition role;
         public int sequence;
+    }
+    private sealed class PeekAction
+    {
+        public int actorID, targetID;
+        public string action;
     }
 
     private void OnDestroy() { if (Instance == this) Instance = null; }
@@ -25,6 +37,8 @@ public class NightManager : MonoBehaviour
     public void ClearActions()
     {
         actions.Clear();
+        peekActions.Clear();
+        bratPeekPending = false;
         nextActionSequence = 0;
         monsterTarget = protectedTarget = killerTarget = -1;
         monsterSourceRole = RoleType.DogSpirit;
@@ -58,6 +72,8 @@ public class NightManager : MonoBehaviour
     public void StartNight()
     {
         actions.Clear();
+        peekActions.Clear();
+        bratPeekPending = false;
         nextActionSequence = 0;
         monsterTarget = -1;
         monsterSourceRole = RoleType.DogSpirit;
@@ -99,6 +115,78 @@ public class NightManager : MonoBehaviour
     {
         killerTarget = id;
     }
+
+    public void RecordSubmittedAction(PlayerData actor, int targetID, string action)
+    {
+        if (actor == null || GameRoleManager.Instance?.currentPhase != GamePhase.Night)
+            return;
+
+        peekActions.Add(new PeekAction
+        {
+            actorID = actor.playerID,
+            targetID = targetID,
+            action = action
+        });
+    }
+
+    public void MarkBratPeekSubmitted() => bratPeekPending = true;
+
+    public string BuildPeekReport()
+    {
+        var entries = new List<string>();
+        foreach (QueuedAction action in actions.OrderBy(action => action.sequence))
+        {
+            string actor = action.actor != null ? PlayerLabel(action.actor.playerID) : "P?";
+            string target = action.target != null ? PlayerLabel(action.target.playerID) : "P?";
+            string ability = action.role != null ? ActionLabel(action.role.roleType.ToString()) : "Kỹ năng";
+            entries.Add($"{actor} {ability}>{target}");
+        }
+
+        foreach (PeekAction action in peekActions)
+            entries.Add($"{PlayerLabel(action.actorID)} {ActionLabel(action.action)}>{PlayerLabel(action.targetID)}");
+
+        AddUnrecordedTarget(entries, monsterTarget, "Sói", monsterSourceRole);
+        AddUnrecordedTarget(entries, protectedTarget, "Bảo vệ", RoleType.VillageGuardian);
+        AddUnrecordedTarget(entries, killerTarget, "Sát nhân", RoleType.Killer);
+
+        if (entries.Count == 0)
+            return "Chưa có hành động nào được ghi nhận trong đêm này.";
+
+        var report = new StringBuilder("HÀNH ĐỘNG ĐÊM (P = Player)\n");
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (i > 0) report.Append('\n');
+            report.Append(entries[i]);
+        }
+        return report.ToString();
+    }
+
+    private void AddUnrecordedTarget(List<string> entries, int targetID, string action, RoleType role)
+    {
+        if (targetID < 0 || peekActions.Any(item => item.targetID == targetID && item.action == role.ToString()))
+            return;
+
+        entries.Add($"{action} → {PlayerLabel(targetID)}");
+    }
+
+    private static string PlayerLabel(int playerID) => $"P{playerID + 1}";
+
+    private static string ActionLabel(string role) => role switch
+    {
+        nameof(RoleType.DogSpirit) => "Sói",
+        nameof(RoleType.SerpentSpirit) => "Xà",
+        nameof(RoleType.Ogre) => "Quỷ",
+        nameof(RoleType.Seer) => "Tiên tri",
+        nameof(RoleType.VillageGuardian) => "Bảo vệ",
+        nameof(RoleType.Shaman) => "Pháp sư",
+        nameof(RoleType.WhiteHound) => "Bạch khuyển",
+        nameof(RoleType.Cursed) => "Nguyền",
+        nameof(RoleType.FoxSpirit) => "Hồ ly",
+        nameof(RoleType.Killer) => "Sát nhân",
+        nameof(RoleType.WeaverOfFate) => "Dệt duyên",
+        nameof(RoleType.Hunter) => "Thợ săn",
+        _ => role
+    };
 
     public void ResolveNight()
     {
@@ -149,6 +237,8 @@ public class NightManager : MonoBehaviour
         monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
+        peekActions.Clear();
+        bratPeekPending = false;
     }
 
     public void ResolveAbility(PlayerData actor, PlayerData target, ThuongRoleDefinition role) =>

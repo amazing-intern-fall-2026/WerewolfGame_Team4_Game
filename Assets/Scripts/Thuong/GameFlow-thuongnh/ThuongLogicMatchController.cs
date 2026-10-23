@@ -128,7 +128,7 @@ public sealed class ThuongLogicMatchController : MonoBehaviour
 
     private void HandleDeathBatch()
     {
-        if (phaseController.currentPhase == GamePhase.Night && nightSystem.PendingActionCount > 0) return;
+        if (phaseController.currentPhase == GamePhase.Night && nightSystem.HasUnresolvedNightResolution) return;
         if (IsMatchRunning && !resolving) EvaluateWin();
     }
     private void EvaluateWin()

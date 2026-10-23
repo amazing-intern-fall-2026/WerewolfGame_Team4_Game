@@ -436,7 +436,7 @@ public static class ThuongOnlineChecks
             reader.ReadValueSafe(out int capacity); reader.ReadValueSafe(out ushort count);
             Require(capacity == 25, "Lobby capacity synchronized"); peer.RosterCount = count;
         });
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v3", (_, reader) =>
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v4", (_, reader) =>
         {
             reader.ReadValueSafe(out int player); reader.ReadValueSafe(out byte role); reader.ReadValueSafe(out byte faction);
             Require(RoleCatalog.AllConcreteRoles.Contains((RoleType)role), "Private role uses playable implementation");

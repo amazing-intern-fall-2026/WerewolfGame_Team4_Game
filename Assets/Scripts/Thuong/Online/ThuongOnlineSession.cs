@@ -933,7 +933,7 @@ namespace Thuong.Online
             writer.WriteValueSafe((byte)player.faction);
             writer.WriteValueSafe(flags);
             writer.WriteValueSafe(votedTarget);
-            FixedString128Bytes text = Fixed128(feedback);
+            FixedString512Bytes text = Fixed512(feedback);
             writer.WriteValueSafe(text);
             WritePrivateLogic(writer, player, allowedTargets);
             network.CustomMessagingManager.SendNamedMessage(
@@ -948,7 +948,7 @@ namespace Thuong.Online
             reader.ReadValueSafe(out byte faction);
             reader.ReadValueSafe(out ushort flags);
             reader.ReadValueSafe(out int votedTarget);
-            reader.ReadValueSafe(out FixedString128Bytes feedback);
+            reader.ReadValueSafe(out FixedString512Bytes feedback);
             if (!ReadPrivateLogic(reader)) return;
             privateFlags = flags; localVotedTarget = votedTarget;
             localPlayerId = playerId;
@@ -1053,8 +1053,13 @@ namespace Thuong.Online
                     accepted = TryCompleteTask(member, actor, argument, out feedback);
                     break;
                 case ThuongOnlineAction.NightAbility:
-                    accepted = RoleManager.Instance != null &&
-                               RoleManager.Instance.UseNightAbility(actor.playerID, argument, out feedback);
+                    if (actor.roleType == RoleType.Brat && roles != null &&
+                        roles.playerRoles.TryGetValue(actor.playerID, out BaseRole bratBaseRole) &&
+                        bratBaseRole is BratRole brat)
+                        accepted = brat.TryPeek(out feedback);
+                    else
+                        accepted = RoleManager.Instance != null &&
+                                   RoleManager.Instance.UseNightAbility(actor.playerID, argument, out feedback);
                     break;
                 case ThuongOnlineAction.ShamanGoodCharm:
                 case ThuongOnlineAction.ShamanBadCharm:
@@ -1518,6 +1523,7 @@ namespace Thuong.Online
 
         private static FixedString64Bytes Fixed64(string value) => new(TrimUtf8(value ?? string.Empty, 60));
         private static FixedString128Bytes Fixed128(string value) => new(TrimUtf8(value ?? string.Empty, 120));
+        private static FixedString512Bytes Fixed512(string value) => new(TrimUtf8(value ?? string.Empty, 500));
 
         private static string TrimUtf8(string value, int maxBytes)
         {

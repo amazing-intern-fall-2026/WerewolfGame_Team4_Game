@@ -243,7 +243,7 @@ public static class ThuongOnlineLogicChecks
         Set(proxy, "eventPresentation", root.AddComponent<ThuongEventPresentation>());
         void Handle(string method, ulong sender, FastBufferReader reader)
         { try { Call(proxy, method, sender, reader); } catch (Exception error) { callbackError = error; } }
-        peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v3", (sender, reader) => Handle("ReceivePrivateState", sender, reader));
+        peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v4", (sender, reader) => Handle("ReceivePrivateState", sender, reader));
         peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v6", (sender, reader) => Handle("ReceiveSnapshot", sender, reader));
         peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v3", (sender, reader) => Handle("ReceiveRoster", sender, reader));
         return proxy;

@@ -59,7 +59,7 @@ namespace Thuong.Online
         public const string Action = "thuong.online.action.v3";
         public const string Roster = "thuong.online.roster.v3";
         public const string Snapshot = "thuong.online.snapshot.v6";
-        public const string PrivateState = "thuong.online.private.v3";
+        public const string PrivateState = "thuong.online.private.v4";
     }
 
     internal sealed class ThuongOnlineAvatar

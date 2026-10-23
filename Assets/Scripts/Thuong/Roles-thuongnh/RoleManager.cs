@@ -130,6 +130,7 @@ public class RoleManager : MonoBehaviour
 
         if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
+        NightManager.Instance?.RecordSubmittedAction(role.owner, targetID, role.roleType.ToString());
         role.owner.hasUseNightAction = role is not FoxSpiritRole foxSpirit ||
                                        foxSpirit.HasUsedAllNightActions;
         if (ThuongLogicSceneScope.IsActive) role.owner.NotifyChanged();
@@ -137,7 +138,7 @@ public class RoleManager : MonoBehaviour
     }
 
     public static bool UsesConfiguredAbility(PlayerData player) =>
-        player?.roleDefinition != null && !player.roleDefinition.useLegacyAbility;
+        player?.roleType != RoleType.Brat && player?.roleDefinition != null && !player.roleDefinition.useLegacyAbility;
 
     private void NotifyAliveRoles(System.Action<BaseRole> callback)
     {
