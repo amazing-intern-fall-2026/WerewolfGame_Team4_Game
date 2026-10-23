@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Phase 1 extension point only; concrete neutral rules belong to Phase 12.
+// Shared asset contract for a neutral role's own victory condition.
 public abstract class NeutralWinRule : ScriptableObject
 {
     public abstract bool IsSatisfied(PlayerData candidate, IReadOnlyList<PlayerData> allPlayers);

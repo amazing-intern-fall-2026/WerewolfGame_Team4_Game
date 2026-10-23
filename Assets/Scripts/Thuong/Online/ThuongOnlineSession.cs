@@ -101,11 +101,12 @@ namespace Thuong.Online
 
         private void PrepareScene()
         {
-            game = FindAnyObjectByType<GameRoleManager>();
-            players = FindAnyObjectByType<PlayerManager>();
-            roles = FindAnyObjectByType<RoleManager>();
-            tasks = FindAnyObjectByType<TaskManager>();
-            worldCamera = FindAnyObjectByType<ThuongTopDownCamera>();
+            game = SceneComponent<GameRoleManager>();
+            players = SceneComponent<PlayerManager>();
+            roles = SceneComponent<RoleManager>();
+            tasks = SceneComponent<TaskManager>();
+            worldCamera = SceneComponent<ThuongTopDownCamera>();
+            PrepareOnlineLogic();
 
             if (game != null)
             {
@@ -120,9 +121,9 @@ namespace Thuong.Online
                 players.players.Clear();
             }
 
-            foreach (PrototypeControls controls in FindObjectsByType<PrototypeControls>())
+            foreach (PrototypeControls controls in SceneComponents<PrototypeControls>())
                 controls.enabled = false;
-            foreach (ThuongFourRoleOfflineTest test in FindObjectsByType<ThuongFourRoleOfflineTest>())
+            foreach (ThuongFourRoleOfflineTest test in SceneComponents<ThuongFourRoleOfflineTest>())
                 test.enabled = false;
             PreparePresentation();
             PrepareOnlineWinRules();
@@ -135,7 +136,7 @@ namespace Thuong.Online
                     station.marker.SetActive(false);
             }
 
-            ThuongTopDownCharacter character = FindAnyObjectByType<ThuongTopDownCharacter>();
+            ThuongTopDownCharacter character = SceneComponent<ThuongTopDownCharacter>();
             if (character != null)
             {
                 characterCast = character.cast;
@@ -233,7 +234,7 @@ namespace Thuong.Online
             if (!payload.StartsWith(BuildPrefix, StringComparison.Ordinal))
             {
                 response.Approved = false;
-                response.Reason = "Khác phiên bản game. Cần bản hỗ trợ map/event protocol v5.";
+                response.Reason = "Khác phiên bản game. Host và người chơi cần cùng bản Thương Online mới.";
                 response.Pending = false;
                 return;
             }
@@ -428,7 +429,7 @@ namespace Thuong.Online
             SetGameplayHudVisible(false);
             ResetEndgamePresentation();
             if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
-            if (scopedWinManager != null) scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
+            RemoveOnlineWinRules();
             RestoreOtherGameOverManager();
             try
             {
@@ -623,6 +624,7 @@ namespace Thuong.Online
             }
 
             roomLocked = true;
+            matchEpoch++;
             rolesAssigned = true;
             matchStarted = false;
             localRoleCardOpen = false;
@@ -710,6 +712,7 @@ namespace Thuong.Online
 
             using var writer = new FastBufferWriter(8192, Allocator.Temp);
             writer.WriteValueSafe(snapshotRevision);
+            writer.WriteValueSafe(matchEpoch);
             writer.WriteValueSafe(matchStarted);
             writer.WriteValueSafe(rolesAssigned);
             WriteWinSettings(writer);
@@ -795,6 +798,8 @@ namespace Thuong.Online
             reader.ReadValueSafe(out uint revision);
             if (revision <= snapshotRevision) return;
             snapshotRevision = revision;
+            reader.ReadValueSafe(out uint epoch);
+            if (epoch != matchEpoch) ResetReplicatedRound(epoch);
             reader.ReadValueSafe(out matchStarted);
             reader.ReadValueSafe(out rolesAssigned);
             ReadWinSettings(reader);
@@ -889,14 +894,16 @@ namespace Thuong.Online
             ushort flags = 0;
             if (player.isAlive) flags |= 1;
             if (player.hasVoted) flags |= 2;
-            if (player.hasUseNightAction) flags |= 4;
+            bool configured = RoleManager.UsesConfiguredAbility(player);
+            if (configured ? game.abilities.ValidateActor(player).FailureReason == ActionFailureReason.AlreadyUsed : player.hasUseNightAction) flags |= 4;
             if (player.CanVote) flags |= 32;
             if (player.HasEffect(StatusEffectType.Silenced)) flags |= 64;
             if (player.isWhiteHoundAwakened) flags |= 128;
             if (member.RevealRead) flags |= 2048;
+            if (configured && player.roleDefinition.abilityType != AbilityType.None) flags |= 8;
             if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role))
             {
-                if (role.HasNightAbility || role is WeaverOfFateRole) flags |= 8;
+                if (!configured && (role.HasNightAbility || role is WeaverOfFateRole)) flags |= 8;
                 if (role is HunterRole && !player.isAlive && player.hasHunterTrap) flags |= 16;
                 if (role is ShamanRole shaman)
                 {
@@ -906,6 +913,7 @@ namespace Thuong.Online
                 if (role is WeaverOfFateRole weaver && weaver.HasUsedAbility) flags |= 1024;
             }
             int votedTarget = VoteManager.Instance != null ? VoteManager.Instance.GetVotedTarget(player.playerID) : -1;
+            int[] allowedTargets = AllowedTargets(player);
 
             if (network.IsHost && clientId == network.LocalClientId)
             {
@@ -913,12 +921,13 @@ namespace Thuong.Online
                 privateRole = player.roleType;
                 privateFaction = player.faction;
                 privateFlags = flags;
+                CaptureLocalLogic(player, allowedTargets);
                 privateStateReceived = true;
                 localVotedTarget = votedTarget;
                 localActionFeedback = feedback ?? string.Empty;
             }
 
-            using var writer = new FastBufferWriter(256, Allocator.Temp);
+            using var writer = new FastBufferWriter(4096, Allocator.Temp);
             writer.WriteValueSafe(member.PlayerId);
             writer.WriteValueSafe((byte)player.roleType);
             writer.WriteValueSafe((byte)player.faction);
@@ -926,8 +935,9 @@ namespace Thuong.Online
             writer.WriteValueSafe(votedTarget);
             FixedString128Bytes text = Fixed128(feedback);
             writer.WriteValueSafe(text);
+            WritePrivateLogic(writer, player, allowedTargets);
             network.CustomMessagingManager.SendNamedMessage(
-                ThuongOnlineMessages.PrivateState, clientId, writer);
+                ThuongOnlineMessages.PrivateState, clientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
         }
 
         private void ReceivePrivateState(ulong sender, FastBufferReader reader)
@@ -936,9 +946,11 @@ namespace Thuong.Online
             reader.ReadValueSafe(out int playerId);
             reader.ReadValueSafe(out byte role);
             reader.ReadValueSafe(out byte faction);
-            reader.ReadValueSafe(out privateFlags);
-            reader.ReadValueSafe(out localVotedTarget);
+            reader.ReadValueSafe(out ushort flags);
+            reader.ReadValueSafe(out int votedTarget);
             reader.ReadValueSafe(out FixedString128Bytes feedback);
+            if (!ReadPrivateLogic(reader)) return;
+            privateFlags = flags; localVotedTarget = votedTarget;
             localPlayerId = playerId;
             privateRole = (RoleType)role;
             privateFaction = (FactionType)faction;
@@ -975,11 +987,12 @@ namespace Thuong.Online
             uint id = requestId++;
             if (network.IsServer && network.LocalClientId == NetworkManager.ServerClientId)
             {
-                ApplyServerAction(network.LocalClientId, id, action, argument, secondArgument, visibleDay, visiblePhase);
+                ApplyServerAction(network.LocalClientId, id, action, argument, secondArgument, visibleDay, visiblePhase, matchEpoch);
                 return;
             }
             using var writer = new FastBufferWriter(32, Allocator.Temp);
             writer.WriteValueSafe(id);
+            writer.WriteValueSafe(matchEpoch);
             writer.WriteValueSafe((byte)action);
             writer.WriteValueSafe(argument);
             writer.WriteValueSafe(secondArgument);
@@ -993,18 +1006,20 @@ namespace Thuong.Online
         {
             if (!network.IsServer) return;
             reader.ReadValueSafe(out uint id);
+            reader.ReadValueSafe(out uint epoch);
             reader.ReadValueSafe(out byte action);
             reader.ReadValueSafe(out int argument);
             reader.ReadValueSafe(out int secondArgument);
             reader.ReadValueSafe(out int day);
             reader.ReadValueSafe(out byte phase);
-            ApplyServerAction(sender, id, (ThuongOnlineAction)action, argument, secondArgument, day, (GamePhase)phase);
+            ApplyServerAction(sender, id, (ThuongOnlineAction)action, argument, secondArgument, day, (GamePhase)phase, epoch);
         }
 
         private void ApplyServerAction(ulong sender, uint id, ThuongOnlineAction action, int argument,
-            int secondArgument, int day, GamePhase phase)
+            int secondArgument, int day, GamePhase phase, uint epoch)
         {
             if (!rolesAssigned || !serverPlayers.TryGetValue(sender, out ThuongOnlineServerPlayer member)) return;
+            if (epoch != matchEpoch) { Reply(member, "Thao tác thuộc ván cũ. Hãy chọn lại."); return; }
             if (matchResult != null || game != null && game.currentState == GameState.GameOver)
             { Reply(member, "Ván đã kết thúc. Không thể thực hiện thêm thao tác."); return; }
             if (id <= member.LastRequestId) return;
@@ -1050,8 +1065,10 @@ namespace Thuong.Online
                     accepted = TrySetHunterTrap(actor, argument, out feedback);
                     break;
                 case ThuongOnlineAction.Vote:
-                    accepted = VoteManager.Instance != null && VoteManager.Instance.TryVote(actor.playerID, argument);
-                    feedback = accepted ? "Đã ghi nhận phiếu bầu." : "Phiếu bầu không hợp lệ.";
+                    var vote = VoteManager.Instance != null ? VoteManager.Instance.ValidateVote(actor.playerID, argument)
+                        : ActionValidationResult.Fail(ActionFailureReason.MatchNotRunning, "Chưa có hệ thống bỏ phiếu.");
+                    accepted = vote.IsValid && VoteManager.Instance.TryVote(actor.playerID, argument);
+                    feedback = accepted ? "Đã ghi nhận phiếu bầu." : vote.Message;
                     break;
                 default:
                     feedback = "Yêu cầu không được hỗ trợ.";
@@ -1352,6 +1369,8 @@ namespace Thuong.Online
             localRoleConfirmed = false;
             privateStateReceived = false;
             privateFlags = 0;
+            matchEpoch = privateMatchEpoch = 0;
+            localEffects.Clear(); localAllowedTargets.Clear();
             localVotedTarget = -1;
             inputSequence = 0;
             requestId = 1;
@@ -1514,7 +1533,8 @@ namespace Thuong.Online
             ClearMapPresentation();
             ResetMinigames();
             if (Active == this) Active = null;
-            if (scopedWinManager != null) scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
+            if (game != null) game.PhaseChanged -= HandleOnlineLogicPhaseChanged;
+            RemoveOnlineWinRules();
             RestoreOtherGameOverManager();
             if (endgameCanvas != null) Destroy(endgameCanvas.gameObject);
             if (observedVoteManager != null) observedVoteManager.VoteResolved -= HandleVoteResolved;

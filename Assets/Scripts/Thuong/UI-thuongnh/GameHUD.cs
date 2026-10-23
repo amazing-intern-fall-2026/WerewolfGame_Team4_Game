@@ -72,6 +72,9 @@ public class GameHUD : MonoBehaviour
         var roster = GetComponent<ThuongMeetingRosterUI>() ?? gameObject.AddComponent<ThuongMeetingRosterUI>();
         roster.Initialize(this);
         CreateGameplayFeedback();
+        var results = GetComponent<ThuongMatchResultUI>() ?? gameObject.AddComponent<ThuongMatchResultUI>();
+        results.Initialize(phaseText != null ? phaseText.font : null, null);
+        ObserveGameplay();
     }
     private void OnDestroy()
     {
@@ -103,7 +106,28 @@ public class GameHUD : MonoBehaviour
     }
     private void HandleAbility(AbilityResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
     private void HandleDeath(DeathResult result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
-    private void HandleVote(VoteResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.Message; }
+    private void HandleVote(VoteResolution result) { if (gameplayFeedback != null) gameplayFeedback.text = result.BuildSummary(); }
+    private void ObserveGameplay()
+    {
+        if (observedAbilities != AbilitySystem.Instance)
+        {
+            if (observedAbilities != null) observedAbilities.AbilityResolved -= HandleAbility;
+            observedAbilities = AbilitySystem.Instance;
+            if (observedAbilities != null) observedAbilities.AbilityResolved += HandleAbility;
+        }
+        if (observedDeaths != DeathResolver.Instance)
+        {
+            if (observedDeaths != null) observedDeaths.DeathResolved -= HandleDeath;
+            observedDeaths = DeathResolver.Instance;
+            if (observedDeaths != null) observedDeaths.DeathResolved += HandleDeath;
+        }
+        if (observedVotes != VoteManager.Instance)
+        {
+            if (observedVotes != null) observedVotes.VoteResolved -= HandleVote;
+            observedVotes = VoteManager.Instance;
+            if (observedVotes != null) observedVotes.VoteResolved += HandleVote;
+        }
+    }
     public void SetOnlineFeedback(string phase, string message)
     {
         if (phaseCueText != null) phaseCueText.text = phase;
@@ -350,6 +374,7 @@ public class GameHUD : MonoBehaviour
             return;
         }
         var game = GameRoleManager.Instance;
+        ObserveGameplay();
         var tasks = TaskManager.Instance;
         if (game == null || tasks == null) return;
         if (progressSlider != null)

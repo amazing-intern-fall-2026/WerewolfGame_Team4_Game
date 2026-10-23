@@ -15,16 +15,18 @@ namespace Thuong.Online
     {
         public static ThuongOnlineSession Active { get; private set; }
         public bool MatchStarted => matchStarted;
-        public bool HasLocalRole => rolesAssigned && privateStateReceived;
+        public bool HasLocalRole => rolesAssigned && privateStateReceived && privateMatchEpoch == matchEpoch;
         public bool RolesAssigned => rolesAssigned;
         public bool ShowRoleCard => HasLocalRole && !matchStarted && localRoleCardOpen;
         public int LocalPlayerId => localPlayerId;
         public GameState VisibleState => visibleState;
         public float PhaseTimeRemaining => visibleRemaining;
-        public string Feedback => string.IsNullOrEmpty(localActionFeedback) ? status : localActionFeedback;
+        public string Feedback => (string.IsNullOrEmpty(localActionFeedback) ? status : localActionFeedback) +
+            (string.IsNullOrEmpty(LocalStatusSummary) ? "" : "\n" + LocalStatusSummary);
         public bool HasReadRole => (privateFlags & 2048) != 0;
         public bool HasGoodCharm => (privateFlags & 256) != 0;
         public bool HasBadCharm => (privateFlags & 512) != 0;
+        public bool HasActiveLocalAbility => HasLocalRole && (privateFlags & 8) != 0;
         public bool CanSetHunterTrap => HasLocalRole && visibleState == GameState.Discussion && (privateFlags & 16) != 0;
 
         private GameHUD sceneHud;
@@ -49,7 +51,7 @@ namespace Thuong.Online
 
         private void PreparePresentation()
         {
-            sceneHud = FindAnyObjectByType<GameHUD>(FindObjectsInactive.Include);
+            sceneHud = SceneComponent<GameHUD>();
             if (sceneHud == null) return;
             sceneHud.gameObject.SetActive(true);
             sceneHud.enabled = true;
@@ -113,7 +115,8 @@ namespace Thuong.Online
             else if (CanSetHunterTrap) { reason = "Chọn mục tiêu cho bẫy."; return true; }
             else if ((privateFlags & 1) == 0) reason = "Bạn đã bị loại.";
             else if ((privateFlags & 8) == 0) reason = "Vai trò này có kỹ năng nội tại.";
-            else if (visibleState != GameState.Night) reason = "Kỹ năng chỉ dùng được vào ban đêm.";
+            else if (visiblePhase != localAbilityPhase) reason = localAbilityPhase == GamePhase.Night
+                ? "Kỹ năng chỉ dùng được vào ban đêm." : "Hiện không phải giai đoạn dùng kỹ năng này.";
             else if ((privateFlags & 64) != 0) reason = "Bạn đang bị khóa kỹ năng.";
             else if ((privateFlags & 4) != 0) reason = "Bạn đã dùng kỹ năng trong đêm này.";
             else if (privateRole == RoleType.WhiteHound && (privateFlags & 128) == 0) reason = "Sói Trắng chưa thức tỉnh.";
@@ -132,14 +135,17 @@ namespace Thuong.Online
         private bool TryMakeLovers(PlayerData actor, int first, int second, out string feedback)
         {
             feedback = "Không thể dùng Dệt Duyên.";
-            if (actor.roleType != RoleType.WeaverOfFate || actor.HasEffect(StatusEffectType.Silenced) ||
+            if (!actor.isAlive || game.currentPhase != GamePhase.Night || actor.hasUseNightAction ||
+                actor.roleType != RoleType.WeaverOfFate || actor.HasEffect(StatusEffectType.Silenced) ||
                 !roles.playerRoles.TryGetValue(actor.playerID, out BaseRole role) || !(role is WeaverOfFateRole weaver)) return false;
-            return weaver.TryMakeLovers(first, second, out feedback);
+            if (!weaver.TryMakeLovers(first, second, out feedback)) return false;
+            actor.NotifyChanged(); players.GetplayerByID(first)?.NotifyChanged(); players.GetplayerByID(second)?.NotifyChanged();
+            return true;
         }
 
         private void ApplyLocalPrivateData()
         {
-            if (!privateStateReceived || network.IsServer) return;
+            if (!HasLocalRole || network.IsServer) return;
             PlayerData local = players?.GetplayerByID(localPlayerId);
             if (local == null) return; // Private state can arrive before the public roster.
             local.roleType = privateRole;
@@ -149,6 +155,11 @@ namespace Thuong.Online
             local.hasUseNightAction = (privateFlags & 4) != 0;
             local.hasHunterTrap = (privateFlags & 16) != 0;
             local.isWhiteHoundAwakened = (privateFlags & 128) != 0;
+            local.useNetworkCanVote = true; local.networkCanVote = (privateFlags & 32) != 0;
+            local.votePower = localBaseVotePower;
+            local.effects = localEffects.Select(effect => new StatusEffectInstance(effect.Type, effect.Strength,
+                effect.RemainingTicks, effect.TickOnPhase)).ToList();
+            local.isCursed = local.HasEffect(StatusEffectType.Cursed);
         }
 
         private void ObserveVoteResults()
@@ -281,7 +292,7 @@ namespace Thuong.Online
                     : (privateFlags & 1) == 0 ? "Bạn đã bị loại và không thể bỏ phiếu."
                     : (privateFlags & 32) == 0 ? "Bạn đang bị cấm bỏ phiếu."
                     : (privateFlags & 2) != 0 ? $"Đã chọn P{localVotedTarget + 1:00}. Đang chờ kết quả."
-                    : "Chọn một người còn sống. Mỗi người bỏ phiếu một lần.";
+                    : $"Bạn có {LocalVoteWeight} phiếu. Chọn một người còn sống.";
             if (closeVoteResult != null) closeVoteResult.gameObject.SetActive(ShowingVoteResult);
             if (reopenVoteResult != null) reopenVoteResult.gameObject.SetActive(voteResultRevision > 0 && !meeting && visibleState != GameState.GameOver);
             // Online has a personal result overlay. The offline result panel stays unchanged.

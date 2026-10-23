@@ -6,9 +6,9 @@ namespace Thuong.Minigames
 {
     public static class ThuongMinigameWire
     {
-        public const string Request = "thuong.minigame.request.v1";
-        public const string State = "thuong.minigame.state.v1";
-        public const int RequestBytes = 30;
+        public const string Request = "thuong.minigame.request.v2";
+        public const string State = "thuong.minigame.state.v2";
+        public const int RequestBytes = 34;
 
         public static void Write(FastBufferWriter writer, ThuongMinigameState s)
         {
