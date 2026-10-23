@@ -45,6 +45,7 @@ public class TaskManager : MonoBehaviour
             PlayerManager.Instance == null || !PlayerManager.Instance.IsAlive(playerID) ||
             task == null || !currentTasks.Contains(task) || !completed.Add(task)) return false;
         progress = Mathf.Clamp(progress + Mathf.Max(0, task.progressValue), 0, 100);
+        WinConditionManager.Instance?.NotifyMatchStateChanged();
         if (progress >= 100) GameRoleManager.Instance.VillagerWin();
         return true;
     }

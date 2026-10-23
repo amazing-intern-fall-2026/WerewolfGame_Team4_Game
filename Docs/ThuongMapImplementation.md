@@ -45,7 +45,7 @@ trong bước connection approval.
   `(0, 0.12)`, skin 0,003; tối đa bốn lần xử lý trượt trong mỗi bước.
   Chỉ truy vấn obstacle của definition; không truy vấn collider người chơi hoặc
   local physics scene của minigame. Các BoxCollider2D trong prefab dùng cùng footprint.
-- Snapshot: `thuong.online.snapshot.v5`; roster: `thuong.online.roster.v3`.
+- Snapshot: `thuong.online.snapshot.v6`; roster: `thuong.online.roster.v3`. Logic online bổ sung mã ván và dữ liệu kết quả; xem `ThuongOnlineLogicIntegration.md`.
   Header thêm map ID/revision/epoch, event content revision 2, biến thể event/ngày.
   Biến thể được công khai ngay trong lobby; không gửi role bí mật trong header.
 - Map-ready: `thuong.online.map-ready.v1`. Đổi map vô hiệu hóa ack cũ; gói ack

@@ -1,7 +1,7 @@
 public enum ActionFailureReason
 {
     None, MatchNotRunning, ActorMissing, ActorDead, RoleMissing, NoAbility, WrongPhase,
-    AlreadyUsed, Silenced, TargetMissing, TargetDead, SelfTargetForbidden, FactionForbidden, RepeatedTarget
+    AlreadyUsed, Silenced, TargetMissing, TargetDead, SelfTargetForbidden, FactionForbidden, RepeatedTarget, CannotVote
 }
 
 public readonly struct ActionValidationResult
@@ -53,6 +53,24 @@ public static class TargetValidator
 
 public static class AbilityValidator
 {
+    public static ActionValidationResult ValidateLegacyActor(GameRoleManager game, BaseRole role)
+    {
+        if (game == null || game.currentState == GameState.GameOver)
+            return ActionValidationResult.Fail(ActionFailureReason.MatchNotRunning, "Trận chưa bắt đầu hoặc đã kết thúc.");
+        var actor = role?.owner;
+        if (actor == null || ThuongLogicSceneScope.IsActive && PlayerManager.Instance?.GetplayerByID(actor.playerID) != actor)
+            return ActionValidationResult.Fail(ActionFailureReason.ActorMissing, "Người dùng không thuộc trận hiện tại.");
+        if (!actor.isAlive) return ActionValidationResult.Fail(ActionFailureReason.ActorDead, "Người đã chết không thể dùng kỹ năng.");
+        if (!role.HasNightAbility) return ActionValidationResult.Fail(ActionFailureReason.NoAbility, "Role không có kỹ năng chủ động.");
+        if (ThuongLogicSceneScope.IsActive ? game.currentPhase != GamePhase.Night : game.currentState != GameState.Night)
+            return ActionValidationResult.Fail(ActionFailureReason.WrongPhase, "Chỉ có thể dùng kỹ năng trong Night Phase.");
+        if (actor.HasEffect(StatusEffectType.Silenced))
+            return ActionValidationResult.Fail(ActionFailureReason.Silenced, "Người chơi đang bị Silenced.");
+        if (actor.hasUseNightAction)
+            return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Kỹ năng đã được dùng trong đêm này.");
+        return ActionValidationResult.Success();
+    }
+
     public static ActionValidationResult Validate(bool running, GamePhase phase, PlayerData actor, PlayerData target, int uses)
     {
         if (!running) return ActionValidationResult.Fail(ActionFailureReason.MatchNotRunning, "Trận chưa bắt đầu hoặc đã kết thúc.");

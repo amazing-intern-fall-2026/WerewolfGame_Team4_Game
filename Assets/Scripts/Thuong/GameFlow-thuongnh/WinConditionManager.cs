@@ -2,6 +2,8 @@
 public class WinConditionManager : MonoBehaviour
 {
     public static WinConditionManager Instance;
+    public event System.Action MatchStateChanged;
+    public void NotifyMatchStateChanged() => MatchStateChanged?.Invoke();
     [SerializeField, Min(1)] private int maxDay = 7;
     public int MaxDay => maxDay;
     [SerializeField] private bool useEliminationWin = false;
@@ -22,13 +24,14 @@ public class WinConditionManager : MonoBehaviour
         matchEvaluator = null;
     }
     private void Awake() { Instance = this; }
+    private void OnDestroy() { if (Instance == this) Instance = null; }
     public void CheckWinCondition() { CheckWinCondition(false); }
     public void CheckWinCondition(bool dayFinished)
     {
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
         if (HasMatchEvaluator(game)) { matchEvaluator(dayFinished); return; }
-        if (game.manualLogicPrototype) { EvaluateLogicPrototype(game); return; }
+        if (game.manualLogicPrototype || game.HasIntegratedLogic) { EvaluateIntegrated(game, dayFinished); return; }
 
         if (dayFinished && game.currentDay == 1 &&
             PlayerManager.Instance != null &&
@@ -147,24 +150,30 @@ public class WinConditionManager : MonoBehaviour
                secondAlive.loverID == firstAlive.playerID;
     }
 
-    private void EvaluateLogicPrototype(GameRoleManager game)
+    private void EvaluateIntegrated(GameRoleManager game, bool dayFinished)
     {
         if (PlayerManager.Instance?.players == null) return;
-        int alive = 0, wolves = 0, village = 0;
-        foreach (var player in PlayerManager.Instance.GetAlivePlayers())
+        var state = new System.Collections.Generic.List<Thuong.Online.ThuongWinPlayer>();
+        foreach (var player in PlayerManager.Instance.players)
         {
-            alive++;
-            if (player.faction == FactionType.Monster) wolves++;
-            if (player.faction == FactionType.Villager) village++;
+            if (player == null) continue;
             var rule = player.roleDefinition?.neutralWinRule;
             if (player.faction == FactionType.Neutral && rule != null &&
                 rule.IsSatisfied(player, PlayerManager.Instance.players))
-            { game.EndLogicGame(rule.BuildWinMessage(player)); return; }
+            { game.FinishLocalMatch(rule.BuildWinMessage(player)); return; }
+            bool foxQualified = RoleManager.Instance != null &&
+                RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out var role) &&
+                role is FoxSpiritRole fox && fox.HasWon;
+            state.Add(new Thuong.Online.ThuongWinPlayer(player.playerID, player.DisplayName, 0,
+                player.roleType, player.faction, player.isAlive, player.wasVotedOut,
+                player.loverID, player.isWhiteHoundAwakened, foxQualified));
         }
-        if (alive == 0) game.EndLogicGame("Draw");
-        else if (wolves == 0 && village > 0) game.VillagerWin();
-        else if (wolves == 0 && village == 0) game.EndLogicGame("Neutral");
-        else if (wolves >= alive - wolves) game.WerewolfWin();
+        var settings = new Thuong.Online.ThuongOnlineWinSettings
+        { eliminationWin = true, minimumPlayersForParity = 1 };
+        var outcome = Thuong.Online.ThuongMatchOutcome.Evaluate(state, settings, game.currentDay,
+            game.currentPhase, game.manualLogicPrototype ? 0 : TaskManager.Instance != null ? TaskManager.Instance.progress : 0,
+            maxDay, dayFinished || game.currentPhase == GamePhase.DayResolution);
+        if (outcome != null) game.FinishLocalMatch(outcome.WinnerId);
     }
 
     public bool FoxSpiritHasWon()

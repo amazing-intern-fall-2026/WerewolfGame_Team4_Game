@@ -10,6 +10,32 @@ public static class RoleActionRules
             return false;
         }
 
+        if (ThuongLogicSceneScope.IsActive && StatusEffectSystem.Instance != null)
+        {
+            var target = PlayerManager.Instance?.GetplayerByID(targetID);
+            if (role is CursedRole)
+            {
+                bool applied = StatusEffectSystem.Instance.ApplyEffect(target, StatusEffectType.Cursed,
+                    1, 2, GamePhase.Discussion, role.owner) != null;
+                feedback = applied ? "Đã đặt lời nguyền trong hai đêm." : "Không thể đặt lời nguyền lên mục tiêu này.";
+                return applied;
+            }
+            if (role is ShamanRole shaman && target != null)
+            {
+                bool protectedBefore = target.status?.isProtected ?? false;
+                bool movementBefore = target.status?.isSilenced ?? false;
+                bool hadGood = shaman.HasGoodCharm;
+                if (!shaman.TryUseNightAbility(targetID, out feedback)) return false;
+                bool good = hadGood && !shaman.HasGoodCharm;
+                // Keep the legacy role's one-use inventory; translate only its effect in this flow.
+                target.status.isProtected = protectedBefore;
+                target.status.isSilenced = movementBefore;
+                StatusEffectSystem.Instance.ApplyEffect(target,
+                    good ? StatusEffectType.Protected : StatusEffectType.Silenced, 1, 1, GamePhase.Discussion, role.owner);
+                return true;
+            }
+        }
+
         if (role.roleType == RoleType.SerpentSpirit && night.CurrentNightNumber <= 2)
         {
             feedback = "Xà Tinh chỉ có thể tấn công từ đêm thứ ba.";

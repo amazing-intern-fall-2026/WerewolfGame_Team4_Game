@@ -210,10 +210,16 @@ public class PlayerManager : MonoBehaviour
         if (player == null || player.isAlive == isAlive)
             return false;
 
+        if (!isAlive && ThuongLogicSceneScope.IsActive && DeathResolver.Instance != null)
+            return DeathResolver.Instance.TryKill(new DeathRequest(player, DeathCause.Special)).Outcome == DeathOutcome.Killed;
+
         player.isAlive = isAlive;
         if (isAlive)
         {
             player.hasDeathRecord = false;
+            player.wasVotedOut = false;
+            player.lastDeathCause = default;
+            player.lastDeathSourceID = -1;
             player.hasVoted = false;
             player.hasUseNightAction = false;
         }

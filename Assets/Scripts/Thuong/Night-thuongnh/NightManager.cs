@@ -102,6 +102,8 @@ public class NightManager : MonoBehaviour
 
     public void ResolveNight()
     {
+        if (ThuongLogicSceneScope.IsActive && GameRoleManager.Instance?.currentState == GameState.GameOver) { ClearActions(); return; }
+        using var batch = DeathResolver.Instance?.BeginBatch();
         PlayerData protectedPlayer = null;
         if (protectedTarget != -1)
         {
@@ -148,6 +150,9 @@ public class NightManager : MonoBehaviour
         protectedTarget = -1;
         killerTarget = -1;
     }
+
+    public void ResolveAbility(PlayerData actor, PlayerData target, ThuongRoleDefinition role) =>
+        ResolveAction(new QueuedAction { actor = actor, target = target, role = role });
 
     private static void ResolveAction(QueuedAction action)
     {

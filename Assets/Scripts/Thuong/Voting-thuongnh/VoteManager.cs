@@ -10,6 +10,23 @@ public class VoteManager : MonoBehaviour
     public VoteResolution LastResolution { get; private set; }
     public int GetVotedTarget(int voterID) => choices.TryGetValue(voterID, out var target) ? target : -1;
     private void Awake() { Instance = this; }
+    private void OnDestroy() { if (Instance == this) Instance = null; }
+    public ActionValidationResult ValidateVote(int voterID, int targetID)
+    {
+        var game = GameRoleManager.Instance;
+        if (resolved || game == null || game.currentState != GameState.Voting ||
+            ThuongLogicSceneScope.IsActive && game.currentPhase != GamePhase.Voting)
+            return ActionValidationResult.Fail(ActionFailureReason.WrongPhase, "Hiện không phải lượt bỏ phiếu.");
+        var voter = PlayerManager.Instance?.GetplayerByID(voterID);
+        var target = PlayerManager.Instance?.GetplayerByID(targetID);
+        if (voter == null) return ActionValidationResult.Fail(ActionFailureReason.ActorMissing, "Không tìm thấy người bỏ phiếu.");
+        if (!voter.isAlive) return ActionValidationResult.Fail(ActionFailureReason.ActorDead, "Người đã chết không được bỏ phiếu.");
+        if (!voter.CanVote) return ActionValidationResult.Fail(ActionFailureReason.CannotVote, "Cannot Vote: bạn đang bị khóa quyền bỏ phiếu.");
+        if (voter.hasVoted) return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Bạn đã bỏ phiếu trong lượt này.");
+        if (target == null) return ActionValidationResult.Fail(ActionFailureReason.TargetMissing, "Hãy chọn mục tiêu bỏ phiếu.");
+        if (!target.isAlive) return ActionValidationResult.Fail(ActionFailureReason.TargetDead, "Mục tiêu đã bị loại.");
+        return ActionValidationResult.Success();
+    }
     public void StartVote()
     {
         votes.Clear();
@@ -26,6 +43,7 @@ public class VoteManager : MonoBehaviour
     }
     public bool TryVote(int voterID, int targetID)
     {
+        if (!ValidateVote(voterID, targetID).IsValid) return false;
         if (resolved || GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Voting ||
             PlayerManager.Instance == null) return false;
         var voter = PlayerManager.Instance.GetplayerByID(voterID);
@@ -40,7 +58,8 @@ public class VoteManager : MonoBehaviour
     public void ResolveVote()
     {
         // A repeated callback must not recalculate the same choices after a death.
-        if (resolved) return;
+        if (resolved || GameRoleManager.Instance?.currentState == GameState.GameOver) return;
+        using var batch = DeathResolver.Instance?.BeginBatch();
         resolved = true;
         votes.Clear();
         // Store choices only; transient effects and alive-state are evaluated at resolution.

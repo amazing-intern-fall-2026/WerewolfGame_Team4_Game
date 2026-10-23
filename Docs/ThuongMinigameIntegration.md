@@ -29,7 +29,7 @@ Thời hạn thực tế được giới hạn bởi thời gian ban ngày còn 
 - Chặt/thu hoạch được kiểm tra theo cửa sổ thời gian server. Giỏ/khiên có tốc độ di chuyển/xoay giới hạn và kiểm tra với lịch sinh đợt của server. Không gửi timestamp client để yêu cầu quay ngược thời gian hoặc replay physics.
 - Pha thuốc kiểm tra đủ ba chỉ số nguyên liệu và kết quả công thức. Trapsweeper giữ bàn bẫy/RNG trên server, chỉ gửi ô đã mở hoặc cắm cờ; không gửi seed hoặc bàn ẩn.
 - Đổi giai đoạn/ngày, bị loại, task không còn khả dụng, rời phiên, mất kết nối hoặc kết thúc ván đều đóng/vô hiệu hóa lượt. Gói trùng, gói cũ hay sai chủ không cộng tiến độ. Server cũng khóa di chuyển; UI không phải lớp bảo vệ duy nhất.
-- Hai thông điệp riêng: `thuong.minigame.request.v1` và `thuong.minigame.state.v1`. Snapshot/mask tiến độ hiện có không thêm trường. Cần dùng cùng bản build trên host và client vì catalog/station đã được bổ sung.
+- Hai thông điệp riêng: `thuong.minigame.request.v2` và `thuong.minigame.state.v2`. Cả yêu cầu và trạng thái có mã ván để bỏ gói cũ sau khi chơi lại; mask tiến độ giữ nguyên. Cần dùng cùng bản build trên host và client.
 
 ## Hiển thị
 

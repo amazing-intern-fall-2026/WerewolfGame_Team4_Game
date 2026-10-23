@@ -56,7 +56,11 @@ public static class ThuongMinigameOnlineChecks
         {
             var captured = peer;
             peer.CustomMessagingManager.RegisterNamedMessageHandler(ThuongMinigameWire.State, (_, reader) =>
-            { received[captured.LocalClientId] = ThuongMinigameWire.Read(reader); });
+            {
+                reader.ReadValueSafe(out uint epoch);
+                if (epoch == Field<uint>(session, "matchEpoch"))
+                    received[captured.LocalClientId] = ThuongMinigameWire.Read(reader);
+            });
         }
         foreach (var member in Members().Values) Set(member, "Position", (Vector2)stations[wood].transform.position);
         Call(session, "BroadcastSnapshot");
@@ -183,7 +187,8 @@ public static class ThuongMinigameOnlineChecks
         if (!sequences.ContainsKey(owner)) sequences[owner] = 0;
         uint seq = repeat ? sequences[owner] : ++sequences[owner];
         using var writer = new FastBufferWriter(64, Allocator.Temp);
-        writer.WriteValueSafe(seq); writer.WriteValueSafe(operation); writer.WriteValueSafe(GameRoleManager.Instance.currentDay);
+        writer.WriteValueSafe(seq); writer.WriteValueSafe(Field<uint>(session, "matchEpoch"));
+        writer.WriteValueSafe(operation); writer.WriteValueSafe(GameRoleManager.Instance.currentDay);
         writer.WriteValueSafe(station); writer.WriteValueSafe(attempt); writer.WriteValueSafe((byte)input.action);
         writer.WriteValueSafe(input.index); writer.WriteValueSafe(input.value);
         peer.CustomMessagingManager.SendNamedMessage(ThuongMinigameWire.Request, 0, writer);

@@ -15,6 +15,7 @@ namespace Thuong.Online
         private int matchMaxDay = 7;
         private NetworkGameOverManager suspendedGameOverManager;
         private bool restoreGameOverManager;
+        private bool onlineOutcomeDirty = true;
 
         public string LocalWinObjective
         {
@@ -63,9 +64,14 @@ namespace Thuong.Online
             winSettings ??= new ThuongOnlineWinSettings();
             winSettings.minimumPlayersForParity = Mathf.Max(3, winSettings.minimumPlayersForParity);
             winSettings.specialWinVillageLimit = Mathf.Max(0, winSettings.specialWinVillageLimit);
-            scopedWinManager = FindObjectsByType<WinConditionManager>(FindObjectsInactive.Include)
-                .FirstOrDefault(manager => manager.gameObject.scene == game.gameObject.scene);
-            scopedWinManager?.InstallMatchEvaluator(game, EvaluateOnlineWin);
+            scopedWinManager = SceneComponent<WinConditionManager>();
+            if (scopedWinManager != null)
+            {
+                scopedWinManager.InstallMatchEvaluator(game, EvaluateOnlineWin);
+                scopedWinManager.MatchStateChanged -= MarkOnlineOutcomeDirty;
+                scopedWinManager.MatchStateChanged += MarkOnlineOutcomeDirty;
+                onlineOutcomeDirty = true;
+            }
             // main's legacy manager auto-installs globally and evaluates its own
             // rules. Suspend it before Start while this scene owns the match.
             suspendedGameOverManager = NetworkGameOverManager.Instance;
@@ -84,6 +90,7 @@ namespace Thuong.Online
 
         private void LateUpdate()
         {
+            if (!onlineOutcomeDirty || matchResult != null || !matchStarted) return;
             // Submitted night attacks are still pending. A charm must not win
             // before an attack that kills its owner has been resolved.
             if (game != null && game.currentState == GameState.Night) return;
@@ -93,11 +100,21 @@ namespace Thuong.Online
             EvaluateOnlineWin(false);
         }
 
+        private void MarkOnlineOutcomeDirty() { onlineOutcomeDirty = true; nextPrivateTime = 0; }
+
+        private void RemoveOnlineWinRules()
+        {
+            if (scopedWinManager == null) return;
+            scopedWinManager.MatchStateChanged -= MarkOnlineOutcomeDirty;
+            scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
+        }
+
         private void EvaluateOnlineWin(bool dayFinished)
         {
             if (network == null || !network.IsServer || !matchStarted || matchResult != null ||
                 game == null || game.currentState == GameState.GameOver || players == null ||
                 scopedWinManager == null || !scopedWinManager.HasMatchEvaluator(game)) return;
+            onlineOutcomeDirty = false;
             var state = new List<ThuongWinPlayer>();
             foreach (var player in players.players)
             {
@@ -107,7 +124,11 @@ namespace Thuong.Online
                     role is FoxSpiritRole fox && fox.HasWon;
                 state.Add(new ThuongWinPlayer(player.playerID, player.DisplayName, member?.CharacterIndex ?? 0,
                     player.roleType, player.faction, player.isAlive, player.wasVotedOut,
-                    player.loverID, player.isWhiteHoundAwakened, foxQualified));
+                    player.loverID, player.isWhiteHoundAwakened, foxQualified,
+                    player.hasDeathRecord, player.lastDeathCause, player.lastDeathSourceID,
+                    player.faction == FactionType.Neutral && player.roleDefinition?.neutralWinRule != null &&
+                        player.roleDefinition.neutralWinRule.IsSatisfied(player, players.players)
+                            ? player.roleDefinition.neutralWinRule.BuildWinMessage(player) : null));
             }
             matchResult = ThuongMatchOutcome.Evaluate(state, winSettings, game.currentDay, game.currentPhase,
                 tasks != null ? tasks.progress : 0, scopedWinManager.MaxDay, dayFinished);
@@ -153,6 +174,7 @@ namespace Thuong.Online
             writer.WriteValueSafe((byte)matchResult.Reason);
             writer.WriteValueSafe(matchResult.Day);
             writer.WriteValueSafe((byte)matchResult.Phase);
+            writer.WriteValueSafe(Fixed64(matchResult.NeutralWinnerLabel));
             writer.WriteValueSafe((ushort)matchResult.Players.Count);
             foreach (var player in matchResult.Players)
             {
@@ -164,6 +186,9 @@ namespace Thuong.Online
                 writer.WriteValueSafe(player.Alive);
                 writer.WriteValueSafe(player.Awakened);
                 writer.WriteValueSafe(player.Won);
+                writer.WriteValueSafe(player.HasDeathRecord);
+                writer.WriteValueSafe((byte)player.DeathCause);
+                writer.WriteValueSafe(player.DeathSourceID);
             }
         }
 
@@ -175,6 +200,7 @@ namespace Thuong.Online
             reader.ReadValueSafe(out byte reason);
             reader.ReadValueSafe(out int day);
             reader.ReadValueSafe(out byte phase);
+            reader.ReadValueSafe(out FixedString64Bytes neutralLabel);
             reader.ReadValueSafe(out ushort count);
             if (visibleState != GameState.GameOver || count > MaxPlayers)
                 throw new InvalidOperationException("Invalid Thuong match result.");
@@ -189,11 +215,14 @@ namespace Thuong.Online
                 reader.ReadValueSafe(out bool alive);
                 reader.ReadValueSafe(out bool awakened);
                 reader.ReadValueSafe(out bool won);
+                reader.ReadValueSafe(out bool hasDeathRecord);
+                reader.ReadValueSafe(out byte deathCause);
+                reader.ReadValueSafe(out int deathSourceID);
                 finalPlayers.Add(new ThuongFinalPlayer(id, name.ToString(), character, (RoleType)role,
-                    (FactionType)faction, alive, awakened, won));
+                    (FactionType)faction, alive, awakened, won, hasDeathRecord, (DeathCause)deathCause, deathSourceID));
             }
             // A match has one immutable result, even if another snapshot repeats it.
-            matchResult ??= new ThuongMatchResult((ThuongWinner)winner, (ThuongWinReason)reason, day, (GamePhase)phase, finalPlayers);
+            matchResult ??= new ThuongMatchResult((ThuongWinner)winner, (ThuongWinReason)reason, day, (GamePhase)phase, finalPlayers, neutralLabel.ToString());
         }
     }
 }

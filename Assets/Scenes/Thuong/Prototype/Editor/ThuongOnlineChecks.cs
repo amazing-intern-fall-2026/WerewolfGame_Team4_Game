@@ -25,7 +25,7 @@ public static class ThuongOnlineChecks
     private sealed class Peer
     {
         public NetworkManager Network;
-        public uint Revision, VoteRevision;
+        public uint Revision, VoteRevision, Epoch;
         public int PublicCount, RosterCount, VoteTally;
         public bool Started, HasRole, RolesAssigned, HasRead;
         public int Skin;
@@ -105,7 +105,7 @@ public static class ThuongOnlineChecks
                     Require(!(bool)Invoke(session, "SetHostMapSelection", false, "missing-map", GameEventType.None), "Invalid manual selection does not replace the current configuration");
                     Invoke(session, "HostLan");
                     Require(Field<bool>(session, "mapDrawComplete") && mapVariants.Any(v => v.Map == session.SelectedMap && v.EventType == session.SelectedMapEvent),
-                        "Creating a room automatically draws a released normal/event map");
+                        "Creating a room automatically draws a released normal/event map: " + session.Feedback);
                     uint initialMapEpoch = Field<uint>(session, "mapEpoch");
                     var initialMap = session.SelectedMap; var initialMapEvent = session.SelectedMapEvent;
                     Invoke(session, "EnsureRoomMapSelection"); Invoke(session, "EnsureRoomMapSelection");
@@ -278,12 +278,24 @@ public static class ThuongOnlineChecks
                     break;
                 case 9:
                     if (peers.Any(peer => peer.VoteRevision != 3 || peer.Result != "Không có phiếu hợp lệ.")) return;
+                    if (ThuongOnlineLogicChecks.Enabled)
+                    {
+                        ThuongOnlineLogicChecks.Begin(session, peers.Select(peer => peer.Network).ToArray());
+                        stage = 91;
+                        break;
+                    }
                     TaskManager.Instance.progress = 100;
                     Invoke(session, "EvaluateOnlineWin", false);
                     Require(GameRoleManager.Instance.currentState == GameState.GameOver, "Completing all tasks ends the authoritative match");
                     Invoke(session, "BroadcastSnapshot");
                     stage = 10;
                     next = EditorApplication.timeSinceStartup + .5;
+                    break;
+                case 91:
+                    if (!ThuongOnlineLogicChecks.Tick()) return;
+                    foreach (var peer in peers) peer.Network.Shutdown();
+                    stage = 11;
+                    next = EditorApplication.timeSinceStartup + .7;
                     break;
                 case 10:
                     if (peers.Any(peer => !peer.HasMatchResult)) return;
@@ -406,7 +418,7 @@ public static class ThuongOnlineChecks
         network.NetworkConfig = new NetworkConfig
         {
             NetworkTransport = transport, ConnectionApproval = true, EnableSceneManagement = false, TickRate = 30,
-            ConnectionData = Encoding.UTF8.GetBytes("THUONG5|Người chơi " + index + "_" + new string('A', 24))
+            ConnectionData = Encoding.UTF8.GetBytes("THUONG6|Người chơi " + index + "_" + new string('A', 24))
         };
         transport.SetConnectionData("127.0.0.1", Port);
         var peer = new Peer { Network = network, Skin = index % 20 }; peers.Add(peer);
@@ -424,7 +436,7 @@ public static class ThuongOnlineChecks
             reader.ReadValueSafe(out int capacity); reader.ReadValueSafe(out ushort count);
             Require(capacity == 25, "Lobby capacity synchronized"); peer.RosterCount = count;
         });
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v2", (_, reader) =>
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v3", (_, reader) =>
         {
             reader.ReadValueSafe(out int player); reader.ReadValueSafe(out byte role); reader.ReadValueSafe(out byte faction);
             Require(RoleCatalog.AllConcreteRoles.Contains((RoleType)role), "Private role uses playable implementation");
@@ -433,7 +445,7 @@ public static class ThuongOnlineChecks
             peer.HasRead = (flags & 2048) != 0;
             peer.HasRole = true;
         });
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v5", (_, reader) => ReadSnapshot(peer, reader));
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v6", (_, reader) => ReadSnapshot(peer, reader));
     }
 
     private static void SendReady(NetworkManager network)
@@ -446,15 +458,16 @@ public static class ThuongOnlineChecks
     private static void SendAction(NetworkManager network, uint id, byte action, int target)
     {
         using var writer = new FastBufferWriter(32, Allocator.Temp);
-        writer.WriteValueSafe(id); writer.WriteValueSafe(action); writer.WriteValueSafe(target); writer.WriteValueSafe(-1);
+        writer.WriteValueSafe(id); writer.WriteValueSafe((uint)typeof(ThuongOnlineSession).GetField("matchEpoch", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(session)); writer.WriteValueSafe(action); writer.WriteValueSafe(target); writer.WriteValueSafe(-1);
         writer.WriteValueSafe(GameRoleManager.Instance.currentDay); writer.WriteValueSafe((byte)GameRoleManager.Instance.currentPhase);
-        network.CustomMessagingManager.SendNamedMessage("thuong.online.action.v2", 0, writer);
+        network.CustomMessagingManager.SendNamedMessage("thuong.online.action.v3", 0, writer);
     }
 
     private static void ReadSnapshot(Peer peer, FastBufferReader reader)
     {
         reader.ReadValueSafe(out uint revision);
         Require(revision > peer.Revision, "Snapshot revision always increases across lobby and gameplay"); peer.Revision = revision;
+        reader.ReadValueSafe(out peer.Epoch);
         reader.ReadValueSafe(out peer.Started); reader.ReadValueSafe(out peer.RolesAssigned);
         reader.ReadValueSafe(out bool eliminationWin);
         reader.ReadValueSafe(out int parityMinimum); reader.ReadValueSafe(out int villageLimit); reader.ReadValueSafe(out int maxDay);
@@ -500,6 +513,7 @@ public static class ThuongOnlineChecks
         {
             reader.ReadValueSafe(out peer.MatchWinner); reader.ReadValueSafe(out peer.MatchReason);
             reader.ReadValueSafe(out int resultDay); reader.ReadValueSafe(out byte resultPhase);
+            reader.ReadValueSafe(out FixedString64Bytes neutralLabel);
             reader.ReadValueSafe(out ushort finalCount); peer.MatchPlayerCount = finalCount; peer.MatchWinnerCount = 0;
             for (int i = 0; i < finalCount; i++)
             {
@@ -507,6 +521,7 @@ public static class ThuongOnlineChecks
                 reader.ReadValueSafe(out int character); reader.ReadValueSafe(out byte role); reader.ReadValueSafe(out byte faction);
                 reader.ReadValueSafe(out bool alive); reader.ReadValueSafe(out bool awakened); reader.ReadValueSafe(out bool won);
                 if (won) peer.MatchWinnerCount++;
+                reader.ReadValueSafe(out bool hasDeathRecord); reader.ReadValueSafe(out byte cause); reader.ReadValueSafe(out int source);
             }
         }
         Require(reader.Position == reader.Length, "Full fragmented snapshot decodes without missing or extra fields");
