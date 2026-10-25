@@ -206,8 +206,45 @@ public static class RoleDetailUIInstaller
             RectTransform rootRect = root.GetComponent<RectTransform>();
             if (rootRect != null)
             {
-                rootRect.sizeDelta = new Vector2(270, 190);
+                rootRect.sizeDelta = new Vector2(270, 195);
             }
+
+            // Root Card Background Image & Button
+            Image rootImg = root.GetComponent<Image>();
+            if (rootImg != null)
+            {
+                rootImg.color = new Color(0.12f, 0.15f, 0.22f, 0.95f);
+                rootImg.raycastTarget = true;
+            }
+
+            Button rootBtn = root.GetComponent<Button>();
+            if (rootBtn != null && rootImg != null)
+            {
+                rootBtn.targetGraphic = rootImg;
+            }
+
+            // SelectedIndicator (Border highlight when selected)
+            Transform selTrans = root.transform.Find("SelectedIndicator");
+            GameObject selObj;
+            if (selTrans == null)
+            {
+                selObj = new GameObject("SelectedIndicator", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                selObj.transform.SetParent(root.transform, false);
+            }
+            else
+            {
+                selObj = selTrans.gameObject;
+            }
+            RectTransform selRt = selObj.GetComponent<RectTransform>();
+            selRt.anchorMin = Vector2.zero;
+            selRt.anchorMax = Vector2.one;
+            selRt.offsetMin = new Vector2(-4, -4);
+            selRt.offsetMax = new Vector2(4, 4);
+
+            Image selImg = selObj.GetComponent<Image>();
+            selImg.color = new Color(0.25f, 0.85f, 1f, 0.45f);
+            selImg.raycastTarget = false;
+            selObj.SetActive(false);
 
             // PlayerName
             Transform nameTrans = root.transform.Find("PlayerName");
@@ -216,19 +253,21 @@ public static class RoleDetailUIInstaller
                 RectTransform rt = nameTrans.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(0, 60);
+                rt.anchoredPosition = new Vector2(0, 62);
                 rt.sizeDelta = new Vector2(245, 36);
 
                 TextMeshProUGUI tmp = nameTrans.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 26;
+                    tmp.fontSize = 24;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 18;
-                    tmp.fontSizeMax = 28;
+                    tmp.fontSizeMin = 16;
+                    tmp.fontSizeMax = 26;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
+                    tmp.color = Color.white;
+                    tmp.raycastTarget = false;
                 }
             }
 
@@ -240,7 +279,24 @@ public static class RoleDetailUIInstaller
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.anchoredPosition = new Vector2(0, 4);
-                rt.sizeDelta = new Vector2(76, 76);
+                rt.sizeDelta = new Vector2(80, 80);
+
+                Image aImg = avatarTrans.GetComponent<Image>();
+                if (aImg != null)
+                {
+                    Sprite defaultPortrait = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Scenes/Thuong/Prototype/Art/Medieval/Resources/RolePortraits/Villager.png");
+                    if (defaultPortrait != null)
+                    {
+                        aImg.sprite = defaultPortrait;
+                        aImg.color = Color.white;
+                    }
+                    else
+                    {
+                        aImg.color = new Color(0.22f, 0.28f, 0.38f, 1f);
+                    }
+                    aImg.preserveAspect = true;
+                    aImg.raycastTarget = false;
+                }
             }
 
             // StatusText
@@ -257,12 +313,14 @@ public static class RoleDetailUIInstaller
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 20;
+                    tmp.fontSize = 18;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 16;
-                    tmp.fontSizeMax = 22;
+                    tmp.fontSizeMin = 14;
+                    tmp.fontSizeMax = 20;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
+                    tmp.color = new Color(0.2f, 1f, 0.4f);
+                    tmp.raycastTarget = false;
                 }
             }
 
@@ -280,12 +338,14 @@ public static class RoleDetailUIInstaller
                 if (tmp != null)
                 {
                     if (fontAsset != null) tmp.font = fontAsset;
-                    tmp.fontSize = 20;
+                    tmp.fontSize = 18;
                     tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 16;
-                    tmp.fontSizeMax = 22;
+                    tmp.fontSizeMin = 14;
+                    tmp.fontSizeMax = 20;
                     tmp.fontStyle = FontStyles.Bold;
                     tmp.alignment = TextAlignmentOptions.Center;
+                    tmp.color = new Color(1f, 0.85f, 0.25f);
+                    tmp.raycastTarget = false;
                 }
             }
 
@@ -345,16 +405,36 @@ public static class RoleDetailUIInstaller
             if (voteCardUI != null)
             {
                 SerializedObject so = new SerializedObject(voteCardUI);
+
+                SerializedProperty propName = so.FindProperty("playerNameText");
+                if (propName != null && nameTrans != null) propName.objectReferenceValue = nameTrans.GetComponent<TextMeshProUGUI>();
+
+                SerializedProperty propStatus = so.FindProperty("statusText");
+                if (propStatus != null && statusTrans != null) propStatus.objectReferenceValue = statusTrans.GetComponent<TextMeshProUGUI>();
+
+                SerializedProperty propVote = so.FindProperty("voteCountText");
+                if (propVote != null && voteTrans != null) propVote.objectReferenceValue = voteTrans.GetComponent<TextMeshProUGUI>();
+
+                SerializedProperty propAvatar = so.FindProperty("avatarImage");
+                if (propAvatar != null && avatarTrans != null) propAvatar.objectReferenceValue = avatarTrans.GetComponent<Image>();
+
+                SerializedProperty propBg = so.FindProperty("cardBackgroundImage");
+                if (propBg != null && rootImg != null) propBg.objectReferenceValue = rootImg;
+
+                SerializedProperty propSel = so.FindProperty("selectedIndicator");
+                if (propSel != null && selObj != null) propSel.objectReferenceValue = selObj;
+
+                SerializedProperty propCardBtn = so.FindProperty("cardButton");
+                if (propCardBtn != null && rootBtn != null) propCardBtn.objectReferenceValue = rootBtn;
+
                 SerializedProperty propInfoBtn = so.FindProperty("infoButton");
-                if (propInfoBtn != null)
-                {
-                    propInfoBtn.objectReferenceValue = infoBtn;
-                    so.ApplyModifiedProperties();
-                }
+                if (propInfoBtn != null) propInfoBtn.objectReferenceValue = infoBtn;
+
+                so.ApplyModifiedProperties();
             }
 
             PrefabUtility.SaveAsPrefabAsset(root, VoteCardPrefabPath);
-            Debug.Log("[PREFAB] VoteCard.prefab đã cập nhật layout 1080p và InfoButton thành công.");
+            Debug.Log("[PREFAB] VoteCard.prefab đã cập nhật layout 1080p và UI references thành công.");
         }
         finally
         {
@@ -584,23 +664,284 @@ public static class RoleDetailUIInstaller
             }
         }
 
-        // 5. Tinh chỉnh VotePanel & VoteCardContainer
+        // 5. Tinh chỉnh VotePanel, VoteCardContainer & Controls
         Transform vpTrans = canvas.transform.Find("VotePanel");
         GameObject votePanel = vpTrans != null ? vpTrans.gameObject : GameObject.Find("VotePanel");
         if (votePanel != null)
         {
             RectTransform vpRt = votePanel.GetComponent<RectTransform>();
-            vpRt.sizeDelta = new Vector2(1360, 760);
+            vpRt.anchorMin = new Vector2(0.5f, 0.5f);
+            vpRt.anchorMax = new Vector2(0.5f, 0.5f);
+            vpRt.pivot = new Vector2(0.5f, 0.5f);
+            vpRt.anchoredPosition = Vector2.zero;
+            vpRt.sizeDelta = new Vector2(1360, 780);
 
+            Image vpImg = votePanel.GetComponent<Image>();
+            if (vpImg != null)
+            {
+                vpImg.color = new Color(0.06f, 0.08f, 0.14f, 0.96f);
+                vpImg.raycastTarget = true;
+            }
+
+            // VoteTitle
+            Transform vtTrans = votePanel.transform.Find("VoteTitle");
+            GameObject vtObj;
+            if (vtTrans == null)
+            {
+                vtObj = new GameObject("VoteTitle", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                vtObj.transform.SetParent(votePanel.transform, false);
+            }
+            else
+            {
+                vtObj = vtTrans.gameObject;
+            }
+            RectTransform vtRt = vtObj.GetComponent<RectTransform>();
+            vtRt.anchorMin = new Vector2(0.5f, 1f);
+            vtRt.anchorMax = new Vector2(0.5f, 1f);
+            vtRt.pivot = new Vector2(0.5f, 1f);
+            vtRt.anchoredPosition = new Vector2(0, -20);
+            vtRt.sizeDelta = new Vector2(600, 50);
+
+            TextMeshProUGUI vtTmp = vtObj.GetComponent<TextMeshProUGUI>();
+            if (fontAsset != null) vtTmp.font = fontAsset;
+            vtTmp.text = "BỎ PHIẾU TREO CỔ";
+            vtTmp.fontSize = 36;
+            vtTmp.fontStyle = FontStyles.Bold;
+            vtTmp.alignment = TextAlignmentOptions.Center;
+            vtTmp.color = new Color(1f, 0.85f, 0.2f, 1f);
+
+            // Subtitle
+            Transform subTrans = votePanel.transform.Find("VoteSubtitle");
+            GameObject subObj;
+            if (subTrans == null)
+            {
+                subObj = new GameObject("VoteSubtitle", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                subObj.transform.SetParent(votePanel.transform, false);
+            }
+            else
+            {
+                subObj = subTrans.gameObject;
+            }
+            RectTransform subRt = subObj.GetComponent<RectTransform>();
+            subRt.anchorMin = new Vector2(0.5f, 1f);
+            subRt.anchorMax = new Vector2(0.5f, 1f);
+            subRt.pivot = new Vector2(0.5f, 1f);
+            subRt.anchoredPosition = new Vector2(0, -70);
+            subRt.sizeDelta = new Vector2(900, 30);
+
+            TextMeshProUGUI subTmp = subObj.GetComponent<TextMeshProUGUI>();
+            if (fontAsset != null) subTmp.font = fontAsset;
+            subTmp.text = "Chọn một người chơi để bỏ phiếu treo cổ. Nhấn Xác Nhận để gửi phiếu.";
+            subTmp.fontSize = 20;
+            subTmp.alignment = TextAlignmentOptions.Center;
+            subTmp.color = new Color(0.8f, 0.85f, 0.9f, 1f);
+
+            // VoteCardContainer
             Transform voteContainer = votePanel.transform.Find("VoteCardContainer");
             if (voteContainer != null)
             {
+                RectTransform vcRt = voteContainer.GetComponent<RectTransform>();
+                vcRt.anchorMin = new Vector2(0.5f, 0.5f);
+                vcRt.anchorMax = new Vector2(0.5f, 0.5f);
+                vcRt.pivot = new Vector2(0.5f, 0.5f);
+                vcRt.anchoredPosition = new Vector2(0, 10);
+                vcRt.sizeDelta = new Vector2(1260, 480);
+
+                Image vcImg = voteContainer.GetComponent<Image>();
+                if (vcImg != null)
+                {
+                    vcImg.enabled = false;
+                }
+
                 GridLayoutGroup grid = voteContainer.GetComponent<GridLayoutGroup>();
                 if (grid != null)
                 {
-                    grid.cellSize = new Vector2(270, 190);
-                    grid.spacing = new Vector2(24, 24);
+                    grid.cellSize = new Vector2(270, 195);
+                    grid.spacing = new Vector2(24, 20);
+                    grid.childAlignment = TextAnchor.MiddleCenter;
+                    grid.constraint = GridLayoutGroup.Constraint.FixedRowCount;
+                    grid.constraintCount = 2;
                 }
+            }
+
+            // SelectedTargetText
+            Transform selTxtTrans = votePanel.transform.Find("SelectedTargetText");
+            GameObject selTxtObj;
+            if (selTxtTrans == null)
+            {
+                selTxtObj = new GameObject("SelectedTargetText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                selTxtObj.transform.SetParent(votePanel.transform, false);
+            }
+            else
+            {
+                selTxtObj = selTxtTrans.gameObject;
+            }
+            RectTransform selTxtRt = selTxtObj.GetComponent<RectTransform>();
+            selTxtRt.anchorMin = new Vector2(0.5f, 0f);
+            selTxtRt.anchorMax = new Vector2(0.5f, 0f);
+            selTxtRt.pivot = new Vector2(0.5f, 0f);
+            selTxtRt.anchoredPosition = new Vector2(0, 78);
+            selTxtRt.sizeDelta = new Vector2(800, 32);
+
+            TextMeshProUGUI selTmp = selTxtObj.GetComponent<TextMeshProUGUI>();
+            if (fontAsset != null) selTmp.font = fontAsset;
+            selTmp.text = "Mục tiêu đã chọn: Chưa chọn";
+            selTmp.fontSize = 22;
+            selTmp.fontStyle = FontStyles.Bold;
+            selTmp.alignment = TextAlignmentOptions.Center;
+            selTmp.color = new Color(0.35f, 0.9f, 1f, 1f);
+
+            // ConfirmVoteButton
+            Transform confirmBtnTrans = votePanel.transform.Find("ConfirmVoteButton");
+            GameObject confirmBtnObj;
+            if (confirmBtnTrans == null)
+            {
+                confirmBtnObj = new GameObject("ConfirmVoteButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+                confirmBtnObj.transform.SetParent(votePanel.transform, false);
+            }
+            else
+            {
+                confirmBtnObj = confirmBtnTrans.gameObject;
+            }
+            RectTransform cRt = confirmBtnObj.GetComponent<RectTransform>();
+            cRt.anchorMin = new Vector2(0.5f, 0f);
+            cRt.anchorMax = new Vector2(0.5f, 0f);
+            cRt.pivot = new Vector2(0.5f, 0f);
+            cRt.anchoredPosition = new Vector2(110, 24);
+            cRt.sizeDelta = new Vector2(190, 48);
+
+            Image cImg = confirmBtnObj.GetComponent<Image>();
+            cImg.color = new Color(0.18f, 0.65f, 0.28f, 1f);
+            Button cBtn = confirmBtnObj.GetComponent<Button>();
+            cBtn.targetGraphic = cImg;
+
+            Transform cTextTrans = confirmBtnObj.transform.Find("Text (TMP)");
+            TextMeshProUGUI cTextTmp;
+            if (cTextTrans == null)
+            {
+                GameObject tObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                tObj.transform.SetParent(confirmBtnObj.transform, false);
+                cTextTmp = tObj.GetComponent<TextMeshProUGUI>();
+            }
+            else
+            {
+                cTextTmp = cTextTrans.GetComponent<TextMeshProUGUI>();
+            }
+            RectTransform cTxtRt = cTextTmp.GetComponent<RectTransform>();
+            cTxtRt.anchorMin = Vector2.zero;
+            cTxtRt.anchorMax = Vector2.one;
+            cTxtRt.sizeDelta = Vector2.zero;
+            if (fontAsset != null) cTextTmp.font = fontAsset;
+            cTextTmp.text = "XÁC NHẬN";
+            cTextTmp.fontSize = 22;
+            cTextTmp.fontStyle = FontStyles.Bold;
+            cTextTmp.color = Color.white;
+            cTextTmp.alignment = TextAlignmentOptions.Center;
+
+            // CancelVoteButton
+            Transform cancelBtnTrans = votePanel.transform.Find("CancelVoteButton");
+            GameObject cancelBtnObj;
+            if (cancelBtnTrans == null)
+            {
+                cancelBtnObj = new GameObject("CancelVoteButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+                cancelBtnObj.transform.SetParent(votePanel.transform, false);
+            }
+            else
+            {
+                cancelBtnObj = cancelBtnTrans.gameObject;
+            }
+            RectTransform canRt = cancelBtnObj.GetComponent<RectTransform>();
+            canRt.anchorMin = new Vector2(0.5f, 0f);
+            canRt.anchorMax = new Vector2(0.5f, 0f);
+            canRt.pivot = new Vector2(0.5f, 0f);
+            canRt.anchoredPosition = new Vector2(-110, 24);
+            canRt.sizeDelta = new Vector2(190, 48);
+
+            Image canImg = cancelBtnObj.GetComponent<Image>();
+            canImg.color = new Color(0.35f, 0.38f, 0.45f, 1f);
+            Button canBtn = cancelBtnObj.GetComponent<Button>();
+            canBtn.targetGraphic = canImg;
+
+            Transform canTextTrans = cancelBtnObj.transform.Find("Text (TMP)");
+            TextMeshProUGUI canTextTmp;
+            if (canTextTrans == null)
+            {
+                GameObject tObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                tObj.transform.SetParent(cancelBtnObj.transform, false);
+                canTextTmp = tObj.GetComponent<TextMeshProUGUI>();
+            }
+            else
+            {
+                canTextTmp = canTextTrans.GetComponent<TextMeshProUGUI>();
+            }
+            RectTransform canTxtRt = canTextTmp.GetComponent<RectTransform>();
+            canTxtRt.anchorMin = Vector2.zero;
+            canTxtRt.anchorMax = Vector2.one;
+            canTxtRt.sizeDelta = Vector2.zero;
+            if (fontAsset != null) canTextTmp.font = fontAsset;
+            canTextTmp.text = "HỦY CHỌN";
+            canTextTmp.fontSize = 22;
+            canTextTmp.fontStyle = FontStyles.Bold;
+            canTextTmp.color = Color.white;
+            canTextTmp.alignment = TextAlignmentOptions.Center;
+
+            // StatusMessageText
+            Transform statusMsgTrans = votePanel.transform.Find("StatusMessageText");
+            GameObject statusMsgObj;
+            if (statusMsgTrans == null)
+            {
+                statusMsgObj = new GameObject("StatusMessageText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                statusMsgObj.transform.SetParent(votePanel.transform, false);
+            }
+            else
+            {
+                statusMsgObj = statusMsgTrans.gameObject;
+            }
+            RectTransform smRt = statusMsgObj.GetComponent<RectTransform>();
+            smRt.anchorMin = new Vector2(0.5f, 0f);
+            smRt.anchorMax = new Vector2(0.5f, 0f);
+            smRt.pivot = new Vector2(0.5f, 0f);
+            smRt.anchoredPosition = new Vector2(0, 115);
+            smRt.sizeDelta = new Vector2(800, 28);
+
+            TextMeshProUGUI smTmp = statusMsgObj.GetComponent<TextMeshProUGUI>();
+            if (fontAsset != null) smTmp.font = fontAsset;
+            smTmp.text = "";
+            smTmp.fontSize = 18;
+            smTmp.alignment = TextAlignmentOptions.Center;
+            smTmp.color = new Color(1f, 0.85f, 0.4f, 1f);
+
+            // Wire NetworkVoteUI component
+            NetworkVoteUI netVoteUI = UnityEngine.Object.FindFirstObjectByType<NetworkVoteUI>(FindObjectsInactive.Include);
+            if (netVoteUI != null)
+            {
+                SerializedObject so = new SerializedObject(netVoteUI);
+
+                SerializedProperty pVp = so.FindProperty("votePanel");
+                if (pVp != null) pVp.objectReferenceValue = votePanel;
+
+                SerializedProperty pVcp = so.FindProperty("voteCardPrefab");
+                if (pVcp != null) pVcp.objectReferenceValue = AssetDatabase.LoadAssetAtPath<GameObject>(VoteCardPrefabPath);
+
+                SerializedProperty pVcc = so.FindProperty("voteCardContainer");
+                if (pVcc != null && voteContainer != null) pVcc.objectReferenceValue = voteContainer;
+
+                SerializedProperty pVt = so.FindProperty("voteTitleText");
+                if (pVt != null && vtTmp != null) pVt.objectReferenceValue = vtTmp;
+
+                SerializedProperty pSt = so.FindProperty("selectedTargetText");
+                if (pSt != null && selTmp != null) pSt.objectReferenceValue = selTmp;
+
+                SerializedProperty pSm = so.FindProperty("statusMessageText");
+                if (pSm != null && smTmp != null) pSm.objectReferenceValue = smTmp;
+
+                SerializedProperty pCb = so.FindProperty("confirmVoteButton");
+                if (pCb != null && cBtn != null) pCb.objectReferenceValue = cBtn;
+
+                SerializedProperty pCanB = so.FindProperty("cancelVoteButton");
+                if (pCanB != null && canBtn != null) pCanB.objectReferenceValue = canBtn;
+
+                so.ApplyModifiedProperties();
             }
         }
 

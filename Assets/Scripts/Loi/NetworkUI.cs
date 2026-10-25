@@ -351,6 +351,8 @@ public class NetworkUI : MonoBehaviour
         }
 
         isConnecting = true;
+        NetworkGameManager.LeftPlayerClientIds.Clear();
+        NetworkGamePlayerNameSetup.Clear();
         SetStatus("Đang tạo phiên phòng mới và cấp phát mã...", Color.yellow);
 
         try
@@ -482,6 +484,7 @@ public class NetworkUI : MonoBehaviour
             RoomManager.CurrentVoiceChannelId = session.voiceChannelId;
             RoomManager.IsHostOfCurrentRoom = false;
 
+            NetworkGameManager.LeftPlayerClientIds.Clear();
             SetStatus($"Đã tìm thấy phòng {session.roomCode}. Đang kết nối...", Color.yellow);
 
             // 2. Cấu hình Transport

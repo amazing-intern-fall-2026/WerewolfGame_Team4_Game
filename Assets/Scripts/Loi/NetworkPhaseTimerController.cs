@@ -132,13 +132,24 @@ public class NetworkPhaseTimerController : MonoBehaviour
         switch (phase)
         {
             case GamePhase.DayStart:
-
                 HandleDayStartFinished();
+                break;
 
+            case GamePhase.Voting:
+                HandleVotingFinished();
                 break;
         }
     }
 
+    private void HandleVotingFinished()
+    {
+        Debug.Log(
+            "PHASE TIMER CONTROLLER | "
+            + "Voting hết giờ → TriggerFinishVotingOnServer()"
+        );
+
+        NetworkPlayerVote.TriggerFinishVotingOnServer();
+    }
 
     private void HandleDayStartFinished()
     {
