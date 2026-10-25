@@ -271,6 +271,22 @@ public class NetworkPhaseSync : NetworkBehaviour
             + newPhase
         );
 
+        if (newPhase == GamePhase.Voting)
+        {
+            if (IsServer)
+            {
+                NetworkPlayerVote.ResetNetworkVotes();
+            }
+            else
+            {
+                NetworkPlayerVote.ResetLocalStaticVotes();
+            }
+        }
+        else if (oldPhase == GamePhase.Voting)
+        {
+            NetworkPlayerVote.ResetLocalStaticVotes();
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winnerName = Winner.Value.ToString();

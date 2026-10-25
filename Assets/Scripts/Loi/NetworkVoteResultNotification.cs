@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 public class NetworkVoteResultNotification : MonoBehaviour
 {
@@ -13,10 +14,22 @@ public class NetworkVoteResultNotification : MonoBehaviour
     [SerializeField]
     private TMP_Text resultText;
 
+    [SerializeField]
+    private Button okButton;
+
+    [SerializeField]
+    private float autoDismissSeconds = 5f;
+
     private void Start()
     {
         if (resultPanel != null)
             resultPanel.SetActive(false);
+
+        if (okButton != null)
+        {
+            okButton.onClick.RemoveAllListeners();
+            okButton.onClick.AddListener(HideResult);
+        }
     }
 
     public void ShowResult(string title, string message)
@@ -36,10 +49,17 @@ public class NetworkVoteResultNotification : MonoBehaviour
             + " | "
             + message
         );
+
+        CancelInvoke(nameof(HideResult));
+        if (autoDismissSeconds > 0)
+        {
+            Invoke(nameof(HideResult), autoDismissSeconds);
+        }
     }
 
     public void HideResult()
     {
+        CancelInvoke(nameof(HideResult));
         if (resultPanel != null)
             resultPanel.SetActive(false);
     }

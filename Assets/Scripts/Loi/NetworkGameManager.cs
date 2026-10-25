@@ -16,7 +16,12 @@ public class NetworkGameManager : NetworkBehaviour
         );
 
     public static readonly System.Collections.Generic.HashSet<ulong> LeftPlayerClientIds = new System.Collections.Generic.HashSet<ulong>();
-    public static bool IsPlayerLeft(ulong clientId) => LeftPlayerClientIds.Contains(clientId);
+    public static bool IsPlayerLeft(ulong clientId)
+    {
+        if (Unity.Netcode.NetworkManager.Singleton != null && clientId == Unity.Netcode.NetworkManager.ServerClientId)
+            return false;
+        return LeftPlayerClientIds.Contains(clientId);
+    }
 
     private void Awake()
     {

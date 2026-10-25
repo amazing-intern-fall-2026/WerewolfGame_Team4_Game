@@ -26,6 +26,11 @@ public class NetworkVoteStateManager : MonoBehaviour
         {
             initialized = true;
             lastPhase = currentPhase;
+            if (currentPhase == GamePhase.Voting)
+            {
+                NetworkPlayerVote.ResetNetworkVotes();
+                waitingForVoteResolution = false;
+            }
             return;
         }
 

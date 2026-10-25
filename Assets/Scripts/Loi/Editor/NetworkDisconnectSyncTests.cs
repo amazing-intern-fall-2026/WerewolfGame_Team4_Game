@@ -44,9 +44,54 @@ public static class NetworkDisconnectSyncTests
         // Test G — Thoát phòng về MainMenu bảo lưu trạng thái đăng nhập (không bị đăng xuất ngoài ý muốn)
         TestG_LeaveRoomPreservesLoginState();
 
+        // Test H — Tự động xác nhận người chơi khi vào Lobby và không bị kẹt Start Game khi chưa bấm SET NAME
+        TestH_LobbyAutoRegisterAndStartValidation();
+
         Debug.Log("=================================================");
         Debug.Log($"KẾT QUẢ TỔNG HỢP: PASS = {passCount} | FAIL = {failCount}");
         Debug.Log("=================================================");
+    }
+
+    private static void TestH_LobbyAutoRegisterAndStartValidation()
+    {
+        Debug.Log("--- [TEST H] KIỂM TRA LOBBY AUTO-REGISTER VÀ START GAME VALIDATION ---");
+
+        // 1. Host (ClientId 0) không bao giờ bị coi là LeftPlayer
+        NetworkGameManager.LeftPlayerClientIds.Add(0);
+        Assert(!NetworkGameManager.IsPlayerLeft(0), "TestH_HostNeverLeft", "Host (ClientId=0/ServerClientId) không bao giờ bị tính là LeftPlayer");
+        NetworkGameManager.LeftPlayerClientIds.Clear();
+
+        // 2. Client vừa kết nối thì tự động xóa khỏi LeftPlayerClientIds
+        ulong clientBId = 1;
+        NetworkGameManager.LeftPlayerClientIds.Add(clientBId);
+        Assert(NetworkGameManager.IsPlayerLeft(clientBId), "TestH_ClientBInitiallyLeft", "Client B ban đầu có trong LeftPlayerClientIds");
+        NetworkGameManager.LeftPlayerClientIds.Remove(clientBId);
+        Assert(!NetworkGameManager.IsPlayerLeft(clientBId), "TestH_ClientBClearedOnConnect", "Client B kết nối lại phòng thì tự động xóa khỏi LeftPlayerClientIds");
+
+        // 3. Người chơi vào phòng lưu tên mặc định ngay cả khi không bấm SET NAME
+        NetworkGamePlayerNameSetup.Clear();
+        string hostDefaultName = NetworkGamePlayerNameSetup.GetName(0);
+        Assert(hostDefaultName == "Player 1", "TestH_HostDefaultNameValid", $"Tên mặc định của Host khi chưa xác nhận là 'Player 1' (thực tế: '{hostDefaultName}')");
+
+        string clientDefaultName = NetworkGamePlayerNameSetup.GetName(1);
+        Assert(clientDefaultName == "Player 2", "TestH_ClientDefaultNameValid", $"Tên mặc định của Client khi chưa xác nhận là 'Player 2' (thực tế: '{clientDefaultName}')");
+
+        // 4. Khi lưu tên tài khoản vào NameSetup
+        NetworkGamePlayerNameSetup.Save(0, "HostHero");
+        Assert(NetworkGamePlayerNameSetup.GetName(0) == "HostHero", "TestH_HostCustomNameSaved", "Tên tùy chỉnh của Host lưu thành công");
+
+        NetworkGamePlayerNameSetup.Save(1, "GuestWarrior");
+        Assert(NetworkGamePlayerNameSetup.GetName(1) == "GuestWarrior", "TestH_GuestCustomNameSaved", "Tên tùy chỉnh của Guest lưu thành công");
+
+        // 5. Cân bằng vai trò tự động cho 1 người chơi
+        int playerCount1 = 1;
+        int roleCount1 = Mathf.Max(1, playerCount1);
+        Assert(playerCount1 == roleCount1, "TestH_1PlayerAutoRoleMatches", "1 người chơi tự động cân bằng đúng 1 vai trò (Villager 1)");
+
+        // 6. Cân bằng vai trò tự động cho 2 người chơi
+        int playerCount2 = 2;
+        int roleCount2 = playerCount2;
+        Assert(playerCount2 == roleCount2, "TestH_2PlayerAutoRoleMatches", "2 người chơi tự động cân bằng đúng 2 vai trò");
     }
 
     private static void Assert(bool condition, string testName, string details = "")

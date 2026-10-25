@@ -84,19 +84,7 @@ public class LobbyManager : NetworkBehaviour
         if (IsServer)
         {
             NetworkGamePlayerNameSetup.Clear();
-
-            // Ngắt kết nối mọi client trong LeftPlayerClientIds nếu vẫn còn trong ConnectedClients
-            if (NetworkManager.Singleton != null)
-            {
-                foreach (ulong leftId in NetworkGameManager.LeftPlayerClientIds)
-                {
-                    if (NetworkManager.Singleton.ConnectedClients.ContainsKey(leftId))
-                    {
-                        Debug.Log($"LOBBY MANAGER | Ngắt kết nối client {leftId} vì đã rời phòng / văng game từ ván trước.");
-                        NetworkManager.Singleton.DisconnectClient(leftId);
-                    }
-                }
-            }
+            NetworkGameManager.LeftPlayerClientIds.Clear();
 
             // Khởi tạo Room Code 6 chữ số
             string code = RoomManager.CurrentRoomCode;
@@ -127,6 +115,7 @@ public class LobbyManager : NetworkBehaviour
 
         if (IsServer)
         {
+            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
             NetworkManager.OnClientConnectedCallback += OnClientConnected;
             SyncPlayersWithConnectedClients();
         }
@@ -144,6 +133,9 @@ public class LobbyManager : NetworkBehaviour
         UpdatePlayerList();
         UpdateStartButton();
 
+        // Tự động xác nhận người chơi vào Lobby ngay khi kết nối (không bắt buộc phải bấm nút SET NAME)
+        AutoRegisterLocalPlayer();
+
         // Join voice sau khi channel ID đã sẵn sàng
         JoinLobbyVoice();
 
@@ -151,6 +143,42 @@ public class LobbyManager : NetworkBehaviour
             "LOBBY MANAGER | NetworkRoleLobbyConfig = "
             + (roleLobbyConfig != null ? "FOUND" : "NULL")
         );
+    }
+
+    private float autoSyncTimer = 0f;
+
+    private void Update()
+    {
+        if (!IsServer || !IsSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            return;
+
+        autoSyncTimer += Time.deltaTime;
+        if (autoSyncTimer >= 1.0f)
+        {
+            autoSyncTimer = 0f;
+            int connectedCount = NetworkManager.Singleton.ConnectedClientsIds?.Count ?? 0;
+            if (players == null || players.Count != connectedCount || (players.Count == 0 && connectedCount > 0))
+            {
+                SyncPlayersWithConnectedClients();
+            }
+        }
+    }
+
+    private void AutoRegisterLocalPlayer()
+    {
+        if (NetworkManager.Singleton == null)
+            return;
+
+        ulong localId = NetworkManager.Singleton.LocalClientId;
+        string defaultName = "Player " + (localId + 1);
+
+        if (playerNameInput != null)
+        {
+            playerNameInput.text = defaultName;
+        }
+
+        Debug.Log($"LOBBY MANAGER | Tự động xác nhận người chơi Local Client {localId} với tên: '{defaultName}'");
+        SubmitPlayerNameServerRpc(defaultName);
     }
 
     public override void OnNetworkDespawn()
@@ -245,9 +273,10 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         Debug.Log(
-            "Lobby: Player " + (clientId + 1) + " đã vào Lobby"
+            "Lobby: Player " + (clientId + 1) + " đã vào Lobby (ClientId=" + clientId + ")"
         );
 
+        NetworkGameManager.LeftPlayerClientIds.Remove(clientId);
         SyncPlayersWithConnectedClients();
     }
 
@@ -309,22 +338,25 @@ public class LobbyManager : NetworkBehaviour
 
         var connectedSet = new HashSet<ulong>(NetworkManager.Singleton.ConnectedClientsIds ?? System.Array.Empty<ulong>());
 
-        // 1. Loại bỏ các player không còn kết nối thực tế, hoặc là excludedClientId, hoặc trong LeftPlayerClientIds
+        // 1. Loại bỏ các player không còn kết nối thực tế, hoặc là excludedClientId
         for (int i = players.Count - 1; i >= 0; i--)
         {
             ulong cid = players[i].ClientId;
-            if (cid == excludedClientId || !connectedSet.Contains(cid) || NetworkGameManager.LeftPlayerClientIds.Contains(cid))
+            if (cid == excludedClientId || !connectedSet.Contains(cid) || (cid != NetworkManager.ServerClientId && NetworkGameManager.LeftPlayerClientIds.Contains(cid)))
             {
                 Debug.Log($"LOBBY MANAGER | Xóa player ClientId {cid} khỏi Lobby vì không còn kết nối / đã ngắt kết nối.");
                 players.RemoveAt(i);
             }
         }
 
-        // 2. Thêm các client đang kết nối thực tế mà chưa có trong players (bỏ qua excludedClientId và LeftPlayerClientIds)
+        // 2. Thêm các client đang kết nối thực tế mà chưa có trong players (bỏ qua excludedClientId)
         foreach (ulong cid in connectedSet)
         {
-            if (cid == excludedClientId || NetworkGameManager.LeftPlayerClientIds.Contains(cid))
+            if (cid == excludedClientId)
                 continue;
+
+            // Client đang kết nối thực tế thì không thể bị tính là đã rời phòng
+            NetworkGameManager.LeftPlayerClientIds.Remove(cid);
 
             if (FindPlayerIndex(cid) < 0)
             {
@@ -334,6 +366,7 @@ public class LobbyManager : NetworkBehaviour
                     name = "Player " + (cid + 1);
                 }
                 players.Add(new PlayerLobbyData(cid, name));
+                NetworkGamePlayerNameSetup.Save(cid, name);
                 Debug.Log($"LOBBY MANAGER | Thêm player ClientId {cid} ({name}) vào Lobby.");
             }
         }
@@ -364,6 +397,8 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         players.Add(new PlayerLobbyData(clientId, playerName));
+        NetworkGamePlayerNameSetup.Save(clientId, playerName);
+
         string code = roomCodeNetwork.Value.ToString();
         if (!string.IsNullOrEmpty(code))
         {
@@ -373,6 +408,7 @@ public class LobbyManager : NetworkBehaviour
         Debug.Log(
             "Đã thêm Player "
             + (clientId + 1)
+            + $" ({playerName})"
         );
     }
 
@@ -414,11 +450,6 @@ public class LobbyManager : NetworkBehaviour
         string playerName =
             "Player " + (NetworkManager.Singleton.LocalClientId + 1);
 
-        if (AuthManager.Instance != null && AuthManager.Instance.IsSignedIn && !string.IsNullOrEmpty(AuthManager.Instance.CurrentUsername))
-        {
-            playerName = AuthManager.Instance.CurrentUsername;
-        }
-
         if (playerNameInput != null)
         {
             string input = playerNameInput.text.Trim();
@@ -450,15 +481,14 @@ public class LobbyManager : NetworkBehaviour
         if (index < 0)
         {
             AddPlayer(clientId, playerName);
-            return;
         }
-
-        PlayerLobbyData data = players[index];
-
-        data.PlayerName = new FixedString64Bytes(playerName);
-        players[index] = data;
-
-        NetworkGamePlayerNameSetup.Save(clientId, playerName);
+        else
+        {
+            PlayerLobbyData data = players[index];
+            data.PlayerName = new FixedString64Bytes(playerName);
+            players[index] = data;
+            NetworkGamePlayerNameSetup.Save(clientId, playerName);
+        }
 
         Debug.Log(
             "LOBBY NAME | Player "
@@ -540,6 +570,24 @@ public class LobbyManager : NetworkBehaviour
         // Đồng bộ sĩ số kết nối thực tế ngay trước khi bắt đầu
         SyncPlayersWithConnectedClients();
 
+        // Fallback: nếu danh sách players vẫn rỗng nhưng ConnectedClientsIds có người chơi
+        if (players.Count == 0 && NetworkManager.Singleton != null && NetworkManager.Singleton.ConnectedClientsIds.Count > 0)
+        {
+            foreach (ulong cid in NetworkManager.Singleton.ConnectedClientsIds)
+            {
+                NetworkGameManager.LeftPlayerClientIds.Remove(cid);
+                string name = NetworkGamePlayerNameSetup.GetName(cid);
+                players.Add(new PlayerLobbyData(cid, name));
+            }
+            UpdatePlayerList();
+        }
+
+        if (players.Count <= 0)
+        {
+            Debug.LogWarning("Không thể Start Game! Chưa có người chơi nào trong phòng.");
+            return;
+        }
+
         // 1. Thu thập danh sách ClientId thực tế đang có mặt trong Lobby
         var lobbyClientIds = new HashSet<ulong>();
         for (int i = 0; i < players.Count; i++)
@@ -547,14 +595,14 @@ public class LobbyManager : NetworkBehaviour
             lobbyClientIds.Add(players[i].ClientId);
         }
 
-        // 2. Ngắt kết nối dứt điểm mọi client kết nối mồ côi không có trong Lobby hoặc đã rời phòng
+        // 2. Ngắt kết nối dứt điểm mọi client kết nối mồ côi không có trong Lobby (ngoại trừ Host)
         if (NetworkManager.Singleton != null)
         {
             foreach (ulong cid in NetworkManager.Singleton.ConnectedClientsIds.ToArray())
             {
-                if (!lobbyClientIds.Contains(cid) || NetworkGameManager.LeftPlayerClientIds.Contains(cid))
+                if (cid != NetworkManager.ServerClientId && !lobbyClientIds.Contains(cid))
                 {
-                    Debug.Log($"LOBBY START | Ngắt kết nối client {cid} vì không hợp lệ / đã rời phòng.");
+                    Debug.Log($"LOBBY START | Ngắt kết nối client {cid} vì không hợp lệ / không có trong Lobby.");
                     NetworkGameManager.LeftPlayerClientIds.Add(cid);
                     NetworkManager.Singleton.DisconnectClient(cid);
                 }
@@ -615,6 +663,8 @@ public class LobbyManager : NetworkBehaviour
         );
 
         Debug.Log("HOST START GAME!");
+
+        NetworkPlayerVote.ResetLocalStaticVotes();
 
         NetworkManager.SceneManager.LoadScene(
             "Game",
