@@ -6,6 +6,28 @@ public class DeathResolver:MonoBehaviour
     public bool consumeProtectionOnBlock = true;
     public System.Collections.Generic.List<DeathCause> protectionBlocks = new() { DeathCause.Monster, DeathCause.Killer, DeathCause.Ability };
     public event System.Action<DeathResult> DeathResolved;
+    public event System.Action DeathBatchResolved;
+    private int batchDepth;
+    private bool batchChanged;
+    public System.IDisposable BeginBatch()
+    {
+        batchDepth++;
+        return new ResolutionBatch(this);
+    }
+    private sealed class ResolutionBatch : System.IDisposable
+    {
+        private DeathResolver owner;
+        public ResolutionBatch(DeathResolver owner) { this.owner = owner; }
+        public void Dispose()
+        {
+            if (owner == null) return;
+            var resolver = owner;
+            owner = null;
+            if (--resolver.batchDepth != 0 || !resolver.batchChanged) return;
+            resolver.batchChanged = false;
+            resolver.DeathBatchResolved?.Invoke();
+        }
+    }
 
     private void Awake()
     {
@@ -26,6 +48,7 @@ public class DeathResolver:MonoBehaviour
 
     public DeathResult TryKill(DeathRequest request)
     {
+        using var batch = BeginBatch();
         var target = request.Target;
         var cause = request.Cause;
         var sourceRole = request.SourceRole;
@@ -33,6 +56,8 @@ public class DeathResolver:MonoBehaviour
             return Publish(request, DeathOutcome.InvalidRequest, "Không tìm thấy mục tiêu hợp lệ.");
         if (!target.isAlive)
             return Publish(request, DeathOutcome.IgnoredAlreadyDead, $"{target.DisplayName} đã chết trước đó.");
+        if (ThuongLogicSceneScope.IsActive && GameRoleManager.Instance?.currentState == GameState.GameOver)
+            return Publish(request, DeathOutcome.InvalidRequest, "Trận đấu đã kết thúc.");
         int targetID = target.playerID;
         if (target.roleType == RoleType.Idiot && cause == DeathCause.Vote)
         {
@@ -79,13 +104,27 @@ public class DeathResolver:MonoBehaviour
                 target.isWhiteHoundAwakened = true;
             }
             target.NotifyChanged();
+            if (ThuongLogicSceneScope.IsActive)
+            {
+                target.faction = FactionType.Monster;
+                target.NotifyChanged();
+            }
+            batchChanged = true;
             return Publish(request, DeathOutcome.Prevented, $"{target.DisplayName} thức tỉnh thành Bạch Khuyển.");
         }
 
         target.isAlive = false;
         target.hasDeathRecord = true;
         target.lastDeathCause = cause;
+        target.lastDeathSourceID = request.Source?.playerID ?? -1;
         target.wasVotedOut = cause == DeathCause.Vote;
+        batchChanged = true;
+        if (ThuongLogicSceneScope.IsActive)
+        {
+            if (StatusEffectSystem.Instance != null) StatusEffectSystem.Instance.ClearEffects(target);
+            else { target.effects?.Clear(); target.isCursed = false; }
+            target.status.isProtected = false;
+        }
         target.NotifyChanged();
         NetworkPlayerStateSync.SyncGameplayAliveState(targetID, false);
         if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(targetID, out var role))

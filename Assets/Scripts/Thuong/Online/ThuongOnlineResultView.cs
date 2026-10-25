@@ -18,6 +18,8 @@ namespace Thuong.Online
         private TMP_Text outcomeTitle, outcomeWinner, outcomeReason, outcomeLocal, outcomeVote, outcomeColumn, outcomeVoteButtonLabel;
         private RectTransform outcomeContent;
         private Button outcomeVoteButton;
+        private Button outcomeRestartButton;
+        private TMP_Text outcomeRestartHelp;
         private readonly Dictionary<int, ResultRow> outcomeRows = new();
         private bool showFinalVote;
 
@@ -54,6 +56,10 @@ namespace Thuong.Online
                 : "Không tìm thấy bạn trong danh sách cuối ván.";
             outcomeLocal.richText = false;
             outcomeVoteButton.gameObject.SetActive(voteResultRevision > 0);
+            outcomeRestartButton.gameObject.SetActive(CanRestartMatch);
+            outcomeRestartHelp.gameObject.SetActive(!CanRestartMatch);
+            outcomeRestartHelp.text = connected ? "Chờ chủ phòng bấm CHƠI LẠI.\nHoặc rời phòng để tham gia phòng khác."
+                : "Đã ngắt kết nối.\nBạn vẫn có thể xem kết quả ván.";
             outcomeVoteButtonLabel.text = showFinalVote ? "VỀ BẢNG KẾT QUẢ" : "XEM VOTE CUỐI";
             outcomeColumn.text = showFinalVote ? "PHIẾU BẦU CUỐI" : "TRẠNG THÁI / KẾT QUẢ";
             outcomeVote.text = showFinalVote
@@ -77,7 +83,9 @@ namespace Thuong.Online
                 row.Status.text = showFinalVote
                     ? $"{(voteTallies.TryGetValue(player.Id, out int votes) ? votes : 0)} phiếu" +
                       (player.Id == voteEliminatedId ? " • BỊ LOẠI" : voteIsTie ? " • HÒA PHIẾU" : "")
-                    : (player.Alive ? "Còn sống" : "Đã bị loại") + " • " + result;
+                    : (player.Alive ? "Còn sống" : "Đã bị loại") + " • " + result +
+                      (!player.Alive && player.HasDeathRecord ? "\n" + DeathCauseLabel(player.DeathCause) : "");
+                row.Status.textWrappingMode = TextWrappingModes.Normal;
                 row.Badge.color = draw ? new Color32(122, 102, 60, 255)
                     : player.Won ? new Color32(57, 105, 65, 255) : new Color32(135, 66, 56, 255);
             }
@@ -139,21 +147,24 @@ namespace Thuong.Online
                 () => showFinalVote = !showFinalVote);
             outcomeVoteButtonLabel = outcomeVoteButton.GetComponentInChildren<TMP_Text>();
             LobbyButton("Leave finished match", card, "RỜI PHÒNG", new Vector2(.69f, .035f), new Vector2(.95f, .115f), LeaveSession);
-            LobbyText("Result help", card, "Cuộn để xem đủ người chơi.\nRời phòng để tạo hoặc tham gia ván mới.",
-                new Vector2(.035f, .025f), new Vector2(.38f, .125f), 17).textWrappingMode = TextWrappingModes.Normal;
+            outcomeRestartButton = LobbyButton("Restart finished match", card, "CHƠI LẠI", new Vector2(.035f, .035f), new Vector2(.36f, .115f),
+                () => RestartMatchInRoom());
+            outcomeRestartHelp = LobbyText("Result help", card, "", new Vector2(.035f, .025f), new Vector2(.38f, .125f), 17);
+            outcomeRestartHelp.textWrappingMode = TextWrappingModes.Normal;
         }
 
         private ResultRow CreateResultRow(int id)
         {
             var root = LobbyPanel("Final Player " + id, outcomeContent, Vector2.zero, Vector2.one, false);
             root.GetComponent<Image>().color = id % 2 == 0 ? new Color32(246, 222, 175, 255) : new Color32(229, 202, 153, 255);
-            var layout = root.gameObject.AddComponent<LayoutElement>(); layout.minHeight = layout.preferredHeight = 64;
+            var layout = root.gameObject.AddComponent<LayoutElement>(); layout.minHeight = layout.preferredHeight = 76;
             var avatar = LobbyPanel("Final avatar", root, new Vector2(.005f, .10f), new Vector2(.06f, .90f), false).GetComponent<Image>();
             avatar.preserveAspect = true; avatar.raycastTarget = false;
             var name = LobbyText("Final name", root, "", new Vector2(.065f, .05f), new Vector2(.355f, .95f), 21);
             name.richText = false;
             var role = LobbyText("Final role", root, "", new Vector2(.365f, .05f), new Vector2(.56f, .95f), 18);
             var faction = LobbyText("Final faction", root, "", new Vector2(.57f, .05f), new Vector2(.745f, .95f), 18);
+            name.color = role.color = faction.color = ThuongMedievalTheme.Ink;
             var badge = LobbyPanel("Final outcome badge", root, new Vector2(.755f, .13f), new Vector2(.99f, .87f), false).GetComponent<Image>();
             var status = LobbyText("Final status", badge.transform, "", Vector2.zero, Vector2.one, 17, TextAlignmentOptions.Center);
             status.color = ThuongMedievalTheme.Cream;
@@ -169,6 +180,14 @@ namespace Thuong.Online
             RoleType.Hunter => "THỢ SĂN", RoleType.Shaman => "PHÁP SƯ", RoleType.WeaverOfFate => "DỆT DUYÊN",
             RoleType.Cursed => "KẺ NGUYỀN", RoleType.Brat => "ĐỨA TRẺ", RoleType.Madman => "KẺ ĐIÊN",
             RoleType.FoxSpirit => "HỒ LY", RoleType.Killer => "SÁT NHÂN", _ => player.Role.ToString()
+        };
+
+        private static string DeathCauseLabel(DeathCause cause) => cause switch
+        {
+            DeathCause.Vote => "Bỏ phiếu", DeathCause.Monster => "Sói tấn công", DeathCause.Curse => "Lời nguyền",
+            DeathCause.Ability => "Kỹ năng", DeathCause.Killer => "Sát nhân", DeathCause.Trap => "Bẫy Thợ Săn",
+            DeathCause.Lover => "Người yêu chết", DeathCause.Poison => "Trúng độc",
+            DeathCause.DeathHerald => "Sứ giả cái chết", _ => "Trường hợp đặc biệt"
         };
 
         private static string FinalFactionLabel(ThuongFinalPlayer player)
@@ -196,6 +215,7 @@ namespace Thuong.Online
             ThuongWinReason.FoxCharmed => "Hồ Ly còn sống, đã mê hoặc ít nhất hai mục tiêu và toàn bộ mục tiêu mê hoặc đều còn sống.",
             ThuongWinReason.WhiteHoundSurvived => $"Chỉ còn một Bạch Khuyển thức tỉnh, hết Ma Sói / Sát nhân và còn tối đa {winSettings.specialWinVillageLimit} dân.",
             ThuongWinReason.KillerSurvived => $"Chỉ còn một Sát nhân, hết Ma Sói / Bạch Khuyển thức tỉnh và còn tối đa {winSettings.specialWinVillageLimit} dân.",
+            ThuongWinReason.NeutralRule => "Vai trung lập đã hoàn thành điều kiện thắng riêng được cấu hình.",
             ThuongWinReason.NobodyAlive => "Không còn người chơi nào sống sau khi giải quyết toàn bộ hiệu ứng.",
             ThuongWinReason.Stalemate => "Chỉ còn role trung lập không thể hoàn thành điều kiện thắng riêng.",
             _ => "Đã hết số ngày quy định mà không còn phe đủ điều kiện chiến thắng."

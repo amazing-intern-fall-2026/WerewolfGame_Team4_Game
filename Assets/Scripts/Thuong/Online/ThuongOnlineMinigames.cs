@@ -72,9 +72,9 @@ namespace Thuong.Online
             if (!connected || network == null || !network.IsListening) return;
             uint seq = ++minigameSequence;
             if (network.IsServer)
-            { ProcessMinigameRequest(network.LocalClientId, seq, operation, visibleDay, station, attempt, input); return; }
+            { ProcessMinigameRequest(network.LocalClientId, seq, operation, visibleDay, station, attempt, input, matchEpoch); return; }
             using var writer = new FastBufferWriter(64, Allocator.Temp);
-            writer.WriteValueSafe(seq); writer.WriteValueSafe(operation); writer.WriteValueSafe(visibleDay);
+            writer.WriteValueSafe(seq); writer.WriteValueSafe(matchEpoch); writer.WriteValueSafe(operation); writer.WriteValueSafe(visibleDay);
             writer.WriteValueSafe(station); writer.WriteValueSafe(attempt); writer.WriteValueSafe((byte)input.action);
             writer.WriteValueSafe(input.index); writer.WriteValueSafe(input.value);
             network.CustomMessagingManager.SendNamedMessage(ThuongMinigameWire.Request, NetworkManager.ServerClientId, writer);
@@ -83,10 +83,11 @@ namespace Thuong.Online
         private void ReceiveMinigameRequest(ulong sender, FastBufferReader reader)
         {
             if (!network.IsServer || !reader.TryBeginRead(ThuongMinigameWire.RequestBytes)) return;
-            reader.ReadValueSafe(out uint seq); reader.ReadValueSafe(out byte operation); reader.ReadValueSafe(out int day);
+            reader.ReadValueSafe(out uint seq); reader.ReadValueSafe(out uint epoch);
+            reader.ReadValueSafe(out byte operation); reader.ReadValueSafe(out int day);
             reader.ReadValueSafe(out int station); reader.ReadValueSafe(out ulong attempt); reader.ReadValueSafe(out byte action);
             reader.ReadValueSafe(out int index); reader.ReadValueSafe(out float value);
-            ProcessMinigameRequest(sender, seq, operation, day, station, attempt, new ThuongMinigameInput((ThuongMinigameAction)action, index, value));
+            ProcessMinigameRequest(sender, seq, operation, day, station, attempt, new ThuongMinigameInput((ThuongMinigameAction)action, index, value), epoch);
         }
 
         private bool CanPlayMinigame(ThuongOnlineServerPlayer member, int station, int day, out string reason)
@@ -107,9 +108,9 @@ namespace Thuong.Online
         }
 
         private void ProcessMinigameRequest(ulong sender, uint seq, byte operation, int day, int station,
-            ulong attemptId, ThuongMinigameInput input)
+            ulong attemptId, ThuongMinigameInput input, uint epoch)
         {
-            if (!network.IsServer || !serverPlayers.TryGetValue(sender, out var member) || seq == 0 ||
+            if (!network.IsServer || epoch != matchEpoch || !serverPlayers.TryGetValue(sender, out var member) || seq == 0 ||
                 minigameSequences.TryGetValue(sender, out uint last) && seq <= last) return;
             minigameSequences[sender] = seq;
             if (operation == 2)
@@ -200,6 +201,7 @@ namespace Thuong.Online
             if (owner == network.LocalClientId && network.IsHost) { ApplyMinigameState(state); return; }
             if (!network.ConnectedClientsIds.Contains(owner)) return;
             using var writer = new FastBufferWriter(1024, Allocator.Temp);
+            writer.WriteValueSafe(matchEpoch);
             ThuongMinigameWire.Write(writer, state);
             network.CustomMessagingManager.SendNamedMessage(ThuongMinigameWire.State, owner, writer);
         }
@@ -207,7 +209,12 @@ namespace Thuong.Online
         private void ReceiveMinigameState(ulong sender, FastBufferReader reader)
         {
             if (sender != NetworkManager.ServerClientId || network.IsServer) return;
-            try { ApplyMinigameState(ThuongMinigameWire.Read(reader)); }
+            try
+            {
+                reader.ReadValueSafe(out uint epoch);
+                if (epoch != matchEpoch) return;
+                ApplyMinigameState(ThuongMinigameWire.Read(reader));
+            }
             catch (Exception exception) { Debug.LogWarning("[Thuong Minigames] Invalid state: " + exception.Message); }
         }
 

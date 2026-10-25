@@ -1,4 +1,4 @@
-# Phase 1–4 logic prototype của Thương
+# Phase 1–13 logic prototype của Thương
 
 Mở `WerewolfLogicPrototype.unity` trong thư mục này và nhấn Play, sau đó Start Match.
 Nếu scene chưa được tạo, dùng menu Tools → Thuong → Create Logic Phase 1-4 Scene.
@@ -8,7 +8,7 @@ Nếu scene chưa được tạo, dùng menu Tools → Thuong → Create Logic P
 - Phase 3: `StatusEffectSystem` cộng effect khác nguồn, refresh cùng nguồn, tick đúng phase, thông báo thay đổi và gửi curse hết hạn qua `DeathResolver`.
 - Phase 4: `AbilitySystem` gửi hành động vào `NightManager`. `ThuongLogicMatchController` điều phối bằng các manager sẵn có, tick effect cũ trước action mới, resolve Protected trước Kill và kiểm tra thắng sau cả lượt.
 
-`VoteManager` giữ lựa chọn theo Player ID và tính sức nặng ở lúc resolve, trước khi effect hết hạn tại DayResolution. `votePower` của role cũ vẫn được giữ làm trọng số cơ bản; effect chỉ được cộng tạm thời, không sửa dữ liệu gốc. Các role/UI chi tiết Cannot Vote, Extra Vote và các phase sau chưa được tạo.
+`VoteManager` giữ lựa chọn theo Player ID và tính sức nặng ở lúc resolve, trước khi effect hết hạn tại DayResolution. `votePower` của role cũ vẫn được giữ làm trọng số cơ bản; effect chỉ được cộng tạm thời, không sửa dữ liệu gốc. Cannot Vote chặn cả phiếu mới và phiếu đã gửi trước khi bị khóa. Nhật ký hiển thị tổng phiếu sau khi cộng hiệu ứng.
 Mỗi lượt bỏ phiếu chỉ resolve một lần; gọi lại giữ nguyên kết quả và không loại thêm người.
 
 Prototype xử lý cả Fast Enter Play Mode và script reload: bind lại reference hệ thống, nối lại button/event khi OnEnable và loại bỏ hàng UI cũ trước khi rebuild roster.
@@ -23,7 +23,13 @@ Trong code cũ của Thương, `ResolveNight` tương ứng `NightResolution`, `
 
 Hệ thống và references được lưu trong scene. Button callbacks được nối tại `ThuongLogicPrototypeUI.Initialize` để không cần kéo lại trong Inspector.
 Scene này chạy offline bằng nút chuyển phase; `ThuongGameplayPrototype` đã ghép logic mới vào flow tự động, vẫn giữ nhiệm vụ và role ngẫu nhiên. Xem `../GAMEPLAY_INTEGRATION.md` để biết các điểm nối và cách thay asset.
-Phase 5 đã kiểm tra luật mục tiêu dùng chung cho UI và API: Doctor tự bảo vệ/Any, Wolf cấm self/OtherFaction, mục tiêu chết bị loại khi CanTargetDead tắt. UI ẩn mục tiêu không hợp lệ và cập nhật khi sống/chết hoặc phe thay đổi. Các role/checklist riêng của Phase 6–13 chưa được hoàn thiện; validator và win nền là dependency được tài liệu yêu cầu ngay ở Phase 4.
+Phase 5 dùng chung luật mục tiêu cho UI và API: Doctor tự bảo vệ/Any, Wolf cấm self/OtherFaction, mục tiêu chết bị loại khi CanTargetDead tắt. UI ẩn mục tiêu không hợp lệ và cập nhật khi sống/chết hoặc phe thay đổi. Giao diện kỹ năng gameplay đã được sửa hồi quy lọc mục tiêu sau khi ghép nhánh.
+
+Phase 6–13 đã có kiểm tra phase, lượt dùng, Silenced, Cannot Vote, Extra Vote, lời nguyền có thời hạn, chết liên hoàn, điều kiện thắng và kết quả trận có nút chơi lại. Danh sách bên trái hiển thị Sống/Chết, quyền vote, sức nặng phiếu và thời hạn hiệu ứng. Kết quả cuối trận chụp lại vai trò, phe và nguyên nhân chết; dữ liệu sau đó không làm thay đổi kết quả đã lưu.
+
+Các preset trong `Roles/TestCannotVote.asset`, `TestExtraVote.asset`, `TestSilenced.asset`, `TestCursed.asset` dành cho thử từng cơ chế: gán vào `roleDefinition` của một người trong PlayerManager trước khi bắt đầu trận. Đây là các preset kiểm thử, không thêm vai mới vào bộ vai ngẫu nhiên của gameplay. Cannot Vote và Extra Vote hết hiệu lực sau vòng kiểm phiếu; Silenced giữ qua đêm kế tiếp; Cursed đếm hai lần ResolveNight tiếp theo sau đêm áp dụng.
+
+Kiểm thử mới: **Tools → Thuong → Check Logic Plan Phases 6-13**, entrypoint `ThuongLogicPlanChecks.Run`. Bộ kiểm tra dùng scene preview, khôi phục singleton sau khi chạy và không lưu đè scene của bạn. Báo cáo đầy đủ tại `Docs/LogicPlan_Implementation_2026-10-22.md`.
 
 Kiểm thử: menu Tools → Thuong → Check Logic Phase 1-4. Batch Play Mode entrypoint: `ThuongLogicPhaseChecks.Run`.
 Kiểm tra cũ cho Phase 1 được chạy trước. Các kiểm tra mới bao gồm nguồn effect, duration, chết lặp, protection, hai thứ tự Doctor/Wolf, bỏ phiếu, GameOver nền và reset trận; sau đó chạy lại UI trong Play Mode và tạo ảnh kiểm tra ở Logs.

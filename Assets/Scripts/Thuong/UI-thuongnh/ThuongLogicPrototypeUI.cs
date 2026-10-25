@@ -13,6 +13,7 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
     public int selectedTargetID = 2;
     private readonly Queue<string> lines = new();
     private bool wired;
+    private Text rosterText;
 
     private void OnEnable()
     {
@@ -48,6 +49,18 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
         match.deathSystem.DeathResolved += HandleDeath;
         match.abilitySystem.AbilityResolved += HandleAbility;
         match.statusSystem.EffectRemoved += HandleEffectRemoved;
+        match.voteSystem.VoteResolved += HandleVote;
+        var results = GetComponent<ThuongMatchResultUI>() ?? gameObject.AddComponent<ThuongMatchResultUI>();
+        results.Initialize(null, match.StartMatch);
+        if (rosterPanel != null && rosterText == null)
+        {
+            rosterText = rosterPanel.Find("Player states")?.GetComponent<Text>();
+            if (rosterText == null) rosterText = Label("Player states", rosterPanel, "",
+                new Vector2(.04f, .03f), new Vector2(.96f, .97f), 21);
+            rosterText.alignment = TextAnchor.UpperLeft;
+        }
+        var title = transform.Find("Title")?.GetComponent<Text>();
+        if (title != null) title.text = "THƯƠNG / LOGIC MA SÓI / PHASE 1–13";
         Refresh();
     }
     private void OnDestroy()
@@ -63,6 +76,7 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
         match.deathSystem.DeathResolved -= HandleDeath;
         match.abilitySystem.AbilityResolved -= HandleAbility;
         match.statusSystem.EffectRemoved -= HandleEffectRemoved;
+        match.voteSystem.VoteResolved -= HandleVote;
         wired = false;
     }
     private void Update() { if (wired) Refresh(); }
@@ -70,6 +84,7 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
     private void HandlePhase(GamePhase previous, GamePhase current) { statusText.text = "Chọn người dùng và mục tiêu."; Refresh(); }
     private void HandleDeath(DeathResult result) => Append(result.Message);
     private void HandleAbility(AbilityResolution result) => Append(result.Message);
+    private void HandleVote(VoteResolution result) => Append(result.BuildSummary());
     private void HandleEffectRemoved(PlayerData player, StatusEffectInstance effect) => Append($"{player.DisplayName}: hết {effect.Type}.");
     private void Append(string message)
     {
@@ -88,12 +103,29 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
     }
     public void SubmitSelectedVote()
     {
-        statusText.text = match.voteSystem.TryVote(localActorID, selectedTargetID) ? "Phiếu đã ghi nhận." : "Không thể bỏ phiếu.";
+        var validation = match.voteSystem.ValidateVote(localActorID, selectedTargetID);
+        statusText.text = validation.IsValid && match.voteSystem.TryVote(localActorID, selectedTargetID)
+            ? "Phiếu đã ghi nhận." : validation.Message;
         Refresh();
     }
     public void Refresh()
     {
         if (match == null || phaseText == null) return;
+        if (rosterText != null)
+        {
+            var roster = new System.Text.StringBuilder("DANH SÁCH NGƯỜI CHƠI\n\n");
+            foreach (var player in match.players.players)
+            {
+                if (player == null) continue;
+                roster.AppendLine($"P{player.playerID + 1:00}  {player.DisplayName} / {(player.isAlive ? "SỐNG" : "CHẾT")}");
+                roster.AppendLine($"Quyền vote: {(player.CanVote ? player.GetVoteWeight() + " phiếu" : "Bị khóa")}");
+                if (player.effects != null)
+                    foreach (var effect in player.effects)
+                        roster.AppendLine($"  {effect.Type} +{effect.Strength} / còn {effect.RemainingTicks} lượt");
+                roster.AppendLine();
+            }
+            rosterText.text = roster.ToString();
+        }
         string phase = match.phaseController.currentPhase switch
         {
             GamePhase.ResolveNight => "NightResolution",
@@ -111,8 +143,10 @@ public sealed class ThuongLogicPrototypeUI : MonoBehaviour
         if (!validation.IsValid && match.IsMatchRunning &&
             match.phaseController.currentPhase == GamePhase.Night)
             statusText.text = validation.Message;
-        voteButton.interactable = match.IsMatchRunning && match.phaseController.currentPhase == GamePhase.Voting &&
-            actor != null && target != null && actor.CanVote && target.isAlive && !actor.hasVoted;
+        var voteValidation = match.voteSystem.ValidateVote(localActorID, selectedTargetID);
+        voteButton.interactable = match.IsMatchRunning && voteValidation.IsValid;
+        if (match.IsMatchRunning && match.phaseController.currentPhase == GamePhase.Voting && !voteValidation.IsValid)
+            statusText.text = voteValidation.Message;
         for (int i = 0; i < actorButtons.Length; i++)
         {
             var player = match.players.players[i];

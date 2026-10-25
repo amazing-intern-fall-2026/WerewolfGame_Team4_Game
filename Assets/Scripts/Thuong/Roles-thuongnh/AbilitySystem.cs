@@ -60,9 +60,13 @@ public sealed class AbilitySystem : MonoBehaviour
         if (actor.roleDefinition.usablePhase == GamePhase.Night)
             lastNightTargets[actor.playerID] = (nightSystem.CurrentNightNumber, target.playerID);
         actor.hasUseNightAction = true;
-        nightSystem.QueueAbility(actor, target, actor.roleDefinition);
+        if (actor.roleDefinition.usablePhase == GamePhase.Night)
+            nightSystem.QueueAbility(actor, target, actor.roleDefinition);
+        else
+            nightSystem.ResolveAbility(actor, target, actor.roleDefinition);
         actor.NotifyChanged();
-        return ActionValidationResult.Success("Hành động đã ghi nhận; xử lý ở NightResolution.");
+        return ActionValidationResult.Success(actor.roleDefinition.usablePhase == GamePhase.Night
+            ? "Hành động đã ghi nhận; xử lý ở NightResolution." : "Kỹ năng đã thực hiện.");
     }
     public void Publish(AbilityResolution result) => AbilityResolved?.Invoke(result);
 }

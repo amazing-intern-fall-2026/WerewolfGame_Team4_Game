@@ -37,7 +37,7 @@ public class RoleAbilityUI : MonoBehaviour
     private Image revealPortrait;
     private Sprite defaultPortrait;
     private RectTransform targetContent;
-    private readonly List<GameObject> targetButtons = new List<GameObject>();
+    private readonly Dictionary<int, Button> targetButtons = new();
     private bool initialized;
     private bool hasShownRole;
     private RoleType shownRole;
@@ -349,7 +349,7 @@ public class RoleAbilityUI : MonoBehaviour
              role == RoleType.Ogre || role == RoleType.WhiteHound ||
              role == RoleType.Shaman || role == RoleType.Cursed ||
                              role == RoleType.FoxSpirit || role == RoleType.Killer ||
-                             role == RoleType.WeaverOfFate;
+                             role == RoleType.WeaverOfFate || role == RoleType.Brat;
     }
 
     private static string RoleName(RoleType role)
@@ -396,7 +396,9 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.Ogre:
                 return "Bạn thuộc phe Ma Sói và có thể chọn mục tiêu tấn công vào ban đêm. Ban ngày, bạn vẫn tham gia thảo luận và bỏ phiếu.";
             case RoleType.Shaman:
-                return "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi để dùng bùa lợi bảo vệ hoặc bùa hại khiến họ im lặng. Mỗi loại bùa dùng một lần.";
+                return StatusEffectSystem.Instance != null
+                    ? "Bạn thuộc phe Dân Làng. Bùa lợi bảo vệ trong đêm; bùa hại khóa kỹ năng của mục tiêu đến lúc thảo luận. Mỗi loại bùa dùng một lần mỗi ván."
+                    : "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi để dùng bùa lợi bảo vệ hoặc bùa hại khiến họ im lặng. Mỗi loại bùa dùng một lần.";
             case RoleType.WhiteHound:
                 return "Bạn bắt đầu ở phe Dân Làng. Nếu bị Dog Spirit tấn công, bạn thức tỉnh thành Bạch Khuyển và có thể chọn mục tiêu tấn công vào các đêm sau.";
             case RoleType.Idiot:
@@ -406,13 +408,15 @@ public class RoleAbilityUI : MonoBehaviour
             case RoleType.WeaverOfFate:
                 return "Bạn thuộc phe Dân Làng. Trong đêm, chọn hai người chơi còn sống để ghép đôi. Kỹ năng dùng một lần mỗi ván.";
             case RoleType.Cursed:
-                return "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi; họ bị lời nguyền và không thể nói trong buổi thảo luận kế tiếp.";
+                return StatusEffectSystem.Instance != null
+                    ? "Bạn thuộc phe Dân Làng. Nguyền một người còn sống; lời nguyền kích hoạt gây chết khi bắt đầu buổi thảo luận thứ hai tính từ đêm đặt nguyền. Bảo vệ thông thường không chặn lời nguyền."
+                    : "Bạn thuộc phe Dân Làng. Mỗi đêm chọn một người chơi; họ bị lời nguyền và không thể nói trong buổi thảo luận kế tiếp.";
             case RoleType.Brat:
-                return "Bạn thuộc phe Dân Làng. Vai Đứa Trẻ có thao tác nhìn trộm; giao diện của thao tác này chưa được nối trong prototype.";
+                return $"Bạn thuộc phe Dân Làng. Mỗi đêm, chọn NHÌN TRỘM để xem các hành động đã đăng ký. Có {BratRole.CaughtChance:P0} khả năng bị Sói phát hiện và giết.";
             case RoleType.Madman:
-                return "Bạn thuộc phe Trung Lập. Vai này có điều kiện thắng riêng trong logic hiện có của dự án.";
+                return "Bạn thuộc phe Trung Lập. Thắng riêng nếu bị bỏ phiếu loại trong ngày đầu tiên.";
             case RoleType.FoxSpirit:
-                return "Bạn thuộc phe Trung Lập. Mỗi đêm mê hoặc tối đa hai người. Nếu cả hai còn sống khi ván kết thúc, Cáo tinh chiến thắng.";
+                return "Bạn thuộc phe Trung Lập. Mỗi đêm mê hoặc tối đa hai người. Bạn thắng khi còn sống, đã mê hoặc ít nhất hai người và toàn bộ người đã mê hoặc còn sống sau khi giải quyết đêm.";
             case RoleType.Killer:
                 return "Bạn thuộc phe Trung Lập. Có thể chọn mục tiêu tấn công vào các đêm chẵn.";
             default:
@@ -503,6 +507,10 @@ public class RoleAbilityUI : MonoBehaviour
                 skillLabel.text = "NGUYỀN";
                 descriptionLabel.text = "Đánh dấu một người chơi còn sống bằng lời nguyền.";
                 break;
+            case RoleType.Brat:
+                skillLabel.text = "NHÌN TRỘM";
+                descriptionLabel.text = $"Xem các hành động đã đăng ký trong đêm. Có {BratRole.CaughtChance:P0} khả năng bị Sói phát hiện.";
+                break;
             case RoleType.FoxSpirit:
                 skillLabel.text = "MÊ HOẶC";
                 descriptionLabel.text = "Mỗi đêm chọn tối đa hai người còn sống để mê hoặc.";
@@ -521,6 +529,9 @@ public class RoleAbilityUI : MonoBehaviour
                 break;
         }
         bool configured = RoleManager.UsesConfiguredAbility(player);
+        TMP_Text useLabel = useButton.GetComponentInChildren<TMP_Text>();
+        if (useLabel != null)
+            useLabel.text = shownRole == RoleType.Brat ? "NHÌN TRỘM" : "CHỌN MỤC TIÊU";
         if (configured)
         {
             skillLabel.text = !string.IsNullOrWhiteSpace(shownDefinition.abilityName)
@@ -573,7 +584,7 @@ public class RoleAbilityUI : MonoBehaviour
             reason = "Role này chỉ có kỹ năng nội tại hoặc quyền bỏ phiếu.";
         else if (player.HasEffect(StatusEffectType.Silenced))
             reason = "Người chơi đang bị Silenced.";
-        else if (game == null || game.currentState != GameState.Night)
+        else if (game == null || game.currentPhase != GamePhase.Night)
             reason = "Kỹ năng chỉ dùng được vào ban đêm.";
         else if (player.roleType == RoleType.WeaverOfFate &&
                  GetLocalWeaverRole()?.HasUsedAbility == true)
@@ -674,12 +685,12 @@ public class RoleAbilityUI : MonoBehaviour
             return;
         }
 
-        CanUse(player, game, out string reason);
-        // Luôn cho mở danh sách lobby; chỉ thực thi action khi CanUse hợp lệ.
-        useButton.interactable = player != null && HasActiveAbility(player.roleType);
+        bool canUse = CanUse(player, game, out string reason);
+        useButton.interactable = canUse;
+        if (targetView.activeSelf) RefreshTargets(player, canUse, reason);
         ShamanRole shaman = GetLocalShamanRole();
         bool canUseShamanCharm = player != null && player.isAlive && !player.HasEffect(StatusEffectType.Silenced) && !player.hasUseNightAction &&
-                                 state == GameState.Night;
+                                 state == GameState.Night && game != null && game.currentPhase == GamePhase.Night;
         shamanGoodCharmButton.interactable = online != null ? online.CanUseLocalAbility(out _) && online.HasGoodCharm
             : canUseShamanCharm && shaman != null && shaman.HasGoodCharm;
         shamanBadCharmButton.interactable = online != null ? online.CanUseLocalAbility(out _) && online.HasBadCharm
@@ -705,16 +716,21 @@ public class RoleAbilityUI : MonoBehaviour
         targetFailureFeedback = null;
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         bool canSetHunterTrap = CanSetHunterTrap(player, GameRoleManager.Instance);
-        if (player == null || (!HasActiveAbility(player.roleType) && !canSetHunterTrap))
+        if (player == null || (!HasActiveAbility(player) && !canSetHunterTrap))
         {
             actionFeedback = "Chưa có kỹ năng chủ động để chọn mục tiêu.";
             return;
         }
-
-        foreach (GameObject button in targetButtons)
+        if (player.roleType == RoleType.Brat)
         {
-            button.SetActive(false);
-            Destroy(button);
+            SubmitBratPeek(player);
+            return;
+        }
+
+        foreach (Button button in targetButtons.Values)
+        {
+            button.gameObject.SetActive(false);
+            Destroy(button.gameObject);
         }
         targetButtons.Clear();
         List<PlayerData> lobby = PlayerManager.Instance?.players;
@@ -731,7 +747,7 @@ public class RoleAbilityUI : MonoBehaviour
         foreach (PlayerData target in lobby)
         {
             if (target != null) lobbyCount++;
-            if (target == null || !target.isAlive || target.playerID == localPlayerID)
+            if (target == null)
                 continue;
             if (selectingSecondLover && target.playerID == firstLoverTargetID)
                 continue;
@@ -740,7 +756,7 @@ public class RoleAbilityUI : MonoBehaviour
             Button button = ActionButton("Target " + targetID, targetContent,
                 name, Vector2.zero, Vector2.one, "#2F5962", () => SelectTarget(targetID));
             button.GetComponentInChildren<TMP_Text>().fontSize = 17;
-            targetButtons.Add(button.gameObject);
+            targetButtons.Add(targetID, button);
             count++;
         }
 
@@ -748,6 +764,7 @@ public class RoleAbilityUI : MonoBehaviour
             ? "CHỌN NGƯỜI THỨ HAI"
             : $"MỤC TIÊU / LOBBY {lobbyCount} NGƯỜI";
         bool canUse = CanUse(player, GameRoleManager.Instance, out string reason);
+        RefreshTargets(player, canUse, reason);
         if (!canUse)
             targetFeedbackLabel.text = reason;
         else if (selectingSecondLover)
@@ -767,8 +784,68 @@ public class RoleAbilityUI : MonoBehaviour
         LayoutRebuilder.MarkLayoutForRebuild(targetContent);
     }
 
+    private void SubmitBratPeek(PlayerData player)
+    {
+        if (!CanUse(player, GameRoleManager.Instance, out string reason))
+        {
+            actionFeedback = reason;
+            if (statusLabel != null) statusLabel.text = reason;
+            return;
+        }
+
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null)
+        {
+            online.RequestAbility(-1);
+            targetView.SetActive(false);
+            abilityView.SetActive(false);
+            resultView.SetActive(true);
+            resultFeedbackLabel.text = "Đang nhìn trộm...";
+            return;
+        }
+
+        BratRole brat = GetLocalBratRole();
+        if (brat == null)
+        {
+            actionFeedback = "Không tìm thấy vai trò Đứa Trẻ.";
+            if (statusLabel != null) statusLabel.text = actionFeedback;
+            return;
+        }
+
+        if (!brat.TryPeek(out string feedback))
+        {
+            actionFeedback = feedback;
+            if (statusLabel != null) statusLabel.text = feedback;
+            return;
+        }
+
+        actionFeedback = feedback;
+        resultFeedbackLabel.text = feedback;
+        targetView.SetActive(false);
+        abilityView.SetActive(false);
+        resultView.SetActive(true);
+    }
+
+    private void RefreshTargets(PlayerData player, bool canUse, string reason)
+    {
+        foreach (var pair in targetButtons)
+        {
+            var target = PlayerManager.Instance?.GetplayerByID(pair.Key);
+            bool allowed = ValidateTarget(player, target).IsValid &&
+                !(player?.roleType == RoleType.WeaverOfFate && firstLoverTargetID == pair.Key);
+            pair.Value.gameObject.SetActive(allowed);
+            pair.Value.interactable = allowed && canUse;
+        }
+        if (!canUse) targetFeedbackLabel.text = reason;
+    }
+
     private ActionValidationResult ValidateTarget(PlayerData actor, PlayerData target)
     {
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null)
+            return target != null && online.CanTargetLocalAbility(target.playerID)
+                ? ActionValidationResult.Success()
+                : ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Mục tiêu không hợp lệ theo luật kỹ năng.");
         return RoleManager.UsesConfiguredAbility(actor) && !selectingHunterTrap
             ? TargetValidator.Validate(actor, target, actor.roleDefinition)
             : TargetValidator.ValidateLegacy(actor, target);
@@ -827,6 +904,19 @@ public class RoleAbilityUI : MonoBehaviour
         return null;
     }
 
+    private BratRole GetLocalBratRole()
+    {
+        if (RoleManager.Instance != null &&
+            RoleManager.Instance.playerRoles.TryGetValue(localPlayerID, out BaseRole role))
+            return role as BratRole;
+
+        if (RoleManger.Instance != null &&
+            RoleManger.Instance.playerRoles.TryGetValue(localPlayerID, out role))
+            return role as BratRole;
+
+        return null;
+    }
+
     private void OpenShamanTargets(bool goodCharm)
     {
         var online = Thuong.Online.ThuongOnlineSession.Active;
@@ -854,6 +944,8 @@ public class RoleAbilityUI : MonoBehaviour
         var online = Thuong.Online.ThuongOnlineSession.Active;
         if (online != null)
         {
+            if (!online.CanTargetLocalAbility(targetID))
+            { targetFeedbackLabel.text = "Mục tiêu không hợp lệ theo luật kỹ năng."; return; }
             bool canUseOnline = online.CanUseLocalAbility(out string networkReason);
             if (player == null || !canUseOnline)
             {
@@ -907,6 +999,12 @@ public class RoleAbilityUI : MonoBehaviour
             return;
         }
 
+        var validation = ValidateTarget(player, PlayerManager.Instance?.GetplayerByID(targetID));
+        if (!validation.IsValid)
+        {
+            targetFeedbackLabel.text = targetFailureFeedback = validation.Message;
+            return;
+        }
         if (!CanUse(player, GameRoleManager.Instance, out string reason))
         {
             targetFeedbackLabel.text = targetFailureFeedback = reason;
@@ -974,8 +1072,9 @@ public class RoleAbilityUI : MonoBehaviour
     private static string DisplayRoleName(PlayerData player) =>
         player.roleDefinition != null && !string.IsNullOrWhiteSpace(player.roleDefinition.displayName)
             ? player.roleDefinition.displayName : RoleName(player.roleType);
-    private static bool HasActiveAbility(PlayerData player) => RoleManager.UsesConfiguredAbility(player)
-        ? player.roleDefinition.abilityType != AbilityType.None : HasActiveAbility(player.roleType);
+    private static bool HasActiveAbility(PlayerData player) => Thuong.Online.ThuongOnlineSession.Active != null
+        ? Thuong.Online.ThuongOnlineSession.Active.HasActiveLocalAbility : RoleManager.UsesConfiguredAbility(player)
+            ? player.roleDefinition.abilityType != AbilityType.None : HasActiveAbility(player.roleType);
     private void HandleAbilityResolved(AbilityResolution result)
     {
         if (result.Actor == null || result.Actor.playerID != localPlayerID) return;

@@ -26,13 +26,13 @@ public sealed class ThuongLogicMatchController : MonoBehaviour
     }
     private void OnDisable()
     {
-        if (subscribed && deathSystem != null) deathSystem.DeathResolved -= HandleDeath;
+        if (subscribed && deathSystem != null) deathSystem.DeathBatchResolved -= HandleDeathBatch;
         subscribed = false;
     }
     private void Subscribe()
     {
         if (subscribed) return;
-        deathSystem.DeathResolved += HandleDeath;
+        deathSystem.DeathBatchResolved += HandleDeathBatch;
         subscribed = true;
     }
     private void Start() => BindSystems();
@@ -51,7 +51,7 @@ public sealed class ThuongLogicMatchController : MonoBehaviour
         VoteManager.Instance = voteSystem;
         WinConditionManager.Instance = winSystem;
     }
-    private void OnDestroy() { if (subscribed && deathSystem != null) deathSystem.DeathResolved -= HandleDeath; }
+    private void OnDestroy() { if (subscribed && deathSystem != null) deathSystem.DeathBatchResolved -= HandleDeathBatch; }
 
     public bool ValidateRoster(out string message)
     {
@@ -126,9 +126,10 @@ public sealed class ThuongLogicMatchController : MonoBehaviour
         finally { resolving = false; }
     }
 
-    private void HandleDeath(DeathResult result)
+    private void HandleDeathBatch()
     {
-        if (IsMatchRunning && !resolving && result.Outcome == DeathOutcome.Killed) EvaluateWin();
+        if (phaseController.currentPhase == GamePhase.Night && nightSystem.HasUnresolvedNightResolution) return;
+        if (IsMatchRunning && !resolving) EvaluateWin();
     }
     private void EvaluateWin()
     {

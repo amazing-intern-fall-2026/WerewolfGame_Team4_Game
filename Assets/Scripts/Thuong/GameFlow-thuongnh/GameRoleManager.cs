@@ -13,6 +13,7 @@ public class GameRoleManager : MonoBehaviour
     [Min(0.1f)] public float votingDuration = 20f;
     [Min(0.1f)] public float roleRevealDuration = 25f;
     public string Winner { get; private set; }
+    public GameMatchSummary Result { get; private set; }
     public float PhaseTimeRemaining { get; private set; }
     private bool started;
     [Header("Thuong logic prototype")]
@@ -31,10 +32,10 @@ public class GameRoleManager : MonoBehaviour
     }
     private void OnDestroy()
     {
-        if (observedDeathSystem != null) observedDeathSystem.DeathResolved -= HandleDeath;
+        if (observedDeathSystem != null) observedDeathSystem.DeathBatchResolved -= HandleDeathBatch;
         if (Instance == this) Instance = null;
     }
-    private void Start() { if (!manualLogicPrototype) BeginGame(); }
+    private void Start() { ThuongLogicSceneScope.Ensure(this); if (!manualLogicPrototype) BeginGame(); }
     private EventManager PrepareEventManager()
     {
         if (EventManager.Instance != null)
@@ -47,6 +48,7 @@ public class GameRoleManager : MonoBehaviour
     public void BeginGame()
     {
         if (manualLogicPrototype) return;
+        ThuongLogicSceneScope.Ensure(this);
         Debug.Log("GAMEROLEMANAGER: BeginGame() chạy");
         
         if (started)
@@ -73,7 +75,7 @@ public class GameRoleManager : MonoBehaviour
             abilities.SetMatchRunning(false);
             NightManager.Instance.ResetForNewMatch();
             observedDeathSystem = statusEffects.deathSystem;
-            if (observedDeathSystem != null) observedDeathSystem.DeathResolved += HandleDeath;
+            if (observedDeathSystem != null) observedDeathSystem.DeathBatchResolved += HandleDeathBatch;
         }
 
         if (RoleManager.Instance != null)
@@ -136,7 +138,7 @@ public class GameRoleManager : MonoBehaviour
         }
         bool finalOnlinePhase = phase == GamePhase.GameOver && WinConditionManager.Instance != null &&
             WinConditionManager.Instance.HasMatchEvaluator(this);
-        if (HasIntegratedLogic && previous != phase && !finalOnlinePhase)
+        if (HasIntegratedLogic && previous != phase && !finalOnlinePhase && phase != GamePhase.GameOver)
         {
             bool wasResolving = resolving;
             resolving = true;
@@ -180,7 +182,7 @@ public class GameRoleManager : MonoBehaviour
         SetPhase(GamePhase.Night);
         NightManager.Instance.StartNight();
         PhaseTimeRemaining = nightDuration;
-        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this))
+        if (WinConditionManager.Instance != null && (HasIntegratedLogic || WinConditionManager.Instance.HasMatchEvaluator(this)))
             WinConditionManager.Instance.CheckWinCondition();
     }
     public void StartVoting()
@@ -190,7 +192,7 @@ public class GameRoleManager : MonoBehaviour
         RoleManager.Instance?.NotifyVoteStart();
         VoteManager.Instance.StartVote();
         PhaseTimeRemaining = votingDuration;
-        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this))
+        if (WinConditionManager.Instance != null && (HasIntegratedLogic || WinConditionManager.Instance.HasMatchEvaluator(this)))
             WinConditionManager.Instance.CheckWinCondition();
     }
     public void FinishVoting()
@@ -227,11 +229,12 @@ public class GameRoleManager : MonoBehaviour
         }
         finally { resolving = false; }
     }
-    private void HandleDeath(DeathResult result)
+    private void HandleDeathBatch()
     {
         // Online evaluates standalone deaths in LateUpdate, after all chained deaths.
         if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
-        if (started && HasIntegratedLogic && !resolving && result.Outcome == DeathOutcome.Killed)
+        if (currentPhase == GamePhase.Night && NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution) return;
+        if (started && HasIntegratedLogic && !resolving)
             WinConditionManager.Instance.CheckWinCondition();
     }
     private void ResolveHunterTraps()
@@ -256,6 +259,7 @@ public class GameRoleManager : MonoBehaviour
         if (!manualLogicPrototype) return;
         LoverManager.Instance?.ResetForNewMatch();
         Winner = null;
+        Result = null;
         PhaseTimeRemaining = 0;
         currentState = GameState.RoleReveal;
         currentPhase = GamePhase.Setup;
@@ -265,7 +269,7 @@ public class GameRoleManager : MonoBehaviour
     {
         DayTimer.Instance?.StopTimer();
         abilities?.SetMatchRunning(false);
-        if (observedDeathSystem != null) observedDeathSystem.DeathResolved -= HandleDeath;
+        if (observedDeathSystem != null) observedDeathSystem.DeathBatchResolved -= HandleDeathBatch;
         observedDeathSystem = null;
         NightManager.Instance?.ResetForNewMatch();
         EventManager.Instance?.ResetForNewMatch();
@@ -281,6 +285,11 @@ public class GameRoleManager : MonoBehaviour
         if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
         FinishGame(winner, true);
     }
+    internal void FinishLocalMatch(string winner)
+    {
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
+        FinishGame(winner, false);
+    }
     internal void FinishEvaluatedMatch(string winner)
     {
         if (WinConditionManager.Instance == null || !WinConditionManager.Instance.HasMatchEvaluator(this)) return;
@@ -289,10 +298,11 @@ public class GameRoleManager : MonoBehaviour
     private void FinishGame(string winner, bool allowLegacyFoxOverride)
     {
         if (currentState == GameState.GameOver) return;
-        if (allowLegacyFoxOverride && winner != "Fox Spirit" && WinConditionManager.Instance != null &&
+        if (allowLegacyFoxOverride && !manualLogicPrototype && !HasIntegratedLogic && winner != "Fox Spirit" && WinConditionManager.Instance != null &&
             WinConditionManager.Instance.FoxSpiritHasWon())
             winner = "Fox Spirit";
         Winner = winner;
+        Result = new GameMatchSummary(winner, currentDay, PlayerManager.Instance?.players);
         SetPhase(GamePhase.GameOver);
         if (HasIntegratedLogic)
         {

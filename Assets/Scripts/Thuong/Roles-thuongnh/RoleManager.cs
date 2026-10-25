@@ -97,14 +97,17 @@ public class RoleManager : MonoBehaviour
     public bool UseNightAbility(int playerID, int targetID, out string feedback)
     {
         var configuredActor = PlayerManager.Instance?.GetplayerByID(playerID);
-        if (UsesConfiguredAbility(configuredActor) && AbilitySystem.Instance != null)
+        if (UsesConfiguredAbility(configuredActor) && (AbilitySystem.Instance != null || ThuongLogicSceneScope.IsActive))
         {
+            if (AbilitySystem.Instance == null)
+            { feedback = "Chưa có hệ thống kỹ năng."; return false; }
             var result = AbilitySystem.Instance.TryUseAbility(configuredActor,
                 PlayerManager.Instance.GetplayerByID(targetID));
             feedback = result.Message;
             return result.IsValid;
         }
-        if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Night)
+        if (GameRoleManager.Instance == null || (ThuongLogicSceneScope.IsActive
+            ? GameRoleManager.Instance.currentPhase != GamePhase.Night : GameRoleManager.Instance.currentState != GameState.Night))
         {
             feedback = "Chỉ có thể dùng kỹ năng vào ban đêm.";
             return false;
@@ -115,26 +118,8 @@ public class RoleManager : MonoBehaviour
             feedback = "Người chơi chưa được gán Role hợp lệ.";
             return false;
         }
-        if (!role.owner.isAlive)
-        {
-            feedback = "Người chơi đã bị loại.";
-            return false;
-        }
-        if (!role.HasNightAbility)
-        {
-            feedback = "Role này không có kỹ năng chủ động ban đêm.";
-            return false;
-        }
-        if (role.owner.hasUseNightAction)
-        {
-            feedback = "Kỹ năng đã được dùng trong đêm này.";
-            return false;
-        }
-        if (role.owner.HasEffect(StatusEffectType.Silenced))
-        {
-            feedback = "Người chơi đang bị Silenced.";
-            return false;
-        }
+        var actorValidation = AbilityValidator.ValidateLegacyActor(GameRoleManager.Instance, role);
+        if (!actorValidation.IsValid) { feedback = actorValidation.Message; return false; }
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         ActionValidationResult targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
         if (!targetValidation.IsValid)
@@ -145,13 +130,15 @@ public class RoleManager : MonoBehaviour
 
         if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
+        NightManager.Instance?.RecordSubmittedAction(role.owner, targetID, role.roleType.ToString());
         role.owner.hasUseNightAction = role is not FoxSpiritRole foxSpirit ||
                                        foxSpirit.HasUsedAllNightActions;
+        if (ThuongLogicSceneScope.IsActive) role.owner.NotifyChanged();
         return true;
     }
 
     public static bool UsesConfiguredAbility(PlayerData player) =>
-        player?.roleDefinition != null && !player.roleDefinition.useLegacyAbility;
+        player?.roleType != RoleType.Brat && player?.roleDefinition != null && !player.roleDefinition.useLegacyAbility;
 
     private void NotifyAliveRoles(System.Action<BaseRole> callback)
     {
