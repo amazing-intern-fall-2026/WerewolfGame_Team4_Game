@@ -29,6 +29,11 @@ namespace Thuong.Online
         {
             qaStarted = Time.realtimeSinceStartup;
             Application.runInBackground = true;
+            QaCheck(SelectedMap?.mapId == "village_large" && localMapReady, "Online scene starts with the large village ready");
+            var sceneEntry = game.gameObject.scene.GetRootGameObjects().Select(root => root.GetComponent<ThuongOnlineSceneEntry>()).FirstOrDefault(entry => entry != null);
+            QaCheck(sceneEntry?.InitialMap == SelectedMap, "Default map comes from the saved scene configuration");
+            QaCheck(!game.gameObject.scene.GetRootGameObjects().Any(root => root.name == "Thuong Online Map Preview" && root.activeSelf),
+                "Editor preview is disabled before the live online map is created");
             portText="17986"; address="127.0.0.1"; playerName=host?"Map QA Host":"Map QA Client";
             SetLobbyCapacity(2);
             if (!host) mapCatalog.Find("harvest_market").contentRevision++;
@@ -56,7 +61,7 @@ namespace Thuong.Online
                     SelectMap(1);
                     QaCheck(!AllMapsReady,"Map switch requires fresh acknowledgement");
                     AssignLobbyRolesOnServer(); QaCheck(!rolesAssigned,"Role assignment blocked before map-ready");
-                    if(i==0)
+                    if(SelectedMap.mapId=="harvest_market")
                     {
                         while(!qaMismatchSeen) { if(!QaAlive(output)) yield break; yield return null; }
                         QaCheck(!AllMapsReady,"Real client with mismatched revision cannot start");
@@ -146,6 +151,11 @@ namespace Thuong.Online
         }
         private IEnumerator QaBenchmark(string output)
         {
+            while (SelectedMap.mapId != "village")
+            {
+                SelectMap(1);
+                while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
+            }
             Application.runInBackground=true; Application.targetFrameRate=-1; QualitySettings.vSyncCount=0;
             bool previousOverview=worldCamera.overview; Rect previousViewport=Camera.main.rect;
             qaPresentationOverride=true; worldCamera.overview=true; Camera.main.rect=new Rect(0,0,1,1); worldCamera.Refresh(true);

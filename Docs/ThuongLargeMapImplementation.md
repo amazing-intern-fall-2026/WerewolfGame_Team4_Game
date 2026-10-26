@@ -4,7 +4,11 @@ Bản nền local: `8f25ece`. Nhánh bàn giao: **`thuong`**, theo yêu cầu ti
 
 ## Cách chơi
 
-Mở `Assets/Scenes/Thuong/OnlineSceneGamePlay.unity`, Play và tạo phòng. Chủ phòng dùng nút MAP để chọn **Làng Mở Rộng** trước khi phân vai. Map mặc định khi mở phòng vẫn là Làng Trung Tâm. Mọi máy trong phòng cần dùng cùng bản game có `village_large` revision 1.
+Mở `Assets/Scenes/Thuong/OnlineSceneGamePlay.unity`, Play và tạo phòng: **Làng Mở Rộng được chọn sẵn**. Chủ phòng vẫn có thể dùng nút MAP trước khi phân vai. Mọi máy trong phòng cần dùng cùng bản game có `village_large` revision 1.
+
+Scene đã lưu tham chiếu `initialMap` tới definition map lớn trên **Thuong Online Scene Entry**, camera bounds 42×36 và một prefab xem trước dưới **Thuong Online Map Preview**. Trong Editor, map cũ/trạm mẫu được tắt để hiển thị map lớn. Khi Play, bản xem trước được tắt trước khi session dựng world và 10 trạm thật, tránh trùng hình ảnh/collider.
+
+Menu **Tools → Thuong → Maps → Use Large Village In Online Scene** áp lại cấu hình scene và bản xem trước. Cấu hình runtime đọc map mặc định từ scene; các map khác vẫn lấy trạng thái do host chọn.
 
 Map có bounds X `[-20,22]`, Y `[-17,19]`: **42×36 units**, gấp **2,25 lần** diện tích Làng Trung Tâm. Có quảng trường, ruộng/chuồng phía Bắc, chợ/kho phía Đông, xưởng gỗ phía Nam và lối tưởng niệm phía Tây; đường vòng ngoài nối các khu. Giữ 25 spawn, 10 task ID/slot và tốc độ 3 units/giây.
 
@@ -26,8 +30,9 @@ Unity `6000.6.0f1`, Windows trên máy hiện tại.
 |---|---|
 | Nội dung/collision/event | **PASS 1.939 assertions** cho 7 map: đủ spawn/task, đường đi từ mọi spawn tới mọi trạm, nhiều hướng tiếp cận, chống xuyên và lifecycle sự kiện |
 | Render | **56 ảnh**: Day/Night và 6 event trên 7 map, 25 avatar/map; đã xem ảnh Day và Fog của map lớn |
-| Hai ứng dụng độc lập | **PASS host 216, client 6 assertions**; cả hai exit 0, không có exception C#, crash hoặc resource thiếu trong log |
+| Hai ứng dụng độc lập | **PASS host 219, client 9 assertions** sau tích hợp scene; cả hai exit 0, không có exception C#, crash hoặc resource thiếu trong log |
 | Đồng bộ | Đổi đủ 7 map, yêu cầu ack mới, chặn client lệch revision, phân vai/Ready/bắt đầu ván trên map lớn, hiển thị 6 event, dọn sạch khi rời scene |
+| Map mặc định trong scene | Cả host/client xác nhận khởi tạo sẵn `village_large`, definition trùng tham chiếu lưu trong scene và bản xem trước đã tắt trước khi vào game |
 | Windows build | QA Player và bản Development không chứa harness QA đều build thành công; bản chơi thường ở `Logs/Maps/Player/ThuongMaps.exe` (giữ cả thư mục Player khi chuyển máy) |
 
 Hai ứng dụng chạy LAN loopback trên cùng máy; chưa thay cho Relay giữa hai máy, 25 client thực hoặc nghiệm thu cân bằng với người chơi.
@@ -57,9 +62,9 @@ Intel i7-12700H, RTX 3050 Ti Laptop, 1280×720; cùng lần đo, VSync tắt, to
 
 | Tình huống | Mean | P95 | Unity allocated bytes |
 |---|---:|---:|---:|
-| Làng cũ / Day | 0,46 ms | 0,71 ms | 177.661.800 |
-| Làng lớn / Day | 0,37 ms | 0,57 ms | 178.042.678 |
-| Làng lớn / Fog | 0,42 ms | 0,59 ms | 178.978.768 |
+| Làng cũ / Day | 0,24 ms | 0,35 ms | 179.230.789 |
+| Làng lớn / Day | 0,31 ms | 0,46 ms | 179.616.111 |
+| Làng lớn / Fog | 0,31 ms | 0,34 ms | 180.552.789 |
 
 Các mẫu ngắn chưa cho phép kết luận map lớn nhanh hơn map cũ hoặc đảm bảo FPS trên thiết bị khác.
 

@@ -43,11 +43,14 @@ namespace Thuong.Online
             eventPresentation = gameObject.AddComponent<ThuongEventPresentation>();
             // Disable only the original online world. Offline scenes retain their generator and mood.
             foreach (var root in game.gameObject.scene.GetRootGameObjects())
-                if (root.name == "Map" || root.name == "TaskStations") root.SetActive(false);
+                if (root.name == "Map" || root.name == "TaskStations" || root.name == "Thuong Online Map Preview") root.SetActive(false);
             foreach (var mood in FindObjectsByType<ThuongVillageMood>()) mood.enabled = false;
             if (mapCatalog == null || eventCatalog == null)
             { mapError = "Thiếu map/event catalog. Chạy Tools/Thuong/Maps/Install Maps And Events."; Debug.LogError(mapError); return; }
-            BindOnlineMap(mapCatalog.Find("village"));
+            var entry = game.gameObject.scene.GetRootGameObjects()
+                .Select(root => root.GetComponent<ThuongOnlineSceneEntry>()).FirstOrDefault(value => value != null);
+            string initialMapId = entry != null && entry.InitialMap != null ? entry.InitialMap.mapId : "village_large";
+            BindOnlineMap(mapCatalog.Find(initialMapId));
         }
 
         private bool BindOnlineMap(ThuongMapDefinition definition)
