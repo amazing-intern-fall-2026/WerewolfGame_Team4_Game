@@ -32,28 +32,19 @@ public static partial class ThuongMapInstaller
             var definition = Asset<ThuongMapDefinition>(Root + "/Definitions/" + LargeVillageId + ".asset");
             definition.mapId = LargeVillageId;
             definition.displayName = "Làng Mở Rộng";
-            definition.contentRevision = 1;
+            definition.contentRevision = 2;
             definition.boundsMin = new Vector2(-20, -17);
             definition.boundsMax = new Vector2(22, 19);
             definition.plaza = new Vector2(1, 0);
             definition.gate = new Vector2(1, -15);
-            definition.stage = new Vector2(6, -4);
+            definition.stage = new Vector2(5, -2.5f);
             definition.spawns = Enumerable.Range(0, 25)
                 .Select(i => new Vector2(1 + (i % 5 - 2) * .85f, (i / 5 - 2) * .85f)).ToArray();
-            definition.lanterns = new[]
-            {
-                new Vector2(-4,-3), new Vector2(5,-3), new Vector2(-4,4), new Vector2(6,4),
-                new Vector2(-10,10), new Vector2(8,12), new Vector2(18,0), new Vector2(10,-10),
-                new Vector2(-8,-12), new Vector2(-17,2), new Vector2(-17,17)
-            };
+            definition.lanterns = VillageLanterns;
             definition.obstacles = blockers.ToArray();
             definition.stationPrefab = minigames.stationPrefab;
             definition.stations = BuildStations(0, minigames);
-            Vector2[] positions =
-            {
-                new(-8,-5), new(-7,12), new(12,15), new(-7,-11), new(17,3),
-                new(15,10), new(3,15), new(12,2), new(-17,14), new(10,-13)
-            };
+            Vector2[] positions = VillageTaskPositions;
             for (int i = 0; i < positions.Length; i++) definition.stations[i].position = positions[i];
             definition.worldPrefab = PrefabUtility.SaveAsPrefabAsset(world, Root + "/Prefabs/" + LargeVillageId + ".prefab");
             definition.thumbnail = RenderThumbnail(world, LargeVillageId, definition.boundsMin, definition.boundsMax);
@@ -63,7 +54,7 @@ public static partial class ThuongMapInstaller
             EditorUtility.SetDirty(definition);
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();
-            Debug.Log("THUONG_LARGE_VILLAGE_INSTALLED: 42x36 units, 25 spawns, 10 stable task slots; original maps preserved.");
+            Debug.Log("THUONG_LARGE_VILLAGE_INSTALLED: revision 2, interlocking road loops and shortcuts, 25 spawns and 10 stable task slots.");
         }
         finally
         {
@@ -79,84 +70,143 @@ public static partial class ThuongMapInstaller
         grid.transform.SetParent(root, false);
         var ground = Tiles(grid.transform, "Ground", Sprite("Grass"), -200);
         var road = Tiles(grid.transform, "Lanes", Sprite("Cobblestone"), -190);
+        var paths = Tiles(grid.transform, "Footpaths", Sprite("Soil"), -189);
+        var soil = Tiles(grid.transform, "VillageFields", Sprite("Soil"), -195);
+        FillVillageTile(paths.tile);
+        FillVillageTile(soil.tile);
         for (int y = -17; y < 19; y++) for (int x = -20; x < 22; x++)
         {
             var cell = new Vector3Int(x, y, 0);
             ground.map.SetTile(cell, ground.tile);
-            bool plaza = x >= -4 && x <= 5 && y >= -3 && y <= 3;
-            bool spokes = Mathf.Abs(y) <= 1 || x >= 0 && x <= 2;
-            bool ring = (y >= 17 || y == -14 || y == -13) && x >= -18 && x <= 20 ||
-                        (x == -18 || x == -17 || x == 19 || x == 20) && y >= -14 && y <= 18;
-            bool cross = y >= 10 && y <= 11 && x >= -12 && x <= 20 ||
-                         (x == -10 || x == -9) && y >= -13 && y <= 13 ||
-                         (x == 12 || x == 13) && y >= -13 && y <= 16;
-            if (plaza || spokes || ring || cross) road.map.SetTile(cell, road.tile);
+            Vector2 point = new(x + .5f, y + .5f);
+            bool paved = Vector2.Distance(point, new Vector2(1,0)) <= 3.2f ||
+                VillageRoutes.Any(route => !route.dirt && route.Distance(point) <= route.width / 2);
+            bool footpath = VillageRoutes.Any(route => route.dirt && route.Distance(point) <= route.width / 2);
+            if (paved) road.map.SetTile(cell, road.tile);
+            else if (footpath) paths.map.SetTile(cell, paths.tile);
         }
 
-        // North: farmland and an open pen, with exits on both sides.
-        Prop(root, "House1", new Vector2(-7, 13), new Vector2(3.6f, 1.3f));
-        for (int y = 8; y <= 10; y++) for (int x = -8; x <= -4; x++)
-            Prop(root, "Wheat", new Vector2(x, y));
-        Prop(root, "Cart", new Vector2(-11, 14), new Vector2(1.4f, .6f));
-        foreach (int x in new[] { 0, 2, 4, 6 })
-            Prop(root, "Fence", new Vector2(x, 16.5f), new Vector2(1.4f, .25f));
-        Prop(root, "Hay", new Vector2(6, 14), new Vector2(1, .5f));
-        Prop(root, "Sacks", new Vector2(0, 14));
-        for (int x = 14; x <= 18; x += 2)
-            Prop(root, "Fence", new Vector2(x, 16), new Vector2(1.4f, .25f));
+        // Buildings sit between the routes. They never form a continuous wall.
+        VillageBuilding(root, "House1", new Vector2(-4,10), new Vector2(3.6f,1.3f));
+        VillageBuilding(root, "House2", new Vector2(7,10.5f), new Vector2(3.6f,1.3f));
+        VillageBuilding(root, "House3", new Vector2(12,5), new Vector2(3.6f,1.3f));
+        VillageBuilding(root, "House3", new Vector2(-12,2.5f), new Vector2(3.6f,1.3f));
+        VillageBuilding(root, "House2", new Vector2(-11,-14), new Vector2(3.6f,1.3f));
+        VillageBuilding(root, "House1", new Vector2(14,-13.8f), new Vector2(3.6f,1.3f));
+        VillageBuilding(root, "RuralCabin", new Vector2(-3,-9), new Vector2(4.6f,1.7f));
 
-        // East: market fronts and storage. Tasks remain in front of the buildings.
-        Prop(root, "House3", new Vector2(17, 5), new Vector2(3.6f, 1.3f));
-        Prop(root, "House2", new Vector2(8, 6), new Vector2(3.6f, 1.3f));
-        Prop(root, "MarketAwning", new Vector2(17, 12), new Vector2(1.7f, .7f));
-        Prop(root, "MarketAwningGreen", new Vector2(11, 12), new Vector2(1.7f, .7f));
-        Prop(root, "CrateStack", new Vector2(19, 3), new Vector2(.9f, .5f));
-        Prop(root, "Planter", new Vector2(10, 4));
-        Prop(root, "Sacks", new Vector2(15, 4));
+        // Broken field edges and small stalls leave room to enter from several sides.
+        foreach (var plot in new[] { new RectInt(-12,10,4,5), new RectInt(-8,7,3,4) })
+            for (int y=plot.yMin; y<plot.yMax; y++) for (int x=plot.xMin; x<plot.xMax; x++)
+            {
+                Vector2 point = new(x+.5f,y+.5f);
+                if (DistanceToVillageRoad(point) < 1.7f || VillageTaskPositions.Any(task => Vector2.Distance(task,point)<1.8f)) continue;
+                soil.map.SetTile(new Vector3Int(x,y,0),soil.tile);
+                Prop(root,"Wheat",point);
+            }
+        Prop(root,"MarketAwning",new Vector2(17,12),new Vector2(1.7f,.7f));
+        Prop(root,"MarketAwningGreen",new Vector2(19,-6.5f),new Vector2(1.7f,.7f));
+        Prop(root,"Hay",new Vector2(0,15.5f),new Vector2(.9f,.45f));
+        Prop(root,"Hay",new Vector2(5.5f,16.2f),new Vector2(.9f,.45f));
+        foreach (var point in new[] { new Vector2(-.5f,16.5f), new Vector2(6.5f,16.7f), new Vector2(12,16.7f) })
+            Prop(root,"Fence",point,new Vector2(1.4f,.25f));
+        Prop(root,"CrateStack",new Vector2(14.5f,3),new Vector2(.9f,.5f));
+        Prop(root,"Sacks",new Vector2(19,3.5f));
+        Prop(root,"Planter",new Vector2(13,3.5f));
+        Prop(root,"Cart",new Vector2(-11,16),new Vector2(1.4f,.6f));
+        Prop(root,"Woodpile",new Vector2(-6,-13.8f));
+        Prop(root,"Woodpile",new Vector2(-5,-13.5f));
+        Prop(root,"Campfire",new Vector2(5,-9));
 
-        // South: woodcutters' camp and forest workshop, on the return loop.
-        Prop(root, "House2", new Vector2(-13, -12), new Vector2(3.6f, 1.3f));
-        Prop(root, "House1", new Vector2(17, -13), new Vector2(3.6f, 1.3f));
-        Prop(root, "RuralCabin", new Vector2(5, -8), new Vector2(4.6f, 1.7f));
-        for (int i = 0; i < 3; i++) Prop(root, "Woodpile", new Vector2(-6 + i * 1.5f, -9));
-        Prop(root, "Campfire", new Vector2(8, -11));
-        Prop(root, "Cart", new Vector2(-3, -14), new Vector2(1.4f, .6f));
-        foreach (var point in new[] { new Vector2(-11,-6), new Vector2(-7,-14), new Vector2(12,-8), new Vector2(15,-6) })
-            Prop(root, "Tree", point, new Vector2(.6f, .4f));
+        // The memorial is an open garden: direct diagonal cut, north loop and south loop.
+        Prop(root,"Memorial",new Vector2(-16,14.8f),new Vector2(1.5f,.7f));
+        Prop(root,"GraveRound",new Vector2(-19,12.5f),new Vector2(.5f,.3f));
+        Prop(root,"GraveRound",new Vector2(-14,12.5f),new Vector2(.5f,.3f));
+        foreach (var point in new[] { new Vector2(-14,-1), new Vector2(6,5.5f), new Vector2(11,-5.5f) })
+            Prop(root,"Signpost",point);
 
-        // West: memorial lane with a south entrance and a north return path.
-        // The wall deliberately makes the far station an 8-10 second walk.
-        Blocker(root, new Rect(-14, 4, .5f, 13), "Memorial dividing wall");
-        for (int y = 4; y < 17; y++)
+        // Sparse irregular groves replace the perimeter fence of identical trees.
+        // Gaps line up with the outward paths, and all grass remains walkable.
+        for (float x=-19; x<=21; x+=4.7f)
         {
-            var wall = Prop(root, "ManorWall", new Vector2(-13.75f, y));
-            wall.transform.localScale = new Vector3(.5f, 1, 1);
-            wall.AddComponent<ThuongMapOccluder>();
+            VillageTree(root,new Vector2(x,17.7f+Mathf.Sin(x*.7f)*.45f));
+            VillageTree(root,new Vector2(x+.8f,-16.1f+Mathf.Sin(x*.5f)*.35f));
         }
-        Prop(root, "Memorial", new Vector2(-17, 15.5f), new Vector2(1.5f, .7f));
-        foreach (var point in new[] { new Vector2(-19,6), new Vector2(-16,8), new Vector2(-19,11) })
-            Prop(root, "GraveRound", point, new Vector2(.5f, .3f));
-        Prop(root, "House3", new Vector2(-8, 3.5f), new Vector2(3.6f, 1.3f));
-        Prop(root, "Signpost", new Vector2(-16, 1));
-        Prop(root, "Signpost", new Vector2(4, 3.8f));
+        for (float y=-13; y<=16; y+=4.6f)
+        {
+            VillageTree(root,new Vector2(-19.1f+Mathf.Sin(y)*.3f,y));
+            VillageTree(root,new Vector2(21.1f,y+1));
+        }
+        foreach (var point in new[] { new Vector2(-1,9.8f),new Vector2(0,8.5f),new Vector2(1.8f,10),
+            new Vector2(6,-10),new Vector2(4.5f,-9.5f),new Vector2(5.5f,-10.5f),new Vector2(-16,-4.5f) }) VillageTree(root,point);
+        foreach (var point in VillageLanterns) Prop(root,"Lantern",point);
+    }
 
-        // Boundary trees preserve the character/sprite scale used by the small map.
-        for (int x = -19; x <= 21; x += 2)
+    private static readonly Vector2[] VillageTaskPositions =
+    {
+        new(-8,-4), new(-8,12), new(10,14), new(-8,-11), new(17,3),
+        new(16,10), new(3,14), new(10,2), new(-17,12), new(9,-13)
+    };
+    private static readonly Vector2[] VillageLanterns =
+    {
+        new(-3.5f,-2.5f),new(5,3),new(-6,5),new(4,7),new(-10,9),new(7,14),
+        new(18,6),new(13,-9),new(-10,-9),new(-16,6),new(-15,15),new(1,-15)
+    };
+
+    private readonly struct VillageRoute
+    {
+        public readonly bool dirt;
+        public readonly float width;
+        private readonly Vector2[] points;
+        public VillageRoute(bool dirt,float width,params Vector2[] points)
+        { this.dirt=dirt; this.width=width; this.points=points; }
+        public float Distance(Vector2 point)
         {
-            Prop(root, "Tree", new Vector2(x, 18), new Vector2(.6f, .3f));
-            if (Mathf.Abs(x - 1) > 3) Prop(root, "Tree", new Vector2(x, -16.5f), new Vector2(.6f, .25f));
+            float result=float.PositiveInfinity;
+            for (int i=1;i<points.Length;i++)
+            {
+                Vector2 segment=points[i]-points[i-1];
+                float t=Mathf.Clamp01(Vector2.Dot(point-points[i-1],segment)/segment.sqrMagnitude);
+                result=Mathf.Min(result,Vector2.Distance(point,points[i-1]+segment*t));
+            }
+            return result;
         }
-        for (int y = -13; y <= 15; y += 3)
-        {
-            Prop(root, "Tree", new Vector2(-19, y), new Vector2(.5f, .4f));
-            Prop(root, "Tree", new Vector2(21, y), new Vector2(.5f, .4f));
-        }
-        foreach (var point in new[]
-        {
-            new Vector2(-4,-3), new Vector2(5,-3), new Vector2(-4,4), new Vector2(6,4),
-            new Vector2(-10,10), new Vector2(8,12), new Vector2(18,0), new Vector2(10,-10),
-            new Vector2(-8,-12), new Vector2(-17,2), new Vector2(-17,17)
-        }) Prop(root, "Lantern", point);
+    }
+
+    // Interlocking loops, cross-town shortcuts and outward paths, rather than a radial grid.
+    private static readonly VillageRoute[] VillageRoutes =
+    {
+        new(false,2.6f,new(1,0),new(-5,5),new(-8,12),new(-4,15),new(3,14),new(10,14),new(16,10),new(17,3),new(10,2),new(1,0)),
+        new(false,2.6f,new(1,0),new(-8,-4),new(-14,-7),new(-13,-12),new(-8,-11),new(1,-13),new(9,-13),new(15,-10),new(17,-4),new(17,3)),
+        new(false,2.3f,new(-8,12),new(-14,15),new(-17,12),new(-17,5),new(-15,1),new(-14,-7)),
+        new(true,2.1f,new(-17,5),new(-10,7),new(-5,5),new(3,6),new(10,8),new(16,10)),
+        new(true,2.1f,new(3,14),new(5,9),new(3,6),new(8,4),new(10,2),new(12,-3),new(9,-7),new(9,-13)),
+        new(true,2f,new(-13,-12),new(-10,-7),new(-8,-4),new(-6,0),new(-7,2),new(-10,7),new(-14,15)),
+        new(true,2.1f,new(-15,1),new(-7,2),new(-2,-4),new(3,-6),new(9,-7),new(15,-10)),
+        new(true,2f,new(10,14),new(19,14),new(20,9),new(20,0),new(17,-4),new(19,-10),new(15,-10)),
+        new(true,2f,new(-14,15),new(-18,16),new(-18,10),new(-19,5),new(-18,-3),new(-14,-7),new(-17,-12),new(-13,-12)),
+        new(true,2f,new(-17,12),new(-13,10),new(-10,7)),
+        new(false,2.6f,new(1,-13),new(1,-17)),
+        new(true,2.2f,new(3,14),new(4,19)),
+        new(true,2.2f,new(20,0),new(22,0)),
+        new(true,2.2f,new(-18,-3),new(-20,-4))
+    };
+
+    private static float DistanceToVillageRoad(Vector2 point) => VillageRoutes.Min(route => route.Distance(point));
+    private static void FillVillageTile(UnityEngine.Tilemaps.Tile tile)
+    {
+        // This existing soil sprite is smaller than a map cell and has a bottom pivot.
+        // Center and fit only the new map's tiles so dirt paths form a continuous surface.
+        Vector3 scale=new(1/tile.sprite.bounds.size.x,1/tile.sprite.bounds.size.y,1);
+        tile.transform=Matrix4x4.TRS(-Vector3.Scale(tile.sprite.bounds.center,scale),Quaternion.identity,scale);
+        EditorUtility.SetDirty(tile);
+    }
+    private static void VillageBuilding(Transform root,string sprite,Vector2 point,Vector2 footprint)
+        => Prop(root,sprite,point,footprint).AddComponent<ThuongMapOccluder>();
+    private static void VillageTree(Transform root,Vector2 point)
+    {
+        if (DistanceToVillageRoad(point)<1.8f || VillageTaskPositions.Any(task=>Vector2.Distance(task,point)<2)) return;
+        Prop(root,"Tree",point,new Vector2(.6f,.4f));
     }
 
     public static void InstallLargeVillageAndVerify()
@@ -164,5 +214,12 @@ public static partial class ThuongMapInstaller
         InstallLargeVillage();
         ThuongMapChecks.Run();
         ThuongMapVisualChecks.Run();
+    }
+
+    public static void RebuildOnlineVillageAndPlayers()
+    {
+        InstallLargeVillageAndVerify();
+        ThuongOnlineMapSceneInstaller.Install();
+        ThuongMapPlayerBuild.BuildBothPlayers();
     }
 }

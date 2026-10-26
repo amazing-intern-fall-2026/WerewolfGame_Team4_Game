@@ -1,80 +1,70 @@
-# Làng Mở Rộng — triển khai 26/10/2026
+# Làng Mở Rộng — revision 2, 26/10/2026
 
-Bản nền local: `8f25ece`. Nhánh bàn giao: **`thuong`**, theo yêu cầu tiếp tục từ local và đẩy lên nhánh này. Không tích hợp đợt thay đổi này vào `main`.
+Nhánh bàn giao: **`thuong`**. Bản nền trước lần chỉnh bố cục này: `7abd61a`. Tiếp tục từ local theo yêu cầu; không merge vào `main`.
 
 ## Cách chơi
 
-Mở `Assets/Scenes/Thuong/OnlineSceneGamePlay.unity`, Play và tạo phòng: **Làng Mở Rộng được chọn sẵn**. Chủ phòng vẫn có thể dùng nút MAP trước khi phân vai. Mọi máy trong phòng cần dùng cùng bản game có `village_large` revision 1.
+Mở `Assets/Scenes/Thuong/OnlineSceneGamePlay.unity`, Play và tạo phòng: **Làng Mở Rộng được chọn sẵn**. Chủ phòng vẫn có thể chọn map khác trước khi phân vai. Mọi máy trong phòng cần dùng cùng bản game có `village_large` **contentRevision 2**.
 
-Scene đã lưu tham chiếu `initialMap` tới definition map lớn trên **Thuong Online Scene Entry**, camera bounds 42×36 và một prefab xem trước dưới **Thuong Online Map Preview**. Trong Editor, map cũ/trạm mẫu được tắt để hiển thị map lớn. Khi Play, bản xem trước được tắt trước khi session dựng world và 10 trạm thật, tránh trùng hình ảnh/collider.
+Scene lưu `initialMap` tới definition và bản xem trước dưới **Thuong Online Map Preview**. Bản xem trước tắt trước khi session dựng world/trạm thật. Menu **Tools → Thuong → Maps → Use Large Village In Online Scene** áp lại cấu hình này.
 
-Menu **Tools → Thuong → Maps → Use Large Village In Online Scene** áp lại cấu hình scene và bản xem trước. Cấu hình runtime đọc map mặc định từ scene; các map khác vẫn lấy trạng thái do host chọn.
+Bounds vẫn là X `[-20,22]`, Y `[-17,19]`: **42×36 units**, gấp **2,25 lần** diện tích Làng Trung Tâm. Giữ 25 spawn, 10 task ID/slot, tốc độ 3 units/giây và luật ngày/sự kiện hiện có.
 
-Map có bounds X `[-20,22]`, Y `[-17,19]`: **42×36 units**, gấp **2,25 lần** diện tích Làng Trung Tâm. Có quảng trường, ruộng/chuồng phía Bắc, chợ/kho phía Đông, xưởng gỗ phía Nam và lối tưởng niệm phía Tây; đường vòng ngoài nối các khu. Giữ 25 spawn, 10 task ID/slot và tốc độ 3 units/giây.
+## Bố cục mới
 
-## Nội dung đã thêm
+- Ba vòng đường đá nối các khu Bắc, Nam và Tây; bảy tuyến đường đất cắt ngang hoặc vòng ngoài, cùng bốn nhánh ra mép map.
+- Quảng trường nhỏ để định hướng. Có tuyến nối các khu mà không cần quay lại quảng trường.
+- Bỏ bức tường dài khu tưởng niệm; thay hàng cây kín quanh biên bằng cụm cây thưa và khoảng mở.
+- Nhà nằm giữa các tuyến đường; thêm component làm mờ khi nhân vật đi phía sau nhà.
+- Phân bố lại nhiệm vụ dọc mạng đường. Mỗi trạm có bốn hướng tiếp cận tại khoảng cách 1,5 units; vẫn tới được theo đường đã vẽ khi đóng một đoạn tuyến chính.
+- Tái sử dụng sprite hiện có. Tile đất được căn và phủ đầy ô để lối tắt liền mạch.
 
-- Definition và prefab `village_large`, thumbnail thật và một tham chiếu bổ sung ở cuối map catalog.
-- Menu **Tools → Thuong → Maps → Install Large Village Only** dựng riêng map lớn, không mở/ghi scene gameplay. Menu cài đủ maps cũng bao gồm map lớn.
-- Camera preview lấy kích thước theo definition; camera gameplay sử dụng bounds hiện có của session.
-- Dải sương tự giãn theo map lớn; các map kích thước 28×24 tiếp tục dùng tỷ lệ cũ.
-- Bộ kiểm tra nội dung bao gồm map thứ bảy, mục tiêu thời gian đường đi và việc giữ bounds làng cũ. Harness hai tiến trình đổi đủ map, bắt đầu ván trên map lớn và so sánh hiệu năng cũ/mới.
+Menu **Install Large Village Only** dựng riêng map lớn. Đối chiếu SHA256 với snapshot trước lần sửa này: trong toàn bộ file map có sẵn, chỉ definition, prefab và thumbnail `village_large` thay đổi. Catalog và toàn bộ asset của sáu map cũ giữ nguyên byte. Thêm hai tile riêng cho đường đất/ruộng của map lớn.
 
-Đối chiếu SHA256 toàn bộ file đã có trong `Assets/Scenes/Thuong/Maps` trước/sau cài riêng: chỉ **ThuongMapCatalog.asset** thay đổi để bổ sung map mới; toàn bộ prefab, definition, art và thumbnail của sáu map cũ giữ nguyên byte.
+## Kết quả đã ghi nhận
 
-## Kết quả kiểm tra
+Unity **6000.6.0f1**, Windows. Dựng lại asset, render và build trong bản sao project tại `Logs/MapRoutesV2/ValidationProject`, sau đó chép đúng các asset map/scene cuối về checkout hiện tại.
 
-Unity `6000.6.0f1`, Windows trên máy hiện tại.
-
-| Kiểm tra | Kết quả |
+| Hạng mục | Kết quả revision 2 |
 |---|---|
-| Nội dung/collision/event | **PASS 1.939 assertions** cho 7 map: đủ spawn/task, đường đi từ mọi spawn tới mọi trạm, nhiều hướng tiếp cận, chống xuyên và lifecycle sự kiện |
-| Render | **56 ảnh**: Day/Night và 6 event trên 7 map, 25 avatar/map; đã xem ảnh Day và Fog của map lớn |
-| Hai ứng dụng độc lập | **PASS host 219, client 9 assertions** sau tích hợp scene; cả hai exit 0, không có exception C#, crash hoặc resource thiếu trong log |
-| Đồng bộ | Đổi đủ 7 map, yêu cầu ack mới, chặn client lệch revision, phân vai/Ready/bắt đầu ván trên map lớn, hiển thị 6 event, dọn sạch khi rời scene |
-| Map mặc định trong scene | Cả host/client xác nhận khởi tạo sẵn `village_large`, definition trùng tham chiếu lưu trong scene và bản xem trước đã tắt trước khi vào game |
-| Windows build | QA Player và bản Development không chứa harness QA đều build thành công; bản chơi thường ở `Logs/Maps/Player/ThuongMaps.exe` (giữ cả thư mục Player khi chuyển máy) |
+| Nội dung/collision/event | **PASS 1.871 assertions** cho 7 map, bao gồm 42 assertions về mạng đường của map lớn |
+| Hướng tiếp cận | Cả 10 trạm có **4 hướng** thoáng quanh trạm |
+| Tuyến thay thế | Cả 10 trạm vẫn có đường khi đóng vùng **5,4×5,4 units** ở giữa tuyến chính |
+| Đi vòng quảng trường | Các khu nhiệm vụ vẫn liên thông khi đóng vùng quảng trường **7×7 units** |
+| Render | **56 ảnh** Day/Night và 6 event trên 7 map, 25 avatar/map; đã xem Day và Fog của map lớn |
+| Windows build | QA Player và bản Development dùng để chơi đều build thành công; Unity thoát với mã 0 |
 
-Hai ứng dụng chạy LAN loopback trên cùng máy; chưa thay cho Relay giữa hai máy, 25 client thực hoặc nghiệm thu cân bằng với người chơi.
+Kiểm tra tuyến dùng tile đường đã vẽ cùng footprint collision thật. Số ô trong báo cáo dùng để xác nhận tuyến tồn tại, không phải thời gian di chuyển.
 
-### Thời gian đi tới vùng tương tác
+Bản chơi ở `Logs/Maps/Player/ThuongMaps.exe`; giữ cả thư mục **Player** khi chuyển máy. Chưa chạy lại hai tiến trình host/client trên revision 2; kết quả host 219/client 9 và benchmark đã lưu trước đó thuộc revision 1. Chưa nghiệm thu Relay giữa hai máy, 25 client thực hoặc cân bằng với người chơi.
 
-Đo bằng walking-distance có collision từ spawn giữa, tốc độ 3 units/giây. Đây là thời gian đi, chưa cộng thời lượng minigame:
+### Thời gian tới vùng tương tác
+
+Walking-distance có collision từ spawn giữa, tốc độ 3 units/giây; chưa cộng minigame:
 
 | Task | Giây |
 |---|---:|
-| Lấy nước | 3,29 |
-| Thu hoạch | 4,70 |
-| Sửa rào | 6,21 |
-| Gom củi | 4,37 |
+| Lấy nước | 3,15 |
+| Thu hoạch | 4,84 |
+| Sửa rào | 5,51 |
+| Gom củi | 4,51 |
 | Dọn kho | 5,35 |
-| Thắp đèn | 5,65 |
-| Thu gom trứng | 4,87 |
-| Pha chế thuốc | 3,54 |
-| Bảo vệ khu vực | 9,00 |
-| Gỡ bẫy | 5,27 |
+| Thắp đèn | 5,98 |
+| Thu gom trứng | 4,54 |
+| Pha chế thuốc | 2,87 |
+| Bảo vệ khu vực | 7,25 |
+| Gỡ bẫy | 5,04 |
 
-Gần nhất **3,29s**, trung vị **5,07s**, xa nhất **9,00s**: đạt các mốc kỹ thuật trong plan. Chưa đổi thời lượng ngày; cần playtest để đánh giá bốn task/ngày cùng minigame.
-
-### Hiệu năng tham khảo
-
-Intel i7-12700H, RTX 3050 Ti Laptop, 1280×720; cùng lần đo, VSync tắt, toàn cảnh map, 120 frame sau 30 frame warm-up, 2 người mạng + 23 avatar hình ảnh đứng yên. Engine frame time, không phải GPU timestamp.
-
-| Tình huống | Mean | P95 | Unity allocated bytes |
-|---|---:|---:|---:|
-| Làng cũ / Day | 0,24 ms | 0,35 ms | 179.230.789 |
-| Làng lớn / Day | 0,31 ms | 0,46 ms | 179.616.111 |
-| Làng lớn / Fog | 0,31 ms | 0,34 ms | 180.552.789 |
-
-Các mẫu ngắn chưa cho phép kết luận map lớn nhanh hơn map cũ hoặc đảm bảo FPS trên thiết bị khác.
+Gần nhất **2,87s**, trung vị **4,94s**, xa nhất **7,25s**. Cần chơi thử với người để đánh giá định hướng và nhịp hoàn thành nhiệm vụ.
 
 ## File và log
 
-- Mã dựng riêng: `Assets/Scenes/Thuong/Prototype/Editor/ThuongLargeVillageInstaller.cs`.
+- Mã dựng: `Assets/Scenes/Thuong/Prototype/Editor/ThuongLargeVillageInstaller.cs`.
+- Kiểm tra mạng đường: `Assets/Scenes/Thuong/Prototype/Editor/ThuongLargeVillageRouteChecks.cs`.
 - Asset: `Assets/Scenes/Thuong/Maps/Definitions/village_large.asset`, `Prefabs/village_large.prefab`, `Art/Thumbnail_village_large.png`.
-- Kết quả checks: `Logs/Maps/content-collision-events.txt`, `visuals.txt`.
-- Kết quả online: `Logs/Maps/independent-process-result.json`, `independent-host.txt`, `independent-client.txt`, `independent-host.txt.performance.txt`.
+- Báo cáo: `Logs/Maps/content-collision-events.txt`, `village-large-routes.txt`, `visuals.txt`.
 - Hình ảnh: `Logs/Maps/Views/village_large_*.png`.
-- Hash baseline: `Logs/LargeMap/original-map-hashes.json`.
+- Log build: `Logs/MapRoutesV2/validation-build.log`.
+- Hash baseline: `Logs/MapRoutesV2/Before/map-hashes.json`.
 
-Phần chưa commit trên máy kia chưa có ở checkout này. Commit map mới được tách riêng để thuận tiện đối chiếu/tích hợp sau; khi mang sang máy kia cần giữ các thay đổi ở máy đó và giải quyết diff tại các file dùng chung.
+Thay đổi chưa commit ở máy kia chưa có trong checkout này. Khi mang sang máy kia cần đối chiếu diff và giữ phần thay đổi tại máy đó.

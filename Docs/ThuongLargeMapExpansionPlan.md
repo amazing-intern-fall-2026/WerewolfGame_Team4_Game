@@ -9,6 +9,8 @@ Tạo một biến thể map lớn cho game social deduction, có nhịp di chuy
 
 Map đề xuất là **Làng Mở Rộng** (`village_large`). Giữ `village` hiện tại trong lobby để có thể chơi thử và so sánh hai layout. Dùng lại bộ sprite trung cổ đang có trước; chưa cần thêm luật, vai trò hoặc task mới.
 
+**Điều chỉnh theo yêu cầu mới:** revision 2 ưu tiên nhiều tuyến tới nhiệm vụ, đường nối trực tiếp giữa các khu và lối vòng qua quảng trường. Bỏ bức tường dài phía Tây, dùng quảng trường nhỏ và các vòng đường đan nhau; phân bố cây theo cụm có khoảng mở.
+
 ## Cách làm an toàn khi hai máy đang lệch phiên bản
 
 Người dùng đã chọn tiếp tục từ **bản local hiện tại** và đẩy lên nhánh **`thuong`**. Chỉ thị này thay thế phương án chờ bản từ máy kia trước đó.
@@ -39,32 +41,36 @@ Người dùng đã chọn tiếp tục từ **bản local hiện tại** và đ
 | Trạm nhiệm vụ | 10 slot/task | Giữ đủ 10 slot/task; chỉ phân bố lại |
 | Điểm spawn | 25 | Giữ 25 điểm gần quảng trường trung tâm |
 | Camera gameplay | Orthographic size 6,5 | Giữ cỡ hiện tại; camera lấy bounds từ map definition |
-| Đường đi được báo cáo | Spawn giữa tới trạm: 1,3–3,8 giây | Mục tiêu: gần 3–5 giây, trung vị 4–6 giây, xa nhất 8–10 giây |
+| Đường đi được báo cáo | Spawn giữa tới trạm: 1,3–3,8 giây | Revision 2: gần 2,5–5 giây, trung vị 4–6 giây, xa nhất 6–10 giây |
 
 Thời gian đường đi là tiêu chí thiết kế chính. Ở 3 units/giây, 8–10 giây tương ứng khoảng 24–30 units đi được; vật cản và đường vòng cần được tính bằng hệ thống collision thật.
 
-## Bố cục đề xuất
+## Bố cục hiện tại — revision 2
 
-Giữ quảng trường và cụm spawn ở giữa. Mở rộng thành bốn khu có nhận diện riêng, nối bằng đường vòng liên tục và các nhánh về quảng trường. Có ít nhất hai hướng đi giữa các khu để người chơi không bị dồn vào một lối độc đạo.
+Giữ cụm spawn ở giữa với quảng trường nhỏ. Các khu có đường đá thành vòng và đường đất nối chéo qua các khu lân cận. Mọi nhiệm vụ phải có ít nhất ba hướng tiếp cận gần; các khu vẫn nối được với nhau khi chặn vùng quảng trường 7×7 units.
 
 ```mermaid
 graph TD
-    North[Phía Bắc: ruộng và chuồng trại] --- Hub[Quảng trường trung tâm]
-    East[Phía Đông: chợ và kho] --- Hub
-    South[Phía Nam: rừng và xưởng gỗ] --- Hub
-    West[Phía Tây: cổng làng và khu tưởng niệm] --- Hub
-    North --- East --- South --- West --- North
+    Memorial[Khu tưởng niệm] --- Farm[Ruộng]
+    Farm --- Pen[Chuồng trại] --- Market[Chợ] --- Storage[Kho]
+    Memorial --- Well[Giếng] --- Wood[Xưởng gỗ] --- Traps[Bãi bẫy] --- Storage
+    Farm --- Hub[Quảng trường] --- Well
+    Hub --- Potion[Vườn thuốc] --- Storage
+    Farm --- Well
+    Market --- Potion
+    Potion --- Traps
+    Memorial --- Market
 ```
 
 | Khu | Task đặt tại khu (ID/slot hiện có) | Vai trò trong layout |
 |---|---|---|
-| Quảng trường | Lấy nước, Pha chế thuốc | Mốc định hướng, nơi bắt đầu ván và nơi gặp nhau |
+| Quảng trường | Spawn; giếng phía Tây Nam, thuốc phía Đông | Mốc định hướng, nơi bắt đầu ván và nơi gặp nhau |
 | Ruộng phía Bắc | Thu hoạch, Thu gom trứng, Sửa rào | Kéo một phần hoạt động ra khỏi khu trung tâm |
 | Chợ phía Đông | Dọn kho, Thắp đèn | Cụm công trình dễ nhận ra, có lối vào và lối vòng |
 | Rừng phía Nam | Gom củi, Gỡ bẫy | Khu có tầm nhìn ngắn hơn nhờ cây/công trình, nhưng vẫn có lối thoát |
-| Cổng phía Tây | Bảo vệ khu vực | Điểm xa có lý do gameplay, nối lại đường vòng ngoài |
+| Khu tưởng niệm phía Tây Bắc | Bảo vệ khu vực | Có đường chéo và vòng qua hai phía, nối mạng đường phía Tây |
 
-Đây là phân khu sơ bộ. Tọa độ task cuối cùng được chốt sau khi dựng blockout và đo tuyến đi. Duy trì khoảng trống quanh marker, nhãn, lối tương tác và các vị trí đông người.
+Tọa độ task đã được dựng và đo tuyến đi trong revision 2; số liệu nằm trong `Docs/ThuongLargeMapImplementation.md`. Duy trì khoảng trống quanh marker, nhãn, lối tương tác và các vị trí đông người.
 
 ## Hạng mục triển khai
 
@@ -83,8 +89,9 @@ graph TD
 
 - Bounds thực của map là 42×36 units; camera không để lộ ngoài map và vẫn theo nhân vật đúng ở các tỷ lệ màn hình chính.
 - Giữ 25 spawn hợp lệ gần quảng trường, 10 task hiện tại và đúng slot 0–9. Không đổi task mask, protocol hoặc luật role.
-- Đo bằng walking-distance trên collision: từ spawn trung tâm tới task gần nhất khoảng 3–5 giây; trung vị của 10 task 4–6 giây; task xa nhất 8–10 giây. Nếu đường đi thực lệch nhiều, chỉnh layout trước khi tăng tốc nhân vật.
-- Từ mọi spawn tới cả 10 task đều có đường đi hợp lệ; mỗi task có ít nhất hai hướng tiếp cận. Thử đi chéo, áp sát góc, bước di chuyển lớn và đi sát vật cản.
+- Đo bằng walking-distance trên collision: từ spawn trung tâm tới task gần nhất khoảng 2,5–5 giây; trung vị của 10 task 4–6 giây; task xa nhất 6–10 giây. Chọn đường đi thuận tiện là ưu tiên của revision 2; không dùng tường dài để ép thời gian đi.
+- Từ mọi spawn tới cả 10 task đều có đường đi hợp lệ; mỗi task có ít nhất ba hướng tiếp cận. Thử đi chéo, áp sát góc, bước di chuyển lớn và đi sát vật cản.
+- Kiểm tra mạng đường đã vẽ cùng collider thật: mỗi nhiệm vụ vẫn tới được sau khi đóng một vùng 5,4×5,4 units ở giữa tuyến ngắn nhất. Các khu vẫn liên thông khi đóng quảng trường 7×7 units.
 - Đường vòng ngoài liên thông; không có khu task nào chỉ vào được bằng một lối dễ chặn. Không để hành lang dài trống hoặc đường vòng chỉ tăng quãng đi mà không giúp định hướng.
 - Host và client có cùng `mapId`/revision; client thiếu hoặc sai revision bị chặn sẵn sàng trước khi bắt đầu ván.
 - Thử tối thiểu một host và một client riêng; kiểm tra thêm tải 25 avatar bằng cùng cấu hình và máy đo của baseline map cũ.
@@ -97,7 +104,7 @@ graph TD
 |---|---|
 | Map rộng nhưng chạy xuyên qua quá nhanh hoặc task thành chuyến đi quá dài | Chốt mục tiêu bằng thời gian đường đi; điều chỉnh vị trí task và lối tắt trước khi đổi movement speed |
 | Người chơi lạc hoặc không biết mình đang ở khu nào | Dùng hình dáng công trình, palette phụ và biển chỉ dẫn riêng cho mỗi khu; đặt mốc nhìn thấy từ quảng trường |
-| Nhiều vật cản làm đường tắt bị nghẽn | Duy trì loop và các điểm cắt ngang; kiểm tra hai hướng tiếp cận bằng footprint collision của nhân vật |
+| Nhiều vật cản làm đường tắt bị nghẽn | Duy trì vòng đường và các điểm cắt ngang; kiểm tra ít nhất ba hướng tiếp cận bằng footprint collision của nhân vật |
 | Client chạy build khác dựng sai map | Dùng ID/revision hiện có và map-ready acknowledgement; cập nhật catalog cùng build cho cả phòng |
 | Map lớn làm tăng chi phí render | Tái sử dụng tile/sprite, nhóm chi tiết trang trí, tránh phủ kín màn hình bằng cỏ/cây; so sánh cùng baseline |
 

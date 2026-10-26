@@ -53,9 +53,11 @@ public static class ThuongMapChecks
             {
                 Require(map.boundsMax - map.boundsMin == new Vector2(42,36), "Large village is 42x36 units");
                 var times = distances.Select(d => d / 3).OrderBy(t => t).ToArray();
-                Require(times[0] >= 3 && times[0] <= 5, "Nearest large-map task takes 3-5 seconds");
+                Require(times[0] >= 2.5f && times[0] <= 5, "Nearest large-map task takes 2.5-5 seconds");
                 Require((times[4] + times[5]) / 2 >= 4 && (times[4] + times[5]) / 2 <= 6, "Median large-map task takes 4-6 seconds");
-                Require(times[9] >= 8 && times[9] <= 10, "Farthest large-map task takes 8-10 seconds");
+                Require(times[9] >= 6 && times[9] <= 10, "Farthest large-map task takes 6-10 seconds without forced detours");
+                Require(map.contentRevision >= 2, "Multi-route village has a new content revision");
+                checks += ThuongLargeVillageRouteChecks.Run(map);
                 var oldMap = catalog.Find("village");
                 Require(oldMap != null && oldMap.boundsMax - oldMap.boundsMin == new Vector2(28,24), "Original village bounds retained");
             }
