@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using Object = UnityEngine.Object;
 
-public static class ThuongMapInstaller
+public static partial class ThuongMapInstaller
 {
     public const string Root = "Assets/Scenes/Thuong/Maps";
     private const string ExistingArt = "Assets/Scenes/Thuong/Prototype/Art/Medieval/Sprites/World/";
@@ -93,7 +93,8 @@ public static class ThuongMapInstaller
             volume = i == 1 || i == 4 ? 0 : i == 6 ? .025f : .012f
         }).ToArray(); EditorUtility.SetDirty(events);
         AssetDatabase.SaveAssets();
-        Debug.Log("THUONG_MAPS_INSTALLED: six map prefabs, stable task slots, thumbnails and six events.");
+        InstallLargeVillage();
+        Debug.Log("THUONG_MAPS_INSTALLED: seven map prefabs, stable task slots, thumbnails and six events.");
         ThuongMapChecks.Run();
     }
 
@@ -237,10 +238,18 @@ public static class ThuongMapInstaller
         }
         return(map,tiles);
     }
-    private static Sprite RenderThumbnail(GameObject world, string id)
+    private static Sprite RenderThumbnail(GameObject world, string id, Vector2? boundsMin = null, Vector2? boundsMax = null)
     {
         var cameraRoot = new GameObject("Map preview", typeof(Camera)); var camera = cameraRoot.GetComponent<Camera>();
+        camera.scene = world.scene;
         camera.orthographic = true; camera.orthographicSize = 13; camera.transform.position = new Vector3(1,1,-10);
+        if (boundsMin.HasValue && boundsMax.HasValue)
+        {
+            Vector2 size = boundsMax.Value - boundsMin.Value;
+            camera.orthographicSize = Mathf.Max(size.y / 2, size.x / (2 * (512f / 448))) + 1;
+            Vector2 center = (boundsMin.Value + boundsMax.Value) / 2;
+            camera.transform.position = new Vector3(center.x, center.y, -10);
+        }
         camera.backgroundColor = new Color(.14f,.17f,.13f); camera.clearFlags = CameraClearFlags.SolidColor;
         var texture = new RenderTexture(512, 448, 24); camera.targetTexture = texture;
         var previous = RenderTexture.active;

@@ -16,7 +16,8 @@ public static class ThuongMapChecks
         checks = 0; Directory.CreateDirectory("Logs/Maps");
         var report = new StringBuilder();
         var catalog = Resources.Load<ThuongMapCatalog>(ThuongMapCatalog.ResourcePath);
-        Require(catalog != null && catalog.Released.Length == 6, "Six maps included in runtime catalog");
+        Require(catalog != null && catalog.Released.Length == 7 && catalog.Find(ThuongMapInstaller.LargeVillageId) != null,
+            "Seven maps including the large village included in runtime catalog");
         foreach(string name in new[]{"Water","FloorPlank"})
         {
             var tileSprite=AssetDatabase.LoadAssetAtPath<Sprite>(ThuongMapInstaller.Root+"/Art/"+name+".png");
@@ -48,6 +49,16 @@ public static class ThuongMapChecks
             var distances = ThuongMapValidator.WalkingDistances(map, map.spawns[12]);
             Require(distances.All(float.IsFinite), "All ten stations reachable on " + map.mapId);
             report.AppendLine(map.mapId + " seconds at 3 units/s: " + string.Join(", ", distances.Select(d => (d / 3).ToString("F2"))));
+            if (map.mapId == ThuongMapInstaller.LargeVillageId)
+            {
+                Require(map.boundsMax - map.boundsMin == new Vector2(42,36), "Large village is 42x36 units");
+                var times = distances.Select(d => d / 3).OrderBy(t => t).ToArray();
+                Require(times[0] >= 3 && times[0] <= 5, "Nearest large-map task takes 3-5 seconds");
+                Require((times[4] + times[5]) / 2 >= 4 && (times[4] + times[5]) / 2 <= 6, "Median large-map task takes 4-6 seconds");
+                Require(times[9] >= 8 && times[9] <= 10, "Farthest large-map task takes 8-10 seconds");
+                var oldMap = catalog.Find("village");
+                Require(oldMap != null && oldMap.boundsMax - oldMap.boundsMin == new Vector2(28,24), "Original village bounds retained");
+            }
             foreach (var obstacle in map.obstacles.Where(r => r.width > .1f && r.height > .1f))
             {
                 Vector2 start = new(obstacle.xMin - .5f, obstacle.center.y - ThuongMapCollision.Offset.y);

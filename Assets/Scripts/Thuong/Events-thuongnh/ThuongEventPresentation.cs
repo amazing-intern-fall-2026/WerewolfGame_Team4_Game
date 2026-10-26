@@ -65,10 +65,11 @@ public sealed class ThuongEventPresentation : MonoBehaviour
         if (current == GameEventType.Fog)
         {
             EnsureFog();
+            Vector2 scale = FogScale();
             for (int i = 0; i < 7; i++)
             {
-                var strip = Prop("Fog band", fogSprite, new Vector2(definition.boundsMin.x + 3 + i * 3.1f, definition.boundsMin.y + 2 + i * 3.1f));
-                strip.transform.localScale = new Vector3(14, 2.8f, 1);
+                var strip = Prop("Fog band", fogSprite, FogPosition(i, 0));
+                strip.transform.localScale = new Vector3(14 * scale.x, 2.8f * scale.y, 1);
                 strip.color = new Color(.64f, .75f, .8f, .13f); strip.sortingOrder = 3500;
             }
         }
@@ -137,8 +138,7 @@ public sealed class ThuongEventPresentation : MonoBehaviour
         foreach (Transform child in overlay.transform)
         {
             if (current == GameEventType.Fog)
-                child.localPosition = new Vector3(map.Definition.boundsMin.x + 3 + index * 3.1f + Mathf.Sin(Time.unscaledTime * .12f + index) * 1.6f,
-                    map.Definition.boundsMin.y + 2 + index * 3.1f, 0);
+                child.localPosition = FogPosition(index, Mathf.Sin(Time.unscaledTime * .12f + index) * 1.6f);
             else if (child.name == "Atmosphere")
                 child.localScale = Vector3.one * (.23f + Mathf.Sin(Time.unscaledTime * 1.5f + index) * .04f);
             else if (current == GameEventType.GhostMonth && child.name == "Event lantern")
@@ -147,6 +147,18 @@ public sealed class ThuongEventPresentation : MonoBehaviour
                 child.localScale = Vector3.one * (phase == GamePhase.Night ? 1 + Mathf.Sin(Time.unscaledTime * 1.5f) * .025f : 1);
             index++;
         }
+    }
+
+    private Vector2 FogScale()
+    {
+        Vector2 size = map.Definition.boundsMax - map.Definition.boundsMin;
+        return new Vector2(Mathf.Max(1, size.x / 28), Mathf.Max(1, size.y / 24));
+    }
+
+    private Vector2 FogPosition(int index, float drift)
+    {
+        Vector2 scale = FogScale();
+        return map.Definition.boundsMin + new Vector2((3 + index * 3.1f + drift) * scale.x, (2 + index * 3.1f) * scale.y);
     }
 
     public void Clear()

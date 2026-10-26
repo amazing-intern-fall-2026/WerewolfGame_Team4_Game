@@ -51,7 +51,7 @@ namespace Thuong.Online
             if (host)
             {
                 while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
-                for (int i=0;i<6;i++)
+                for (int i=0;i<mapCatalog.Released.Length;i++)
                 {
                     SelectMap(1);
                     QaCheck(!AllMapsReady,"Map switch requires fresh acknowledgement");
@@ -68,6 +68,11 @@ namespace Thuong.Online
                     foreach (var spawn in SelectedMap.spawns) QaCheck(Thuong.Maps.ThuongMapCollision.IsFree(SelectedMap,spawn),"Valid spawn");
                 }
                 yield return QaBenchmark(output);
+                while (SelectedMap.mapId != "village_large")
+                {
+                    SelectMap(1);
+                    while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
+                }
                 AssignLobbyRolesOnServer(); QaCheck(rolesAssigned,"Roles assigned after content acknowledged");
             }
             while (!matchStarted)
@@ -106,7 +111,7 @@ namespace Thuong.Online
             else
             {
                 while (!qaDone) { if (!QaAlive(output)) yield break; QaObserve(); yield return null; }
-                QaCheck(qaMaps.Count==6,"Independent client loaded all six map layouts");
+                QaCheck(qaMaps.Count==mapCatalog.Released.Length && qaMaps.Contains("village_large"),"Independent client loaded every map including large village");
                 QaCheck(qaEvents.Count==6,"Independent client displayed all six public events");
             }
             eventPresentation.Clear(); QaCheck(eventPresentation.OverlayCount==0,"Leave cleans overlay");
@@ -159,25 +164,28 @@ namespace Thuong.Online
             string summary="25 visible avatars = 2 network players + 23 static render stand-ins.\n"+
                 "Full map overview, lobby hidden, batchmode, VSync off; engine frame time (not GPU timestamp).\n"+
                 SystemInfo.processorType+" / "+SystemInfo.graphicsDeviceName+" / "+Screen.width+"x"+Screen.height+"\n";
-            for (int scenario=0;scenario<2;scenario++)
+            for (int scenario=0;scenario<3;scenario++)
             {
                 if (scenario==1)
                 {
-                    SelectMap(3); while(!AllMapsReady) { if(!QaAlive(output)) yield break; yield return null; }
+                    while (SelectedMap.mapId != "village_large")
+                    {
+                        SelectMap(1); while(!AllMapsReady) { if(!QaAlive(output)) yield break; yield return null; }
+                    }
                     qaPresentationOverride=true;
-                    eventPresentation.Apply(GameEventType.Fog,1,GamePhase.Task,true);
                 }
+                if (scenario==2) eventPresentation.Apply(GameEventType.Fog,1,GamePhase.Task,true);
                 var times=new List<float>();
                 for (int frame=0;frame<150;frame++)
                 {
-                    if(scenario==1) eventPresentation.Apply(GameEventType.Fog,1,GamePhase.Task,true);
+                    if(scenario==2) eventPresentation.Apply(GameEventType.Fog,1,GamePhase.Task,true);
                     yield return null;
                     if(frame>=30) times.Add(Time.unscaledDeltaTime*1000);
                 }
-                times.Sort(); summary+=(scenario==0?"village_day":"mist_swamp_fog")+": mean_ms="+times.Average().ToString("F2")+
+                times.Sort(); summary+=(scenario==0?"village_day":scenario==1?"village_large_day":"village_large_fog")+": mean_ms="+times.Average().ToString("F2")+
                     "; p95_ms="+times[(int)(times.Count*.95f)].ToString("F2")+"; allocated_bytes="+UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong()+"\n";
             }
-            qaPresentationOverride=false; Destroy(standins); eventPresentation.Clear(); SelectMap(-3);
+            qaPresentationOverride=false; Destroy(standins); eventPresentation.Clear();
             worldCamera.overview=previousOverview; Camera.main.rect=previousViewport; worldCamera.Refresh(true);
             while(!AllMapsReady) { if(!QaAlive(output)) yield break; yield return null; }
             File.WriteAllText(output+".performance.txt",summary);
