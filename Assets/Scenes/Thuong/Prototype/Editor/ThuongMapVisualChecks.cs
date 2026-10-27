@@ -34,8 +34,11 @@ public static class ThuongMapVisualChecks
             foreach (var station in map.Stations) station.marker.SetActive(true);
             var events=root.AddComponent<ThuongEventPresentation>(); events.Bind(map,visuals);
             var cameraRoot=new GameObject("QA camera",typeof(Camera)); var camera=cameraRoot.GetComponent<Camera>();
-            camera.orthographic=true; camera.orthographicSize=13; camera.aspect=8f/7;
-            camera.transform.position=new Vector3(1,1,-10); camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=new Color(.14f,.17f,.13f);
+            camera.orthographic=true; camera.aspect=8f/7;
+            camera.orthographicSize=Mathf.Max((definition.boundsMax.y-definition.boundsMin.y)/2+1,
+                (definition.boundsMax.x-definition.boundsMin.x)/(2*camera.aspect)+1);
+            Vector2 center=(definition.boundsMin+definition.boundsMax)/2;
+            camera.transform.position=new Vector3(center.x,center.y,-10); camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=new Color(.14f,.17f,.13f);
             camera.transparencySortMode=TransparencySortMode.CustomAxis; camera.transparencySortAxis=Vector3.up;
             foreach (var phase in new[]{GamePhase.Task,GamePhase.Night})
             {

@@ -24,13 +24,16 @@ public static class ThuongMapChecks
         checks = 0; Directory.CreateDirectory("Logs/Maps");
         var report = new StringBuilder();
         var catalog = Resources.Load<ThuongMapCatalog>(ThuongMapCatalog.ResourcePath);
-        Require(catalog != null && catalog.Released.Length == 6, "Six maps included in runtime catalog");
+        Require(catalog != null && catalog.Released.Length >= 6, "Original maps included in runtime catalog");
+        Require(new[]{"village","harvest_market","lantern_cemetery","mist_swamp","woodland_camp","abandoned_manor"}
+            .All(id=>catalog.Find(id)!=null), "All six original map IDs remain available");
+        Require(catalog.Find(ThuongMapInstaller.LargeVillageId) != null, "Large village retained alongside expanded maps");
         var minigames = Resources.Load<ThuongMinigameCatalog>(ThuongMinigameCatalog.ResourcePath);
         Require(minigames != null && minigames.Validate(out _), "Minigame rules catalog is valid");
         var eventCatalog = Resources.Load<ThuongEventPresentationCatalog>(ThuongEventPresentationCatalog.ResourcePath);
         var variants = catalog.GetVariants(eventCatalog);
-        Require(variants.Length == 42 && variants.Select(v => (v.Map.mapId, v.EventType)).Distinct().Count() == 42,
-            "Random pool contains six normal maps and 36 distinct event maps");
+        Require(variants.Length == catalog.Released.Length * 7 && variants.Select(v => (v.Map.mapId, v.EventType)).Distinct().Count() == variants.Length,
+            "Random pool contains a normal variant and six distinct event variants per map");
         foreach (var map in catalog.Released)
             Require(variants.Count(v => v.Map == map) == 7 && variants.Count(v => v.Map == map && v.EventType == GameEventType.None) == 1,
                 "Each released layout has one normal choice and all six event choices");
@@ -71,8 +74,9 @@ public static class ThuongMapChecks
             Require(map.stations.Length == minigames.entries.Count && map.stations.All(s => minigames.Find(s.task) != null), "Every map station uses a minigame");
             Require(map.stations.OrderBy(s => s.maskSlot).Select(s => (s.stationId, s.task)).SequenceEqual(reference), "Same explicit task slots on " + map.mapId);
             foreach (var spawn in map.spawns) Require(ThuongMapCollision.IsFree(map, spawn), "Spawn footprint free");
+            var navigation = new ThuongMapNavigation(map,1);
             foreach (var spawn in map.spawns)
-                Require(ThuongMapValidator.WalkingDistances(map,spawn,1).All(float.IsFinite),"Every spawn reaches every station");
+                Require(navigation.WalkingDistances(spawn).All(float.IsFinite),"Every spawn reaches every station");
             foreach (var station in map.stations)
             {
                 int approaches=new[]{Vector2.up,Vector2.down,Vector2.left,Vector2.right}.Count(direction =>
@@ -84,6 +88,18 @@ public static class ThuongMapChecks
             var distances = ThuongMapValidator.WalkingDistances(map, map.spawns[12]);
             Require(distances.All(float.IsFinite), "All six minigame stations reachable on " + map.mapId);
             report.AppendLine(map.mapId + " seconds at 3 units/s: " + string.Join(", ", distances.Select(d => (d / 3).ToString("F2"))));
+            if (map.mapId == ThuongMapInstaller.LargeVillageId)
+            {
+                Require(map.boundsMax - map.boundsMin == new Vector2(42,36), "Large village is 42x36 units");
+                var times = distances.Select(d => d / 3).OrderBy(t => t).ToArray();
+                Require(times[0] >= 2.5f && times[0] <= 5, "Nearest large-map task takes 2.5-5 seconds");
+                Require((times[(times.Length - 1) / 2] + times[times.Length / 2]) / 2 >= 4 && (times[(times.Length - 1) / 2] + times[times.Length / 2]) / 2 <= 6, "Median large-map task takes 4-6 seconds");
+                Require(times[times.Length - 1] >= 6 && times[times.Length - 1] <= 10, "Farthest large-map task takes 6-10 seconds without forced detours");
+                Require(map.contentRevision >= 3, "Large village uses the current six-minigame content revision");
+                checks += ThuongLargeVillageRouteChecks.Run(map);
+                var oldMap = catalog.Find("village");
+                Require(oldMap != null && oldMap.boundsMax - oldMap.boundsMin == new Vector2(28,24), "Original village bounds retained");
+            }
             foreach (var obstacle in map.obstacles.Where(r => r.width > .1f && r.height > .1f))
             {
                 Vector2 start = new(obstacle.xMin - .5f, obstacle.center.y - ThuongMapCollision.Offset.y);

@@ -1,3 +1,4 @@
+using Thuong.Maps;
 using UnityEngine;
 
 namespace Thuong.Online
@@ -5,10 +6,16 @@ namespace Thuong.Online
     [DefaultExecutionOrder(-10000)]
     public sealed class ThuongOnlineSceneEntry : MonoBehaviour
     {
+        [SerializeField] private ThuongMapDefinition initialMap;
+        [SerializeField] private GameObject editorMapPreview;
+        public ThuongMapDefinition InitialMap => initialMap;
+
         private string startupError;
 
         private void Awake()
         {
+            // The saved world is an editor preview; the session owns the live world and stations.
+            if (editorMapPreview != null) editorMapPreview.SetActive(false);
             startupError = ThuongOnlineBootstrap.EnsureInstalled(gameObject.scene);
         }
 

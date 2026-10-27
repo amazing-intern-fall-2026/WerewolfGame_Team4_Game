@@ -1,0 +1,799 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9762de2f534f04144b1e2beb07c2364c, type: 3}
+  m_Name: lantern_cemetery_expanded
+  m_EditorClassIdentifier: Assembly-CSharp::Thuong.Maps.ThuongMapDefinition
+  mapId: lantern_cemetery_expanded
+  contentRevision: 2
+  displayName: "Ngh\u0129a Trang \u0110\xE8n L\u1ED3ng M\u1EDF R\u1ED9ng"
+  thumbnail: {fileID: -4336936203596555952, guid: 4e3ddc769a2942d4dbc41a62d9779fba, type: 3}
+  worldPrefab: {fileID: 1426063246703939104, guid: 5b0658d466e3b86438ecf9ef7066a350, type: 3}
+  stationPrefab: {fileID: 4248278775423850136, guid: e43143587cc774f40ae9263de27adc53, type: 3}
+  boundsMin: {x: -20, y: -17}
+  boundsMax: {x: 20, y: 17}
+  spawns:
+  - {x: -1.2, y: -2.2}
+  - {x: -0.35000002, y: -2.2}
+  - {x: 0.5, y: -2.2}
+  - {x: 1.35, y: -2.2}
+  - {x: 2.2, y: -2.2}
+  - {x: -1.2, y: -1.35}
+  - {x: -0.35000002, y: -1.35}
+  - {x: 0.5, y: -1.35}
+  - {x: 1.35, y: -1.35}
+  - {x: 2.2, y: -1.35}
+  - {x: -1.2, y: -0.5}
+  - {x: -0.35000002, y: -0.5}
+  - {x: 0.5, y: -0.5}
+  - {x: 1.35, y: -0.5}
+  - {x: 2.2, y: -0.5}
+  - {x: -1.2, y: 0.35000002}
+  - {x: -0.35000002, y: 0.35000002}
+  - {x: 0.5, y: 0.35000002}
+  - {x: 1.35, y: 0.35000002}
+  - {x: 2.2, y: 0.35000002}
+  - {x: -1.2, y: 1.2}
+  - {x: -0.35000002, y: 1.2}
+  - {x: 0.5, y: 1.2}
+  - {x: 1.35, y: 1.2}
+  - {x: 2.2, y: 1.2}
+  stations:
+  - stationId: thuong.task.wood
+    maskSlot: 0
+    task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
+    position: {x: -15.3, y: -11.8}
+    sprite: {fileID: 21300000, guid: 1bdd61c2e1d73154c88f545f326b4c05, type: 3}
+  - stationId: thuong.task.harvest
+    maskSlot: 1
+    task: {fileID: 11400000, guid: 1cdc42f9ab30ef640be91e670d03a1fb, type: 2}
+    position: {x: 11.7, y: 9.2}
+    sprite: {fileID: 21300000, guid: 21ae89fd9fec43e4d9c2e841f1487fd7, type: 3}
+  - stationId: thuong.task.eggs
+    maskSlot: 2
+    task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
+    position: {x: -16.3, y: -0.79999995}
+    sprite: {fileID: 21300000, guid: 02f2584555665d34ea4789835148ebad, type: 3}
+  - stationId: thuong.task.potion
+    maskSlot: 3
+    task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
+    position: {x: 12.7, y: -1.8}
+    sprite: {fileID: 21300000, guid: 2d808eea6698ad341b349bfb0e5e0484, type: 3}
+  - stationId: thuong.task.defender
+    maskSlot: 4
+    task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
+    position: {x: 11.7, y: -11.8}
+    sprite: {fileID: 21300000, guid: 79c7ebbc4c11e6148a236a0ede57a3a2, type: 3}
+  - stationId: thuong.task.traps
+    maskSlot: 5
+    task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
+    position: {x: -15.3, y: 9.2}
+    sprite: {fileID: 21300000, guid: a3bf236dc178f8041a1f87c6e21b4054, type: 3}
+  obstacles:
+  - serializedVersion: 2
+    x: -20
+    y: -17
+    width: 40
+    height: 2
+  - serializedVersion: 2
+    x: -20
+    y: -15
+    width: 16
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: -15
+    width: 15
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: -14
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: -14
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: -14
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 18
+    y: -14
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: -13
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 7
+    y: -13
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -6
+    y: -10
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: -10
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: -9
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: -9
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: -8
+    width: 8
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: -8
+    width: 6
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: -7
+    width: 5
+    height: 2
+  - serializedVersion: 2
+    x: -12
+    y: -7
+    width: 11
+    height: 2
+  - serializedVersion: 2
+    x: 2
+    y: -7
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 10
+    y: -7
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 15
+    y: -7
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: -6
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 9
+    y: -6
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 16
+    y: -6
+    width: 4
+    height: 2
+  - serializedVersion: 2
+    x: -20
+    y: -5
+    width: 4
+    height: 2
+  - serializedVersion: 2
+    x: -13
+    y: -5
+    width: 12
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: -5
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 8
+    y: -5
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -13
+    y: -4
+    width: 9
+    height: 1
+  - serializedVersion: 2
+    x: 6
+    y: -4
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 19
+    y: -4
+    width: 1
+    height: 7
+  - serializedVersion: 2
+    x: -20
+    y: -3
+    width: 1
+    height: 7
+  - serializedVersion: 2
+    x: -10
+    y: -3
+    width: 6
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: -3
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -10
+    y: -2
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -7
+    y: 1
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: 1
+    width: 5
+    height: 2
+  - serializedVersion: 2
+    x: -10
+    y: 2
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -10
+    y: 3
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -3
+    y: 3
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: 3
+    width: 11
+    height: 2
+  - serializedVersion: 2
+    x: 16
+    y: 3
+    width: 4
+    height: 2
+  - serializedVersion: 2
+    x: -20
+    y: 4
+    width: 4
+    height: 2
+  - serializedVersion: 2
+    x: -13
+    y: 4
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -4
+    y: 4
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -12
+    y: 5
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -5
+    y: 5
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: 5
+    width: 10
+    height: 1
+  - serializedVersion: 2
+    x: 15
+    y: 5
+    width: 5
+    height: 2
+  - serializedVersion: 2
+    x: -20
+    y: 6
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -12
+    y: 6
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -6
+    y: 6
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 1
+    y: 6
+    width: 11
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 7
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -8
+    y: 7
+    width: 6
+    height: 1
+  - serializedVersion: 2
+    x: 1
+    y: 7
+    width: 8
+    height: 1
+  - serializedVersion: 2
+    x: 18
+    y: 7
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: 8
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 4
+    y: 8
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -7
+    y: 9
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 4
+    y: 9
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: 12
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 7
+    y: 12
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: 13
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 4
+    y: 13
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 14
+    width: 15
+    height: 1
+  - serializedVersion: 2
+    x: 4
+    y: 14
+    width: 16
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 15
+    width: 40
+    height: 2
+  - serializedVersion: 2
+    x: -16.625
+    y: 11.7
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -10.825001
+    y: 12.2
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -16.625
+    y: 12.2
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -13.8
+    y: 13
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 1.8000001
+    y: 12.7
+    width: 1.2
+    height: 0.6
+  - serializedVersion: 2
+    x: -3.625
+    y: 12.7
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -3.625
+    y: 13.2
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 2.4
+    y: 13.6
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 16.1
+    y: 11.7
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 10.375
+    y: 12.2
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 16.475
+    y: 12.6
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 16.400002
+    y: 8.1
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -12.8
+    y: 1.7
+    width: 2.4
+    height: 0.75
+  - serializedVersion: 2
+    x: -17.625
+    y: 1.7
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -17.625
+    y: 2.2
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -11.6
+    y: -1.9000001
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 3.1000001
+    y: 0.70000005
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 3.4750001
+    y: 1.5999999
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -2.925
+    y: -2.9
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 16.699999
+    y: 0.70000005
+    width: 1.4
+    height: 0.35
+  - serializedVersion: 2
+    x: 11.375
+    y: 0.70000005
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 11.375
+    y: 1.2
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 17.400002
+    y: 1.5999999
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -11.1
+    y: -9.3
+    width: 1
+    height: 0.45
+  - serializedVersion: 2
+    x: -16.625
+    y: -9.3
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -16.625
+    y: -8.8
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -10.6
+    y: -8.4
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 2.8000002
+    y: -9.8
+    width: 1.2
+    height: 0.6
+  - serializedVersion: 2
+    x: -2.625
+    y: -9.8
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 3.4750001
+    y: -13.9
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: -3
+    y: -13.9
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 15.549999
+    y: -9.3
+    width: 1.7
+    height: 0.595
+  - serializedVersion: 2
+    x: 16.475
+    y: -8.4
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 16.475
+    y: -12.9
+    width: 0.45
+    height: 0.3
+  - serializedVersion: 2
+    x: 16.7
+    y: -10.2
+    width: 0.6
+    height: 0.4
+  plaza: {x: 0.5, y: -0.5}
+  stage: {x: 0.5, y: -15.2}
+  gate: {x: 0.5, y: -14.3}
+  lanterns:
+  - {x: -16.2, y: 12.7}
+  - {x: -3.2, y: 13.7}
+  - {x: 10.8, y: 12.7}
+  - {x: -17.2, y: 2.7}
+  - {x: -2.2, y: 1.7}
+  - {x: 11.8, y: 1.7}
+  - {x: -16.2, y: -8.3}
+  - {x: -2.2, y: -9.3}
+  - {x: 10.8, y: -8.3}
+  zones:
+  - zoneId: north_west
+    displayName: "M\u1ED8 C\u1ED4"
+    area:
+      serializedVersion: 2
+      x: -18
+      y: 7
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -11.5, y: 8.9}
+  - zoneId: north
+    displayName: "\u0110\xC0I T\u01AF\u1EDENG NI\u1EC6M"
+    area:
+      serializedVersion: 2
+      x: -5
+      y: 8
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 1.5, y: 9.9}
+  - zoneId: north_east
+    displayName: "V\u01AF\u1EDCN NG\u01AF\u1EDCI G\xC1C"
+    area:
+      serializedVersion: 2
+      x: 9
+      y: 7
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 15.5, y: 8.9}
+  - zoneId: west
+    displayName: "NH\xC0 GI\u1EEE M\u1ED8"
+    area:
+      serializedVersion: 2
+      x: -19
+      y: -3
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -12.5, y: -1.1}
+  - zoneId: plaza
+    displayName: "S\xC2N \u0110\xC8N L\u1ED2NG"
+    area:
+      serializedVersion: 2
+      x: -4
+      y: -4
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 2.5, y: -2.1}
+  - zoneId: east
+    displayName: "NH\xC0 TH\u1EA2O D\u01AF\u1EE2C"
+    area:
+      serializedVersion: 2
+      x: 10
+      y: -4
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 16.5, y: -2.1}
+  - zoneId: south_west
+    displayName: "B\xC3I C\u1EE6I"
+    area:
+      serializedVersion: 2
+      x: -18
+      y: -14
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -11.5, y: -12.1}
+  - zoneId: south
+    displayName: "C\u1ED4NG NGH\u0128A TRANG"
+    area:
+      serializedVersion: 2
+      x: -4
+      y: -15
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 2.5, y: -13.1}
+  - zoneId: south_east
+    displayName: "CH\u1ED0T G\xC1C"
+    area:
+      serializedVersion: 2
+      x: 9
+      y: -14
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 15.5, y: -12.1}
+  connections:
+  - connectionId: north_west.north
+    fromZone: north_west
+    toZone: north
+    points:
+    - {x: -13.5, y: 10.5}
+    - {x: -0.5, y: 11.5}
+    width: 3
+    shortcut: 0
+  - connectionId: north.north_east
+    fromZone: north
+    toZone: north_east
+    points:
+    - {x: -0.5, y: 11.5}
+    - {x: 13.5, y: 10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: north_east.east
+    fromZone: north_east
+    toZone: east
+    points:
+    - {x: 13.5, y: 10.5}
+    - {x: 14.5, y: -0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: east.south_east
+    fromZone: east
+    toZone: south_east
+    points:
+    - {x: 14.5, y: -0.5}
+    - {x: 13.5, y: -10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: south_east.south
+    fromZone: south_east
+    toZone: south
+    points:
+    - {x: 13.5, y: -10.5}
+    - {x: 0.5, y: -11.5}
+    width: 3
+    shortcut: 0
+  - connectionId: south.south_west
+    fromZone: south
+    toZone: south_west
+    points:
+    - {x: 0.5, y: -11.5}
+    - {x: -13.5, y: -10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: south_west.west
+    fromZone: south_west
+    toZone: west
+    points:
+    - {x: -13.5, y: -10.5}
+    - {x: -14.5, y: 0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: west.north_west
+    fromZone: west
+    toZone: north_west
+    points:
+    - {x: -14.5, y: 0.5}
+    - {x: -13.5, y: 10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: north.plaza
+    fromZone: north
+    toZone: plaza
+    points:
+    - {x: -0.5, y: 11.5}
+    - {x: 0.5, y: -0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: west.plaza
+    fromZone: west
+    toZone: plaza
+    points:
+    - {x: -14.5, y: 0.5}
+    - {x: 0.5, y: -0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: plaza.east
+    fromZone: plaza
+    toZone: east
+    points:
+    - {x: 0.5, y: -0.5}
+    - {x: 14.5, y: -0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: plaza.south
+    fromZone: plaza
+    toZone: south
+    points:
+    - {x: 0.5, y: -0.5}
+    - {x: 0.5, y: -11.5}
+    width: 3
+    shortcut: 0
+  - connectionId: north_west.plaza
+    fromZone: north_west
+    toZone: plaza
+    points:
+    - {x: -13.5, y: 10.5}
+    - {x: 0.5, y: -0.5}
+    width: 2.4
+    shortcut: 1
+  - connectionId: plaza.south_east
+    fromZone: plaza
+    toZone: south_east
+    points:
+    - {x: 0.5, y: -0.5}
+    - {x: 13.5, y: -10.5}
+    width: 2.4
+    shortcut: 1
+  released: 1
