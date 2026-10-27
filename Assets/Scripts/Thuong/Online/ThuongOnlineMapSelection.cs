@@ -93,7 +93,7 @@ namespace Thuong.Online
             previousDraftMap.interactable = nextDraftMap.interactable =
                 previousDraftEvent.interactable = nextDraftEvent.interactable = !draftRandomMap;
             mapSettingsHint.text = draftRandomMap
-                ? "Hệ thống chọn từ 6 map thường và 36 map event."
+                ? $"Hệ thống chọn từ {mapCatalog.Released.Length} map thường và {mapCatalog.GetVariants(eventCatalog).Count(v => v.EventType != GameEventType.None)} map event."
                 : "Chọn Bình thường hoặc loại event muốn chơi.";
         }
 

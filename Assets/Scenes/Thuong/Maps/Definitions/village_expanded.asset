@@ -1,0 +1,658 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9762de2f534f04144b1e2beb07c2364c, type: 3}
+  m_Name: village_expanded
+  m_EditorClassIdentifier: Assembly-CSharp::Thuong.Maps.ThuongMapDefinition
+  mapId: village_expanded
+  contentRevision: 2
+  displayName: "L\xE0ng Li\xEAn Ho\xE0n"
+  thumbnail: {fileID: -5407777640033742898, guid: 1661d44efa98f0e4a8463ee37252b2f5, type: 3}
+  worldPrefab: {fileID: 49483013588766457, guid: 542e94cb34df1aa40a65a36b8c7cb16c, type: 3}
+  stationPrefab: {fileID: 4248278775423850136, guid: e43143587cc774f40ae9263de27adc53, type: 3}
+  boundsMin: {x: -20, y: -17}
+  boundsMax: {x: 20, y: 17}
+  spawns:
+  - {x: -1.2, y: -1.2}
+  - {x: -0.35000002, y: -1.2}
+  - {x: 0.5, y: -1.2}
+  - {x: 1.35, y: -1.2}
+  - {x: 2.2, y: -1.2}
+  - {x: -1.2, y: -0.35000002}
+  - {x: -0.35000002, y: -0.35000002}
+  - {x: 0.5, y: -0.35000002}
+  - {x: 1.35, y: -0.35000002}
+  - {x: 2.2, y: -0.35000002}
+  - {x: -1.2, y: 0.5}
+  - {x: -0.35000002, y: 0.5}
+  - {x: 0.5, y: 0.5}
+  - {x: 1.35, y: 0.5}
+  - {x: 2.2, y: 0.5}
+  - {x: -1.2, y: 1.35}
+  - {x: -0.35000002, y: 1.35}
+  - {x: 0.5, y: 1.35}
+  - {x: 1.35, y: 1.35}
+  - {x: 2.2, y: 1.35}
+  - {x: -1.2, y: 2.2}
+  - {x: -0.35000002, y: 2.2}
+  - {x: 0.5, y: 2.2}
+  - {x: 1.35, y: 2.2}
+  - {x: 2.2, y: 2.2}
+  stations:
+  - stationId: thuong.task.wood
+    maskSlot: 0
+    task: {fileID: 11400000, guid: 9a5b5922a38a30d4f8a259e0eea3771b, type: 2}
+    position: {x: -15.5, y: 0.5}
+    sprite: {fileID: 21300000, guid: 1bdd61c2e1d73154c88f545f326b4c05, type: 3}
+  - stationId: thuong.task.harvest
+    maskSlot: 1
+    task: {fileID: 11400000, guid: 1cdc42f9ab30ef640be91e670d03a1fb, type: 2}
+    position: {x: -1.5, y: 12}
+    sprite: {fileID: 21300000, guid: 21ae89fd9fec43e4d9c2e841f1487fd7, type: 3}
+  - stationId: thuong.task.eggs
+    maskSlot: 2
+    task: {fileID: 11400000, guid: d736c36a128e28a4680f1c9eaa7f3825, type: 2}
+    position: {x: 15.5, y: 10}
+    sprite: {fileID: 21300000, guid: 02f2584555665d34ea4789835148ebad, type: 3}
+  - stationId: thuong.task.potion
+    maskSlot: 3
+    task: {fileID: 11400000, guid: f4d23a5ce82a9ab4fbcf80e720164853, type: 2}
+    position: {x: 15.5, y: 0.5}
+    sprite: {fileID: 21300000, guid: 2d808eea6698ad341b349bfb0e5e0484, type: 3}
+  - stationId: thuong.task.defender
+    maskSlot: 4
+    task: {fileID: 11400000, guid: 480e040f0d149c14c9061ccb3f1b5087, type: 2}
+    position: {x: 15.5, y: -10.5}
+    sprite: {fileID: 21300000, guid: 79c7ebbc4c11e6148a236a0ede57a3a2, type: 3}
+  - stationId: thuong.task.traps
+    maskSlot: 5
+    task: {fileID: 11400000, guid: 264c3b4cebbfefb4ba8fb70a89a8fbac, type: 2}
+    position: {x: -15, y: 10.5}
+    sprite: {fileID: 21300000, guid: a3bf236dc178f8041a1f87c6e21b4054, type: 3}
+  obstacles:
+  - serializedVersion: 2
+    x: -20
+    y: -17
+    width: 40
+    height: 3
+  - serializedVersion: 2
+    x: -20
+    y: -14
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: -14
+    width: 5
+    height: 2
+  - serializedVersion: 2
+    x: 5
+    y: -14
+    width: 4
+    height: 2
+  - serializedVersion: 2
+    x: 18
+    y: -14
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: -9
+    width: 5
+    height: 2
+  - serializedVersion: 2
+    x: 5
+    y: -9
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 6
+    y: -8
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: -7
+    width: 5
+    height: 4
+  - serializedVersion: 2
+    x: -12
+    y: -7
+    width: 11
+    height: 4
+  - serializedVersion: 2
+    x: 2
+    y: -7
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 7
+    y: -7
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 15
+    y: -7
+    width: 5
+    height: 4
+  - serializedVersion: 2
+    x: 2
+    y: -6
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 8
+    y: -6
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: -5
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 9
+    y: -5
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: -4
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 10
+    y: -4
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: -3
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: -3
+    width: 5
+    height: 2
+  - serializedVersion: 2
+    x: 5
+    y: -3
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: 18
+    y: -3
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: 5
+    y: -2
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: 2
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: 2
+    width: 4
+    height: 2
+  - serializedVersion: 2
+    x: -8
+    y: 3
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 4
+    width: 5
+    height: 3
+  - serializedVersion: 2
+    x: -12
+    y: 4
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -7
+    y: 4
+    width: 6
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: 4
+    width: 10
+    height: 3
+  - serializedVersion: 2
+    x: 15
+    y: 4
+    width: 5
+    height: 3
+  - serializedVersion: 2
+    x: -12
+    y: 5
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -5
+    y: 5
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -12
+    y: 6
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -4
+    y: 6
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 7
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: 7
+    width: 3
+    height: 1
+  - serializedVersion: 2
+    x: -3
+    y: 7
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 2
+    y: 7
+    width: 7
+    height: 1
+  - serializedVersion: 2
+    x: 18
+    y: 7
+    width: 2
+    height: 7
+  - serializedVersion: 2
+    x: -9
+    y: 8
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: 8
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -6
+    y: 9
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: 9
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: 12
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: 7
+    y: 12
+    width: 2
+    height: 1
+  - serializedVersion: 2
+    x: -9
+    y: 13
+    width: 5
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: 13
+    width: 4
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 14
+    width: 16
+    height: 1
+  - serializedVersion: 2
+    x: 5
+    y: 14
+    width: 15
+    height: 1
+  - serializedVersion: 2
+    x: -20
+    y: 15
+    width: 40
+    height: 2
+  - serializedVersion: 2
+    x: -17
+    y: 12.4
+    width: 2
+    height: 0.6
+  - serializedVersion: 2
+    x: -16.5
+    y: 8
+    width: 1
+    height: 0.45
+  - serializedVersion: 2
+    x: 2.6
+    y: 13
+    width: 0.8
+    height: 0.4
+  - serializedVersion: 2
+    x: 2.55
+    y: 9
+    width: 0.9
+    height: 0.5
+  - serializedVersion: 2
+    x: 14.35
+    y: 11.5
+    width: 3.3
+    height: 1
+  - serializedVersion: 2
+    x: 16.1
+    y: 8
+    width: 0.8
+    height: 0.4
+  - serializedVersion: 2
+    x: 9.7
+    y: 12
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -17.65
+    y: 2.5
+    width: 3.3
+    height: 1
+  - serializedVersion: 2
+    x: -16.5
+    y: -1.7
+    width: 1
+    height: 0.45
+  - serializedVersion: 2
+    x: -11.45
+    y: -2
+    width: 0.9
+    height: 0.5
+  - serializedVersion: 2
+    x: -3.1000001
+    y: 2.8
+    width: 0.8
+    height: 0.45
+  - serializedVersion: 2
+    x: 14.35
+    y: 2.5
+    width: 3.3
+    height: 1
+  - serializedVersion: 2
+    x: 15.3
+    y: -2
+    width: 1.4
+    height: 0.35
+  - serializedVersion: 2
+    x: 16.725
+    y: -2
+    width: 0.55
+    height: 0.4
+  - serializedVersion: 2
+    x: -17.65
+    y: -8.6
+    width: 3.3
+    height: 1
+  - serializedVersion: 2
+    x: -11.4
+    y: -12.3
+    width: 0.8
+    height: 0.5
+  - serializedVersion: 2
+    x: -16.45
+    y: -12.5
+    width: 0.9
+    height: 0.5
+  - serializedVersion: 2
+    x: -10.3
+    y: -8.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: -2.8
+    y: -8.5
+    width: 1.6
+    height: 0.6
+  - serializedVersion: 2
+    x: 2.2
+    y: -12.5
+    width: 1.6
+    height: 0.6
+  - serializedVersion: 2
+    x: -2.3
+    y: -12.5
+    width: 0.6
+    height: 0.4
+  - serializedVersion: 2
+    x: 15.4
+    y: -8.5
+    width: 1.2
+    height: 0.6
+  plaza: {x: 0.5, y: 0.5}
+  stage: {x: 0.5, y: -15.2}
+  gate: {x: 0.5, y: -13.4}
+  lanterns:
+  - {x: -10, y: 2.6}
+  - {x: 10, y: 2.6}
+  - {x: -2, y: 8}
+  - {x: 3, y: -7}
+  - {x: -10, y: 8}
+  - {x: 10, y: -8}
+  - {x: -3, y: 2.8}
+  - {x: 4, y: 2.8}
+  zones:
+  - zoneId: forest
+    displayName: "R\u1EEANG B\u1EAAY"
+    area:
+      serializedVersion: 2
+      x: -18
+      y: 7
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -11, y: 12}
+  - zoneId: fields
+    displayName: "RU\u1ED8NG L\xDAA"
+    area:
+      serializedVersion: 2
+      x: -4
+      y: 8
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 3, y: 10}
+  - zoneId: coop
+    displayName: "CHU\u1ED2NG TR\u1EA0I"
+    area:
+      serializedVersion: 2
+      x: 9
+      y: 7
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 11, y: 8}
+  - zoneId: workshop
+    displayName: "X\u01AF\u1EDENG M\u1ED8C"
+    area:
+      serializedVersion: 2
+      x: -18
+      y: -3
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -11, y: 2}
+  - zoneId: plaza
+    displayName: "QU\u1EA2NG TR\u01AF\u1EDCNG"
+    area:
+      serializedVersion: 2
+      x: -4
+      y: -3
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -2, y: 0.5}
+  - zoneId: apothecary
+    displayName: "NH\xC0 THU\u1ED0C"
+    area:
+      serializedVersion: 2
+      x: 9
+      y: -3
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 11, y: -1.5}
+  - zoneId: warehouse
+    displayName: "KHO H\xC0NG"
+    area:
+      serializedVersion: 2
+      x: -18
+      y: -14
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: -11, y: -11}
+  - zoneId: market
+    displayName: "CH\u1EE2 / C\u1ED4NG NAM"
+    area:
+      serializedVersion: 2
+      x: -4
+      y: -14
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 0.5, y: -12.5}
+  - zoneId: watch
+    displayName: "TR\u1EA0M G\xC1C"
+    area:
+      serializedVersion: 2
+      x: 9
+      y: -14
+      width: 9
+      height: 7
+    reservedTaskPoint: {x: 11, y: -12}
+  connections:
+  - connectionId: forest.fields
+    fromZone: forest
+    toZone: fields
+    points:
+    - {x: -13.5, y: 10.5}
+    - {x: 0.5, y: 11.5}
+    width: 3
+    shortcut: 0
+  - connectionId: fields.coop
+    fromZone: fields
+    toZone: coop
+    points:
+    - {x: 0.5, y: 11.5}
+    - {x: 13.5, y: 10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: coop.apothecary
+    fromZone: coop
+    toZone: apothecary
+    points:
+    - {x: 13.5, y: 10.5}
+    - {x: 13.5, y: 0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: apothecary.watch
+    fromZone: apothecary
+    toZone: watch
+    points:
+    - {x: 13.5, y: 0.5}
+    - {x: 13.5, y: -10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: watch.market
+    fromZone: watch
+    toZone: market
+    points:
+    - {x: 13.5, y: -10.5}
+    - {x: 0.5, y: -10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: market.warehouse
+    fromZone: market
+    toZone: warehouse
+    points:
+    - {x: 0.5, y: -10.5}
+    - {x: -13.5, y: -10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: warehouse.workshop
+    fromZone: warehouse
+    toZone: workshop
+    points:
+    - {x: -13.5, y: -10.5}
+    - {x: -13.5, y: 0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: workshop.forest
+    fromZone: workshop
+    toZone: forest
+    points:
+    - {x: -13.5, y: 0.5}
+    - {x: -13.5, y: 10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: fields.plaza
+    fromZone: fields
+    toZone: plaza
+    points:
+    - {x: 0.5, y: 11.5}
+    - {x: 0.5, y: 0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: workshop.plaza
+    fromZone: workshop
+    toZone: plaza
+    points:
+    - {x: -13.5, y: 0.5}
+    - {x: 0.5, y: 0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: plaza.apothecary
+    fromZone: plaza
+    toZone: apothecary
+    points:
+    - {x: 0.5, y: 0.5}
+    - {x: 13.5, y: 0.5}
+    width: 3
+    shortcut: 0
+  - connectionId: plaza.market
+    fromZone: plaza
+    toZone: market
+    points:
+    - {x: 0.5, y: 0.5}
+    - {x: 0.5, y: -10.5}
+    width: 3
+    shortcut: 0
+  - connectionId: workshop.fields
+    fromZone: workshop
+    toZone: fields
+    points:
+    - {x: -13.5, y: 0.5}
+    - {x: 0.5, y: 11.5}
+    width: 2.2
+    shortcut: 1
+  - connectionId: apothecary.market
+    fromZone: apothecary
+    toZone: market
+    points:
+    - {x: 13.5, y: 0.5}
+    - {x: 0.5, y: -10.5}
+    width: 2.2
+    shortcut: 1
+  released: 1
