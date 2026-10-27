@@ -29,6 +29,15 @@ public class NetworkRoleSync : NetworkBehaviour
         if (roleSent)
             return;
 
+        // Nếu có Role Setup từ Lobby thì chờ NetworkRoleActionBridge áp dụng xong Lobby Roles trước
+        if (NetworkGameRoleSetup.HasSetup())
+        {
+            if (NetworkRoleActionBridge.Instance == null || !NetworkRoleActionBridge.Instance.LobbyRolesApplied)
+            {
+                return;
+            }
+        }
+
         if (RoleManager.Instance == null)
             return;
 
@@ -63,6 +72,47 @@ public class NetworkRoleSync : NetworkBehaviour
         );
 
         roleSent = true;
+    }
+
+    public void SyncCurrentRole()
+    {
+        if (!IsServer)
+            return;
+
+        if (RoleManager.Instance == null || RoleManager.Instance.playerRoles == null)
+            return;
+
+        int playerID = (int)OwnerClientId;
+
+        if (!RoleManager.Instance.playerRoles.TryGetValue(playerID, out BaseRole role) || role == null)
+            return;
+
+        RoleType roleType = role.roleType;
+
+        Debug.Log(
+            "NETWORK ROLE SYNC | Server đồng bộ Role mới"
+            + " | Player "
+            + playerID
+            + " → "
+            + roleType
+        );
+
+        SendRoleToOwnerClient(
+            roleType,
+            OwnerClientId
+        );
+
+        roleSent = true;
+    }
+
+    public static void SyncAllRoleSyncs()
+    {
+        NetworkRoleSync[] syncs = FindObjectsByType<NetworkRoleSync>(FindObjectsSortMode.None);
+        foreach (var s in syncs)
+        {
+            s.SyncCurrentRole();
+        }
+        Debug.Log($"NETWORK ROLE SYNC: Đã đồng bộ role mới cho {syncs.Length} NetworkRoleSync.");
     }
 
     private void SendRoleToOwnerClient(

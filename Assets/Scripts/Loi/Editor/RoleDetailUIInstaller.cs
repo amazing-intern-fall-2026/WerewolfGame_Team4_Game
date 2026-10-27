@@ -16,6 +16,12 @@ public static class RoleDetailUIInstaller
     [MenuItem("Tools/Loi/Install Role Detail and Player Card Polish")]
     public static void InstallAll()
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying)
+        {
+            Debug.LogWarning("[RoleDetailUIInstaller] Không thể cài đặt UI và sửa Scene trong Play Mode.");
+            return;
+        }
+
         Debug.Log(">>> BẮT ĐẦU CÀI ĐẶT UI: PLAYER CARD VÀ ROLE DETAIL PANEL <<<");
 
         // 1. Đảm bảo font tiếng Việt
@@ -444,6 +450,12 @@ public static class RoleDetailUIInstaller
 
     private static void UpdateGameScene(TMP_FontAsset fontAsset)
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying)
+        {
+            Debug.LogWarning("[RoleDetailUIInstaller] Bỏ qua UpdateGameScene vì đang trong Play Mode.");
+            return;
+        }
+
         var scene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
 
         Canvas canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();

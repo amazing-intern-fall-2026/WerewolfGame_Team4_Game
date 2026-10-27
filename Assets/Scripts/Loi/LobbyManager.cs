@@ -665,6 +665,8 @@ public class LobbyManager : NetworkBehaviour
         Debug.Log("HOST START GAME!");
 
         NetworkPlayerVote.ResetLocalStaticVotes();
+        NetworkRoleSync.ResetAllRoleSyncs();
+        NetworkPlayerAction.ResetServerActionData();
 
         NetworkManager.SceneManager.LoadScene(
             "Game",

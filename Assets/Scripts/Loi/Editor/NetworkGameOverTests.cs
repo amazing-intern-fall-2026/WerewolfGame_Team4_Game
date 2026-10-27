@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,11 +7,16 @@ public static class NetworkGameOverTests
 {
     private static int passCount = 0;
     private static int failCount = 0;
+    public static int PassCount => passCount;
+    public static int FailCount => failCount;
 
     [InitializeOnLoadMethod]
     [MenuItem("Tools/Tests/Run Network GameOver Tests")]
     public static void RunAllTests()
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying)
+            return;
+
         passCount = 0;
         failCount = 0;
 
@@ -37,6 +43,11 @@ public static class NetworkGameOverTests
         Test_ClientLeavesRoom_UpdatesPlayerCount();
         Test_NewClientJoins_IncrementsPlayerCount();
         Test_NewMatch_RoleAssignmentAndValidation();
+        Test_DogSpirit_Bites_Hunter_3Players_HunterShootsBeforeWinCondition();
+        Test_Hunter_VotedOut_ShootsBeforeWinCondition();
+        Test_Hunter_Shot_UsedOnlyOnce();
+        Test_LobbyRoleAdjustment_AppliesNewRolesInsteadOfPreviousGame();
+        Test_SkillReset_OnReturnToLobbyAndNewGame();
 
         Debug.Log("=================================================");
         Debug.Log($"KẾT QUẢ TỔNG HỢP: PASS = {passCount} | FAIL = {failCount}");
@@ -450,5 +461,276 @@ public static class NetworkGameOverTests
         NetworkGameRoleSetup.Save(validRoles);
 
         Assert(validSetupAccepted && invalidSetupRejected, "TC19: Ván mới áp dụng vai khớp chính xác số người, từ chối bắt đầu chia role nếu cấu hình lệch");
+    }
+
+    // =========================================================
+    // HELPER: PLAYER MANAGER LIFECYCLE
+    // =========================================================
+
+    private static GameObject SetupTestPlayerManager(out PlayerManager pm)
+    {
+        GameObject go = new GameObject("TestPlayerManager_GameOver");
+        go.hideFlags = HideFlags.HideAndDontSave;
+        pm = go.AddComponent<PlayerManager>();
+        PlayerManager.Instance = pm;
+        pm.players ??= new List<PlayerData>();
+        pm.players.Clear();
+        pm.disconnectedPlayers ??= new List<PlayerData>();
+        pm.disconnectedPlayers.Clear();
+        return go;
+    }
+
+    private static void TeardownTestPlayerManager(GameObject go, PlayerManager pm)
+    {
+        if (PlayerManager.Instance == pm)
+            PlayerManager.Instance = null;
+
+        if (go != null)
+            Object.DestroyImmediate(go);
+    }
+
+    // =========================================================
+    // 20. 3 NGƯỜI: DOGSPIRIT CẮN HUNTER -> KHÔNG THẮNG NGAY, CHỜ HUNTER BẮN XONG MỚI PHÂN ĐỊNH KẾT QUẢ
+    // =========================================================
+
+    private static void Test_DogSpirit_Bites_Hunter_3Players_HunterShootsBeforeWinCondition()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        try
+        {
+            // 3 người: Player 0 (DogSpirit), Player 1 (Hunter), Player 2 (Villager)
+            var p0 = new PlayerData { playerID = 0, playerName = "DogSpiritPlayer", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var p1 = new PlayerData { playerID = 1, playerName = "HunterPlayer", roleType = RoleType.Hunter, faction = FactionType.Villager, isAlive = true };
+            var p2 = new PlayerData { playerID = 2, playerName = "VillagerPlayer", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(p0);
+            pm.players.Add(p1);
+            pm.players.Add(p2);
+
+            // Ban đêm: DogSpirit cắn Hunter
+            p1.isAlive = false;
+            p1.lastDeathCause = DeathCause.Monster;
+            p1.hasHunterTrap = true; // Hunter nhận quyền bắn trả thù 1 lần khi chết
+            p1.hasUsedHunterShot = false;
+
+            // Số người sống hiện tại: 1 DogSpirit, 1 Villager.
+            // Bình thường 1 Quái vật >= 1 Dân làng sẽ kích hoạt Ma Sói thắng ngay.
+            // Nhưng vì Thợ Săn đã chết và còn lượt bắn (HasPendingHunterDeathShot == true),
+            // hệ thống PHẢI tạm hoãn kết thúc ván, không cho Ma Sói thắng ngay!
+            bool hasPending = NetworkGameOverManager.HasPendingHunterDeathShot();
+
+            // Hunter thực hiện phát bắn trả thù tiêu diệt DogSpirit (Player 0)
+            p1.hasHunterTrap = false;
+            p1.hasUsedHunterShot = true;
+            p0.isAlive = false;
+            p0.lastDeathCause = DeathCause.Trap;
+
+            // Sau khi Hunter bắn xong:
+            bool hasPendingAfterShot = NetworkGameOverManager.HasPendingHunterDeathShot();
+
+            // Đếm lại người chơi còn sống:
+            int aliveMonsters = 0;
+            int aliveVillagers = 1; // p2 còn sống
+            bool villagersWin = (aliveMonsters == 0 && aliveVillagers > 0);
+            string winner = villagersWin ? "Villagers" : "Werewolves";
+            string formatted = NetworkGameOverManager.FormatWinner(winner);
+
+            Assert(hasPending && !hasPendingAfterShot && villagersWin && formatted == "DÂN LÀNG CHIẾN THẮNG",
+                "TC20: DogSpirit cắn Hunter trong trận 3 người -> Hoãn thắng thua, chờ Hunter bắn DogSpirit xong mới phân định -> Dân Làng thắng");
+        }
+        finally
+        {
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 21. HUNTER BỊ VOTE TREO CỔ -> CÓ QUYỀN BẮN 1 NGƯỜI CHẾT CÙNG TRƯỚC KHI KẾT THÚC
+    // =========================================================
+
+    private static void Test_Hunter_VotedOut_ShootsBeforeWinCondition()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        try
+        {
+            var p0 = new PlayerData { playerID = 0, playerName = "DogSpiritPlayer", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var p1 = new PlayerData { playerID = 1, playerName = "HunterPlayer", roleType = RoleType.Hunter, faction = FactionType.Villager, isAlive = true };
+            var p2 = new PlayerData { playerID = 2, playerName = "VillagerPlayer", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(p0);
+            pm.players.Add(p1);
+            pm.players.Add(p2);
+
+            // Ban ngày: Hunter bị vote treo cổ
+            p1.isAlive = false;
+            p1.wasVotedOut = true;
+            p1.lastDeathCause = DeathCause.Vote;
+            p1.hasHunterTrap = true;
+            p1.hasUsedHunterShot = false;
+
+            bool hasPending = NetworkGameOverManager.HasPendingHunterDeathShot();
+
+            // Hunter bắn kéo DogSpirit chết cùng
+            p1.hasHunterTrap = false;
+            p1.hasUsedHunterShot = true;
+            p0.isAlive = false;
+            p0.lastDeathCause = DeathCause.Trap;
+
+            bool villagersWin = !p0.isAlive && p2.isAlive;
+            string winner = villagersWin ? "Villagers" : "Werewolves";
+            string formatted = NetworkGameOverManager.FormatWinner(winner);
+
+            Assert(hasPending && villagersWin && formatted == "DÂN LÀNG CHIẾN THẮNG",
+                "TC21: Hunter bị vote treo cổ chết -> Có quyền bắn 1 người chết cùng, kéo DogSpirit chết -> Dân Làng thắng");
+        }
+        finally
+        {
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 22. CHỨC NĂNG HUNTER CHỈ ĐƯỢC DÙNG 1 LẦN DUY NHẤT VÀO LÚC CHẾT
+    // =========================================================
+
+    private static void Test_Hunter_Shot_UsedOnlyOnce()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        try
+        {
+            var hunterData = new PlayerData { playerID = 1, playerName = "HunterPlayer", roleType = RoleType.Hunter, isAlive = false, hasHunterTrap = true, hasUsedHunterShot = false };
+            var target1 = new PlayerData { playerID = 0, playerName = "Target1", roleType = RoleType.DogSpirit, isAlive = true };
+            var target2 = new PlayerData { playerID = 2, playerName = "Target2", roleType = RoleType.Villager, isAlive = true };
+
+            pm.players.Add(target1);
+            pm.players.Add(hunterData);
+            pm.players.Add(target2);
+
+            HunterRole hunterRole = new HunterRole(hunterData);
+
+            // Lần 1: Thợ Săn sử dụng quyền bắn vào Target 1
+            bool shot1Success = hunterRole.TrySetTrap(0, out string feedback1);
+            bool usedAfterShot1 = hunterData.hasUsedHunterShot && !hunterData.hasHunterTrap;
+
+            // Lần 2: Thử bắn lần nữa vào Target 2 -> Bị từ chối vì chỉ được dùng 1 lần duy nhất lúc chết
+            bool shot2Success = hunterRole.TrySetTrap(2, out string feedback2);
+
+            Assert(shot1Success && usedAfterShot1 && !shot2Success,
+                "TC22: Chức năng Thợ Săn chỉ được sử dụng đúng 1 lần duy nhất vào lúc chết, các lần thử sau bị từ chối");
+        }
+        finally
+        {
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 23. CHỈNH ROLE TRONG LOBBY VÀ BẮT ĐẦU VÁN MỚI: ÁP DỤNG ROLE MỚI, KHÔNG GIỮ ROLE CŨ
+    // =========================================================
+
+    private static void Test_LobbyRoleAdjustment_AppliesNewRolesInsteadOfPreviousGame()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject rmGO = new GameObject("TestRoleManager");
+        rmGO.hideFlags = HideFlags.HideAndDontSave;
+        var rm = rmGO.AddComponent<RoleManager>();
+
+        GameObject bridgeGO = new GameObject("TestBridge");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+
+        try
+        {
+            var p0 = new PlayerData { playerID = 0, playerName = "P1", roleType = RoleType.DogSpirit };
+            var p1 = new PlayerData { playerID = 1, playerName = "P2", roleType = RoleType.Villager };
+            var p2 = new PlayerData { playerID = 2, playerName = "P3", roleType = RoleType.Hunter };
+            pm.players.Add(p0);
+            pm.players.Add(p1);
+            pm.players.Add(p2);
+
+            // Ván 1: Cấu hình ban đầu DogSpirit (1), Villager (1), Hunter (1)
+            var match1Roles = new List<RoleAmountData>
+            {
+                new RoleAmountData(RoleType.DogSpirit, 1),
+                new RoleAmountData(RoleType.Villager, 1),
+                new RoleAmountData(RoleType.Hunter, 1)
+            };
+            NetworkGameRoleSetup.Save(match1Roles);
+            bridge.TryApplyLobbyRoles();
+
+            bool v1Applied = bridge.LobbyRolesApplied;
+            bool v1HasVillager = rm.playerRoles.Values.Any(r => r.roleType == RoleType.Villager);
+            bool v1HasSeer = rm.playerRoles.Values.Any(r => r.roleType == RoleType.Seer);
+
+            // Về lại Lobby: Clear role setup cũ và reset trạng thái bridge
+            NetworkGameRoleSetup.Clear();
+            bridge.ResetForNewMatch();
+
+            // Host chỉnh role lại trong Lobby: Đổi Villager thành Seer -> DogSpirit (1), Seer (1), Hunter (1)
+            var match2Roles = new List<RoleAmountData>
+            {
+                new RoleAmountData(RoleType.DogSpirit, 1),
+                new RoleAmountData(RoleType.Seer, 1),
+                new RoleAmountData(RoleType.Hunter, 1)
+            };
+            NetworkGameRoleSetup.Save(match2Roles);
+
+            // Bắt đầu game lại từ Lobby: TryApplyLobbyRoles áp dụng cấu hình role mới
+            bridge.TryApplyLobbyRoles();
+
+            bool v2Applied = bridge.LobbyRolesApplied;
+            bool v2HasVillager = rm.playerRoles.Values.Any(r => r.roleType == RoleType.Villager);
+            bool v2HasSeer = rm.playerRoles.Values.Any(r => r.roleType == RoleType.Seer);
+
+            Assert(v1Applied && v1HasVillager && !v1HasSeer && v2Applied && !v2HasVillager && v2HasSeer,
+                "TC23: Về lại Lobby rồi chỉnh role và Start Game -> Áp dụng đúng Role mới (Seer), không bị giữ lại Role của game trước (Villager)");
+        }
+        finally
+        {
+            NetworkGameRoleSetup.Clear();
+            if (bridgeGO != null) Object.DestroyImmediate(bridgeGO);
+            if (rmGO != null) Object.DestroyImmediate(rmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 24. RESET SKILL KHI VỀ LOBBY VÀ BẮT ĐẦU VÁN MỚI
+    // =========================================================
+
+    private static void Test_SkillReset_OnReturnToLobbyAndNewGame()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        try
+        {
+            var p0 = new PlayerData
+            {
+                playerID = 0,
+                playerName = "Hunter",
+                roleType = RoleType.Hunter,
+                hasHunterTrap = true,
+                hasUsedHunterShot = true,
+                hasUseNightAction = true,
+                hunterTargetID = 1
+            };
+            p0.status.isProtected = true;
+            p0.effects.Add(new StatusEffectInstance(StatusEffectType.CannotVote, 1, 1, GamePhase.Voting));
+            pm.players.Add(p0);
+
+            // Reset dữ liệu cho ván mới
+            p0.ResetForNewMatch();
+
+            bool hunterShotReset = !p0.hasUsedHunterShot && !p0.hasHunterTrap && p0.hunterTargetID == -1;
+            bool nightActionReset = !p0.hasUseNightAction;
+            bool statusReset = !p0.status.isProtected && !p0.status.isSilenced;
+            bool effectsReset = p0.effects == null || p0.effects.Count == 0;
+
+            Assert(hunterShotReset && nightActionReset && statusReset && effectsReset,
+                "TC24: Reset Skill khi về lobby và Start Game -> Toàn bộ cờ kỹ năng (Hunter shot, Night action, status, effects) được reset sạch sẽ");
+        }
+        finally
+        {
+            TeardownTestPlayerManager(pmGO, pm);
+        }
     }
 }

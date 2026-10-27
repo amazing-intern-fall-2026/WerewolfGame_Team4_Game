@@ -135,9 +135,7 @@ public class NetworkSkillUI : MonoBehaviour
         phaseSync =
             FindFirstObjectByType<NetworkPhaseSync>();
 
-        hasUsedSkill = false;
-
-        HideAll();
+        ResetForNewMatch();
 
         if (NetworkRoleSync.LocalInstance != null)
         {
@@ -215,6 +213,7 @@ public class NetworkSkillUI : MonoBehaviour
         isHunter =
             role == RoleType.Hunter;
 
+        hasUsedSkill = false;
         shamanHasUsedSave = false;
         shamanHasUsedKill = false;
         currentPromptVictimId = -1;

@@ -23,6 +23,12 @@ public static class ChatSystemInstaller
     [MenuItem("Tools/Loi/Install Compact Chat System")]
     public static void InstallChatSystem()
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying)
+        {
+            Debug.LogWarning("[ChatSystemInstaller] Không thể cài đặt Chat System trong Play Mode.");
+            return;
+        }
+
         Debug.Log(">>> BẮT ĐẦU CÀI ĐẶT HỆ THỐNG CHAT MULTIPLAYER NHỎ GỌN CHO MOBILE LANDSCAPE <<<");
 
         // 1. Đảm bảo glyph tiếng Việt

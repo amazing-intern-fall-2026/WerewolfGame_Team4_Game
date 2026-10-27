@@ -92,6 +92,7 @@ public class NetworkTargetCardUI : MonoBehaviour
                 subActionId
             );
 
+            NetworkTargetListUI.Instance?.CloseTargetList();
             return;
         }
 

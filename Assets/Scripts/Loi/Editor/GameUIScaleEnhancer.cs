@@ -23,8 +23,11 @@ public static class GameUIScaleEnhancer
     [InitializeOnLoadMethod]
     private static void OnEditorReload()
     {
+        if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying) return;
+
         EditorApplication.delayCall += () =>
         {
+            if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying) return;
             ApplyAllAndVerify();
         };
     }
@@ -32,6 +35,11 @@ public static class GameUIScaleEnhancer
     [MenuItem("Tools/Loi/Apply Full UI Scale Polish")]
     public static void ApplyAllAndVerify()
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying)
+        {
+            Debug.LogWarning("[GameUIScaleEnhancer] Không thể mở hoặc lưu Scenes trong Play Mode. Vui lòng tắt Play Mode trước.");
+            return;
+        }
         StringBuilder sb = new StringBuilder();
         void Log(string s)
         {
@@ -94,7 +102,7 @@ public static class GameUIScaleEnhancer
 
             Log("\n--- 8.4: NetworkGameOverTests ---");
             NetworkGameOverTests.RunAllTests();
-            Log("NetworkGameOverTests: PASS=20 | FAIL=0");
+            Log($"NetworkGameOverTests: PASS={NetworkGameOverTests.PassCount} | FAIL={NetworkGameOverTests.FailCount}");
 
             // BƯỚC 9: Kiểm tra tính co giãn & Responsive (1920x1080 và 1366x768)
             Log("\n>>> [BƯỚC 9] KIỂM TRA RESPONSIVE (1920x1080 & 1366x768) <<<");

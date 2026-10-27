@@ -110,6 +110,10 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
                 + validActiveIds.Count
             );
 
+            // Reset trạng thái server action và role sync cho ván mới
+            NetworkRoleSync.ResetAllRoleSyncs();
+            NetworkPlayerAction.ResetServerActionData();
+
             foreach (ulong clientId in validActiveIds)
             {
                 RegisterPlayer(playerManager, clientId);
@@ -125,6 +129,7 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
                     validActiveIds.ToArray(),
                     NetworkGameManager.LeftPlayerClientIds.ToArray()
                 );
+                NetworkPhaseSync.Instance.ResetClientMatchStateClientRpc(validActiveIds.ToArray());
             }
         }
         else
@@ -182,28 +187,11 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
         int playerID =
             (int)clientId;
 
-        PlayerData existingPlayer =
-            playerManager.GetplayerByID(
-                playerID
-            );
-
-        if (existingPlayer != null)
-        {
-            Debug.Log(
-                "NETWORK GAME BOOTSTRAP: "
-                + "Player "
-                + (playerID + 1)
-                + " đã tồn tại."
-            );
-
-            return;
-        }
-
         // Lấy tên đã nhập từ Lobby
         string playerName =
-    NetworkGamePlayerNameSetup.GetName(
-        clientId
-    );
+            NetworkGamePlayerNameSetup.GetName(
+                clientId
+            );
 
         if (
             NetworkManager.Singleton.ConnectedClients.TryGetValue(
@@ -222,6 +210,25 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
             }
         }
 
+        PlayerData existingPlayer =
+            playerManager.GetplayerByID(
+                playerID
+            );
+
+        if (existingPlayer != null)
+        {
+            Debug.Log(
+                "NETWORK GAME BOOTSTRAP: "
+                + "Player "
+                + (playerID + 1)
+                + " đã tồn tại. Reset dữ liệu cho ván mới."
+            );
+
+            existingPlayer.ResetForNewMatch();
+            existingPlayer.playerName = playerName;
+            return;
+        }
+
         PlayerData player =
             new PlayerData
             {
@@ -233,8 +240,8 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
                 hasUseNightAction = false,
                 status = new PlayerStatus()
             };
-
-
+        player.ResetForNewMatch();
+        player.playerName = playerName;
 
         playerManager.RegisterPlayer(
             player
