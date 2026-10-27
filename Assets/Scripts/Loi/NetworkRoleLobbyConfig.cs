@@ -115,7 +115,7 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
 
     public void InitializeDefaultRolesForPlayerCount(int playerCount)
     {
-        if (NetworkManager.Singleton != null && !IsServer)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !IsServer)
             return;
 
         if (hasCustomizedRoles)
@@ -200,7 +200,7 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
         RoleType role,
         int amount)
     {
-        if (!IsServer)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !IsServer)
         {
             Debug.LogWarning(
                 "ROLE LOBBY CONFIG | Chỉ Server được thay đổi Role."
@@ -240,7 +240,7 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
 
     public void AddRole(RoleType role)
     {
-        if (!IsServer)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !IsServer)
             return;
 
         int currentAmount =
@@ -254,7 +254,7 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
 
     public void RemoveRole(RoleType role)
     {
-        if (!IsServer)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !IsServer)
             return;
 
         int currentAmount =

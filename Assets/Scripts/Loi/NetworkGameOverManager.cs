@@ -281,6 +281,28 @@ public class NetworkGameOverManager : MonoBehaviour
     ///   - Phe thứ 3: Kẻ Điên (bị vote ngày 1), Cáo Tinh (mê hoặc 2 người), Bạch Khuyển (thức tỉnh còn sống và quái vật sạch), Sát Nhân, Cặp đôi
     ///   - Khi tất cả cùng chết hoặc nhiều phe cùng bị tiêu diệt: Phân định theo đòn kết liễu cuối cùng (Thợ săn trả thù, treo cổ, sói cắn...)
     /// </summary>
+    /// <summary>
+    /// Kiểm tra xem có Thợ Săn nào đã chết nhưng vẫn còn quyền bắn phát đạn trả thù chưa sử dụng hay không.
+    /// Nếu có, hoãn việc kết thúc ván để Thợ Săn bắn xong rồi mới xác định số người chơi và cho ra kết quả.
+    /// </summary>
+    public static bool HasPendingHunterDeathShot()
+    {
+        if (PlayerManager.Instance?.players == null) return false;
+        foreach (var p in PlayerManager.Instance.players)
+        {
+            if (p == null) continue;
+            if (p.roleType == RoleType.Hunter && !p.isAlive && p.hasHunterTrap && !p.hasUsedHunterShot)
+            {
+                // Nếu người chơi này đã rời phòng hoặc ngắt kết nối thì bỏ qua
+                if (p.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)p.playerID))
+                    continue;
+
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void CheckServerWinCondition()
     {
         if (isGameOver || GameEnded) return;
@@ -332,6 +354,14 @@ public class NetworkGameOverManager : MonoBehaviour
             Debug.Log("[NetworkWinCondition] Tiến độ nhiệm vụ đạt 100% -> Dân làng thắng!");
             if (GameRoleManager.Instance != null) GameRoleManager.Instance.VillagerWin();
             TriggerGameOver("Villagers");
+            return;
+        }
+
+        // Không kết thúc ván khi Thợ Săn đã chết nhưng vẫn còn phát đạn trả thù chưa dùng.
+        // Phải để Thợ Săn hoàn thành chức năng bắn rồi mới xác định số người chơi và cho ra kết quả!
+        if (HasPendingHunterDeathShot())
+        {
+            Debug.Log("[NetworkWinCondition] Thợ Săn đã chết nhưng chưa hoàn thành phát đạn bắn báo thù -> Tạm hoãn Game Over để Thợ Săn bắn!");
             return;
         }
 
@@ -1098,6 +1128,8 @@ public class NetworkGameOverManager : MonoBehaviour
 
         // Reset NetworkGameRoleSetup để Lobby thiết lập role mới cho ván kế tiếp
         NetworkGameRoleSetup.Clear();
+        NetworkRoleSync.ResetAllRoleSyncs();
+        NetworkPlayerAction.ResetServerActionData();
 
         // Ngắt kết nối dứt điểm các client đã rời phòng / văng game trước khi tải Lobby
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)

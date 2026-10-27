@@ -636,36 +636,26 @@ public class NetworkPlayerAction : NetworkBehaviour
         if (NetworkPhaseSync.Instance == null)
             return false;
 
-        if (
-            NetworkPhaseSync.Instance
-                .CurrentPhase.Value
-            != GamePhase.Discussion
-        )
+        GamePhase currentPhase = NetworkPhaseSync.Instance.CurrentPhase.Value;
+        if (currentPhase == GamePhase.Setup || currentPhase == GamePhase.GameOver)
         {
             return false;
         }
 
-        if (RoleManager.Instance == null)
-            return false;
-
-        if (RoleManager.Instance.playerRoles == null)
-            return false;
-
-        if (
-            !RoleManager.Instance.playerRoles.TryGetValue(
-                (int)requesterClientId,
-                out BaseRole role
-            )
-        )
+        PlayerData requesterData = PlayerManager.Instance?.GetplayerByID((int)requesterClientId);
+        if (requesterData != null && requesterData.roleType == RoleType.Hunter)
         {
-            return false;
+            return requesterData.hasHunterTrap && !requesterData.hasUsedHunterShot;
         }
 
-        if (role == null)
-            return false;
+        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null &&
+            RoleManager.Instance.playerRoles.TryGetValue((int)requesterClientId, out BaseRole role) &&
+            role != null && role.roleType == RoleType.Hunter)
+        {
+            return requesterData == null || (requesterData.hasHunterTrap && !requesterData.hasUsedHunterShot);
+        }
 
-        return role.roleType ==
-               RoleType.Hunter;
+        return false;
     }
 
     // =========================================================
@@ -683,125 +673,61 @@ public class NetworkPlayerAction : NetworkBehaviour
             + targetPlayerId
         );
 
-        // =====================================================
-        // ROLE MANAGER
-        // =====================================================
+        PlayerData requester = PlayerManager.Instance?.GetplayerByID((int)requesterClientId);
+        PlayerData target = PlayerManager.Instance?.GetplayerByID((int)targetPlayerId);
 
-        if (RoleManager.Instance == null)
+        if (requester == null || requester.roleType != RoleType.Hunter || requester.isAlive)
         {
             SendActionResultToClient(
                 false,
-                "Không tìm thấy RoleManager!",
+                "Chỉ Thợ Săn đã chết mới có quyền bắn trả thù!",
                 requesterClientId
             );
-
             return;
         }
 
-        if (RoleManager.Instance.playerRoles == null)
+        if (!requester.hasHunterTrap || requester.hasUsedHunterShot)
         {
             SendActionResultToClient(
                 false,
-                "Không tìm thấy Player Roles!",
+                "Thợ Săn đã sử dụng quyền bắn hoặc không có bẫy!",
                 requesterClientId
             );
-
             return;
         }
 
-        // =====================================================
-        // GET ROLE
-        // =====================================================
-
-        if (
-            !RoleManager.Instance.playerRoles.TryGetValue(
-                (int)requesterClientId,
-                out BaseRole role
-            )
-        )
+        if (target == null || !target.isAlive)
         {
             SendActionResultToClient(
                 false,
-                "Không tìm thấy Role của Hunter!",
+                "Mục tiêu không tồn tại hoặc đã bị loại!",
                 requesterClientId
             );
-
             return;
         }
 
-        if (role == null)
+        if ((int)targetPlayerId == (int)requesterClientId)
         {
             SendActionResultToClient(
                 false,
-                "Role Hunter không tồn tại!",
+                "Thợ Săn không thể tự bắn chính mình!",
                 requesterClientId
             );
-
             return;
         }
 
-        // =====================================================
-        // CHECK HUNTER
-        // =====================================================
+        // Đánh dấu quyền bắn đã sử dụng (chỉ được dùng 1 lần duy nhất)
+        requester.hasHunterTrap = false;
+        requester.hasUsedHunterShot = true;
+        requester.hunterTargetID = (int)targetPlayerId;
 
-        if (role.roleType != RoleType.Hunter)
+        // Đồng bộ HunterRole nếu có
+        if (RoleManager.Instance?.playerRoles != null &&
+            RoleManager.Instance.playerRoles.TryGetValue((int)requesterClientId, out BaseRole role) &&
+            role is HunterRole hunterRole)
         {
-            SendActionResultToClient(
-                false,
-                "Player này không phải Hunter!",
-                requesterClientId
-            );
-
-            return;
+            hunterRole.TrySetTrap((int)targetPlayerId, out _);
         }
-
-        // =====================================================
-        // GET HUNTER ROLE
-        // =====================================================
-
-        HunterRole hunter =
-            role as HunterRole;
-
-        if (hunter == null)
-        {
-            SendActionResultToClient(
-                false,
-                "Không thể lấy HunterRole!",
-                requesterClientId
-            );
-
-            return;
-        }
-
-        // =====================================================
-        // CALL DEV2 HUNTER LOGIC
-        // =====================================================
-
-        if (
-            !hunter.TrySetTrap(
-                (int)targetPlayerId,
-                out string trapFeedback
-            )
-        )
-        {
-            SendActionResultToClient(
-                false,
-                trapFeedback,
-                requesterClientId
-            );
-
-            return;
-        }
-
-        Debug.Log(
-            "HUNTER NETWORK | HunterRole.TrySetTrap("
-            + targetPlayerId
-            + ")"
-        );
-
-        // =====================================================
-        // DEATH RESOLVER
-        // =====================================================
 
         if (DeathResolver.Instance == null)
         {
@@ -818,10 +744,7 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
-        // =====================================================
-        // KILL TARGET
-        // =====================================================
-
+        // Bắn tiêu diệt mục tiêu
         bool killed =
             DeathResolver.Instance.TryKillPlayer(
                 (int)targetPlayerId,
@@ -844,23 +767,29 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
-        // =====================================================
-        // HUNTER RESULT
-        // =====================================================
-
         Debug.Log(
             "HUNTER NETWORK | Hunter "
             + (requesterClientId + 1)
-            + " đặt bẫy → Player "
+            + " bắn phát đạn trả thù → Player "
             + (targetPlayerId + 1)
             + " chết ngay."
         );
 
         SendActionResultToClient(
             true,
-            "Đặt bẫy thành công! Target đã chết.",
+            $"Thợ Săn đã bắn tiêu diệt {target.DisplayName}!",
             requesterClientId
         );
+
+        // Sau khi Thợ Săn bắn xong, ngay lập tức kiểm tra lại số người sống và phân định thắng thua
+        if (NetworkGameOverManager.Instance != null)
+        {
+            NetworkGameOverManager.Instance.CheckServerWinCondition();
+        }
+        if (WinConditionManager.Instance != null)
+        {
+            WinConditionManager.Instance.CheckWinCondition();
+        }
     }
 
     // =========================================================

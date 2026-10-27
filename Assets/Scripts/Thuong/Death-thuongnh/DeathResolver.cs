@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class DeathResolver:MonoBehaviour
 {
@@ -127,6 +127,12 @@ public class DeathResolver:MonoBehaviour
         }
         target.NotifyChanged();
         NetworkPlayerStateSync.SyncGameplayAliveState(targetID, false);
+        if (target.roleType == RoleType.Hunter && !target.hasUsedHunterShot)
+        {
+            target.hasHunterTrap = true;
+            Debug.Log($"[DeathResolver] Thợ Săn ({target.DisplayName}) bị tiêu diệt do {cause} -> Nhận quyền bắn phát đạn trả thù 1 lần (hasHunterTrap = true).");
+        }
+
         if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(targetID, out var role))
             role.OnDeath();
 

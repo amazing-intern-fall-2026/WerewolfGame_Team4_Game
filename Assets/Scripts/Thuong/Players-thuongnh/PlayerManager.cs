@@ -31,7 +31,10 @@ public class PlayerManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            if (Application.isPlaying)
+                Destroy(this);
+            else
+                DestroyImmediate(this);
             return;
         }
 
@@ -65,11 +68,20 @@ public class PlayerManager : MonoBehaviour
 
     public void PurgeNonActivePlayers()
     {
-        if (players == null) return;
-        players.RemoveAll(p => p == null
-            || (NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID))
-            || (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)p.playerID))
-            || p.isDisconnected);
+        if (players != null)
+        {
+            players.RemoveAll(p => p == null
+                || (NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID))
+                || (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)p.playerID))
+                || p.isDisconnected);
+        }
+
+        if (disconnectedPlayers != null)
+        {
+            disconnectedPlayers.RemoveAll(p => p == null
+                || (NetworkGameManager.LeftPlayerClientIds != null && NetworkGameManager.LeftPlayerClientIds.Contains((ulong)p.playerID))
+                || (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch((ulong)p.playerID)));
+        }
     }
 
     public void CreateTestPlayer(int count)

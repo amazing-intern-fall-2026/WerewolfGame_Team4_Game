@@ -76,8 +76,11 @@ public class AuthUI : MonoBehaviour
     {
         if (AuthManager.Instance != null)
         {
+            AuthManager.Instance.OnAuthStateChanged -= OnAuthStateChanged;
             AuthManager.Instance.OnAuthStateChanged += OnAuthStateChanged;
+            AuthManager.Instance.OnAuthStatusUpdate -= OnAuthStatusUpdate;
             AuthManager.Instance.OnAuthStatusUpdate += OnAuthStatusUpdate;
+            AuthManager.Instance.OnAuthError -= OnAuthError;
             AuthManager.Instance.OnAuthError += OnAuthError;
         }
     }
@@ -361,20 +364,54 @@ public class AuthUI : MonoBehaviour
 
     private void EnsureUIReferences()
     {
-        Canvas canvas = FindAnyObjectByType<Canvas>();
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = FindAnyObjectByType<Canvas>();
+        }
         if (canvas == null) return;
 
-        // Xóa sạch root cũ nếu có phiên bản nhỏ trước đó để cập nhật giao diện mới to 2/3 màn hình
-        Transform oldRoot = canvas.transform.Find("AuthCardRoot");
-        if (oldRoot != null)
+        // Nếu đã có tham chiếu và còn tồn tại dưới canvas, chỉ cần đồng bộ lại trạng thái
+        if (authCardRoot != null && authCardRoot.transform.parent == canvas.transform &&
+            userBadgePanel != null && userBadgePanel.transform.parent == canvas.transform)
         {
-            Destroy(oldRoot.gameObject);
+            bool signedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
+            authCardRoot.SetActive(!signedIn);
+            userBadgePanel.SetActive(signedIn);
+            if (signedIn)
+            {
+                UpdateUIState(AuthManager.Instance.CurrentState, AuthManager.Instance.PlayerId, AuthManager.Instance.CurrentUsername);
+            }
+            return;
         }
 
-        Transform oldBadge = canvas.transform.Find("UserBadgePanel");
-        if (oldBadge != null)
+        // Xóa sạch root cũ nếu có phiên bản trước đó trong canvas (xử lý tương thích cả PlayMode và EditMode)
+        while (canvas.transform.Find("AuthCardRoot") != null)
         {
-            Destroy(oldBadge.gameObject);
+            Transform oldRoot = canvas.transform.Find("AuthCardRoot");
+            if (Application.isPlaying)
+            {
+                Destroy(oldRoot.gameObject);
+                break;
+            }
+            else
+            {
+                DestroyImmediate(oldRoot.gameObject);
+            }
+        }
+
+        while (canvas.transform.Find("UserBadgePanel") != null)
+        {
+            Transform oldBadge = canvas.transform.Find("UserBadgePanel");
+            if (Application.isPlaying)
+            {
+                Destroy(oldBadge.gameObject);
+                break;
+            }
+            else
+            {
+                DestroyImmediate(oldBadge.gameObject);
+            }
         }
 
         CreateFullAuthUI(canvas.transform);
@@ -437,6 +474,10 @@ public class AuthUI : MonoBehaviour
         bool alreadySignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
         if (authCardRoot != null) authCardRoot.SetActive(!alreadySignedIn);
         if (userBadgePanel != null) userBadgePanel.SetActive(alreadySignedIn);
+        if (alreadySignedIn)
+        {
+            UpdateUIState(AuthManager.Instance.CurrentState, AuthManager.Instance.PlayerId, AuthManager.Instance.CurrentUsername);
+        }
     }
 
     private void CreateLoginPanelUI(Transform parent)
@@ -532,7 +573,14 @@ public class AuthUI : MonoBehaviour
         bg.color = new Color(0.11f, 0.14f, 0.20f, 0.96f);
 
         // Text thông tin user
-        userBadgeText = CreateText(badgeObj.transform, "UserBadgeText", "Đã đăng nhập", new Vector2(-65, 0), new Vector2(270, 50), 24, Color.white, FontStyles.Bold);
+        string initialBadgeText = "Đã đăng nhập";
+        if (AuthManager.Instance != null && AuthManager.Instance.IsSignedIn && !string.IsNullOrEmpty(AuthManager.Instance.CurrentUsername))
+        {
+            initialBadgeText = AuthManager.Instance.CurrentState == AuthManager.AuthState.RegisteredUser
+                ? $"<color=#68D391>Tài khoản:</color> <b>{AuthManager.Instance.CurrentUsername}</b>"
+                : $"<color=#F6AD55>Chế độ Khách:</color> <b>{AuthManager.Instance.CurrentUsername}</b>";
+        }
+        userBadgeText = CreateText(badgeObj.transform, "UserBadgeText", initialBadgeText, new Vector2(-65, 0), new Vector2(270, 50), 24, Color.white, FontStyles.Bold);
         userBadgeText.alignment = TextAlignmentOptions.Left;
 
         // Nút Đăng xuất

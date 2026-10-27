@@ -13,6 +13,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
     // Đảm bảo Role Lobby chỉ được áp dụng một lần
     private bool lobbyRolesApplied;
+    public bool LobbyRolesApplied => lobbyRolesApplied;
 
     private int lastNotifiedDogSpiritNightCycle = -1;
     private int lastNotifiedDogSpiritVictimId = -1;
@@ -316,6 +317,20 @@ public class NetworkRoleActionBridge : MonoBehaviour
             player.hasUseNightAction = false;
             player.hasVoted = false;
             player.isAlive = true;
+            player.wasVotedOut = false;
+            player.hasHunterTrap = false;
+            player.hasUsedHunterShot = false;
+            player.hunterTargetID = -1;
+            player.loverID = -1;
+            player.status = new PlayerStatus();
+            player.effects ??= new List<StatusEffectInstance>();
+            player.effects.Clear();
+
+            if (roleManager.roleDefinitions != null)
+            {
+                player.roleDefinition = roleManager.roleDefinitions.Find(roleType);
+            }
+            player.NotifyChanged();
 
             roleManager.playerRoles[
                 player.playerID
@@ -336,6 +351,9 @@ public class NetworkRoleActionBridge : MonoBehaviour
         lobbyRolesApplied = true;
 
         NetworkPlayerAction.ResetServerActionData();
+
+        // Đồng bộ ngay vai trò mới đến tất cả Client
+        NetworkRoleSync.SyncAllRoleSyncs();
 
         // ==========================================
         // DEBUG
@@ -699,7 +717,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 SendResult(
                     requesterClientId,
                     false,
-                    "Hunter phải chết mới có thể đặt bẫy!"
+                    "Hunter phải chết mới có thể bắn trả thù!"
                 );
 
                 return;
@@ -710,10 +728,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
             );
 
             // -------------------------------------------------
-            // Hunter chỉ dùng trong Discussion
+            // Cho phép bắn trong các phase game đang chạy
             // -------------------------------------------------
 
-            if (currentPhase != GamePhase.Discussion)
+            if (currentPhase == GamePhase.Setup || currentPhase == GamePhase.GameOver)
             {
                 Debug.LogWarning(
                     "HUNTER DEBUG | Sai phase: "
@@ -723,41 +741,33 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 SendResult(
                     requesterClientId,
                     false,
-                    "Hunter chỉ có thể đặt bẫy trong Discussion!"
+                    "Không thể bắn ở phase hiện tại!"
                 );
 
                 return;
             }
 
-            Debug.Log(
-                "HUNTER DEBUG | Đúng Discussion."
-            );
-
             // -------------------------------------------------
-            // Kiểm tra Hunter còn trap
+            // Kiểm tra Hunter còn quyền bắn (chỉ 1 lần duy nhất)
             // -------------------------------------------------
 
-            if (!requester.hasHunterTrap)
+            if (!requester.hasHunterTrap || requester.hasUsedHunterShot)
             {
                 Debug.LogWarning(
-                    "HUNTER DEBUG | Hunter không còn trap."
+                    "HUNTER DEBUG | Hunter đã sử dụng quyền bắn."
                 );
 
                 SendResult(
                     requesterClientId,
                     false,
-                    "Hunter không còn bẫy!"
+                    "Thợ Săn đã sử dụng quyền bắn hoặc không có bẫy!"
                 );
 
                 return;
             }
 
-            Debug.Log(
-                "HUNTER DEBUG | Hunter còn trap."
-            );
-
             // -------------------------------------------------
-            // Target phải còn sống
+            // Target phải còn sống và không phải bản thân
             // -------------------------------------------------
 
             if (!target.isAlive)
@@ -769,15 +779,27 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 SendResult(
                     requesterClientId,
                     false,
-                    "Không thể đặt bẫy lên người đã chết!"
+                    "Không thể bắn người đã chết!"
                 );
 
                 return;
             }
 
-            Debug.Log(
-                "HUNTER DEBUG | Target còn sống."
-            );
+            if (targetID == requesterID)
+            {
+                SendResult(
+                    requesterClientId,
+                    false,
+                    "Thợ Săn không thể tự bắn chính mình!"
+                );
+
+                return;
+            }
+
+            // Đánh dấu đã dùng quyền bắn
+            requester.hasHunterTrap = false;
+            requester.hasUsedHunterShot = true;
+            requester.hunterTargetID = targetID;
 
             // -------------------------------------------------
             // Lấy HunterRole
@@ -786,36 +808,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
             HunterRole hunterRole =
                 role as HunterRole;
 
-            if (hunterRole == null)
+            if (hunterRole != null)
             {
-                Debug.LogError(
-                    "HUNTER DEBUG | Role không phải HunterRole."
-                );
-
-                SendResult(
-                    requesterClientId,
-                    false,
-                    "Không tìm thấy HunterRole!"
-                );
-
-                return;
+                hunterRole.SetTrap(targetID);
             }
-
-            Debug.Log(
-                "HUNTER DEBUG | HunterRole OK."
-            );
-
-            // =================================================
-            // DEV2: SET TRAP
-            // =================================================
-
-            hunterRole.SetTrap(
-                targetID
-            );
-
-            Debug.Log(
-                "HUNTER DEBUG | SetTrap() đã được gọi."
-            );
 
             // =================================================
             // DEATH RESOLVER
@@ -835,10 +831,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
                 return;
             }
-
-            Debug.Log(
-                "HUNTER DEBUG | DeathResolver OK."
-            );
 
             // =================================================
             // GIẾT TARGET NGAY
@@ -873,7 +865,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
             Debug.Log(
                 "Hunter Player "
                 + (requesterID + 1)
-                + " đặt bẫy → Player "
+                + " bắn phát đạn trả thù → Player "
                 + (targetID + 1)
                 + " chết ngay."
             );
@@ -881,8 +873,18 @@ public class NetworkRoleActionBridge : MonoBehaviour
             SendResult(
                 requesterClientId,
                 true,
-                "Đặt bẫy thành công! Target đã chết."
+                $"Thợ Săn đã bắn tiêu diệt {target.DisplayName}!"
             );
+
+            // Ngay lập tức kiểm tra lại điều kiện thắng thua
+            if (NetworkGameOverManager.Instance != null)
+            {
+                NetworkGameOverManager.Instance.CheckServerWinCondition();
+            }
+            if (WinConditionManager.Instance != null)
+            {
+                WinConditionManager.Instance.CheckWinCondition();
+            }
 
             return;
         }

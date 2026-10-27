@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class HunterRole : BaseRole
 {
@@ -10,12 +10,15 @@ public class HunterRole : BaseRole
 
     public override void OnDeath()
     {
-        owner.hasHunterTrap = true;
+        if (owner != null && !owner.hasUsedHunterShot)
+        {
+            owner.hasHunterTrap = true;
 
-        Debug.Log(
-            owner.playerName +
-            " đã chết và có thể đặt bẫy."
-        );
+            Debug.Log(
+                owner.playerName +
+                " đã chết và có thể bắn phát đạn trả thù."
+            );
+        }
     }
 
     public void SetTrap(int targetID)
@@ -25,9 +28,9 @@ public class HunterRole : BaseRole
 
     public bool TrySetTrap(int targetID, out string feedback)
     {
-        if (owner == null || owner.isAlive || !owner.hasHunterTrap)
+        if (owner == null || owner.isAlive || !owner.hasHunterTrap || owner.hasUsedHunterShot)
         {
-            feedback = "Thợ Săn chưa thể đặt bẫy.";
+            feedback = "Thợ Săn chưa thể bắn hoặc đã sử dụng quyền bắn rồi.";
             return false;
         }
 
@@ -40,8 +43,9 @@ public class HunterRole : BaseRole
 
         owner.hunterTargetID = targetID;
         owner.hasHunterTrap = false;
-        feedback = "Đã đặt bẫy lên " + target.playerName + ".";
-        Debug.Log(owner.playerName + " đặt bẫy lên " + target.playerName);
+        owner.hasUsedHunterShot = true;
+        feedback = "Đã bắn mục tiêu " + target.playerName + ".";
+        Debug.Log(owner.playerName + " đã bắn phát đạn trả thù vào " + target.playerName);
         return true;
     }
 
