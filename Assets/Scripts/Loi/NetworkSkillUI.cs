@@ -59,6 +59,7 @@ public class NetworkSkillUI : MonoBehaviour
     private bool isVillageGuardian;
     private bool isShaman;
     private bool isHunter;
+    private bool isKiller;
 
     private bool isNight;
     private bool isDiscussion;
@@ -213,6 +214,9 @@ public class NetworkSkillUI : MonoBehaviour
         isHunter =
             role == RoleType.Hunter;
 
+        isKiller =
+            role == RoleType.Killer;
+
         hasUsedSkill = false;
         shamanHasUsedSave = false;
         shamanHasUsedKill = false;
@@ -232,6 +236,8 @@ public class NetworkSkillUI : MonoBehaviour
             + isShaman
             + " | Hunter = "
             + isHunter
+            + " | Killer = "
+            + isKiller
         );
 
         UpdateSkillUI();
@@ -261,6 +267,26 @@ public class NetworkSkillUI : MonoBehaviour
                NetworkPlayerStateType.Dead;
     }
 
+    public int GetCurrentNightNumber()
+    {
+        if (phaseSync != null && phaseSync.CurrentNightCycle.Value > 0)
+        {
+            return phaseSync.CurrentNightCycle.Value;
+        }
+
+        if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0)
+        {
+            return NightManager.Instance.CurrentNightNumber;
+        }
+
+        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentDay > 0)
+        {
+            return GameRoleManager.Instance.currentDay;
+        }
+
+        return 1;
+    }
+
     private void UpdateSkillUI()
     {
         bool hunterCanUseTrap =
@@ -273,12 +299,23 @@ public class NetworkSkillUI : MonoBehaviour
             isShaman &&
             (!shamanHasUsedSave || !shamanHasUsedKill);
 
+        int currentNight = GetCurrentNightNumber();
+        bool isEvenNight = currentNight > 0 && currentNight % 2 == 0;
+
+        bool killerCanAct =
+            isKiller &&
+            isNight &&
+            isEvenNight &&
+            !hasUsedSkill &&
+            !IsLocalPlayerDead();
+
         bool normalSkillAvailable =
             (
                 isDogSpirit ||
                 isSeer ||
                 isVillageGuardian ||
-                shamanCanAct
+                shamanCanAct ||
+                killerCanAct
             )
             &&
             isNight &&
@@ -297,9 +334,10 @@ public class NetworkSkillUI : MonoBehaviour
         if (attackButton != null)
         {
             attackButton.SetActive(
-                isDogSpirit &&
+                (isDogSpirit || (isKiller && isEvenNight)) &&
                 isNight &&
-                !hasUsedSkill
+                !hasUsedSkill &&
+                !IsLocalPlayerDead()
             );
         }
 
@@ -359,7 +397,7 @@ public class NetworkSkillUI : MonoBehaviour
 
     public void OnAttackClicked()
     {
-        if (!isDogSpirit)
+        if (!isDogSpirit && !isKiller)
             return;
 
         if (!isNight)
@@ -373,8 +411,24 @@ public class NetworkSkillUI : MonoBehaviour
         if (hasUsedSkill)
             return;
 
+        if (isKiller)
+        {
+            int currentNight = GetCurrentNightNumber();
+            if (currentNight <= 0 || currentNight % 2 != 0)
+            {
+                Debug.LogWarning(
+                    "SKILL UI | Sát Nhân chỉ có thể tấn công vào đêm chẵn (Đêm hiện tại: "
+                    + currentNight
+                    + ")."
+                );
+                return;
+            }
+        }
+
         Debug.Log(
-            "SKILL UI | DogSpirit mở Target Panel."
+            "SKILL UI | "
+            + (isDogSpirit ? "DogSpirit" : "Sát Nhân (Killer)")
+            + " mở Target Panel."
         );
 
         OpenTargetPanel(0);

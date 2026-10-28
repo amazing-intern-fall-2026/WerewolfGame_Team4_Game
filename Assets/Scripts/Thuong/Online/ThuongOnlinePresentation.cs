@@ -121,8 +121,20 @@ namespace Thuong.Online
             else if ((privateFlags & 4) != 0) reason = "Bạn đã dùng kỹ năng trong đêm này.";
             else if (privateRole == RoleType.WhiteHound && (privateFlags & 128) == 0) reason = "Sói Trắng chưa thức tỉnh.";
             else if (privateRole == RoleType.WeaverOfFate && (privateFlags & 1024) != 0) reason = "Bạn đã dùng Dệt Duyên.";
+            else if (privateRole == RoleType.Killer && IsKillerRestrictedThisNight())
+                reason = "Sát Nhân chỉ có thể tấn công vào đêm chẵn.";
             else { reason = "Chọn kỹ năng rồi chọn mục tiêu."; return true; }
             return false;
+        }
+
+        private bool IsKillerRestrictedThisNight()
+        {
+            int night = NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0
+                ? NightManager.Instance.CurrentNightNumber
+                : (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentNightCycle.Value > 0
+                    ? NetworkPhaseSync.Instance.CurrentNightCycle.Value
+                    : (game != null ? game.currentDay : 0));
+            return night <= 0 || night % 2 != 0;
         }
 
         public bool CanVoteFor(int targetId)

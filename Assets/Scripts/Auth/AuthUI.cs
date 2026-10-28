@@ -157,7 +157,11 @@ public class AuthUI : MonoBehaviour
 
     public void ShowLoginPanel()
     {
-        if (authCardRoot != null) authCardRoot.SetActive(true);
+        if (authCardRoot != null)
+        {
+            authCardRoot.SetActive(true);
+            authCardRoot.transform.SetAsLastSibling();
+        }
         if (loginPanel != null) loginPanel.SetActive(true);
         if (registerPanel != null) registerPanel.SetActive(false);
         if (userBadgePanel != null) userBadgePanel.SetActive(false);
@@ -167,7 +171,11 @@ public class AuthUI : MonoBehaviour
 
     public void ShowRegisterPanel()
     {
-        if (authCardRoot != null) authCardRoot.SetActive(true);
+        if (authCardRoot != null)
+        {
+            authCardRoot.SetActive(true);
+            authCardRoot.transform.SetAsLastSibling();
+        }
         if (loginPanel != null) loginPanel.SetActive(false);
         if (registerPanel != null) registerPanel.SetActive(true);
         if (userBadgePanel != null) userBadgePanel.SetActive(false);
@@ -422,6 +430,7 @@ public class AuthUI : MonoBehaviour
         // 1. Tạo Root Overlay: Phủ toàn bộ màn hình với nền tối mờ (Dim Backdrop)
         GameObject rootObj = new GameObject("AuthCardRoot", typeof(RectTransform), typeof(Image));
         rootObj.transform.SetParent(canvasTransform, false);
+        rootObj.transform.SetAsLastSibling();
         authCardRoot = rootObj;
 
         RectTransform rootRect = rootObj.GetComponent<RectTransform>();
