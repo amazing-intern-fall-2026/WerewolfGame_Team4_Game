@@ -221,7 +221,13 @@ public class NightManager : MonoBehaviour
             }
         }
 
-        if (killerTarget != -1 && evilNightCount % 2 == 0)
+        int currentNight = evilNightCount;
+        if (currentNight <= 0 && NetworkPhaseSync.Instance != null)
+            currentNight = NetworkPhaseSync.Instance.CurrentNightCycle.Value;
+        if (currentNight <= 0 && GameRoleManager.Instance != null)
+            currentNight = GameRoleManager.Instance.currentDay;
+
+        if (killerTarget != -1 && currentNight > 0 && currentNight % 2 == 0)
         {
             PlayerData killerTargetPlayer = PlayerManager.Instance.GetplayerByID(killerTarget);
             if (killerTargetPlayer != null && killerTargetPlayer.isAlive)
