@@ -15,11 +15,13 @@ public class NetworkRoleUI : MonoBehaviour
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived += OnRoleReceived;
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged += OnWhiteHoundAwakenedChanged;
     }
 
     private void OnDisable()
     {
         NetworkRoleSync.OnLocalRoleReceived -= OnRoleReceived;
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= OnWhiteHoundAwakenedChanged;
     }
 
     private void Start()
@@ -44,12 +46,19 @@ public class NetworkRoleUI : MonoBehaviour
 
         gameObject.SetActive(true);
 
-        roleText.text =
-            "ROLE\n" + role.ToString();
+        bool awakened = (role == RoleType.WhiteHound || role == RoleType.WhiteWolf) &&
+                        NetworkRoleSync.LocalInstance != null &&
+                        NetworkRoleSync.LocalInstance.IsWhiteHoundAwakened;
+
+        roleText.text = awakened
+            ? "ROLE\nWHITEHOUND (DOGSPIRIT)"
+            : "ROLE\n" + role.ToString();
 
         Debug.Log(
             "ROLE UI | Hiển thị Role = "
             + role
+            + " | Awakened = "
+            + awakened
         );
 
         if (hideCoroutine != null)
@@ -60,6 +69,19 @@ public class NetworkRoleUI : MonoBehaviour
         hideCoroutine = StartCoroutine(
             HideRoleAfterDelay()
         );
+    }
+
+    private void OnWhiteHoundAwakenedChanged(bool awakened)
+    {
+        if (!awakened || roleText == null)
+            return;
+
+        if (NetworkRoleSync.LocalInstance != null &&
+            (NetworkRoleSync.LocalInstance.LocalRole == RoleType.WhiteHound ||
+             NetworkRoleSync.LocalInstance.LocalRole == RoleType.WhiteWolf))
+        {
+            OnRoleReceived(NetworkRoleSync.LocalInstance.LocalRole);
+        }
     }
 
     private IEnumerator HideRoleAfterDelay()
