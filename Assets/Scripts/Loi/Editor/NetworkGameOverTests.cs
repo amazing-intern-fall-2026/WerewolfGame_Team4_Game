@@ -48,6 +48,7 @@ public static class NetworkGameOverTests
         Test_Hunter_Shot_UsedOnlyOnce();
         Test_LobbyRoleAdjustment_AppliesNewRolesInsteadOfPreviousGame();
         Test_SkillReset_OnReturnToLobbyAndNewGame();
+        Test_MonstersDead_ThirdPartyStillAlive_VillagersWaitUntilAllEliminated();
 
         Debug.Log("=================================================");
         Debug.Log($"KẾT QUẢ TỔNG HỢP: PASS = {passCount} | FAIL = {failCount}");
@@ -730,6 +731,61 @@ public static class NetworkGameOverTests
         }
         finally
         {
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 25. HẾT MONSTER NHƯNG CÒN PHE THỨ 3 -> CHƯA KẾT THÚC, LOẠI HẾT PHE THỨ 3 DÂN LÀNG MỚI THẮNG
+    // =========================================================
+
+    private static void Test_MonstersDead_ThirdPartyStillAlive_VillagersWaitUntilAllEliminated()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Discussion;
+        gm.currentPhase = GamePhase.Discussion;
+
+        GameObject wcGO = new GameObject("TestWinConditionManager");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+        var field = typeof(WinConditionManager).GetField("useEliminationWin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(wc, true);
+
+        try
+        {
+            var monster = new PlayerData { playerID = 0, playerName = "Monster", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = false };
+            var killer = new PlayerData { playerID = 1, playerName = "Killer", roleType = RoleType.Killer, faction = FactionType.Neutral, isAlive = true };
+            var villager1 = new PlayerData { playerID = 2, playerName = "Villager1", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+            var villager2 = new PlayerData { playerID = 3, playerName = "Villager2", roleType = RoleType.Seer, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(monster);
+            pm.players.Add(killer);
+            pm.players.Add(villager1);
+            pm.players.Add(villager2);
+
+            // Bước 1: Monster đã chết hết nhưng vẫn còn Phe thứ 3 (Killer) và Dân làng -> Chưa bên nào thắng
+            wc.CheckWinCondition(false);
+            bool gameContinuesWhileThirdPartyAlive = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // Bước 2: Loại nốt Phe thứ 3 (Killer bị loại) -> Dân làng chiến thắng
+            killer.isAlive = false;
+            wc.CheckWinCondition(false);
+            bool villagersWinAfterAllEliminated = gm.currentState == GameState.GameOver && gm.Winner == "Villagers";
+
+            Assert(gameContinuesWhileThirdPartyAlive && villagersWinAfterAllEliminated,
+                "TC25: Hết Monster nhưng vẫn còn Phe thứ 3 -> Ván đấu tiếp tục, đến khi loại hết Phe thứ 3 thì Dân làng mới thắng");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
             TeardownTestPlayerManager(pmGO, pm);
         }
     }

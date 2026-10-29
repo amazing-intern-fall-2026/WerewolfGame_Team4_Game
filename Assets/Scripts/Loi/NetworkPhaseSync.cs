@@ -111,7 +111,16 @@ public class NetworkPhaseSync : NetworkBehaviour
 
         if (CurrentPhase.Value != dev2Phase)
         {
-            if (dev2Phase == GamePhase.GameOver)
+            if (NetworkGameOverManager.Instance != null && NetworkGameOverManager.Instance.isGameOver)
+            {
+                roleManager.currentState = GameState.GameOver;
+                roleManager.currentPhase = GamePhase.GameOver;
+                if (CurrentPhase.Value != GamePhase.GameOver)
+                {
+                    CurrentPhase.Value = GamePhase.GameOver;
+                }
+            }
+            else if (dev2Phase == GamePhase.GameOver)
             {
                 string winnerName = roleManager.Winner;
                 if (string.IsNullOrEmpty(winnerName) && NetworkGameOverManager.Instance != null)
@@ -333,6 +342,20 @@ public class NetworkPhaseSync : NetworkBehaviour
             winner = "Villagers";
 
         NetworkGameOverManager.Instance?.ShowGameOverUI(winner);
+    }
+
+    [ClientRpc]
+    public void HideGameOverUIClientRpc()
+    {
+        NetworkGameOverManager.Instance?.ResetUIState();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestReturnToLobbyServerRpc(ServerRpcParams rpcParams = default)
+    {
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        Debug.Log($"[NetworkPhaseSync] Nhận yêu cầu Về Lobby từ Client {clientId}. Host đưa cả phòng về Lobby...");
+        NetworkGameOverManager.Instance?.ReturnToLobbyServer();
     }
 
     // =========================================================

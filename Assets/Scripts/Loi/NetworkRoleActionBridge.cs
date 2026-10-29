@@ -107,7 +107,45 @@ public class NetworkRoleActionBridge : MonoBehaviour
         lastPhase = currentPhase;
 
         if (currentPhase == GamePhase.Night)
+        {
             ResetNightActions();
+        }
+        else if (currentPhase != GamePhase.Setup)
+        {
+            SyncAwakenedWhiteHoundsForNextDay();
+        }
+    }
+
+    private void SyncAwakenedWhiteHoundsForNextDay()
+    {
+        if (PlayerManager.Instance?.players == null)
+            return;
+
+        bool anyAwakened = false;
+        foreach (PlayerData player in PlayerManager.Instance.players)
+        {
+            if (player == null || !player.isWhiteHoundAwakened)
+                continue;
+
+            if (player.faction != FactionType.Monster)
+            {
+                player.faction = FactionType.Monster;
+                anyAwakened = true;
+            }
+
+            if (RoleManager.Instance?.playerRoles != null &&
+                RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role) &&
+                role != null && role.faction != FactionType.Monster)
+            {
+                role.faction = FactionType.Monster;
+                anyAwakened = true;
+            }
+        }
+
+        if (anyAwakened)
+        {
+            NetworkRoleSync.SyncAllRoleSyncs();
+        }
     }
 
     // =====================================================
@@ -318,6 +356,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
             player.hasVoted = false;
             player.isAlive = true;
             player.wasVotedOut = false;
+            player.isWhiteHoundAwakened = false;
             player.hasHunterTrap = false;
             player.hasUsedHunterShot = false;
             player.hunterTargetID = -1;
@@ -1252,7 +1291,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
         // DOGSPIRIT ATTACK -> NOTIFY SHAMAN
         // =====================================================
 
-        if (role.roleType == RoleType.DogSpirit)
+        if (role.roleType == RoleType.DogSpirit ||
+            (role.roleType == RoleType.WhiteHound && requester != null && requester.isWhiteHoundAwakened))
         {
             NotifyShamanAboutDogSpiritTarget(
                 targetID

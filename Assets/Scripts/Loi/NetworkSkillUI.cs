@@ -55,6 +55,8 @@ public class NetworkSkillUI : MonoBehaviour
     private NetworkPhaseSync phaseSync;
 
     private bool isDogSpirit;
+    private bool isWhiteHound;
+    private bool isWhiteHoundAwakened;
     private bool isSeer;
     private bool isVillageGuardian;
     private bool isShaman;
@@ -111,6 +113,9 @@ public class NetworkSkillUI : MonoBehaviour
         NetworkRoleSync.OnLocalRoleReceived +=
             OnRoleReceived;
 
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged +=
+            OnWhiteHoundAwakenedChanged;
+
         NetworkPlayerAction.OnNetworkActionResult +=
             OnNetworkActionResult;
 
@@ -122,6 +127,9 @@ public class NetworkSkillUI : MonoBehaviour
     {
         NetworkRoleSync.OnLocalRoleReceived -=
             OnRoleReceived;
+
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -=
+            OnWhiteHoundAwakenedChanged;
 
         NetworkPlayerAction.OnNetworkActionResult -=
             OnNetworkActionResult;
@@ -202,6 +210,12 @@ public class NetworkSkillUI : MonoBehaviour
         isDogSpirit =
             role == RoleType.DogSpirit;
 
+        isWhiteHound =
+            role == RoleType.WhiteHound || role == RoleType.WhiteWolf;
+
+        isWhiteHoundAwakened =
+            NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.IsWhiteHoundAwakened;
+
         isSeer =
             role == RoleType.Seer;
 
@@ -228,6 +242,10 @@ public class NetworkSkillUI : MonoBehaviour
             + role
             + " | DogSpirit = "
             + isDogSpirit
+            + " | WhiteHound = "
+            + isWhiteHound
+            + " | Awakened = "
+            + isWhiteHoundAwakened
             + " | Seer = "
             + isSeer
             + " | VillageGuardian = "
@@ -241,6 +259,38 @@ public class NetworkSkillUI : MonoBehaviour
         );
 
         UpdateSkillUI();
+    }
+
+    private void OnWhiteHoundAwakenedChanged(bool awakened)
+    {
+        isWhiteHoundAwakened = awakened;
+        Debug.Log("SKILL UI | WhiteHound Awakened = " + awakened + " -> Cập nhật chức năng tấn công!");
+        UpdateSkillUI();
+    }
+
+    private bool IsLocalWhiteHoundAwakened()
+    {
+        if (isWhiteHoundAwakened)
+            return true;
+
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.IsWhiteHoundAwakened)
+        {
+            isWhiteHoundAwakened = true;
+            return true;
+        }
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
+        {
+            int localId = (int)NetworkManager.Singleton.LocalClientId;
+            PlayerData p = PlayerManager.Instance?.GetplayerByID(localId);
+            if (p != null && p.isWhiteHoundAwakened)
+            {
+                isWhiteHoundAwakened = true;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsLocalPlayerDead()
@@ -309,9 +359,12 @@ public class NetworkSkillUI : MonoBehaviour
             !hasUsedSkill &&
             !IsLocalPlayerDead();
 
+        bool canAttackAsDogSpirit =
+            isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened());
+
         bool normalSkillAvailable =
             (
-                isDogSpirit ||
+                canAttackAsDogSpirit ||
                 isSeer ||
                 isVillageGuardian ||
                 shamanCanAct ||
@@ -334,7 +387,7 @@ public class NetworkSkillUI : MonoBehaviour
         if (attackButton != null)
         {
             attackButton.SetActive(
-                (isDogSpirit || (isKiller && isEvenNight)) &&
+                (canAttackAsDogSpirit || (isKiller && isEvenNight)) &&
                 isNight &&
                 !hasUsedSkill &&
                 !IsLocalPlayerDead()
@@ -397,7 +450,8 @@ public class NetworkSkillUI : MonoBehaviour
 
     public void OnAttackClicked()
     {
-        if (!isDogSpirit && !isKiller)
+        bool canAttackAsDogSpirit = isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened());
+        if (!canAttackAsDogSpirit && !isKiller)
             return;
 
         if (!isNight)
@@ -427,7 +481,7 @@ public class NetworkSkillUI : MonoBehaviour
 
         Debug.Log(
             "SKILL UI | "
-            + (isDogSpirit ? "DogSpirit" : "Sát Nhân (Killer)")
+            + (isDogSpirit ? "DogSpirit" : (isWhiteHound ? "WhiteHound (Phe DogSpirit)" : "Sát Nhân (Killer)"))
             + " mở Target Panel."
         );
 

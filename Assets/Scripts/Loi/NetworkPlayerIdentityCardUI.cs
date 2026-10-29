@@ -30,11 +30,13 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived += OnRoleReceived;
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged += OnWhiteHoundAwakenedChanged;
     }
 
     private void OnDisable()
     {
         NetworkRoleSync.OnLocalRoleReceived -= OnRoleReceived;
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= OnWhiteHoundAwakenedChanged;
     }
 
     private void Start()
@@ -181,8 +183,23 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
         return null;
     }
 
+    private void OnWhiteHoundAwakenedChanged(bool awakened)
+    {
+        if (NetworkRoleSync.LocalInstance != null)
+        {
+            OnRoleReceived(NetworkRoleSync.LocalInstance.LocalRole);
+        }
+    }
+
     private string GetRoleName(RoleType role)
     {
+        if ((role == RoleType.WhiteHound || role == RoleType.WhiteWolf) &&
+            NetworkRoleSync.LocalInstance != null &&
+            NetworkRoleSync.LocalInstance.IsWhiteHoundAwakened)
+        {
+            return "BẠCH KHUYỂN (DOGSPIRIT)";
+        }
+
         return RoleInfoDatabase.GetLocalizedRoleName(role).ToUpper();
     }
 }
