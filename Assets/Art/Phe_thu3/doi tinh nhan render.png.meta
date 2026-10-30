@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: bbd77f759647a114c8378223394c23de
+guid: 3eb50a835a1a8d64d8873d1c173597c8
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 947578348558731941
-    second: khuyen tinh render_0
+      213: -1343586721636839272
+    second: doi tinh nhan render_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -115,7 +115,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: khuyen tinh render_0
+      name: doi tinh nhan render_0
       rect:
         serializedVersion: 2
         x: 0
@@ -130,8 +130,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 5aac1becc79762d00800000000000000
-      internalID: 947578348558731941
+      spriteID: 89097ebcefe9a5de0800000000000000
+      internalID: -1343586721636839272
       vertices: []
       indices: 
       edges: []
@@ -140,7 +140,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -150,7 +150,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      khuyen tinh render_0: 947578348558731941
+      doi tinh nhan render_0: -1343586721636839272
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
