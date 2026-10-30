@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 8d16b26f51752f74fb0858f71699fe87
+guid: 012a79ea95b95c24e95b51fe3016d9d5
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 5405130681228901155
-    second: thang dien render_0
+      213: -4434709522294099345
+    second: doi tinh nhan co dau render_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -115,7 +115,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: thang dien render_0
+      name: doi tinh nhan co dau render_0
       rect:
         serializedVersion: 2
         x: 0
@@ -130,8 +130,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 32bb63b87b1e20b40800000000000000
-      internalID: 5405130681228901155
+      spriteID: f623e918f2fb472c0800000000000000
+      internalID: -4434709522294099345
       vertices: []
       indices: 
       edges: []
@@ -150,7 +150,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      thang dien render_0: 5405130681228901155
+      doi tinh nhan co dau render_0: -4434709522294099345
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

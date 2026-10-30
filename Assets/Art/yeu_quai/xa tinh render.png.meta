@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c2d018ed5901a3b4d8419d605d86af34
+guid: 2d83ced6bf1156a4eb435befcbe996df
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8943576514099077654
-    second: chan tinh render_0
+      213: 4992050002386134146
+    second: xa tinh render_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -115,7 +115,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: chan tinh render_0
+      name: xa tinh render_0
       rect:
         serializedVersion: 2
         x: 0
@@ -130,8 +130,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 612e6685477fd1c70800000000000000
-      internalID: 8943576514099077654
+      spriteID: 284a6353703574540800000000000000
+      internalID: 4992050002386134146
       vertices: []
       indices: 
       edges: []
@@ -150,7 +150,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      chan tinh render_0: 8943576514099077654
+      xa tinh render_0: 4992050002386134146
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
