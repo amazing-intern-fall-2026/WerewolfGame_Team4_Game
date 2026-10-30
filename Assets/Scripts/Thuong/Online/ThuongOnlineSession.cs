@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Assets.Scripts.Thuong;
+using Thuong.Emotes;
 using Unity.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -129,6 +130,7 @@ namespace Thuong.Online
             PrepareOnlineWinRules();
             PrepareMinigames();
             PrepareOnlineMaps();
+            PrepareEmotes();
             foreach (TaskStation station in stations)
             {
                 station.enabled = false;
@@ -176,13 +178,14 @@ namespace Thuong.Online
                 SendMovementInput(ReadMovementInput());
             }
 
-            if (matchStarted && Keyboard.current?.eKey.wasPressedThisFrame == true)
+            if (matchStarted && !PlayerEmoteWheelUI.IsOpenFor(this) && Keyboard.current?.eKey.wasPressedThisFrame == true)
                 RequestNearestTask();
         }
 
         private Vector2 ReadMovementInput()
         {
-            if (Keyboard.current == null || visibleState != GameState.Day || IsPlayingTask || !localMapReady) return Vector2.zero;
+            if (Keyboard.current == null || visibleState != GameState.Day || IsPlayingTask || !localMapReady ||
+                PlayerEmoteWheelUI.IsOpenFor(this)) return Vector2.zero;
             float x = 0f;
             float y = 0f;
             if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) x -= 1f;
@@ -386,6 +389,7 @@ namespace Thuong.Online
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.Snapshot, ReceiveSnapshot);
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.PrivateState, ReceivePrivateState);
             RegisterMinigameMessages();
+            RegisterEmoteMessages();
             messaging.RegisterNamedMessageHandler(MapReadyMessage, ReceiveMapAcknowledgement);
         }
 
@@ -396,6 +400,7 @@ namespace Thuong.Online
             if (messaging != null)
             {
                 UnregisterMinigameMessages();
+                UnregisterEmoteMessages();
                 messaging.UnregisterNamedMessageHandler(MapReadyMessage);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Hello);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Ready);
@@ -416,6 +421,7 @@ namespace Thuong.Online
             // Stop this scene's overlays and hooks before an asynchronous Relay
             // leave, so a newly loaded scene immediately uses its own gameplay.
             enabled = false;
+            ResetEmotes();
             UnregisterMessageHandlers();
             if (game != null) game.enabled = false;
             if (DayTimer.Instance != null && DayTimer.Instance.gameObject.scene == previous) DayTimer.Instance.StopTimer();
@@ -1358,6 +1364,7 @@ namespace Thuong.Online
 
         private void ClearClientState()
         {
+            ResetEmotes();
             ClearMapPresentation();
             ResetMinigames();
             lobby.Clear();
@@ -1534,6 +1541,8 @@ namespace Thuong.Online
 
         private void OnDestroy()
         {
+            ResetEmotes();
+            PlayerEmoteWheelUI.DisposeFor(this);
             leavingScene = true;
             DisposeMapUi();
             ClearMapPresentation();

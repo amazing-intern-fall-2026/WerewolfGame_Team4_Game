@@ -123,6 +123,7 @@ namespace Thuong.Online
 
         private void ResetReplicatedRound(uint epoch)
         {
+            ResetEmotes();
             matchEpoch = epoch;
             matchResult = null;
             localRoleCardOpen = localRoleConfirmed = false;
@@ -140,6 +141,7 @@ namespace Thuong.Online
         public bool RestartMatchInRoom()
         {
             if (!CanRestartMatch) return false;
+            ResetEmotes();
             ResetMinigames();
             game.ResetForOnlineLobby();
             matchEpoch++;
