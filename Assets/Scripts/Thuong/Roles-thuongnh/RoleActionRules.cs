@@ -44,9 +44,19 @@ public static class RoleActionRules
 
         if (role.roleType == RoleType.Killer)
         {
-            if (night.CurrentNightNumber % 2 != 0)
+            int currentNight = night.CurrentNightNumber;
+            if (currentNight <= 0 && NetworkPhaseSync.Instance != null)
             {
-                feedback = "Sát Nhân chỉ có thể tấn công vào đêm chẵn.";
+                currentNight = NetworkPhaseSync.Instance.CurrentNightCycle.Value;
+            }
+            if (currentNight <= 0 && GameRoleManager.Instance != null)
+            {
+                currentNight = GameRoleManager.Instance.currentDay;
+            }
+
+            if (currentNight <= 0 || currentNight % 2 != 0)
+            {
+                feedback = $"Sát Nhân chỉ có thể tấn công vào đêm chẵn (Đêm hiện tại: {currentNight}).";
                 return false;
             }
 

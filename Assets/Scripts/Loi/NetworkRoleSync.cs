@@ -8,10 +8,13 @@ public class NetworkRoleSync : NetworkBehaviour
     public static NetworkRoleSync LocalInstance;
 
     public static event Action<RoleType> OnLocalRoleReceived;
+    public static event Action<bool> OnLocalWhiteHoundAwakenedChanged;
 
     public RoleType LocalRole { get; private set; }
+    public bool IsWhiteHoundAwakened { get; private set; }
 
     private bool roleSent;
+    private bool awakenedSent;
 
     public override void OnNetworkSpawn()
     {
@@ -24,9 +27,6 @@ public class NetworkRoleSync : NetworkBehaviour
     private void Update()
     {
         if (!IsServer)
-            return;
-
-        if (roleSent)
             return;
 
         // Nếu có Role Setup từ Lobby thì chờ NetworkRoleActionBridge áp dụng xong Lobby Roles trước
@@ -46,32 +46,57 @@ public class NetworkRoleSync : NetworkBehaviour
 
         int playerID = (int)OwnerClientId;
 
-        if (!RoleManager.Instance.playerRoles.TryGetValue(
-            playerID,
-            out BaseRole role))
+        if (!roleSent)
         {
-            return;
+            if (!RoleManager.Instance.playerRoles.TryGetValue(
+                playerID,
+                out BaseRole role))
+            {
+                return;
+            }
+
+            if (role == null)
+                return;
+
+            RoleType roleType = role.roleType;
+
+            Debug.Log(
+                "NETWORK ROLE SYNC | Server tìm thấy Role"
+                + " | Player "
+                + playerID
+                + " → "
+                + roleType
+            );
+
+            SendRoleToOwnerClient(
+                roleType,
+                OwnerClientId
+            );
+
+            roleSent = true;
         }
 
-        if (role == null)
-            return;
-
-        RoleType roleType = role.roleType;
-
-        Debug.Log(
-            "NETWORK ROLE SYNC | Server tìm thấy Role"
-            + " | Player "
-            + playerID
-            + " → "
-            + roleType
-        );
-
-        SendRoleToOwnerClient(
-            roleType,
-            OwnerClientId
-        );
-
-        roleSent = true;
+        // Khi sang ngày hôm sau sau khi WhiteHound bị DogSpirit cắn, đồng bộ chuyển phe DogSpirit và mở kỹ năng tấn công
+        if (!awakenedSent)
+        {
+            bool isDaytimeOrAfterNight = NetworkPhaseSync.Instance == null ||
+                                         (NetworkPhaseSync.Instance.CurrentPhase.Value != GamePhase.Night &&
+                                          NetworkPhaseSync.Instance.CurrentPhase.Value != GamePhase.Setup);
+            if (isDaytimeOrAfterNight)
+            {
+                PlayerData pData = PlayerManager.Instance?.GetplayerByID(playerID);
+                if (pData != null && pData.isWhiteHoundAwakened)
+                {
+                    pData.faction = FactionType.Monster;
+                    if (RoleManager.Instance.playerRoles.TryGetValue(playerID, out BaseRole r) && r != null)
+                    {
+                        r.faction = FactionType.Monster;
+                    }
+                    SendWhiteHoundAwakenedToOwnerClient(true, OwnerClientId);
+                    awakenedSent = true;
+                }
+            }
+        }
     }
 
     public void SyncCurrentRole()
@@ -88,6 +113,13 @@ public class NetworkRoleSync : NetworkBehaviour
             return;
 
         RoleType roleType = role.roleType;
+        PlayerData pData = PlayerManager.Instance?.GetplayerByID(playerID);
+        bool awakened = pData != null && pData.isWhiteHoundAwakened;
+        if (awakened)
+        {
+            pData.faction = FactionType.Monster;
+            role.faction = FactionType.Monster;
+        }
 
         Debug.Log(
             "NETWORK ROLE SYNC | Server đồng bộ Role mới"
@@ -95,6 +127,8 @@ public class NetworkRoleSync : NetworkBehaviour
             + playerID
             + " → "
             + roleType
+            + " | Awakened = "
+            + awakened
         );
 
         SendRoleToOwnerClient(
@@ -102,7 +136,13 @@ public class NetworkRoleSync : NetworkBehaviour
             OwnerClientId
         );
 
+        SendWhiteHoundAwakenedToOwnerClient(
+            awakened,
+            OwnerClientId
+        );
+
         roleSent = true;
+        awakenedSent = awakened;
     }
 
     public static void SyncAllRoleSyncs()
@@ -154,6 +194,57 @@ public class NetworkRoleSync : NetworkBehaviour
         OnLocalRoleReceived?.Invoke(roleType);
     }
 
+    private void SendWhiteHoundAwakenedToOwnerClient(
+        bool awakened,
+        ulong clientId)
+    {
+        ClientRpcParams rpcParams =
+            new ClientRpcParams
+            {
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new List<ulong>
+                            {
+                                clientId
+                            }
+                    }
+            };
+
+        ReceiveWhiteHoundAwakenedClientRpc(
+            awakened,
+            rpcParams
+        );
+    }
+
+    [ClientRpc]
+    private void ReceiveWhiteHoundAwakenedClientRpc(
+        bool awakened,
+        ClientRpcParams clientRpcParams = default)
+    {
+        IsWhiteHoundAwakened = awakened;
+
+        int playerID = (int)OwnerClientId;
+        PlayerData pData = PlayerManager.Instance?.GetplayerByID(playerID);
+        if (pData != null)
+        {
+            pData.isWhiteHoundAwakened = awakened;
+            if (awakened)
+            {
+                pData.faction = FactionType.Monster;
+            }
+        }
+
+        Debug.Log(
+            "NETWORK ROLE SYNC | WHITEHOUND AWAKENED = "
+            + awakened
+            + " -> Đổi qua phe DogSpirit và mở khóa chức năng tấn công!"
+        );
+
+        OnLocalWhiteHoundAwakenedChanged?.Invoke(awakened);
+    }
+
     private void OnDestroy()
     {
         if (LocalInstance == this)
@@ -168,7 +259,10 @@ public class NetworkRoleSync : NetworkBehaviour
     public void ResetForNewMatch()
     {
         roleSent = false;
+        awakenedSent = false;
+        IsWhiteHoundAwakened = false;
         LocalRole = RoleType.Villager;
+        OnLocalWhiteHoundAwakenedChanged?.Invoke(false);
     }
 
     public static void ResetAllRoleSyncs()

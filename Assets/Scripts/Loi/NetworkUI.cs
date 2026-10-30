@@ -123,6 +123,11 @@ public class NetworkUI : MonoBehaviour
             roomCodeInput.contentType = TMP_InputField.ContentType.IntegerNumber;
             roomCodeInput.onValueChanged.AddListener(OnRoomCodeInputChanged);
         }
+
+        bool isSignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
+        string playerId = AuthManager.Instance != null ? AuthManager.Instance.PlayerId : null;
+        string username = AuthManager.Instance != null ? AuthManager.Instance.CurrentUsername : null;
+        UpdateAuthGating(isSignedIn, playerId, username);
     }
 
     private void CreateRoomCodeInputUI(Transform canvasTransform)
@@ -130,6 +135,10 @@ public class NetworkUI : MonoBehaviour
         // Tạo container cho Input
         GameObject inputObj = new GameObject("RoomCodeInput", typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         inputObj.transform.SetParent(canvasTransform, false);
+        inputObj.transform.SetSiblingIndex(0);
+
+        bool isSignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
+        inputObj.SetActive(isSignedIn);
 
         RectTransform rect = inputObj.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -202,6 +211,10 @@ public class NetworkUI : MonoBehaviour
     {
         GameObject statusObj = new GameObject("NetworkStatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
         statusObj.transform.SetParent(canvasTransform, false);
+        statusObj.transform.SetSiblingIndex(0);
+
+        bool isSignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
+        statusObj.SetActive(isSignedIn);
 
         RectTransform rect = statusObj.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -255,17 +268,25 @@ public class NetworkUI : MonoBehaviour
     {
         if (hostButton != null)
         {
+            hostButton.gameObject.SetActive(isSignedIn);
             hostButton.interactable = isSignedIn;
         }
 
         if (clientButton != null)
         {
+            clientButton.gameObject.SetActive(isSignedIn);
             clientButton.interactable = isSignedIn;
         }
 
         if (roomCodeInput != null)
         {
+            roomCodeInput.gameObject.SetActive(isSignedIn);
             roomCodeInput.interactable = isSignedIn;
+        }
+
+        if (statusText != null)
+        {
+            statusText.gameObject.SetActive(isSignedIn);
         }
 
         if (isSignedIn)
@@ -274,7 +295,7 @@ public class NetworkUI : MonoBehaviour
         }
         else
         {
-            SetStatus("Vui lòng Đăng nhập, Đăng ký hoặc chọn Chơi ngay để bắt đầu.", new Color(0.95f, 0.8f, 0.3f));
+            SetStatus(string.Empty, Color.clear);
         }
     }
 

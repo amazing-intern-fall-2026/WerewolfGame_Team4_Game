@@ -103,12 +103,12 @@ public static class RoleInfoDatabase
                 {
                     Role = role,
                     DisplayName = "Bạch khuyển",
-                    FactionName = "Dân làng (Ban đầu) / Quái vật (Thức tỉnh)",
+                    FactionName = "Dân làng (Ban đầu) / Phe DogSpirit (Sau khi bị cắn)",
                     Faction = FactionType.Villager,
-                    Description = "Linh thú ngụy trang trong lốt dân lành. Khi điều kiện thức tỉnh diễn ra, bản năng bóng đêm sẽ trỗi dậy.",
-                    SkillName = "Thức tỉnh & Săn đêm",
-                    SkillDescription = "Khi chưa thức tỉnh, tính là Dân làng. Sau khi thức tỉnh, gia nhập Phe Quái vật và có thể tấn công vào ban đêm.",
-                    Restrictions = "Chỉ có thể tấn công ban đêm sau khi đã thức tỉnh thành công."
+                    Description = "Linh thú ngụy trang trong lốt dân lành. Khi bị DogSpirit cắn trong đêm, sang ngày hôm sau sẽ thức tỉnh và chuyển qua phe DogSpirit.",
+                    SkillName = "Thức tỉnh & Tấn công ban đêm",
+                    SkillDescription = "Khi chưa bị cắn, tính là Dân làng. Sau khi bị DogSpirit cắn, hôm sau chuyển qua phe DogSpirit và mở khóa chức năng tấn công ban đêm.",
+                    Restrictions = "Chức năng tấn công ban đêm được mở từ ngày hôm sau khi bị DogSpirit cắn."
                 };
 
             case RoleType.SerpentSpirit:
