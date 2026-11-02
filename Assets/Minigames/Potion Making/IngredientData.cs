@@ -20,6 +20,6 @@ public class IngredientData : ScriptableObject
 public struct PotionResult
 {
     public string potionName;
-    public string description;
+    public Sprite potionSprite;
     public Color potionColor;
 }
