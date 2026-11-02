@@ -285,7 +285,47 @@ public class NetworkPlayerAction : NetworkBehaviour
         // CHECK SKILL USED IN CURRENT NIGHT
         // =====================================================
 
-        if (
+        bool isShamanRole = false;
+        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null)
+        {
+            if (RoleManager.Instance.playerRoles.TryGetValue((int)requesterClientId, out BaseRole requesterRoleCheck) && requesterRoleCheck != null)
+            {
+                isShamanRole = requesterRoleCheck.roleType == RoleType.Shaman;
+            }
+        }
+        if (!isShamanRole && PlayerManager.Instance != null)
+        {
+            PlayerData pCheck = PlayerManager.Instance.GetplayerByID((int)requesterClientId);
+            if (pCheck != null && pCheck.roleType == RoleType.Shaman)
+            {
+                isShamanRole = true;
+            }
+        }
+
+        // Shaman kiểm tra giới hạn bùa theo toàn trận đấu (Save dùng tối đa 1 lần, Kill dùng tối đa 1 lần)
+        if (isShamanRole)
+        {
+            if (subActionId == 1 && NetworkRoleActionBridge.IsShamanSaveUsed((int)requesterClientId))
+            {
+                SendActionResultToClient(
+                    false,
+                    "Bùa Lợi (Cứu) đã được sử dụng trước đó!",
+                    requesterClientId
+                );
+                return;
+            }
+
+            if (subActionId == 2 && NetworkRoleActionBridge.IsShamanKillUsed((int)requesterClientId))
+            {
+                SendActionResultToClient(
+                    false,
+                    "Bùa Hại (Giết) đã được sử dụng trước đó!",
+                    requesterClientId
+                );
+                return;
+            }
+        }
+        else if (
             currentPhase == GamePhase.Night
             &&
             playersActionNightCycle.TryGetValue(
@@ -831,9 +871,27 @@ public class NetworkPlayerAction : NetworkBehaviour
         {
             if (success)
             {
-                playersActionNightCycle[
-                    clientId
-                ] = pendingNightCycle;
+                bool requesterIsShaman = false;
+                if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null &&
+                    RoleManager.Instance.playerRoles.TryGetValue((int)clientId, out BaseRole r) && r != null)
+                {
+                    requesterIsShaman = r.roleType == RoleType.Shaman;
+                }
+                if (!requesterIsShaman && PlayerManager.Instance != null)
+                {
+                    PlayerData p = PlayerManager.Instance.GetplayerByID((int)clientId);
+                    if (p != null && p.roleType == RoleType.Shaman)
+                    {
+                        requesterIsShaman = true;
+                    }
+                }
+
+                if (!requesterIsShaman)
+                {
+                    playersActionNightCycle[
+                        clientId
+                    ] = pendingNightCycle;
+                }
 
                 Debug.Log(
                     "SERVER ACTION SAVED"
