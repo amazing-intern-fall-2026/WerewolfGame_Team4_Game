@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: e6fdcf34041f87140a2a58ecca3703e8
+guid: 0105bd8662c517b419e23b2a616973cf
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 2168535566324570039
-    second: bach khuyen tinh render_0
+      213: -1230826433053093479
+    second: sat thu mau_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -115,7 +115,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: bach khuyen tinh render_0
+      name: sat thu mau_0
       rect:
         serializedVersion: 2
         x: 0
@@ -130,8 +130,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 7b79391bb9f281e10800000000000000
-      internalID: 2168535566324570039
+      spriteID: 99195bd51e93beee0800000000000000
+      internalID: -1230826433053093479
       vertices: []
       indices: 
       edges: []
@@ -150,7 +150,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      bach khuyen tinh render_0: 2168535566324570039
+      sat thu mau_0: -1230826433053093479
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

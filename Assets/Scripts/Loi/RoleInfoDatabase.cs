@@ -157,10 +157,10 @@ public static class RoleInfoDatabase
                     DisplayName = "Pháp sư",
                     FactionName = "Phe Dân làng",
                     Faction = FactionType.Villager,
-                    Description = "Phù thủy huyền bí nắm giữ hai loại bùa chú cổ xưa: bùa hộ mệnh cứu người và bùa hại phong ấn.",
-                    SkillName = "Bùa hộ mệnh / Bùa phong ấn",
-                    SkillDescription = "Dùng bùa lợi để bảo vệ một người chơi khỏi cái chết, hoặc bùa hại để làm câm lặng (ngăn nói và bỏ phiếu).",
-                    Restrictions = "Mỗi loại bùa (Bùa lợi / Bùa hại) chỉ được sử dụng duy nhất một lần trong toàn bộ ván chơi."
+                    Description = "Pháp sư nắm giữ bùa chú bí truyền: sở hữu 1 bùa lợi để cứu và 1 bùa lợi để giết.",
+                    SkillName = "Bùa cứu / Bùa giết",
+                    SkillDescription = "Vào ban đêm, có 1 bùa lợi để cứu một người chơi khỏi cái chết (kể cả bản thân), và 1 bùa lợi để tiêu diệt một người chơi.",
+                    Restrictions = "Mỗi loại bùa (1 bùa cứu, 1 bùa giết) chỉ được sử dụng duy nhất một lần trong toàn bộ ván chơi."
                 };
 
             case RoleType.WeaverOfFate:

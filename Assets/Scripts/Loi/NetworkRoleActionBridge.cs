@@ -17,6 +17,12 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
     private int lastNotifiedDogSpiritNightCycle = -1;
     private int lastNotifiedDogSpiritVictimId = -1;
+    private readonly HashSet<int> bittenWhiteHoundPlayerIds = new HashSet<int>();
+
+    public bool HasWhiteHoundBeenBittenTonight(int playerId)
+    {
+        return bittenWhiteHoundPlayerIds.Contains(playerId);
+    }
 
     private void Awake()
     {
@@ -40,6 +46,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
         phaseInitialized = false;
         lastNotifiedDogSpiritNightCycle = -1;
         lastNotifiedDogSpiritVictimId = -1;
+        bittenWhiteHoundPlayerIds.Clear();
         ResetNightActions();
         Debug.Log("ROLE ACTION BRIDGE: Reset For New Match hoàn tất.");
     }
@@ -58,6 +65,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
     private void Update()
     {
+        NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
+
         if (NetworkManager.Singleton == null)
             return;
 
@@ -116,28 +125,77 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
     }
 
-    private void SyncAwakenedWhiteHoundsForNextDay()
+    public void SyncAwakenedWhiteHoundsForNextDay()
     {
         if (PlayerManager.Instance?.players == null)
             return;
 
+        bool anyDogSpiritAlive = PlayerManager.Instance.players.Exists(p => p != null && p.isAlive &&
+            (p.roleType == RoleType.DogSpirit || p.roleType == RoleType.SerpentSpirit || p.roleType == RoleType.Ogre));
+
         bool anyAwakened = false;
         foreach (PlayerData player in PlayerManager.Instance.players)
         {
-            if (player == null || !player.isWhiteHoundAwakened)
+            if (player == null)
                 continue;
 
-            if (player.faction != FactionType.Monster)
+            bool isWh = player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf;
+            bool wasBitten = bittenWhiteHoundPlayerIds.Contains(player.playerID);
+
+            // Cú cắn của DogSpirit vào Bạch Khuyển là để thức tỉnh chuyển hóa, TUYỆT ĐỐI KHÔNG làm Bạch Khuyển chết!
+            if (isWh && wasBitten && !player.isAlive)
             {
-                player.faction = FactionType.Monster;
-                anyAwakened = true;
+                if (player.lastDeathCause != DeathCause.Vote && player.lastDeathCause != DeathCause.Poison)
+                {
+                    player.isAlive = true;
+                    NetworkPlayerStateSync.SyncGameplayAliveState(player.playerID, true);
+                    Debug.LogWarning($"ROLE ACTION BRIDGE | Khôi phục isAlive = true cho WhiteHound (Player {player.playerID + 1}) do bị DogSpirit cắn thức tỉnh!");
+                }
             }
 
-            if (RoleManager.Instance?.playerRoles != null &&
-                RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role) &&
-                role != null && role.faction != FactionType.Monster)
+            if (!player.isAlive)
+                continue;
+
+            bool isBittenOrAwakened = player.isWhiteHoundAwakened ||
+                                      player.faction == FactionType.Monster ||
+                                      wasBitten ||
+                                      !anyDogSpiritAlive;
+
+            if (!isBittenOrAwakened)
+                continue;
+
+            if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf || player.roleType == RoleType.DogSpirit)
             {
-                role.faction = FactionType.Monster;
+                player.isWhiteHoundAwakened = true;
+                player.faction = FactionType.Monster;
+                bittenWhiteHoundPlayerIds.Add(player.playerID);
+
+                // Sang ngày hôm sau, WhiteHound chính thức gia nhập phe DogSpirit
+                if (player.roleType != RoleType.DogSpirit)
+                {
+                    player.roleType = RoleType.DogSpirit;
+                    Debug.Log($"ROLE ACTION BRIDGE | Player {player.playerID + 1} (Bạch Khuyển) chính thức gia nhập DogSpirit sang ngày hôm sau!");
+                }
+
+                if (RoleManager.Instance?.playerRoles != null)
+                {
+                    if (!RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role) ||
+                        role == null || role.roleType != RoleType.DogSpirit)
+                    {
+                        RoleManager.Instance.playerRoles[player.playerID] = RoleCatalog.Create(RoleType.DogSpirit, player);
+                    }
+                    else
+                    {
+                        role.faction = FactionType.Monster;
+                    }
+                }
+
+                if (RoleManager.Instance?.roleDefinitions != null)
+                {
+                    player.roleDefinition = RoleManager.Instance.roleDefinitions.Find(RoleType.DogSpirit);
+                }
+
+                player.NotifyChanged();
                 anyAwakened = true;
             }
         }
@@ -1200,6 +1258,12 @@ public class NetworkRoleActionBridge : MonoBehaviour
                     + killed
                 );
 
+                if (killed)
+                {
+                    // Thiết lập thời gian chờ sau khi Pháp Sư dùng Kill trước khi kiểm tra điều kiện thắng
+                    NetworkGameOverManager.TriggerShamanKillDelay(5.0f);
+                }
+
                 if (!killed)
                 {
                     SendResult(
@@ -1294,6 +1358,19 @@ public class NetworkRoleActionBridge : MonoBehaviour
         if (role.roleType == RoleType.DogSpirit ||
             (role.roleType == RoleType.WhiteHound && requester != null && requester.isWhiteHoundAwakened))
         {
+            if (role.roleType == RoleType.DogSpirit && target != null)
+            {
+                if (target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf)
+                {
+                    bittenWhiteHoundPlayerIds.Add(targetID);
+                    // QUAN TRỌNG: KHÔNG set target.isWhiteHoundAwakened = true ở đây!
+                    // Vì DeathResolver.cs cần điều kiện (!target.isWhiteHoundAwakened == true) để ngăn cái chết (DeathOutcome.Prevented)
+                    // và đánh thức WhiteHound thành quái vật. Nếu set true sớm ở đây, DeathResolver sẽ xem như WhiteHound đã thức tỉnh
+                    // từ trước và cú cắn này sẽ GIẾT CHẾT WhiteHound!
+                    Debug.Log($"ROLE ACTION BRIDGE | DogSpirit đã cắn WhiteHound (Player {targetID + 1}) -> Ghi nhận WhiteHound bị cắn đêm nay để thức tỉnh và ngăn Dân làng thắng!");
+                }
+            }
+
             NotifyShamanAboutDogSpiritTarget(
                 targetID
             );
@@ -1388,10 +1465,21 @@ public class NetworkRoleActionBridge : MonoBehaviour
         if (networkAction == null)
             return;
 
+        RoleType effectiveRole = target.roleType;
+        bool anyDogSpiritAlive = PlayerManager.Instance?.players != null &&
+                                 PlayerManager.Instance.players.Exists(p => p != null && p.isAlive &&
+                                     (p.roleType == RoleType.DogSpirit || p.roleType == RoleType.SerpentSpirit || p.roleType == RoleType.Ogre));
+
+        if ((target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf || target.roleType == RoleType.DogSpirit) &&
+            (target.isWhiteHoundAwakened || target.faction == FactionType.Monster || bittenWhiteHoundPlayerIds.Contains(target.playerID) || !anyDogSpiritAlive))
+        {
+            effectiveRole = RoleType.DogSpirit;
+        }
+
         networkAction.SendSeerResultToClient(
             target.playerID,
             target.playerName,
-            target.roleType,
+            effectiveRole,
             (ulong)requesterID
         );
     }

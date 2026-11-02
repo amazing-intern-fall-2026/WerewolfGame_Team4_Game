@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class NetworkGameTimer : NetworkBehaviour
 {
+    public static NetworkGameTimer Instance { get; private set; }
+
     [Header("DayStart Networking Timer")]
     [SerializeField]
     private float dayStartTime = 10f;
@@ -16,6 +18,27 @@ public class NetworkGameTimer : NetworkBehaviour
 
     private GamePhase lastPhase;
     private bool initialized;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+    }
+
+    public override void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        base.OnDestroy();
+    }
 
     public override void OnNetworkSpawn()
     {
@@ -158,8 +181,15 @@ public class NetworkGameTimer : NetworkBehaviour
         if (currentPhase == GamePhase.DayStart)
             return;
 
-        float dev2Time =
-            GameRoleManager.Instance.PhaseTimeRemaining;
+        float dev2Time = 0f;
+        if (GameRoleManager.Instance.currentState == GameState.Day && DayTimer.Instance != null)
+        {
+            dev2Time = DayTimer.Instance.TimeRemaining;
+        }
+        else
+        {
+            dev2Time = GameRoleManager.Instance.PhaseTimeRemaining;
+        }
 
         if (dev2Time < 0f)
             dev2Time = 0f;

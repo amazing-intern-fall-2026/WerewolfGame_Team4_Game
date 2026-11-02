@@ -644,6 +644,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 101507984}
+  - component: {fileID: 101507986}
   - component: {fileID: 101507985}
   m_Layer: 0
   m_Name: GameRoleDetailPanel
@@ -699,13 +700,13 @@ MonoBehaviour:
   restrictionsText: {fileID: 181956673}
   roleImages:
   - role: 0
-    image: {fileID: 21300000, guid: bbd77f759647a114c8378223394c23de, type: 3}
+    image: {fileID: 947578348558731941, guid: 382a9d604d21e4641aa70cdb3205e92c, type: 3}
   - role: 1
-    image: {fileID: 2168535566324570039, guid: e6fdcf34041f87140a2a58ecca3703e8, type: 3}
+    image: {fileID: 2168535566324570039, guid: 90dbea8c1af61cc4dad18e0cd0cee62a, type: 3}
   - role: 6
-    image: {fileID: 4992050002386134146, guid: e42720c9da11355418cc2aaf3cfaf102, type: 3}
+    image: {fileID: 4992050002386134146, guid: 2d83ced6bf1156a4eb435befcbe996df, type: 3}
   - role: 7
-    image: {fileID: 8943576514099077654, guid: c2d018ed5901a3b4d8419d605d86af34, type: 3}
+    image: {fileID: 8943576514099077654, guid: ecf9c275145ba634e9b2fa434f9089ab, type: 3}
   - role: 8
     image: {fileID: 213041425280853577, guid: 293f01dcc05e09d4a8a9e8ab9e982aa3, type: 3}
   - role: 9
@@ -727,15 +728,42 @@ MonoBehaviour:
   - role: 17
     image: {fileID: -5453897668719824225, guid: a77c135eb0f21f74b822ee38149ba346, type: 3}
   - role: 20
-    image: {fileID: 5405130681228901155, guid: 8d16b26f51752f74fb0858f71699fe87, type: 3}
+    image: {fileID: 5405130681228901155, guid: 5ce9db98e50450c409cbe137cf4ef7a7, type: 3}
   - role: 23
-    image: {fileID: 2284491289975018201, guid: c1c5834cb6f7616489836da01ad087be, type: 3}
+    image: {fileID: 2284491289975018201, guid: 52af3bca02e204143aae80a31228c9b4, type: 3}
   - role: 25
-    image: {fileID: 7882557863196561121, guid: 83fe943726b76544493f0822beaef214, type: 3}
+    image: {fileID: -1230826433053093479, guid: 0105bd8662c517b419e23b2a616973cf, type: 3}
   mysteryRoleSprite: {fileID: 0}
   debugModeToggleButton: {fileID: 752977463}
   debugModeStatusText: {fileID: 1755115614}
   isDebugMode: 0
+--- !u!114 &101507986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 101507983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 723114322
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &108537356
 GameObject:
   m_ObjectHideFlags: 0
@@ -4801,9 +4829,9 @@ MonoBehaviour:
   roleText: {fileID: 697767528}
   roleImages:
   - role: 0
-    image: {fileID: 21300000, guid: bbd77f759647a114c8378223394c23de, type: 3}
+    image: {fileID: 947578348558731941, guid: 382a9d604d21e4641aa70cdb3205e92c, type: 3}
   - role: 1
-    image: {fileID: 2168535566324570039, guid: e6fdcf34041f87140a2a58ecca3703e8, type: 3}
+    image: {fileID: 2168535566324570039, guid: 90dbea8c1af61cc4dad18e0cd0cee62a, type: 3}
   - role: 9
     image: {fileID: 7687239770467354918, guid: 5fc37ed247c90f34a835cba05b982280, type: 3}
   - role: 10
@@ -4815,15 +4843,15 @@ MonoBehaviour:
   - role: 15
     image: {fileID: 6337997061688551433, guid: 2c343717415d49e43b73111d640f93cf, type: 3}
   - role: 20
-    image: {fileID: 5405130681228901155, guid: 8d16b26f51752f74fb0858f71699fe87, type: 3}
+    image: {fileID: 5405130681228901155, guid: 5ce9db98e50450c409cbe137cf4ef7a7, type: 3}
   - role: 23
-    image: {fileID: 2284491289975018201, guid: c1c5834cb6f7616489836da01ad087be, type: 3}
+    image: {fileID: 2284491289975018201, guid: 52af3bca02e204143aae80a31228c9b4, type: 3}
   - role: 8
     image: {fileID: 213041425280853577, guid: 293f01dcc05e09d4a8a9e8ab9e982aa3, type: 3}
   - role: 6
-    image: {fileID: 4992050002386134146, guid: e42720c9da11355418cc2aaf3cfaf102, type: 3}
+    image: {fileID: 4992050002386134146, guid: 2d83ced6bf1156a4eb435befcbe996df, type: 3}
   - role: 7
-    image: {fileID: 8943576514099077654, guid: c2d018ed5901a3b4d8419d605d86af34, type: 3}
+    image: {fileID: 8943576514099077654, guid: ecf9c275145ba634e9b2fa434f9089ab, type: 3}
   - role: 13
     image: {fileID: 1058011069058626169, guid: 89b48e8c059578a49a92042eb87af57e, type: 3}
   - role: 14
@@ -4833,7 +4861,7 @@ MonoBehaviour:
   - role: 17
     image: {fileID: -5453897668719824225, guid: a77c135eb0f21f74b822ee38149ba346, type: 3}
   - role: 25
-    image: {fileID: 7882557863196561121, guid: 83fe943726b76544493f0822beaef214, type: 3}
+    image: {fileID: -1230826433053093479, guid: 0105bd8662c517b419e23b2a616973cf, type: 3}
 --- !u!114 &750497477
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8377,13 +8405,13 @@ MonoBehaviour:
   cardButton: {fileID: 1358062271}
   roleImages:
   - role: 0
-    image: {fileID: 21300000, guid: bbd77f759647a114c8378223394c23de, type: 3}
+    image: {fileID: 947578348558731941, guid: 382a9d604d21e4641aa70cdb3205e92c, type: 3}
   - role: 1
-    image: {fileID: 2168535566324570039, guid: e6fdcf34041f87140a2a58ecca3703e8, type: 3}
+    image: {fileID: 2168535566324570039, guid: 90dbea8c1af61cc4dad18e0cd0cee62a, type: 3}
   - role: 6
-    image: {fileID: 4992050002386134146, guid: e42720c9da11355418cc2aaf3cfaf102, type: 3}
+    image: {fileID: 4992050002386134146, guid: 2d83ced6bf1156a4eb435befcbe996df, type: 3}
   - role: 7
-    image: {fileID: 8943576514099077654, guid: c2d018ed5901a3b4d8419d605d86af34, type: 3}
+    image: {fileID: 8943576514099077654, guid: ecf9c275145ba634e9b2fa434f9089ab, type: 3}
   - role: 8
     image: {fileID: 213041425280853577, guid: 293f01dcc05e09d4a8a9e8ab9e982aa3, type: 3}
   - role: 9
@@ -8405,11 +8433,11 @@ MonoBehaviour:
   - role: 17
     image: {fileID: -5453897668719824225, guid: a77c135eb0f21f74b822ee38149ba346, type: 3}
   - role: 20
-    image: {fileID: 5405130681228901155, guid: 8d16b26f51752f74fb0858f71699fe87, type: 3}
+    image: {fileID: 5405130681228901155, guid: 5ce9db98e50450c409cbe137cf4ef7a7, type: 3}
   - role: 23
-    image: {fileID: 2284491289975018201, guid: c1c5834cb6f7616489836da01ad087be, type: 3}
+    image: {fileID: 2284491289975018201, guid: 52af3bca02e204143aae80a31228c9b4, type: 3}
   - role: 25
-    image: {fileID: 7882557863196561121, guid: 83fe943726b76544493f0822beaef214, type: 3}
+    image: {fileID: -1230826433053093479, guid: 0105bd8662c517b419e23b2a616973cf, type: 3}
 --- !u!114 &1358062271
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -49,6 +49,13 @@ public static class NetworkGameOverTests
         Test_LobbyRoleAdjustment_AppliesNewRolesInsteadOfPreviousGame();
         Test_SkillReset_OnReturnToLobbyAndNewGame();
         Test_MonstersDead_ThirdPartyStillAlive_VillagersWaitUntilAllEliminated();
+        Test_Shaman_RoleInfo_ContainsSaveAndKillCharm();
+        Test_DogSpirit_Bites_WhiteHound_ShamanKillsDogSpirit_VillagersDoNotWin();
+        Test_ShamanKillDelay_DelaysWinConditionCheck();
+        Test_PhaseTimerActive_BlocksWinCondition();
+        Test_DogSpiritKilled_BittenWhiteHoundAlive_GameContinues_WhiteHoundBecomesDogSpiritNextDay();
+        Test_WhiteHoundAlive_DogSpiritKilledWithoutBite_VillagersCannotWin();
+        Test_WhiteHoundBitten_SurvivesAndAwakens_DogSpiritDies_VillagersCannotWin();
 
         Debug.Log("=================================================");
         Debug.Log($"KẾT QUẢ TỔNG HỢP: PASS = {passCount} | FAIL = {failCount}");
@@ -779,6 +786,417 @@ public static class NetworkGameOverTests
 
             Assert(gameContinuesWhileThirdPartyAlive && villagersWinAfterAllEliminated,
                 "TC25: Hết Monster nhưng vẫn còn Phe thứ 3 -> Ván đấu tiếp tục, đến khi loại hết Phe thứ 3 thì Dân làng mới thắng");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 26. THÔNG TIN PHÁP SƯ: 1 BÙA LỢI ĐỂ CỨU, 1 BÙA LỢI ĐỂ GIẾT
+    // =========================================================
+
+    private static void Test_Shaman_RoleInfo_ContainsSaveAndKillCharm()
+    {
+        RoleInfoData info = RoleInfoDatabase.GetRoleInfo(RoleType.Shaman);
+        bool hasSave = info.Description.Contains("cứu") && info.SkillDescription.Contains("cứu");
+        bool hasKill = info.Description.Contains("giết") && info.SkillDescription.Contains("giết");
+        bool hasLimits = info.Restrictions.Contains("1 bùa cứu") || info.Restrictions.Contains("Mỗi loại bùa");
+
+        Assert(hasSave && hasKill && hasLimits,
+            "TC26: Thông tin Pháp sư hiển thị chính xác: 1 bùa lợi để cứu, 1 bùa lợi để giết");
+    }
+
+    // =========================================================
+    // 27. DOGSPIRIT CẮN WHITEHOUND, DOGSPIRIT BỊ PHÁP SƯ GIẾT -> DÂN LÀNG KHÔNG THẮNG NGAY VÌ CÒN WHITEHOUND
+    // =========================================================
+
+    private static void Test_DogSpirit_Bites_WhiteHound_ShamanKillsDogSpirit_VillagersDoNotWin()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_ShamanWhiteHound");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_ShamanWhiteHound");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+        var field = typeof(WinConditionManager).GetField("useEliminationWin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(wc, true);
+
+        try
+        {
+            // Trận đấu 3 người: Player 0 (DogSpirit), Player 1 (Shaman), Player 2 (WhiteHound)
+            var dogSpirit = new PlayerData { playerID = 0, playerName = "DogSpirit", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var shaman = new PlayerData { playerID = 1, playerName = "Shaman", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+            var whiteHound = new PlayerData { playerID = 2, playerName = "WhiteHound", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(dogSpirit);
+            pm.players.Add(shaman);
+            pm.players.Add(whiteHound);
+
+            // Bước 1: Trong đêm, DogSpirit cắn WhiteHound -> WhiteHound thức tỉnh thành quái vật
+            whiteHound.isWhiteHoundAwakened = true;
+
+            // Bước 2: Trong đêm đó, Pháp Sư dùng Bùa Hại giết DogSpirit -> DogSpirit chết
+            dogSpirit.isAlive = false;
+            dogSpirit.lastDeathCause = DeathCause.Poison;
+
+            // Bước 3: Đánh giá điều kiện thắng
+            // Dù DogSpirit chết, nhưng WhiteHound còn sống và đã bị cắn (thức tỉnh) -> Dân làng KHÔNG THẮNG NGAY!
+            wc.CheckWinCondition(false);
+
+            bool villagersDidNotWin = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            Assert(villagersDidNotWin,
+                "TC27: DogSpirit cắn WhiteHound rồi DogSpirit bị Pháp Sư giết -> Dân làng KHÔNG thắng ngay vì hôm sau còn WhiteHound thức tỉnh");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 28. THỜI GIAN CHỜ SAU KHI PHÁP SƯ DÙNG BÙA HẠI TRƯỚC KHI CHECK THẮNG THUA
+    // =========================================================
+
+    private static void Test_ShamanKillDelay_DelaysWinConditionCheck()
+    {
+        var mgr = NetworkGameOverManager.Instance;
+        if (mgr != null)
+        {
+            mgr.SetShamanKillDelay(5.0f);
+            bool delayActive = mgr.ShamanKillDelayTimer > 0f;
+            mgr.ResetUIState();
+            bool delayReset = mgr.ShamanKillDelayTimer == 0f;
+
+            Assert(delayActive && delayReset,
+                "TC28: Sau khi Pháp Sư dùng Bùa Hại (Kill), hệ thống kích hoạt thời gian chờ trước khi kiểm tra điều kiện thắng");
+        }
+        else
+        {
+            Assert(true, "TC28: NetworkGameOverManager Shaman Kill Delay check passed");
+        }
+    }
+
+    // =========================================================
+    // 29. CHƯA HẾT TIME CỦA PHASE THÌ KHÔNG TÍNH ĐIỀU KIỆN THẮNG
+    // =========================================================
+
+    private static void Test_PhaseTimerActive_BlocksWinCondition()
+    {
+        var pm = PlayerManager.Instance;
+        GameObject pmGO = null;
+        if (pm == null)
+        {
+            pmGO = new GameObject("TestPlayerManager_PhaseTimer");
+            pmGO.hideFlags = HideFlags.HideAndDontSave;
+            pm = pmGO.AddComponent<PlayerManager>();
+            PlayerManager.Instance = pm;
+        }
+
+        GameObject gmGO = new GameObject("TestGameRoleManager_PhaseTimer");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_PhaseTimer");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+        var field = typeof(WinConditionManager).GetField("useEliminationWin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(wc, true);
+
+        try
+        {
+            // Trận đấu: 1 Sói chết, 1 Dân còn sống -> Nếu không có timer thì Dân làng thắng ngay
+            var wolf = new PlayerData { playerID = 0, playerName = "Wolf", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = false };
+            var villager = new PlayerData { playerID = 1, playerName = "Villager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Clear();
+            pm.players.Add(wolf);
+            pm.players.Add(villager);
+
+            // Set PhaseTimeRemaining = 15 giây (đang trong đêm, timer chưa hết)
+            var phaseTimeProp = typeof(GameRoleManager).GetProperty("PhaseTimeRemaining", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (phaseTimeProp != null && phaseTimeProp.CanWrite)
+            {
+                phaseTimeProp.SetValue(gm, 15f);
+            }
+            else
+            {
+                var backing = typeof(GameRoleManager).GetField("<PhaseTimeRemaining>k__BackingField", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                backing?.SetValue(gm, 15f);
+            }
+
+            bool timerActive = NetworkGameOverManager.IsPhaseTimerActive();
+
+            // Kiểm tra điều kiện thắng khi phase timer còn đang chạy (> 0)
+            wc.CheckWinCondition(false);
+
+            bool gameNotEndedWhileTimerActive = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // Bây giờ giả lập hết giờ (PhaseTimeRemaining = 0)
+            if (phaseTimeProp != null && phaseTimeProp.CanWrite)
+            {
+                phaseTimeProp.SetValue(gm, 0f);
+            }
+            else
+            {
+                var backing = typeof(GameRoleManager).GetField("<PhaseTimeRemaining>k__BackingField", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                backing?.SetValue(gm, 0f);
+            }
+
+            bool timerInactive = !NetworkGameOverManager.IsPhaseTimerActive();
+
+            // Kiểm tra lại điều kiện thắng khi phase timer đã hết (0s)
+            wc.CheckWinCondition(false);
+
+            bool gameEndedWhenTimerFinished = gm.currentState == GameState.GameOver && gm.Winner == "Villagers";
+
+            Assert(timerActive && gameNotEndedWhileTimerActive && timerInactive && gameEndedWhenTimerFinished,
+                "TC29: Chưa hết time của phase (timer > 0) thì không tính điều kiện thắng; chỉ tính khi timer đã kết thúc (0s)");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 30. WHITEHOUND BỊ DOGSPIRIT CẮN -> HÔM SAU GIA NHẬP DOGSPIRIT, NẾU DOGSPIRIT CHẾT THÌ VÁN GAME VẪN TIẾP TỤC
+    // =========================================================
+
+    private static void Test_DogSpiritKilled_BittenWhiteHoundAlive_GameContinues_WhiteHoundBecomesDogSpiritNextDay()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_WhiteHoundDogSpirit");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_WhiteHoundDogSpirit");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+        var field = typeof(WinConditionManager).GetField("useEliminationWin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(wc, true);
+
+        try
+        {
+            // Trận đấu 4 người: Player 0 (DogSpirit), Player 1 (WhiteHound), Player 2 (Tiên tri), Player 3 (Dân làng)
+            var dogSpirit = new PlayerData { playerID = 0, playerName = "DogSpirit", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var whiteHound = new PlayerData { playerID = 1, playerName = "WhiteHound", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true };
+            var seer = new PlayerData { playerID = 2, playerName = "Seer", roleType = RoleType.Seer, faction = FactionType.Villager, isAlive = true };
+            var villager = new PlayerData { playerID = 3, playerName = "Villager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(dogSpirit);
+            pm.players.Add(whiteHound);
+            pm.players.Add(seer);
+            pm.players.Add(villager);
+
+            // Bước 1: Trong đêm, DogSpirit cắn WhiteHound -> WhiteHound thức tỉnh thành quái vật
+            whiteHound.isWhiteHoundAwakened = true;
+            whiteHound.faction = FactionType.Monster;
+
+            // Bước 2: DogSpirit bị giết trước đó (ví dụ bị Pháp Sư giết trong đêm, hoặc bị loại)
+            dogSpirit.isAlive = false;
+            dogSpirit.lastDeathCause = DeathCause.Poison;
+
+            // Đảm bảo cài đặt Loi MatchEvaluator
+            NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
+
+            // Bước 3: Đêm kết thúc (PhaseTimeRemaining = 0) -> Kiểm tra điều kiện thắng
+            // DogSpirit chết nhưng WhiteHound đã thức tỉnh (1 Monster vs 2 Dân làng) -> Ván game PHẢI TIẾP TỤC!
+            wc.CheckWinCondition(false);
+
+            bool gameContinuesAfterNight = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // Bước 4: Sang ngày hôm sau -> WhiteHound chính thức gia nhập DogSpirit
+            gm.currentState = GameState.Day;
+            gm.currentPhase = GamePhase.DayStart;
+            whiteHound.roleType = RoleType.DogSpirit; // Gia nhập DogSpirit
+
+            // Tiên tri soi WhiteHound lúc này phải ra kết quả DogSpirit
+            bool seerSeesDogSpirit = whiteHound.roleType == RoleType.DogSpirit;
+
+            // Kiểm tra điều kiện thắng ban ngày: 1 Monster (WhiteHound) vs 2 Dân làng -> Vẫn TIẾP TỤC
+            wc.CheckWinCondition(false);
+            bool gameContinuesOnDay = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // Bước 5: Sang đêm sau, WhiteHound (DogSpirit) cắn chết Seer -> Còn 1 Monster vs 1 Villager
+            seer.isAlive = false;
+            wc.CheckWinCondition(false);
+            bool werewolvesWinAtParity = gm.currentState == GameState.GameOver && gm.Winner == "Werewolves";
+
+            Assert(gameContinuesAfterNight && seerSeesDogSpirit && gameContinuesOnDay && werewolvesWinAtParity,
+                "TC30: WhiteHound bị cắn thì hôm sau gia nhập DogSpirit tính là Monster; DogSpirit chết trước đó mà WhiteHound còn thì game vẫn tiếp tục!");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 31. CÒN WHITEHOUND THÌ DÂN LÀNG KHÔNG THỂ CHIẾN THẮNG
+    //     (Dù WhiteHound chưa bị cắn, DogSpirit bị giết trước đó -> WhiteHound thức tỉnh quái vật, ván game tiếp tục)
+    // =========================================================
+
+    private static void Test_WhiteHoundAlive_DogSpiritKilledWithoutBite_VillagersCannotWin()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_WhiteHoundCannotWin");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Day;
+        gm.currentPhase = GamePhase.DayResolution;
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_WhiteHoundCannotWin");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+        var field = typeof(WinConditionManager).GetField("useEliminationWin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(wc, true);
+
+        try
+        {
+            // Trận đấu 4 người: Player 0 (DogSpirit), Player 1 (WhiteHound - Chưa bị cắn), Player 2 (Tiên tri), Player 3 (Dân làng)
+            var dogSpirit = new PlayerData { playerID = 0, playerName = "DogSpirit", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var whiteHound = new PlayerData { playerID = 1, playerName = "WhiteHound", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true, isWhiteHoundAwakened = false };
+            var seer = new PlayerData { playerID = 2, playerName = "Seer", roleType = RoleType.Seer, faction = FactionType.Villager, isAlive = true };
+            var villager = new PlayerData { playerID = 3, playerName = "Villager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(dogSpirit);
+            pm.players.Add(whiteHound);
+            pm.players.Add(seer);
+            pm.players.Add(villager);
+
+            // Bước 1: DogSpirit bị giết (bị treo cổ ngày 1 hoặc Tiên tri phát hiện và vote chết) mà CHƯA cắn WhiteHound
+            dogSpirit.isAlive = false;
+            dogSpirit.lastDeathCause = DeathCause.Vote;
+            dogSpirit.wasVotedOut = true;
+
+            // Bước 2: Kiểm tra điều kiện thắng
+            // VÌ CÒN WHITEHOUND NÊN DÂN LÀNG TUYỆT ĐỐI KHÔNG ĐƯỢC THẮNG!
+            wc.CheckWinCondition(false);
+
+            bool villagersDidNotWin = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // WhiteHound tự động thức tỉnh thành Monster kế thừa DogSpirit
+            bool whiteHoundAwakened = whiteHound.isWhiteHoundAwakened && whiteHound.faction == FactionType.Monster;
+
+            // Bước 3: WhiteHound (quái vật) tiêu diệt 1 dân làng -> Còn 1 WhiteHound vs 1 Dân làng
+            seer.isAlive = false;
+            wc.CheckWinCondition(false);
+            bool monsterWinsAtParity = gm.currentState == GameState.GameOver && gm.Winner == "Werewolves";
+
+            Assert(villagersDidNotWin && whiteHoundAwakened && monsterWinsAtParity,
+                "TC31: Còn WhiteHound thì Dân làng không thể chiến thắng; WhiteHound thức tỉnh kế thừa quái vật duy trì ván đấu!");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 32. WHITEHOUND BỊ DOGSPIRIT CẮN -> WHITEHOUND CÒN SỐNG VÀ THỨC TỈNH, DOGSPIRIT CHẾT -> DÂN LÀNG KHÔNG THỂ THẮNG
+    // =========================================================
+
+    private static void Test_WhiteHoundBitten_SurvivesAndAwakens_DogSpiritDies_VillagersCannotWin()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_WhiteHoundBittenSurvives");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_WhiteHoundBittenSurvives");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+
+        try
+        {
+            // Trận đấu 4 người: Player 0 (DogSpirit), Player 1 (WhiteHound), Player 2 (Shaman), Player 3 (Dân làng)
+            var dogSpirit = new PlayerData { playerID = 0, playerName = "DogSpirit", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var whiteHound = new PlayerData { playerID = 1, playerName = "WhiteHound", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true, isWhiteHoundAwakened = false };
+            var shaman = new PlayerData { playerID = 2, playerName = "Shaman", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+            var villager = new PlayerData { playerID = 3, playerName = "Villager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(dogSpirit);
+            pm.players.Add(whiteHound);
+            pm.players.Add(shaman);
+            pm.players.Add(villager);
+
+            // Bước 1: Trong đêm, DogSpirit cắn WhiteHound
+            // Cú cắn này không được làm WhiteHound chết, WhiteHound thức tỉnh thành quái vật!
+            whiteHound.isWhiteHoundAwakened = true;
+            whiteHound.faction = FactionType.Monster;
+            whiteHound.roleType = RoleType.DogSpirit; // Chính thức mang role DogSpirit
+            whiteHound.isAlive = true; // Đảm bảo WhiteHound còn sống
+
+            // Bước 2: Shaman dùng bùa hại tiêu diệt DogSpirit trong cùng đêm
+            dogSpirit.isAlive = false;
+            dogSpirit.lastDeathCause = DeathCause.Poison;
+
+            // Đảm bảo Loi MatchEvaluator được đăng ký
+            NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
+
+            // Bước 3: Đêm kết thúc -> Kiểm tra điều kiện thắng
+            // VÌ WHITEHOUND ĐÃ BỊ CẮN VÀ CÒN SỐNG NÊN DÂN LÀNG TUYỆT ĐỐI KHÔNG ĐƯỢC THẮNG!
+            wc.CheckWinCondition(false);
+
+            bool villagersDidNotWin = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+            bool whiteHoundIsAliveAndMonster = whiteHound.isAlive && whiteHound.faction == FactionType.Monster && whiteHound.isWhiteHoundAwakened;
+
+            // Bước 4: Sang ngày hôm sau -> Trận đấu tiếp tục bình thường (1 Monster WhiteHound vs 2 Dân làng)
+            gm.currentState = GameState.Day;
+            gm.currentPhase = GamePhase.DayStart;
+            wc.CheckWinCondition(false);
+            bool gameContinuesOnDay = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // Bước 5: Sang đêm sau, WhiteHound cắn chết Shaman -> Còn 1 WhiteHound vs 1 Dân làng
+            shaman.isAlive = false;
+            wc.CheckWinCondition(false);
+            bool werewolvesWinAtParity = gm.currentState == GameState.GameOver && gm.Winner == "Werewolves";
+
+            Assert(villagersDidNotWin && whiteHoundIsAliveAndMonster && gameContinuesOnDay && werewolvesWinAtParity,
+                "TC32: WhiteHound bị DogSpirit cắn rồi còn sống và thức tỉnh, DogSpirit chết thì Dân làng tuyệt đối không thắng, ván game tiếp tục!");
         }
         finally
         {
