@@ -65,6 +65,11 @@ public static class NetworkGameOverTests
         Test_TC39_ShamanNextNight_UsedSkillsDoNotReappear();
         Test_TC40_ServerRejects_ReusingUsedSkills();
         Test_TC41_NewMatch_ShamanSkillsResetAndCanBeUsedAgain();
+        Test_TC42_ShamanKill_TargetRemainsAliveDuringNightPhase();
+        Test_TC43_ShamanKill_TargetProcessedForDeathAtEndOfNightPhase();
+        Test_TC44_ShamanCannotUseKillSecondTime();
+        Test_TC45_DogSpiritBitesWhiteHound_And_ShamanKillsDogSpirit_SameNight_WhiteHoundAwakens_GameContinues();
+        Test_TC46_WinConditionEvaluatedOnlyAfterAllNightResultsComplete();
 
         Debug.Log("=================================================");
         Debug.Log($"KẾT QUẢ TỔNG HỢP: PASS = {passCount} | FAIL = {failCount}");
@@ -1910,6 +1915,506 @@ public static class NetworkGameOverTests
 
             if (wcGO != null) Object.DestroyImmediate(wcGO);
             if (rmGO != null) Object.DestroyImmediate(rmGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 42. TC42 – SHAMAN NHẤN KILL, MỤC TIÊU VẪN SỐNG TRONG NIGHT PHASE
+    // =========================================================
+
+    private static void Test_TC42_ShamanKill_TargetRemainsAliveDuringNightPhase()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_TC42");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject drGO = new GameObject("TestDeathResolver_TC42");
+        drGO.hideFlags = HideFlags.HideAndDontSave;
+        var dr = drGO.AddComponent<DeathResolver>();
+        DeathResolver.Instance = dr;
+
+        GameObject nmGO = new GameObject("TestNightManager_TC42");
+        nmGO.hideFlags = HideFlags.HideAndDontSave;
+        var nm = nmGO.AddComponent<NightManager>();
+        NightManager.Instance = nm;
+
+        GameObject rmGO = new GameObject("TestRoleManager_TC42");
+        rmGO.hideFlags = HideFlags.HideAndDontSave;
+        var rm = rmGO.AddComponent<RoleManager>();
+        RoleManager.Instance = rm;
+        rm.playerRoles = new Dictionary<int, BaseRole>();
+
+        GameObject bridgeGO = new GameObject("TestRoleActionBridge_TC42");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+        bridge.ResetForNewMatch();
+
+        try
+        {
+            var shamanData = new PlayerData { playerID = 0, playerName = "ShamanPlayer", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+            var targetData = new PlayerData { playerID = 1, playerName = "TargetVillager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(shamanData);
+            pm.players.Add(targetData);
+
+            rm.playerRoles[0] = RoleCatalog.Create(RoleType.Shaman, shamanData);
+            rm.playerRoles[1] = RoleCatalog.Create(RoleType.Villager, targetData);
+
+            // Shaman nhấn nút Kill chọn Player 1
+            bridge.HandleAction(new NetworkActionEvent(0, 1, 2));
+
+            // Kiểm tra:
+            // 1. Action được Server chấp nhận
+            bool actionAccepted = bridge.LastActionSuccess;
+
+            // 2. Mục tiêu VẪN SỐNG trong suốt Night Phase (isAlive = true, chưa có bản ghi tử vong)
+            bool targetStillAlive = targetData.isAlive;
+            bool targetNoDeathRecorded = !targetData.hasDeathRecord;
+
+            // 3. Hệ thống ghi nhận mục tiêu đang chờ xử lý tử vong
+            bool hasPendingKill = NetworkRoleActionBridge.HasPendingShamanKill;
+            bool pendingTargetIdMatches = NetworkRoleActionBridge.PendingShamanKillTargetId == 1;
+
+            // 4. Night actions chưa hoàn tất -> HasUnresolvedNightActions = true
+            bool nightUnresolved = NetworkGameOverManager.HasUnresolvedNightActions();
+
+            bool passed = actionAccepted && targetStillAlive && targetNoDeathRecorded &&
+                          hasPendingKill && pendingTargetIdMatches && nightUnresolved;
+
+            Assert(passed, "TC42: Shaman nhấn Kill, mục tiêu vẫn sống và giữ nguyên trạng thái trong Night Phase.");
+        }
+        finally
+        {
+            if (NightManager.Instance == nm) NightManager.Instance = null;
+            if (DeathResolver.Instance == dr) DeathResolver.Instance = null;
+            if (RoleManager.Instance == rm) RoleManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+
+            if (bridgeGO != null) Object.DestroyImmediate(bridgeGO);
+            if (rmGO != null) Object.DestroyImmediate(rmGO);
+            if (nmGO != null) Object.DestroyImmediate(nmGO);
+            if (drGO != null) Object.DestroyImmediate(drGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 43. TC43 – HẾT NIGHT PHASE, MỤC TIÊU MỚI ĐƯỢC XỬ LÝ TỬ VONG
+    // =========================================================
+
+    private static void Test_TC43_ShamanKill_TargetProcessedForDeathAtEndOfNightPhase()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_TC43");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject drGO = new GameObject("TestDeathResolver_TC43");
+        drGO.hideFlags = HideFlags.HideAndDontSave;
+        var dr = drGO.AddComponent<DeathResolver>();
+        DeathResolver.Instance = dr;
+
+        GameObject nmGO = new GameObject("TestNightManager_TC43");
+        nmGO.hideFlags = HideFlags.HideAndDontSave;
+        var nm = nmGO.AddComponent<NightManager>();
+        NightManager.Instance = nm;
+
+        GameObject rmGO = new GameObject("TestRoleManager_TC43");
+        rmGO.hideFlags = HideFlags.HideAndDontSave;
+        var rm = rmGO.AddComponent<RoleManager>();
+        RoleManager.Instance = rm;
+        rm.playerRoles = new Dictionary<int, BaseRole>();
+
+        GameObject bridgeGO = new GameObject("TestRoleActionBridge_TC43");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+        bridge.ResetForNewMatch();
+
+        try
+        {
+            var shamanData = new PlayerData { playerID = 0, playerName = "ShamanPlayer", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+            var targetData = new PlayerData { playerID = 1, playerName = "TargetVillager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(shamanData);
+            pm.players.Add(targetData);
+
+            rm.playerRoles[0] = RoleCatalog.Create(RoleType.Shaman, shamanData);
+            rm.playerRoles[1] = RoleCatalog.Create(RoleType.Villager, targetData);
+
+            // Shaman nhấn Kill trong Night Phase
+            bridge.HandleAction(new NetworkActionEvent(0, 1, 2));
+
+            // Xác nhận mục tiêu vẫn còn sống trước khi kết thúc đêm
+            bool aliveDuringNight = targetData.isAlive;
+
+            // Kết thúc Night Phase -> chuyển sang ResolveNight
+            gm.currentPhase = GamePhase.ResolveNight;
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+
+            // Kiểm tra:
+            // 1. Sau khi kết thúc Night Phase, mục tiêu mới bị xử lý tử vong
+            bool targetDeadAfterNight = !targetData.isAlive;
+            bool deathCauseIsPoison = targetData.lastDeathCause == DeathCause.Poison;
+
+            // 2. Danh sách chờ Shaman Kill đã được dọn sạch
+            bool pendingCleared = !NetworkRoleActionBridge.HasPendingShamanKill;
+
+            bool passed = aliveDuringNight && targetDeadAfterNight && deathCauseIsPoison && pendingCleared;
+
+            Assert(passed, "TC43: Hết Night Phase, mục tiêu của Bùa Hại mới được xử lý tử vong (DeathCause = Poison).");
+        }
+        finally
+        {
+            if (NightManager.Instance == nm) NightManager.Instance = null;
+            if (DeathResolver.Instance == dr) DeathResolver.Instance = null;
+            if (RoleManager.Instance == rm) RoleManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+
+            if (bridgeGO != null) Object.DestroyImmediate(bridgeGO);
+            if (rmGO != null) Object.DestroyImmediate(rmGO);
+            if (nmGO != null) Object.DestroyImmediate(nmGO);
+            if (drGO != null) Object.DestroyImmediate(drGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 44. TC44 – SHAMAN KHÔNG THỂ SỬ DỤNG KILL LẦN THỨ HAI
+    // =========================================================
+
+    private static void Test_TC44_ShamanCannotUseKillSecondTime()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_TC44");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject drGO = new GameObject("TestDeathResolver_TC44");
+        drGO.hideFlags = HideFlags.HideAndDontSave;
+        var dr = drGO.AddComponent<DeathResolver>();
+        DeathResolver.Instance = dr;
+
+        GameObject nmGO = new GameObject("TestNightManager_TC44");
+        nmGO.hideFlags = HideFlags.HideAndDontSave;
+        var nm = nmGO.AddComponent<NightManager>();
+        NightManager.Instance = nm;
+
+        GameObject rmGO = new GameObject("TestRoleManager_TC44");
+        rmGO.hideFlags = HideFlags.HideAndDontSave;
+        var rm = rmGO.AddComponent<RoleManager>();
+        RoleManager.Instance = rm;
+        rm.playerRoles = new Dictionary<int, BaseRole>();
+
+        GameObject bridgeGO = new GameObject("TestRoleActionBridge_TC44");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+        bridge.ResetForNewMatch();
+
+        try
+        {
+            var shamanData = new PlayerData { playerID = 0, playerName = "ShamanPlayer", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+            var target1 = new PlayerData { playerID = 1, playerName = "Target1", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+            var target2 = new PlayerData { playerID = 2, playerName = "Target2", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(shamanData);
+            pm.players.Add(target1);
+            pm.players.Add(target2);
+
+            rm.playerRoles[0] = RoleCatalog.Create(RoleType.Shaman, shamanData);
+            rm.playerRoles[1] = RoleCatalog.Create(RoleType.Villager, target1);
+            rm.playerRoles[2] = RoleCatalog.Create(RoleType.Villager, target2);
+
+            // Lần 1: Shaman dùng Kill lên Player 1 -> Thành công
+            bridge.HandleAction(new NetworkActionEvent(0, 1, 2));
+            bool firstSuccess = bridge.LastActionSuccess;
+
+            // Lần 2: Shaman cố dùng Kill lên Player 2 -> Bị từ chối
+            bridge.HandleAction(new NetworkActionEvent(0, 2, 2));
+            bool secondRejected = !bridge.LastActionSuccess;
+            bool rejectMessageValid = bridge.LastActionMessage != null && bridge.LastActionMessage.Contains("Bùa Hại (Giết) đã được sử dụng trước đó");
+
+            // Player 2 hoàn toàn không bị ảnh hưởng và vẫn sống
+            bool target2Untouched = target2.isAlive && !target2.hasDeathRecord;
+
+            // Mục tiêu đang chờ xử lý vẫn là Player 1, không bị ghi đè thành Player 2
+            bool pendingTargetIsPlayer1 = NetworkRoleActionBridge.PendingShamanKillTargetId == 1;
+
+            // Khi kết thúc đêm, chỉ Player 1 bị xử lý tử vong, Player 2 vẫn sống
+            gm.currentPhase = GamePhase.ResolveNight;
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+
+            bool player1Died = !target1.isAlive;
+            bool player2StillAlive = target2.isAlive;
+
+            bool passed = firstSuccess && secondRejected && rejectMessageValid &&
+                          target2Untouched && pendingTargetIsPlayer1 && player1Died && player2StillAlive;
+
+            Assert(passed, "TC44: Shaman không thể sử dụng Kill lần thứ hai trong cùng trận đấu.");
+        }
+        finally
+        {
+            if (NightManager.Instance == nm) NightManager.Instance = null;
+            if (DeathResolver.Instance == dr) DeathResolver.Instance = null;
+            if (RoleManager.Instance == rm) RoleManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+
+            if (bridgeGO != null) Object.DestroyImmediate(bridgeGO);
+            if (rmGO != null) Object.DestroyImmediate(rmGO);
+            if (nmGO != null) Object.DestroyImmediate(nmGO);
+            if (drGO != null) Object.DestroyImmediate(drGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 45. TC45 – DOGSPIRIT CẮN WHITE HOUND & SHAMAN GIẾT DOGSPIRIT CÙNG ĐÊM:
+    //            WHITE HOUND CHUYỂN HÓA VÀ TRẬN ĐẤU KHÔNG KẾT THÚC SAI
+    // =========================================================
+
+    private static void Test_TC45_DogSpiritBitesWhiteHound_And_ShamanKillsDogSpirit_SameNight_WhiteHoundAwakens_GameContinues()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_TC45");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject drGO = new GameObject("TestDeathResolver_TC45");
+        drGO.hideFlags = HideFlags.HideAndDontSave;
+        var dr = drGO.AddComponent<DeathResolver>();
+        DeathResolver.Instance = dr;
+
+        GameObject nmGO = new GameObject("TestNightManager_TC45");
+        nmGO.hideFlags = HideFlags.HideAndDontSave;
+        var nm = nmGO.AddComponent<NightManager>();
+        NightManager.Instance = nm;
+
+        GameObject rmGO = new GameObject("TestRoleManager_TC45");
+        rmGO.hideFlags = HideFlags.HideAndDontSave;
+        var rm = rmGO.AddComponent<RoleManager>();
+        RoleManager.Instance = rm;
+        rm.playerRoles = new Dictionary<int, BaseRole>();
+
+        GameObject bridgeGO = new GameObject("TestRoleActionBridge_TC45");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+        bridge.ResetForNewMatch();
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_TC45");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+
+        try
+        {
+            // Thiết lập 4 người chơi:
+            // Player 0: DogSpirit (phe Monster)
+            // Player 1: WhiteHound (phe Villager, chưa thức tỉnh)
+            // Player 2: Shaman (phe Villager)
+            // Player 3: Villager (phe Villager)
+            var dogSpirit = new PlayerData { playerID = 0, playerName = "DogSpiritPlayer", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var whiteHound = new PlayerData { playerID = 1, playerName = "WhiteHoundPlayer", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true, isWhiteHoundAwakened = false };
+            var shaman = new PlayerData { playerID = 2, playerName = "ShamanPlayer", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+            var villager = new PlayerData { playerID = 3, playerName = "VillagerPlayer", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(dogSpirit);
+            pm.players.Add(whiteHound);
+            pm.players.Add(shaman);
+            pm.players.Add(villager);
+
+            rm.playerRoles[0] = RoleCatalog.Create(RoleType.DogSpirit, dogSpirit);
+            rm.playerRoles[1] = RoleCatalog.Create(RoleType.WhiteHound, whiteHound);
+            rm.playerRoles[2] = RoleCatalog.Create(RoleType.Shaman, shaman);
+            rm.playerRoles[3] = RoleCatalog.Create(RoleType.Villager, villager);
+
+            NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
+
+            // 1. DogSpirit cắn White Hound trong đêm
+            nm.SetMonsterTarget(1, RoleType.DogSpirit);
+            bridge.RecordWhiteHoundBitten(1);
+
+            // 2. Shaman dùng Kill lên DogSpirit trong cùng đêm
+            bridge.HandleAction(new NetworkActionEvent(2, 0, 2));
+
+            // Trong lúc Night Phase: Cả 2 đều PHẢI CÒN SỐNG, không được chết ngay
+            bool dogSpiritAliveDuringNight = dogSpirit.isAlive;
+            bool whiteHoundAliveDuringNight = whiteHound.isAlive;
+            bool pendingKillRecorded = NetworkRoleActionBridge.PendingShamanKillTargetId == 0;
+            bool nightUnresolved = NetworkGameOverManager.HasUnresolvedNightActions();
+
+            // Gọi kiểm tra điều kiện thắng trong Night Phase -> Không được Game Over!
+            wc.CheckWinCondition(false);
+            bool noGameOverDuringNight = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            // 3. Kết thúc Night Phase và xử lý theo đúng thứ tự:
+            gm.currentPhase = GamePhase.ResolveNight;
+            // a) Xử lý NightManager (White Hound bị cắn -> thức tỉnh sang Monster, không chết)
+            nm.ResolveNight();
+            // b) Xử lý Shaman Kill (DogSpirit bị tiêu diệt do Thuốc độc)
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            // c) Đồng bộ trạng thái White Hound và người chơi
+            NetworkGameOverManager.SynchronizeWhiteHoundState();
+
+            // Kiểm tra kết quả sau khi xử lý cả hai hành động:
+            bool dogSpiritDeadAfterNight = !dogSpirit.isAlive && dogSpirit.lastDeathCause == DeathCause.Poison;
+            bool whiteHoundAwakenedAndAlive = whiteHound.isAlive && whiteHound.isWhiteHoundAwakened && whiteHound.faction == FactionType.Monster;
+
+            // 4. Đánh giá điều kiện thắng sau khi xử lý xong toàn bộ kết quả ban đêm:
+            wc.CheckWinCondition(false);
+
+            // Dân Làng KHÔNG ĐƯỢC THẮNG vì White Hound còn sống và đã thức tỉnh gia nhập Monster
+            bool villagersDidNotWin = gm.currentState != GameState.GameOver && gm.Winner != "Villagers";
+            // Monster KHÔNG ĐƯỢC THẮNG vì chưa đạt parity (1 Monster vs 2 Villagers)
+            bool monsterDidNotWinWithoutParity = gm.currentState != GameState.GameOver && gm.Winner != "Werewolves";
+
+            // Chuyển sang phase tiếp theo (DayStart) -> Game vẫn tiếp tục
+            gm.currentState = GameState.Day;
+            gm.currentPhase = GamePhase.DayStart;
+            wc.CheckWinCondition(false);
+            bool gameContinues = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+
+            bool passed = dogSpiritAliveDuringNight && whiteHoundAliveDuringNight && pendingKillRecorded &&
+                          nightUnresolved && noGameOverDuringNight && dogSpiritDeadAfterNight &&
+                          whiteHoundAwakenedAndAlive && villagersDidNotWin && monsterDidNotWinWithoutParity && gameContinues;
+
+            Assert(passed, "TC45: DogSpirit cắn White Hound & Shaman giết DogSpirit cùng đêm: Cả 2 sống trong đêm, White Hound thức tỉnh Monster, DogSpirit chết khi hết đêm, Dân không thắng sớm, trận đấu tiếp tục.");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (NightManager.Instance == nm) NightManager.Instance = null;
+            if (DeathResolver.Instance == dr) DeathResolver.Instance = null;
+            if (RoleManager.Instance == rm) RoleManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+
+            if (bridgeGO != null) Object.DestroyImmediate(bridgeGO);
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (rmGO != null) Object.DestroyImmediate(rmGO);
+            if (nmGO != null) Object.DestroyImmediate(nmGO);
+            if (drGO != null) Object.DestroyImmediate(drGO);
+            if (gmGO != null) Object.DestroyImmediate(gmGO);
+            TeardownTestPlayerManager(pmGO, pm);
+        }
+    }
+
+    // =========================================================
+    // 46. TC46 – ĐIỀU KIỆN THẮNG CHỈ ĐƯỢC KIỂM TRA SAU KHI TOÀN BỘ KẾT QUẢ BAN ĐÊM HOÀN TẤT
+    // =========================================================
+
+    private static void Test_TC46_WinConditionEvaluatedOnlyAfterAllNightResultsComplete()
+    {
+        GameObject pmGO = SetupTestPlayerManager(out PlayerManager pm);
+        GameObject gmGO = new GameObject("TestGameRoleManager_TC46");
+        gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Night;
+        gm.currentPhase = GamePhase.Night;
+
+        GameObject drGO = new GameObject("TestDeathResolver_TC46");
+        drGO.hideFlags = HideFlags.HideAndDontSave;
+        var dr = drGO.AddComponent<DeathResolver>();
+        DeathResolver.Instance = dr;
+
+        GameObject nmGO = new GameObject("TestNightManager_TC46");
+        nmGO.hideFlags = HideFlags.HideAndDontSave;
+        var nm = nmGO.AddComponent<NightManager>();
+        NightManager.Instance = nm;
+
+        GameObject rmGO = new GameObject("TestRoleManager_TC46");
+        rmGO.hideFlags = HideFlags.HideAndDontSave;
+        var rm = rmGO.AddComponent<RoleManager>();
+        RoleManager.Instance = rm;
+        rm.playerRoles = new Dictionary<int, BaseRole>();
+
+        GameObject bridgeGO = new GameObject("TestRoleActionBridge_TC46");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+        bridge.ResetForNewMatch();
+
+        GameObject wcGO = new GameObject("TestWinConditionManager_TC46");
+        wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = wc;
+
+        try
+        {
+            // Thiết lập: 1 DogSpirit duy nhất và 2 Dân Làng (trong đó có 1 Shaman)
+            var dogSpirit = new PlayerData { playerID = 0, playerName = "DogSpiritPlayer", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var villager = new PlayerData { playerID = 1, playerName = "VillagerPlayer", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+            var shaman = new PlayerData { playerID = 2, playerName = "ShamanPlayer", roleType = RoleType.Shaman, faction = FactionType.Villager, isAlive = true };
+
+            pm.players.Add(dogSpirit);
+            pm.players.Add(villager);
+            pm.players.Add(shaman);
+
+            rm.playerRoles[0] = RoleCatalog.Create(RoleType.DogSpirit, dogSpirit);
+            rm.playerRoles[1] = RoleCatalog.Create(RoleType.Villager, villager);
+            rm.playerRoles[2] = RoleCatalog.Create(RoleType.Shaman, shaman);
+
+            NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
+
+            // Shaman dùng Kill lên DogSpirit trong Night Phase
+            bridge.HandleAction(new NetworkActionEvent(2, 0, 2));
+
+            // Trong Night Phase, DogSpirit vẫn sống, action chưa hoàn tất
+            bool dogSpiritAliveDuringNight = dogSpirit.isAlive;
+            bool hasUnresolvedDuringNight = NetworkGameOverManager.HasUnresolvedNightActions();
+
+            // Cố gắng gọi kiểm tra điều kiện thắng trong Night Phase -> Không được Game Over!
+            wc.CheckWinCondition(false);
+            NetworkGameOverManager.Instance.CheckServerWinCondition();
+            bool blockedDuringNight = gm.currentState != GameState.GameOver && !NetworkGameOverManager.Instance.isGameOver;
+
+            // Hết Night Phase -> chuyển sang ResolveNight và thực hiện toàn bộ resolution
+            gm.currentPhase = GamePhase.ResolveNight;
+            nm.ResolveNight();
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            NetworkGameOverManager.SynchronizeWhiteHoundState();
+
+            // Sau khi resolve xong:
+            bool dogSpiritDeadAfterResolve = !dogSpirit.isAlive;
+            bool noUnresolvedAfterResolve = !NetworkGameOverManager.HasUnresolvedNightActions();
+
+            // Bây giờ mới đánh giá điều kiện thắng
+            wc.CheckWinCondition(false);
+            bool villagersWinAfterAllNightResultsComplete = gm.currentState == GameState.GameOver && gm.Winner == "Villagers";
+
+            bool passed = dogSpiritAliveDuringNight && hasUnresolvedDuringNight && blockedDuringNight &&
+                          dogSpiritDeadAfterResolve && noUnresolvedAfterResolve && villagersWinAfterAllNightResultsComplete;
+
+            Assert(passed, "TC46: Điều kiện thắng bị chặn hoàn toàn trong Night Phase và chỉ được kiểm tra sau khi toàn bộ kết quả ban đêm hoàn tất.");
+        }
+        finally
+        {
+            if (WinConditionManager.Instance == wc) WinConditionManager.Instance = null;
+            if (NightManager.Instance == nm) NightManager.Instance = null;
+            if (DeathResolver.Instance == dr) DeathResolver.Instance = null;
+            if (RoleManager.Instance == rm) RoleManager.Instance = null;
+            if (GameRoleManager.Instance == gm) GameRoleManager.Instance = null;
+
+            if (bridgeGO != null) Object.DestroyImmediate(bridgeGO);
+            if (wcGO != null) Object.DestroyImmediate(wcGO);
+            if (rmGO != null) Object.DestroyImmediate(rmGO);
+            if (nmGO != null) Object.DestroyImmediate(nmGO);
+            if (drGO != null) Object.DestroyImmediate(drGO);
             if (gmGO != null) Object.DestroyImmediate(gmGO);
             TeardownTestPlayerManager(pmGO, pm);
         }

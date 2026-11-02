@@ -196,6 +196,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void OnDev2PhaseChanged(GamePhase oldPhase, GamePhase newPhase)
     {
+        if (oldPhase == GamePhase.Night || newPhase == GamePhase.ResolveNight || newPhase == GamePhase.Discussion || newPhase == GamePhase.DayStart)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            SynchronizeWhiteHoundState();
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winner = GameRoleManager.Instance?.Winner;
@@ -206,6 +216,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void OnNetworkPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
     {
+        if (oldPhase == GamePhase.Night || newPhase == GamePhase.ResolveNight || newPhase == GamePhase.Discussion || newPhase == GamePhase.DayStart)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            SynchronizeWhiteHoundState();
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winner = string.Empty;
@@ -411,6 +431,10 @@ public class NetworkGameOverManager : MonoBehaviour
         if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Night)
             return true;
 
+        // 3. Nếu còn pending Shaman Kill action chưa được resolve
+        if (NetworkRoleActionBridge.HasPendingShamanKill)
+            return true;
+
         return false;
     }
 
@@ -422,6 +446,27 @@ public class NetworkGameOverManager : MonoBehaviour
 
         bool isServer = NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer;
         if (!isServer) return;
+
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Night);
+
+        // Khi Night Phase kết thúc, tiến hành resolve theo đúng thứ tự:
+        // 1. NightManager actions (DogSpirit cắn White Hound thức tỉnh)
+        // 2. Shaman Kill target
+        // 3. Đồng bộ trạng thái White Hound và người chơi
+        if (!isNight)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+
+            if (NetworkRoleActionBridge.HasPendingShamanKill)
+            {
+                NetworkRoleActionBridge.ResolvePendingShamanKill();
+                SynchronizeWhiteHoundState();
+            }
+        }
 
         // Nếu còn hành động ban đêm chưa được xử lý xong, tuyệt đối hoãn kiểm tra thắng thua
         if (HasUnresolvedNightActions())
@@ -1506,6 +1551,24 @@ public class NetworkGameOverManager : MonoBehaviour
     {
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
+
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (game != null && game.currentPhase == GamePhase.Night);
+
+        // Khi Night Phase kết thúc, tiến hành resolve theo đúng thứ tự trước khi đánh giá điều kiện thắng
+        if (!isNight)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+
+            if (NetworkRoleActionBridge.HasPendingShamanKill)
+            {
+                NetworkRoleActionBridge.ResolvePendingShamanKill();
+                SynchronizeWhiteHoundState();
+            }
+        }
 
         // Không kiểm tra điều kiện thắng khi đang còn hành động ban đêm chưa giải quyết xong
         if (HasUnresolvedNightActions()) return;
