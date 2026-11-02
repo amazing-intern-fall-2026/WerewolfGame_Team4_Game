@@ -24,6 +24,16 @@ public class NetworkRoleActionBridge : MonoBehaviour
         return bittenWhiteHoundPlayerIds.Contains(playerId);
     }
 
+    public void RecordWhiteHoundBitten(int playerId)
+    {
+        bittenWhiteHoundPlayerIds.Add(playerId);
+    }
+
+    public void ClearBittenWhiteHounds()
+    {
+        bittenWhiteHoundPlayerIds.Clear();
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -47,8 +57,46 @@ public class NetworkRoleActionBridge : MonoBehaviour
         lastNotifiedDogSpiritNightCycle = -1;
         lastNotifiedDogSpiritVictimId = -1;
         bittenWhiteHoundPlayerIds.Clear();
+        ResetShamanCharms();
         ResetNightActions();
         Debug.Log("ROLE ACTION BRIDGE: Reset For New Match hoàn tất.");
+    }
+
+    // =========================================================
+    // SERVER-AUTHORITATIVE SHAMAN CHARM TRACKING
+    // =========================================================
+    private static readonly Dictionary<int, bool> serverShamanUsedSave = new Dictionary<int, bool>();
+    private static readonly Dictionary<int, bool> serverShamanUsedKill = new Dictionary<int, bool>();
+
+    public static bool IsShamanSaveUsed(int playerId) =>
+        serverShamanUsedSave.TryGetValue(playerId, out bool used) && used;
+
+    public static bool IsShamanKillUsed(int playerId) =>
+        serverShamanUsedKill.TryGetValue(playerId, out bool used) && used;
+
+    public static void SetShamanSaveUsed(int playerId, bool used)
+    {
+        serverShamanUsedSave[playerId] = used;
+    }
+
+    public static void SetShamanKillUsed(int playerId, bool used)
+    {
+        serverShamanUsedKill[playerId] = used;
+    }
+
+    public static void ResetShamanCharms()
+    {
+        serverShamanUsedSave.Clear();
+        serverShamanUsedKill.Clear();
+    }
+
+    public bool LastActionSuccess { get; private set; }
+    public string LastActionMessage { get; private set; }
+    public static event Action<ulong, bool, string> OnServerActionResult;
+
+    public void HandleAction(NetworkActionEvent actionEvent)
+    {
+        OnActionAccepted(actionEvent);
     }
 
     private void OnEnable()
@@ -549,6 +597,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         lastNotifiedDogSpiritNightCycle = -1;
         lastNotifiedDogSpiritVictimId = -1;
+        bittenWhiteHoundPlayerIds.Clear();
 
         Debug.Log(
             "ROLE ACTION BRIDGE | "
@@ -1178,14 +1227,15 @@ public class NetworkRoleActionBridge : MonoBehaviour
             // -------------------------------------------------
             if (isSave)
             {
-                if (!shamanRole.HasGoodCharm)
+                if (!shamanRole.HasGoodCharm || IsShamanSaveUsed(requesterID))
                 {
                     SendResult(requesterClientId, false, "Bùa Lợi (Cứu) đã được sử dụng trước đó!");
                     return;
                 }
 
-                // Tiêu hao Bùa Lợi trên ShamanRole
+                // Tiêu hao Bùa Lợi trên ShamanRole & Server tracker
                 shamanRole.UseGoodCharm(targetID);
+                SetShamanSaveUsed(requesterID, true);
 
                 // Ghi nhận bảo vệ lên NightManager và PlayerStatus để chặn đòn cắn của Sói
                 NightManager.Instance?.SetProtectedTarget(targetID);
@@ -1202,6 +1252,9 @@ public class NetworkRoleActionBridge : MonoBehaviour
                     ? "Đã dùng Bùa Lợi tự cứu bản thân thành công!"
                     : $"Đã dùng Bùa Lợi cứu Player {targetID + 1} thành công!";
 
+                // Đồng bộ trạng thái kỹ năng sang Client Shaman
+                NetworkRoleSync.SyncShamanCharmState(requesterClientId, true, IsShamanKillUsed(requesterID));
+
                 SendResult(
                     requesterClientId,
                     true,
@@ -1216,7 +1269,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
             // -------------------------------------------------
             if (isKill)
             {
-                if (!shamanRole.HasBadCharm)
+                if (!shamanRole.HasBadCharm || IsShamanKillUsed(requesterID))
                 {
                     SendResult(requesterClientId, false, "Bùa Hại (Giết) đã được sử dụng trước đó!");
                     return;
@@ -1235,15 +1288,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
                     return;
                 }
 
-                // Tiêu hao Bùa Hại trên ShamanRole
-                shamanRole.UseBadCharm(targetID);
-
-                // Tuyệt đối không dùng hiệu ứng Silenced thay cho Kill (xóa cờ Silenced sai của Dev2)
-                if (target.status != null)
-                {
-                    target.status.isSilenced = false;
-                }
-
                 // Tiêu diệt mục tiêu qua DeathResolver chính thống của gameplay
                 bool killed = DeathResolver.Instance.TryKillPlayer(
                     targetID,
@@ -1258,12 +1302,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
                     + killed
                 );
 
-                if (killed)
-                {
-                    // Thiết lập thời gian chờ sau khi Pháp Sư dùng Kill trước khi kiểm tra điều kiện thắng
-                    NetworkGameOverManager.TriggerShamanKillDelay(5.0f);
-                }
-
                 if (!killed)
                 {
                     SendResult(
@@ -1274,6 +1312,22 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
                     return;
                 }
+
+                // Tiêu hao Bùa Hại trên ShamanRole & Server tracker sau khi xử lý thành công
+                shamanRole.UseBadCharm(targetID);
+                SetShamanKillUsed(requesterID, true);
+
+                // Tuyệt đối không dùng hiệu ứng Silenced thay cho Kill (xóa cờ Silenced sai của Dev2)
+                if (target.status != null)
+                {
+                    target.status.isSilenced = false;
+                }
+
+                // Thiết lập thời gian chờ sau khi Pháp Sư dùng Kill trước khi kiểm tra điều kiện thắng
+                NetworkGameOverManager.TriggerShamanKillDelay(5.0f);
+
+                // Đồng bộ trạng thái kỹ năng sang Client Shaman
+                NetworkRoleSync.SyncShamanCharmState(requesterClientId, IsShamanSaveUsed(requesterID), true);
 
                 SendResult(
                     requesterClientId,
@@ -1382,6 +1436,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
         bool success,
         string message)
     {
+        LastActionSuccess = success;
+        LastActionMessage = message;
+        OnServerActionResult?.Invoke(clientId, success, message);
+
         if (NetworkManager.Singleton == null)
             return;
 
