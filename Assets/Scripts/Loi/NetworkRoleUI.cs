@@ -31,11 +31,15 @@ public class NetworkRoleUI : MonoBehaviour
             roleText.text = "";
         }
 
-        if (NetworkRoleSync.LocalInstance != null)
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
         {
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
+        }
+        else
+        {
+            gameObject.SetActive(false);
         }
     }
 

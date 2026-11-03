@@ -43,6 +43,11 @@ public class NetworkPlayerAction : NetworkBehaviour
     public static event Action<int, string>
         OnShamanVictimPromptReceived;
 
+    public static bool HasNetworkActionResultSubscribers()
+    {
+        return OnNetworkActionResult != null;
+    }
+
     // =========================================================
     // RESET SERVER ACTION DATA
     // =========================================================
@@ -51,17 +56,18 @@ public class NetworkPlayerAction : NetworkBehaviour
     {
         playersActionNightCycle.Clear();
         pendingActionNightCycle.Clear();
+        // Không null hóa các static event (OnNetworkActionResult, OnNetworkActionAccepted, ...)
+        // vì các UI MonoBehaviour (NetworkSkillUI) subscribe khi khởi tạo.
+        // Null hóa khi spawn/despawn làm mất kết nối nhận kết quả RPC của Client/Host.
 
-        Debug.Log(
-            "SERVER ACTION DATA RESET"
-        );
+        try { Debug.Log("SERVER ACTION DATA RESET"); } catch { }
     }
 
     public static void RemoveDisconnectedPlayerAction(ulong clientId)
     {
         playersActionNightCycle.Remove(clientId);
         pendingActionNightCycle.Remove(clientId);
-        Debug.Log($"SERVER ACTION DATA: Đã xóa action lock của clientId {clientId}");
+        try { Debug.Log($"SERVER ACTION DATA: Đã xóa action lock của clientId {clientId}"); } catch { }
     }
 
     // =========================================================
@@ -244,9 +250,19 @@ public class NetworkPlayerAction : NetworkBehaviour
         // Night 3 -> 3
         // =====================================================
 
-        int currentNightCycle =
-            NetworkPhaseSync.Instance
-                .CurrentNightCycle.Value;
+        int currentNightCycle = 1;
+        if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentNightCycle.Value > 0)
+        {
+            currentNightCycle = NetworkPhaseSync.Instance.CurrentNightCycle.Value;
+        }
+        else if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0)
+        {
+            currentNightCycle = NightManager.Instance.CurrentNightNumber;
+        }
+        else if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentDay > 0)
+        {
+            currentNightCycle = GameRoleManager.Instance.currentDay;
+        }
 
         // =====================================================
         // ACTION CHECK
@@ -407,6 +423,8 @@ public class NetworkPlayerAction : NetworkBehaviour
             ||
             requesterState.State.Value ==
                 NetworkPlayerStateType.Disconnected
+            ||
+            (PlayerManager.Instance != null && PlayerManager.Instance.GetplayerByID((int)requesterClientId) != null && !PlayerManager.Instance.GetplayerByID((int)requesterClientId).isAlive)
         )
         {
             SendActionResultToClient(
@@ -586,6 +604,8 @@ public class NetworkPlayerAction : NetworkBehaviour
             ||
             targetState.State.Value ==
                 NetworkPlayerStateType.Disconnected
+            ||
+            (PlayerManager.Instance != null && PlayerManager.Instance.GetplayerByID((int)targetPlayerId) != null && !PlayerManager.Instance.GetplayerByID((int)targetPlayerId).isAlive)
         )
         {
             SendActionResultToClient(
@@ -662,40 +682,51 @@ public class NetworkPlayerAction : NetworkBehaviour
         if (!IsServer)
             return false;
 
-        if (requesterState == null)
-            return false;
+        PlayerData requesterData = PlayerManager.Instance?.GetplayerByID((int)requesterClientId);
+        bool isDead = (requesterState != null && requesterState.State.Value == NetworkPlayerStateType.Dead) ||
+                      (requesterData != null && !requesterData.isAlive);
 
-        if (
-            requesterState.State.Value !=
-            NetworkPlayerStateType.Dead
-        )
-        {
+        if (!isDead)
             return false;
-        }
 
         if (NetworkPhaseSync.Instance == null)
             return false;
 
         GamePhase currentPhase = NetworkPhaseSync.Instance.CurrentPhase.Value;
-        if (currentPhase == GamePhase.Setup || currentPhase == GamePhase.GameOver)
+        if (currentPhase == GamePhase.Setup || currentPhase == GamePhase.Night || currentPhase == GamePhase.GameOver)
         {
             return false;
         }
 
-        PlayerData requesterData = PlayerManager.Instance?.GetplayerByID((int)requesterClientId);
+        bool isHunterRole = false;
         if (requesterData != null && requesterData.roleType == RoleType.Hunter)
         {
-            return requesterData.hasHunterTrap && !requesterData.hasUsedHunterShot;
+            isHunterRole = true;
         }
-
-        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null &&
+        else if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null &&
             RoleManager.Instance.playerRoles.TryGetValue((int)requesterClientId, out BaseRole role) &&
             role != null && role.roleType == RoleType.Hunter)
         {
-            return requesterData == null || (requesterData.hasHunterTrap && !requesterData.hasUsedHunterShot);
+            isHunterRole = true;
         }
 
-        return false;
+        if (!isHunterRole) return false;
+
+        if (requesterData != null)
+        {
+            if (requesterData.hasUsedHunterShot) return false;
+
+            bool validCause = (requesterData.lastDeathCause == DeathCause.Monster ||
+                               requesterData.lastDeathCause == DeathCause.Vote ||
+                               requesterData.wasVotedOut);
+            if (!validCause)
+            {
+                Debug.LogWarning($"HUNTER ACTION: Requester chết do {requesterData.lastDeathCause}, không được bắn trả thù.");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // =========================================================
@@ -726,21 +757,24 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
-        if (!requester.hasHunterTrap || requester.hasUsedHunterShot)
+        if (requester.hasUsedHunterShot)
         {
             SendActionResultToClient(
                 false,
-                "Thợ Săn đã sử dụng quyền bắn hoặc không có bẫy!",
+                "Thợ Săn đã sử dụng quyền bắn trả thù!",
                 requesterClientId
             );
             return;
         }
 
-        if (target == null || !target.isAlive)
+        bool validCause = (requester.lastDeathCause == DeathCause.Monster ||
+                           requester.lastDeathCause == DeathCause.Vote ||
+                           requester.wasVotedOut);
+        if (!validCause)
         {
             SendActionResultToClient(
                 false,
-                "Mục tiêu không tồn tại hoặc đã bị loại!",
+                "Thợ Săn chỉ có thể bắn trả thù khi bị Ma Sói cắn hoặc bị treo cổ!",
                 requesterClientId
             );
             return;
@@ -751,6 +785,16 @@ public class NetworkPlayerAction : NetworkBehaviour
             SendActionResultToClient(
                 false,
                 "Thợ Săn không thể tự bắn chính mình!",
+                requesterClientId
+            );
+            return;
+        }
+
+        if (target == null || !target.isAlive || target.isDisconnected || NetworkGameManager.IsPlayerLeft(targetPlayerId))
+        {
+            SendActionResultToClient(
+                false,
+                "Mục tiêu không tồn tại, đã bị loại hoặc đã ngắt kết nối!",
                 requesterClientId
             );
             return;
@@ -768,6 +812,9 @@ public class NetworkPlayerAction : NetworkBehaviour
         {
             hunterRole.TrySetTrap((int)targetPlayerId, out _);
         }
+
+        // Đồng bộ trạng thái đã bắn đến Client
+        NetworkRoleSync.SyncHunterRevengeState(requesterClientId, false, true);
 
         if (DeathResolver.Instance == null)
         {

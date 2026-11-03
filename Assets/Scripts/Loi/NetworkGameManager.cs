@@ -1,4 +1,4 @@
-using Unity.Netcode;
+﻿using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -16,9 +16,22 @@ public class NetworkGameManager : NetworkBehaviour
         );
 
     public static readonly System.Collections.Generic.HashSet<ulong> LeftPlayerClientIds = new System.Collections.Generic.HashSet<ulong>();
+    private static readonly System.Collections.Generic.HashSet<ulong> processedDisconnectClientIds = new System.Collections.Generic.HashSet<ulong>();
+
+    public static void ResetProcessedDisconnects()
+    {
+        processedDisconnectClientIds.Clear();
+    }
+
+    public static void ResetSessionData()
+    {
+        LeftPlayerClientIds.Clear();
+        processedDisconnectClientIds.Clear();
+        Debug.Log("[NetworkGameManager] ResetSessionData: Đã dọn sạch LeftPlayerClientIds và processedDisconnectClientIds.");
+    }
     public static bool IsPlayerLeft(ulong clientId)
     {
-        if (Unity.Netcode.NetworkManager.Singleton != null && clientId == Unity.Netcode.NetworkManager.ServerClientId)
+        if (clientId == 0 || (Unity.Netcode.NetworkManager.Singleton != null && clientId == Unity.Netcode.NetworkManager.ServerClientId))
             return false;
         return LeftPlayerClientIds.Contains(clientId);
     }
@@ -67,6 +80,15 @@ public class NetworkGameManager : NetworkBehaviour
         }
     }
 
+    public override void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+        base.OnDestroy();
+    }
+
     private void OnGameStateChanged(
         NetworkGameState oldState,
         NetworkGameState newState)
@@ -113,59 +135,81 @@ public class NetworkGameManager : NetworkBehaviour
         }
         else
         {
-            // Nếu là Client và Server (Host) đã shutdown hoặc local client bị ngắt kết nối
+            // Neu la Client va Server (Host) da shutdown hoac local client bi ngat ket noi
             if (clientId == NetworkManager.ServerClientId || (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId))
             {
-                Debug.Log($"[NetworkGameManager] Client mất kết nối tới Server (clientId={clientId}) -> Về MainMenu.");
+                Debug.Log($"[NetworkGameManager] Client mat ket noi toi Server (clientId={clientId}) -> Ve MainMenu.");
+                if (clientId == NetworkManager.ServerClientId)
+                {
+                    SceneLoader.DisconnectNoticeMessage = "Host \u0111\u00e3 r\u1eddi ph\u00f2ng. Tr\u1eadn \u0111\u1ea5u \u0111\u00e3 k\u1ebft th\u00fac.";
+                    if (NetworkGameOverManager.Instance != null)
+                    {
+                        NetworkGameOverManager.Instance.ShowGameOverUI("Host Disconnected");
+                    }
+                }
                 SceneLoader.Instance?.LeaveRoomToMainMenu();
             }
         }
     }
 
-    private void HandleServerPlayerDisconnect(ulong clientId)
+    public void HandleServerPlayerDisconnect(ulong clientId)
     {
-        int playerId = (int)clientId;
-        LeftPlayerClientIds.Add(clientId);
-        Debug.Log($"[NetworkGameManager] SERVER XỬ LÝ DISCONNECT: ClientId={clientId}, PlayerId={playerId}");
-
-        // 1. Tìm, despawn và tiêu hủy hoàn toàn GameObject của PlayerController tương ứng
-        PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
-        foreach (var pc in controllers)
+        if (processedDisconnectClientIds.Contains(clientId))
         {
-            if (pc != null && pc.OwnerClientId == clientId)
+            Debug.Log($"[NetworkGameManager] Client {clientId} da duoc xu ly disconnect truoc do (idempotent deduplication).");
+            return;
+        }
+        processedDisconnectClientIds.Add(clientId);
+        LeftPlayerClientIds.Add(clientId);
+        int playerId = (int)clientId;
+        Debug.Log($"[NetworkGameManager] SERVER XU LY DISCONNECT: ClientId={clientId}, PlayerId={playerId}");
+
+        // 1. Tim, despawn va tieu huy hoan toan GameObject cua PlayerController tuong ung
+        try
+        {
+            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in controllers)
             {
-                var stateSync = pc.GetComponent<NetworkPlayerStateSync>();
-                if (stateSync != null)
+                if (pc != null && pc.OwnerClientId == clientId)
                 {
-                    stateSync.SetDisconnected();
+                    var stateSync = pc.GetComponent<NetworkPlayerStateSync>();
+                    if (stateSync != null)
+                    {
+                        stateSync.SetDisconnected();
+                    }
+                    var no = pc.GetComponent<NetworkObject>();
+                    if (no != null && no.IsSpawned)
+                    {
+                        no.Despawn(true);
+                    }
+                    Destroy(pc.gameObject);
                 }
-                var no = pc.GetComponent<NetworkObject>();
-                if (no != null && no.IsSpawned)
-                {
-                    no.Despawn(true);
-                }
-                Destroy(pc.gameObject);
             }
         }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[NetworkGameManager] Loi khi don dep PlayerController cho Client {clientId}: {ex.Message}");
+        }
 
-        // 2. Xóa Player khỏi danh sách active trong PlayerManager
+        // 2. Xoa Player khoi danh sach active trong PlayerManager
         if (PlayerManager.Instance != null)
         {
             PlayerManager.Instance.RemoveDisconnectedPlayer(playerId);
         }
 
-        // 3. Xóa tên khỏi bộ nhớ tạm
+        // 3. Xoa ten khoi bo nho tam
         NetworkGamePlayerNameSetup.Remove(clientId);
 
-        // 4. Hủy các action đang chờ xử lý của Player đó
+        // 4. Huy cac action dang cho xu ly cua Player do
         NetworkPlayerVote.RemoveDisconnectedPlayerVotes(playerId);
         NetworkPlayerAction.RemoveDisconnectedPlayerAction(clientId);
         if (NightManager.Instance != null)
         {
             NightManager.Instance.CancelDisconnectedPlayerActions(playerId);
         }
+        NetworkRoleActionBridge.CancelDisconnectedPlayerActions(playerId);
 
-        // 5. Reset các mối liên hệ đặc biệt (Lover / Hunter)
+        // 5. Reset cac moi lien he dac biet (Lover / Hunter)
         if (PlayerManager.Instance != null && PlayerManager.Instance.players != null)
         {
             foreach (var p in PlayerManager.Instance.players)
@@ -178,13 +222,23 @@ public class NetworkGameManager : NetworkBehaviour
             }
         }
 
-        // 6. Gửi ClientRpc thông báo cho tất cả Client còn kết nối
-        NotifyPlayerDisconnectedClientRpc(clientId);
+        // 6. Gui ClientRpc thong bao cho tat ca Client con ket noi
+        try
+        {
+            NotifyPlayerDisconnectedClientRpc(clientId);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[NetworkGameManager] Khong the gui NotifyPlayerDisconnectedClientRpc: {ex.Message}");
+        }
 
-        // 7. Cập nhật UI trên Server
+        // 7. Cap nhat UI tren Server
         RefreshAllGameUI(playerId);
 
-        // 8. Cập nhật điều kiện thắng/thua theo luật hiện có
+        // 8. Neu dang trong Voting Phase, kiem tra xem so phieu con lai da du de ket thuc vote chua
+        NetworkPlayerVote.CheckAndResolveIfAllVoted();
+
+        // 9. Cap nhat dieu kien thang/thua theo luat hien co
         if (NetworkGameOverManager.Instance != null)
         {
             NetworkGameOverManager.Instance.CheckServerWinCondition();

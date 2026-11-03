@@ -299,26 +299,28 @@ public class NetworkPlayerVote : NetworkBehaviour
 
     public static void CheckAndResolveIfAllVoted()
     {
-        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
             return;
 
-        if (NetworkPhaseSync.Instance == null || NetworkPhaseSync.Instance.CurrentPhase.Value != GamePhase.Voting)
+        bool isVotingPhase = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Voting) ||
+                             (GameRoleManager.Instance != null && (GameRoleManager.Instance.currentPhase == GamePhase.Voting || GameRoleManager.Instance.currentState == GameState.Voting));
+
+        if (!isVotingPhase)
             return;
 
         if (isEndingVoting)
             return;
 
-        // Khi test 1 người chơi, không kết thúc ngay để cho phép người chơi test đổi vote
+        // Khi test 1 nguoi choi, khong ket thuc ngay de cho phep nguoi choi test doi vote
         if (GetEligibleVoterCount() <= 1)
             return;
 
         if (HasAllEligiblePlayersVoted())
         {
-            Debug.Log("NETWORK VOTE: Tất cả người chơi đủ điều kiện đã bỏ phiếu -> Kết thúc Voting sớm.");
+            Debug.Log("NETWORK VOTE: Tat ca nguoi choi du dieu kien da bo phieu -> Ket thuc Voting som.");
             TriggerFinishVotingOnServer();
         }
     }
-
     public static int GetEligibleVoterCount()
     {
         int eligibleVotersCount = 0;
@@ -366,10 +368,11 @@ public class NetworkPlayerVote : NetworkBehaviour
 
         isEndingVoting = true;
 
-        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentState == GameState.Voting)
+        if (GameRoleManager.Instance != null && (GameRoleManager.Instance.currentState == GameState.Voting || GameRoleManager.Instance.currentPhase == GamePhase.Voting))
         {
             Debug.Log("NETWORK VOTE: GameRoleManager.FinishVoting() được gọi từ hệ thống Voting.");
             GameRoleManager.Instance.FinishVoting();
+            NetworkGameOverManager.Instance?.CheckServerWinCondition(forceCheck: true);
         }
         else
         {
@@ -457,6 +460,9 @@ public class NetworkPlayerVote : NetworkBehaviour
     public static void ResetNetworkVotes()
     {
         ResetLocalStaticVotes();
+        OnVoteCountChanged = null;
+        OnLocalVoteConfirmed = null;
+        OnVotesReset = null;
 
         Debug.Log("NETWORK VOTE: Đã reset toàn bộ lựa chọn vote cho phase mới.");
 
@@ -506,6 +512,10 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
         {
             SyncVoteCounts();
+            CheckAndResolveIfAllVoted();
+        }
+        else if (NetworkManager.Singleton == null)
+        {
             CheckAndResolveIfAllVoted();
         }
 
