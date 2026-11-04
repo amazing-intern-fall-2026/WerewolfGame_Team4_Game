@@ -515,6 +515,13 @@ public class LobbyManager : NetworkBehaviour
         if (playerListText == null)
             return;
 
+        TMP_FontAsset font = AuthUI.GetVietnameseFont();
+        if (font != null && playerListText.font != font)
+        {
+            playerListText.font = font;
+            playerListText.fontSharedMaterial = font.material;
+        }
+
         int count = players != null ? players.Count : 0;
         string text = $"PLAYERS ({count})\n\n";
 
@@ -1007,8 +1014,8 @@ public class LobbyManager : NetworkBehaviour
         badgeRect.anchorMin = new Vector2(0.5f, 1f);
         badgeRect.anchorMax = new Vector2(0.5f, 1f);
         badgeRect.pivot = new Vector2(0.5f, 1f);
-        badgeRect.anchoredPosition = new Vector2(0, -90);
-        badgeRect.sizeDelta = new Vector2(420, 76);
+        badgeRect.anchoredPosition = new Vector2(0, -25);
+        badgeRect.sizeDelta = new Vector2(460, 76);
 
         UnityEngine.UI.Image badgeBg = badgeObj.GetComponent<UnityEngine.UI.Image>();
         badgeBg.color = new Color(0.12f, 0.16f, 0.22f, 0.95f);
@@ -1023,6 +1030,12 @@ public class LobbyManager : NetworkBehaviour
         textRect.offsetMax = new Vector2(0, 0);
 
         roomCodeDisplayText = textObj.GetComponent<TextMeshProUGUI>();
+        TMP_FontAsset font = AuthUI.GetVietnameseFont();
+        if (font != null)
+        {
+            roomCodeDisplayText.font = font;
+            roomCodeDisplayText.fontSharedMaterial = font.material;
+        }
         roomCodeDisplayText.fontSize = 28;
         roomCodeDisplayText.fontStyle = FontStyles.Bold;
         roomCodeDisplayText.color = new Color(1f, 0.85f, 0.2f, 1f);
@@ -1050,6 +1063,11 @@ public class LobbyManager : NetworkBehaviour
         copyTextRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI copyLabel = copyTextObj.GetComponent<TextMeshProUGUI>();
+        if (font != null)
+        {
+            copyLabel.font = font;
+            copyLabel.fontSharedMaterial = font.material;
+        }
         copyLabel.text = "CHÉP MÃ";
         copyLabel.fontSize = 22;
         copyLabel.fontStyle = FontStyles.Bold;
@@ -1109,7 +1127,7 @@ public class LobbyManager : NetworkBehaviour
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(0f, 1f);
         rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2(25, -25);
+        rt.anchoredPosition = new Vector2(35, -25);
         rt.sizeDelta = new Vector2(200, 56);
 
         Image img = btnObj.GetComponent<Image>();
@@ -1151,13 +1169,22 @@ public class LobbyManager : NetworkBehaviour
         txtRt.offsetMin = Vector2.zero;
         txtRt.offsetMax = Vector2.zero;
 
-        var sceneTmp = FindFirstObjectByType<TextMeshProUGUI>();
-        if (sceneTmp != null && sceneTmp.font != null) txt.font = sceneTmp.font;
+        TMP_FontAsset font = AuthUI.GetVietnameseFont();
+        if (font != null)
+        {
+            txt.font = font;
+            txt.fontSharedMaterial = font.material;
+        }
+        else
+        {
+            var sceneTmp = FindFirstObjectByType<TextMeshProUGUI>();
+            if (sceneTmp != null && sceneTmp.font != null) txt.font = sceneTmp.font;
+        }
         txt.fontSize = 22;
         txt.fontStyle = FontStyles.Bold;
         txt.color = Color.white;
         txt.alignment = TextAlignmentOptions.Center;
-        txt.text = "THOÁT PHÒNG";
+        txt.text = "← RỜI PHÒNG";
     }
 }
 
