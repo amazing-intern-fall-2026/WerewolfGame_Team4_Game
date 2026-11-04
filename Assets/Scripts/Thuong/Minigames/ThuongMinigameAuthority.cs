@@ -22,22 +22,24 @@ namespace Thuong.Minigames
         }
 
         private readonly Dictionary<ulong, Attempt> active = new();
-        private readonly HashSet<string> locks = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> locks = new(StringComparer.Ordinal);
         private ulong nextId = (ulong)DateTime.UtcNow.Ticks;
         public int ActiveCount => active.Count;
         public bool IsPlaying(ulong owner) => active.ContainsKey(owner);
+        public int Occupancy(int day, string taskId) => locks.TryGetValue(Key(day, taskId), out int count) ? count : 0;
         public ThuongMinigameState Get(ulong owner) => active.TryGetValue(owner, out var attempt) ? Export(attempt) : null;
 
         public bool TryBegin(ulong owner, string taskId, int station, int day, ThuongMinigameKind kind,
             ThuongMinigameRules rules, int[] ingredientScores, double now, double dayEndsAt,
-            out ThuongMinigameState state, out string error)
+            out ThuongMinigameState state, out string error, int capacity = 1)
         {
             state = null;
             if (rules == null || !rules.IsValid || string.IsNullOrEmpty(taskId) || station < 0 || station >= 16 ||
                 !Enum.IsDefined(typeof(ThuongMinigameKind), kind) || !Finite(now) || !Finite(dayEndsAt))
             { error = "Cấu hình thử thách không hợp lệ."; return false; }
             if (active.ContainsKey(owner)) { error = "Bạn đang làm một nhiệm vụ khác."; return false; }
-            if (locks.Contains(Key(day, taskId))) { error = "Một người khác đang làm nhiệm vụ này."; return false; }
+            if (capacity < 1 || capacity > 25) { error = "Sức chứa trạm không hợp lệ."; return false; }
+            if (Occupancy(day, taskId) >= capacity) { error = "Trạm đang đủ người. Hãy chọn trạm khác."; return false; }
             if (dayEndsAt - now < rules.minimumDayRemaining)
             { error = "Không còn đủ thời gian ban ngày để bắt đầu."; return false; }
             if (kind == ThuongMinigameKind.Potion && (ingredientScores == null || ingredientScores.Length != 3))
@@ -79,7 +81,7 @@ namespace Thuong.Minigames
                 attempt.state.target = 3;
             }
             NextRound(attempt);
-            active.Add(owner, attempt); locks.Add(Key(day, taskId));
+            active.Add(owner, attempt); locks[Key(day, taskId)] = Occupancy(day, taskId) + 1;
             state = Export(attempt); error = null;
             return true;
         }
@@ -218,7 +220,10 @@ namespace Thuong.Minigames
         private ThuongMinigameState Finish(Attempt a, ThuongMinigameResult result, string message)
         {
             a.state.result = result; a.state.message = message;
-            active.Remove(a.owner); locks.Remove(Key(a.state.day, a.state.taskId));
+            active.Remove(a.owner);
+            string key = Key(a.state.day, a.state.taskId);
+            int remaining = Occupancy(a.state.day, a.state.taskId) - 1;
+            if (remaining <= 0) locks.Remove(key); else locks[key] = remaining;
             return Export(a);
         }
 

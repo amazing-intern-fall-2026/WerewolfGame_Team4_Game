@@ -12,7 +12,7 @@ namespace Thuong.Online
 {
     public sealed partial class ThuongOnlineSession
     {
-        private const string BuildPrefix = "THUONG6|";
+        private const string BuildPrefix = "THUONG8|";
         private const string MapReadyMessage = "thuong.online.map-ready.v1";
         private ThuongMapCatalog mapCatalog;
         private ThuongMapRuntime mapRuntime;
@@ -35,7 +35,7 @@ namespace Thuong.Online
         public GameEventType SelectedMapEvent => selectedMapEvent;
         public bool MapReady => localMapReady;
         public GameEventType VisibleEvent => publicEvent;
-        private bool AllMapsReady => mapDrawComplete && localMapReady && serverPlayers.Count > 0 && serverPlayers.Values.All(p => p.MapReady);
+        private bool AllMapsReady => mapDrawComplete && localMapReady && serverPlayers.Count > 0 && serverPlayers.Values.All(p => !p.Offline && p.MapReady);
 
         private void PrepareOnlineMaps()
         {
@@ -59,7 +59,7 @@ namespace Thuong.Online
         {
             if (definition == null) { localMapReady = false; mapError = "Bản game chưa có map chủ phòng chọn."; return false; }
             if (SelectedMap == definition && localMapReady) return true;
-            ResetMinigames(); eventPresentation.Clear();
+            ResetMinigames(); ResetTaskBoard(); eventPresentation.Clear();
             if (!mapRuntime.Bind(definition, out mapError)) { localMapReady = false; return false; }
             stations = mapRuntime.Stations;
             tasks.allTasks = stations.Select(s => s.task).ToList();
@@ -163,7 +163,7 @@ namespace Thuong.Online
 
         private void ReceiveMapAcknowledgement(ulong sender, FastBufferReader reader)
         {
-            if (!network.IsServer || !serverPlayers.TryGetValue(sender, out var member)) return;
+            if (!network.IsServer || !serverPlayers.TryGetValue(sender, out var member) || member.Offline) return;
             try
             {
                 reader.ReadValueSafe(out FixedString64Bytes id); reader.ReadValueSafe(out int revision);

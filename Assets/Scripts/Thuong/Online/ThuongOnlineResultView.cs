@@ -187,7 +187,7 @@ namespace Thuong.Online
             DeathCause.Vote => "Bỏ phiếu", DeathCause.Monster => "Sói tấn công", DeathCause.Curse => "Lời nguyền",
             DeathCause.Ability => "Kỹ năng", DeathCause.Killer => "Sát nhân", DeathCause.Trap => "Bẫy Thợ Săn",
             DeathCause.Lover => "Người yêu chết", DeathCause.Poison => "Trúng độc",
-            DeathCause.DeathHerald => "Sứ giả cái chết", _ => "Trường hợp đặc biệt"
+            DeathCause.DeathHerald => "Sứ giả cái chết", DeathCause.Disconnect => "Rời ván / mất kết nối", _ => "Trường hợp đặc biệt"
         };
 
         private static string FinalFactionLabel(ThuongFinalPlayer player)

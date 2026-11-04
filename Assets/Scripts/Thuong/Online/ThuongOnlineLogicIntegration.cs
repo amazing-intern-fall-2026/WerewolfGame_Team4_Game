@@ -124,6 +124,7 @@ namespace Thuong.Online
         private void ResetReplicatedRound(uint epoch)
         {
             ResetEmotes();
+            ResetTaskBoard();
             matchEpoch = epoch;
             matchResult = null;
             localRoleCardOpen = localRoleConfirmed = false;
@@ -141,8 +142,15 @@ namespace Thuong.Online
         public bool RestartMatchInRoom()
         {
             if (!CanRestartMatch) return false;
+            ResetToRoomLobby("Ván mới đã sẵn sàng. Chủ phòng phân vai lại, mọi người đọc vai và Ready.");
+            return true;
+        }
+
+        private void ResetToRoomLobby(string message)
+        {
             ResetEmotes();
             ResetMinigames();
+            ResetTaskBoard();
             game.ResetForOnlineLobby();
             matchEpoch++;
             matchStarted = rolesAssigned = roomLocked = false;
@@ -152,15 +160,17 @@ namespace Thuong.Online
             localActionFeedback = string.Empty; localVotedTarget = -1;
             roles.playerRoles.Clear(); players.players.Clear(); tasks.ResetForNewMatch();
             VoteManager.Instance?.StartVote();
+            reconnectApprovals.Clear();
+            foreach (ulong clientId in serverPlayers.Where(pair => pair.Value.Offline).Select(pair => pair.Key).ToArray())
+                serverPlayers.Remove(clientId);
             foreach (var member in serverPlayers.Values)
             {
                 member.Ready = member.RevealRead = false; member.Input = Vector2.zero;
             }
             onlineOutcomeDirty = true;
             ResetVotePresentation(); ResetEndgamePresentation();
-            status = "Ván mới đã sẵn sàng. Chủ phòng phân vai lại, mọi người đọc vai và Ready.";
+            status = message;
             BroadcastRoster(); BroadcastSnapshot();
-            return true;
         }
     }
 }

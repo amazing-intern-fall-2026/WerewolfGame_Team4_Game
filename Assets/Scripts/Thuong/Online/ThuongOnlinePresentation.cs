@@ -264,7 +264,8 @@ namespace Thuong.Online
             if (ShowingVoteResult)
                 return label + $"  |  {(voteTallies.TryGetValue(player.playerID, out int tally) ? tally : 0)} phiếu" +
                     (player.playerID == voteEliminatedId ? " • BỊ LOẠI" : string.Empty);
-            return label + (player.isAlive ? " • Còn sống" : " • Đã bị loại");
+            if (!player.isAlive) return label + " • Đã bị loại";
+            return label + (lobby.Any(member => member.PlayerId == player.playerID && member.Offline) ? " • Mất kết nối" : " • Còn sống");
         }
 
         public void RefreshHud(GameHUD hud)
@@ -280,8 +281,13 @@ namespace Thuong.Online
             if (hud.dailyProgressSlider != null) { hud.dailyProgressSlider.maxValue = 100; hud.dailyProgressSlider.value = visibleDailyProgress; }
             if (hud.progressText != null) hud.progressText.text = $"{visibleProgress:0}%";
             if (hud.dailyProgressText != null) hud.dailyProgressText.text = $"HÔM NAY  |  {visibleDailyProgress:0}%";
-            if (hud.phaseText != null) hud.phaseText.text = $"NGÀY {visibleDay}  /  {PhaseName(visibleState)}" +
-                (publicEventDay == visibleDay && publicEvent != GameEventType.None ? "  •  " + ThuongEventPresentationCatalog.Name(publicEvent) : "");
+            if (hud.phaseText != null)
+            {
+                int offline = lobby.Count(member => member.Offline);
+                hud.phaseText.text = $"NGÀY {visibleDay}  /  {PhaseName(visibleState)}" +
+                    (publicEventDay == visibleDay && publicEvent != GameEventType.None ? "  •  " + ThuongEventPresentationCatalog.Name(publicEvent) : "") +
+                    (offline == 0 ? "" : $"  •  {offline} mất kết nối");
+            }
             RefreshEventBadge(hud);
             int seconds = Mathf.CeilToInt(Mathf.Max(0, visibleRemaining));
             if (hud.timerText != null) hud.timerText.text = $"{seconds / 60:00}:{seconds % 60:00}";
@@ -290,7 +296,8 @@ namespace Thuong.Online
                 var text = new StringBuilder();
                 for (int i = 0; i < stations.Length && i < 16; i++)
                     if ((activeTaskMask & (1 << i)) != 0 && stations[i].task != null)
-                        text.AppendLine(((completedTaskMask & (1 << i)) != 0 ? "[x]  " : "[ ]  ") + stations[i].task.taskName);
+                        text.AppendLine(((completedTaskMask & (1 << i)) != 0 || (personalTaskMask & (1 << i)) != 0 ? "[x]  " : "[ ]  ") +
+                            stations[i].task.taskName + (taskTargets[i] > 0 ? $"  {taskDone[i]}/{taskTargets[i]}" : ""));
                 hud.taskListText.text = text.Length == 0 ? "Chưa có nhiệm vụ hôm nay." : text.ToString();
             }
             bool meeting = visibleState == GameState.Discussion || visibleState == GameState.Voting;
@@ -333,7 +340,7 @@ namespace Thuong.Online
                 }
             }
             TMP_Text instructions = hud.transform.Find("TaskPanel/Instructions")?.GetComponent<TMP_Text>();
-            if (instructions != null) instructions.text = "WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nROLE / KỸ NĂNG  Xem vai trò\n\nThảo luận và bỏ phiếu khi họp.";
+            if (instructions != null) instructions.text = "WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / chọn đường đi\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
             TMP_Text footer = hud.transform.Find("Footer")?.GetComponent<TMP_Text>();
             if (footer != null)
             {

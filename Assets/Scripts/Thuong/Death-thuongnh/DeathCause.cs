@@ -12,5 +12,6 @@ public enum DeathCause
     // Append values so existing scenes and network role code keep their enum IDs.
     Ability,
     Curse,
-    Special
+    Special,
+    Disconnect
 }

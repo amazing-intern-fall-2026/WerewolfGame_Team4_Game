@@ -7,6 +7,7 @@ public class RoleManager : MonoBehaviour
 {
     public static RoleManager Instance;
     public ThuongRoleDefinitionCatalog roleDefinitions;
+    [System.NonSerialized] public RoleType[] rolePoolOverride;
 
     [System.NonSerialized]
     public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
@@ -55,7 +56,7 @@ public class RoleManager : MonoBehaviour
         Shuffle(list, new System.Random(unchecked(seed ^ 0x5f3759df)));
         playerRoles.Clear();
 
-        List<RoleType> rolePool = RolePoolBuilder.Build(list.Count, seed);
+        List<RoleType> rolePool = RolePoolBuilder.Build(list.Count, seed, rolePoolOverride);
 
         for (int i = 0; i < list.Count; i++)
         {
