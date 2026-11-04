@@ -90,8 +90,8 @@ public class LobbyManager : NetworkBehaviour
             string code = RoomManager.CurrentRoomCode;
             if (string.IsNullOrEmpty(code))
             {
-                code = RoomManager.GenerateRoomCode();
-                RoomManager.CurrentRoomCode = code;
+                var newSession = RoomManager.CreateLocalRoomSession();
+                code = newSession.roomCode;
             }
             roomCodeNetwork.Value = new FixedString64Bytes(code);
 

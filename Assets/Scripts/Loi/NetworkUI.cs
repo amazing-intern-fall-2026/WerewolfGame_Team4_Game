@@ -372,8 +372,7 @@ public class NetworkUI : MonoBehaviour
         }
 
         isConnecting = true;
-        NetworkGameManager.LeftPlayerClientIds.Clear();
-        NetworkGamePlayerNameSetup.Clear();
+        SceneLoader.CleanupNetworkSession();
         SetStatus("Đang tạo phiên phòng mới và cấp phát mã...", Color.yellow);
 
         try
@@ -421,6 +420,11 @@ public class NetworkUI : MonoBehaviour
             {
                 session.hostPort = boundPort;
                 RoomManager.RegisterRoomInLocalRegistry(session);
+
+                if (boundPort != initialPort)
+                {
+                    _ = RoomManager.UpdateHostPortInLobbyAsync(boundPort);
+                }
 
                 SetStatus($"Tạo phòng {session.roomCode} thành công (Cổng {boundPort})! Đang vào Lobby...", Color.green);
 
@@ -486,6 +490,8 @@ public class NetworkUI : MonoBehaviour
         }
 
         isConnecting = true;
+        // Dọn dẹp session cũ TRƯỚC KHI tìm kiếm và kết nối phòng mới
+        SceneLoader.CleanupNetworkSession();
         SetStatus($"Đang tìm kiếm phòng '{code}'...", Color.yellow);
 
         try
@@ -505,7 +511,6 @@ public class NetworkUI : MonoBehaviour
             RoomManager.CurrentVoiceChannelId = session.voiceChannelId;
             RoomManager.IsHostOfCurrentRoom = false;
 
-            NetworkGameManager.LeftPlayerClientIds.Clear();
             SetStatus($"Đã tìm thấy phòng {session.roomCode}. Đang kết nối...", Color.yellow);
 
             // 2. Cấu hình Transport

@@ -71,6 +71,12 @@ public class NetworkSkillUI : MonoBehaviour
     private bool shamanHasUsedSave;
     private bool shamanHasUsedKill;
 
+    public bool ShamanHasUsedSave => shamanHasUsedSave;
+    public bool ShamanHasUsedKill => shamanHasUsedKill;
+    public GameObject SaveButton => saveButton;
+    public GameObject KillButton => killButton;
+    public GameObject SkillPanel => skillPanel;
+
     public static NetworkSkillUI Instance { get; private set; }
 
     private void Awake()
@@ -116,6 +122,12 @@ public class NetworkSkillUI : MonoBehaviour
         NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged +=
             OnWhiteHoundAwakenedChanged;
 
+        NetworkRoleSync.OnLocalShamanCharmsChanged +=
+            OnShamanCharmsChanged;
+
+        NetworkRoleSync.OnLocalHunterRevengeStateChanged +=
+            OnHunterRevengeStateChanged;
+
         NetworkPlayerAction.OnNetworkActionResult +=
             OnNetworkActionResult;
 
@@ -131,11 +143,31 @@ public class NetworkSkillUI : MonoBehaviour
         NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -=
             OnWhiteHoundAwakenedChanged;
 
+        NetworkRoleSync.OnLocalShamanCharmsChanged -=
+            OnShamanCharmsChanged;
+
+        NetworkRoleSync.OnLocalHunterRevengeStateChanged -=
+            OnHunterRevengeStateChanged;
+
         NetworkPlayerAction.OnNetworkActionResult -=
             OnNetworkActionResult;
 
         NetworkPlayerAction.OnShamanVictimPromptReceived -=
             OnShamanVictimPromptReceived;
+    }
+
+    private void OnShamanCharmsChanged(bool usedSave, bool usedKill)
+    {
+        shamanHasUsedSave = usedSave;
+        shamanHasUsedKill = usedKill;
+        Debug.Log($"SKILL UI | Shaman charms updated from server: SaveUsed={usedSave}, KillUsed={usedKill}");
+        UpdateSkillUI();
+    }
+
+    private void OnHunterRevengeStateChanged(bool canShoot)
+    {
+        Debug.Log($"SKILL UI | Hunter Revenge State Changed from server: CanShoot={canShoot}");
+        UpdateSkillUI();
     }
 
     private void Start()
@@ -146,7 +178,7 @@ public class NetworkSkillUI : MonoBehaviour
 
         ResetForNewMatch();
 
-        if (NetworkRoleSync.LocalInstance != null)
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
         {
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
@@ -190,8 +222,8 @@ public class NetworkSkillUI : MonoBehaviour
             isNight = newIsNight;
             isDiscussion = newIsDiscussion;
 
-            // Đóng Target Panel khi đổi Phase
-            if (targetPanel != null)
+            // Đóng Target Panel khi đổi Phase (trừ khi Thợ Săn đang chờ bắn trả thù)
+            if (targetPanel != null && !CanHunterRevengeNow())
             {
                 targetPanel.SetActive(false);
             }
@@ -199,6 +231,16 @@ public class NetworkSkillUI : MonoBehaviour
             if (!isNight)
             {
                 HideShamanPrompt();
+            }
+        }
+
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
+        {
+            RoleType r = NetworkRoleSync.LocalInstance.LocalRole;
+            bool roleRecognized = isDogSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller;
+            if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer))
+            {
+                OnRoleReceived(r);
             }
         }
 
@@ -232,8 +274,16 @@ public class NetworkSkillUI : MonoBehaviour
             role == RoleType.Killer;
 
         hasUsedSkill = false;
-        shamanHasUsedSave = false;
-        shamanHasUsedKill = false;
+        if (NetworkRoleSync.LocalInstance != null)
+        {
+            shamanHasUsedSave = NetworkRoleSync.LocalInstance.HasUsedSave;
+            shamanHasUsedKill = NetworkRoleSync.LocalInstance.HasUsedKill;
+        }
+        else
+        {
+            shamanHasUsedSave = false;
+            shamanHasUsedKill = false;
+        }
         currentPromptVictimId = -1;
         HideShamanPrompt();
 
@@ -313,8 +363,9 @@ public class NetworkSkillUI : MonoBehaviour
         if (stateSync == null)
             return false;
 
-        return stateSync.State.Value ==
-               NetworkPlayerStateType.Dead;
+        return stateSync.State.Value == NetworkPlayerStateType.Dead ||
+               stateSync.State.Value == NetworkPlayerStateType.Spectating ||
+               stateSync.State.Value == NetworkPlayerStateType.Disconnected;
     }
 
     public int GetCurrentNightNumber()
@@ -337,13 +388,60 @@ public class NetworkSkillUI : MonoBehaviour
         return 1;
     }
 
+    private int GetLocalPlayerId()
+    {
+        if (NetworkManager.Singleton != null)
+        {
+            return (int)NetworkManager.Singleton.LocalClientId;
+        }
+        return -1;
+    }
+
+    public bool IsHunterPendingRevenge()
+    {
+        if (!isHunter || !IsLocalPlayerDead()) return false;
+
+        int localId = GetLocalPlayerId();
+        PlayerData pData = localId >= 0 && PlayerManager.Instance != null ? PlayerManager.Instance.GetplayerByID(localId) : null;
+
+        bool hasUsedShot = (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasUsedHunterShot) ||
+                           (pData != null && pData.hasUsedHunterShot);
+
+        if (hasUsedShot) return false;
+
+        // Nếu NetworkRoleSync đã sync trạng thái bắn trả thù
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.CanHunterRevengeShot)
+        {
+            return true;
+        }
+
+        if (pData != null)
+        {
+            bool validCause = pData.lastDeathCause == DeathCause.Monster || pData.lastDeathCause == DeathCause.Vote || pData.wasVotedOut;
+            if (pData.hasHunterTrap || validCause)
+                return true;
+        }
+
+        return false;
+    }
+
+    public bool CanHunterRevengeNow()
+    {
+        if (!IsHunterPendingRevenge()) return false;
+        if (isNight) return false;
+
+        if (NetworkPhaseSync.Instance != null)
+        {
+            GamePhase p = NetworkPhaseSync.Instance.CurrentPhase.Value;
+            if (p == GamePhase.Setup || p == GamePhase.Night || p == GamePhase.GameOver)
+                return false;
+        }
+        return true;
+    }
+
     private void UpdateSkillUI()
     {
-        bool hunterCanUseTrap =
-            isHunter &&
-            isDiscussion &&
-            IsLocalPlayerDead() &&
-            !hasUsedSkill;
+        bool hunterCanUseTrap = CanHunterRevengeNow();
 
         bool shamanCanAct =
             isShaman &&
@@ -364,15 +462,15 @@ public class NetworkSkillUI : MonoBehaviour
 
         bool normalSkillAvailable =
             (
-                canAttackAsDogSpirit ||
-                isSeer ||
-                isVillageGuardian ||
+                (canAttackAsDogSpirit && !hasUsedSkill) ||
+                (isSeer && !hasUsedSkill) ||
+                (isVillageGuardian && !hasUsedSkill) ||
                 shamanCanAct ||
                 killerCanAct
             )
             &&
             isNight &&
-            !hasUsedSkill;
+            !IsLocalPlayerDead();
 
         bool canUseSkill =
             normalSkillAvailable ||
@@ -399,7 +497,8 @@ public class NetworkSkillUI : MonoBehaviour
             inspectButton.SetActive(
                 isSeer &&
                 isNight &&
-                !hasUsedSkill
+                !hasUsedSkill &&
+                !IsLocalPlayerDead()
             );
         }
 
@@ -408,7 +507,8 @@ public class NetworkSkillUI : MonoBehaviour
             protectButton.SetActive(
                 isVillageGuardian &&
                 isNight &&
-                !hasUsedSkill
+                !hasUsedSkill &&
+                !IsLocalPlayerDead()
             );
         }
 
@@ -417,8 +517,8 @@ public class NetworkSkillUI : MonoBehaviour
             saveButton.SetActive(
                 isShaman &&
                 isNight &&
-                !hasUsedSkill &&
-                !shamanHasUsedSave
+                !shamanHasUsedSave &&
+                !IsLocalPlayerDead()
             );
         }
 
@@ -427,8 +527,8 @@ public class NetworkSkillUI : MonoBehaviour
             killButton.SetActive(
                 isShaman &&
                 isNight &&
-                !hasUsedSkill &&
-                !shamanHasUsedKill
+                !shamanHasUsedKill &&
+                !IsLocalPlayerDead()
             );
         }
 
@@ -441,7 +541,7 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (!canUseSkill)
         {
-            if (targetPanel != null)
+            if (targetPanel != null && !CanHunterRevengeNow())
             {
                 targetPanel.SetActive(false);
             }
@@ -547,8 +647,13 @@ public class NetworkSkillUI : MonoBehaviour
             return;
         }
 
-        if (hasUsedSkill)
+        if (shamanHasUsedSave)
+        {
+            Debug.LogWarning(
+                "SKILL UI | Bùa Lợi (Cứu) đã được sử dụng."
+            );
             return;
+        }
 
         Debug.Log(
             "SKILL UI | Shaman SAVE (Bùa Lợi) mở Target Panel."
@@ -571,8 +676,13 @@ public class NetworkSkillUI : MonoBehaviour
             return;
         }
 
-        if (hasUsedSkill)
+        if (shamanHasUsedKill)
+        {
+            Debug.LogWarning(
+                "SKILL UI | Bùa Hại (Giết) đã được sử dụng."
+            );
             return;
+        }
 
         Debug.Log(
             "SKILL UI | Shaman KILL (Bùa Hại) mở Target Panel."
@@ -587,14 +697,6 @@ public class NetworkSkillUI : MonoBehaviour
         if (!isHunter)
             return;
 
-        if (!isDiscussion)
-        {
-            Debug.LogWarning(
-                "SKILL UI | Hunter chỉ đặt bẫy trong Discussion."
-            );
-            return;
-        }
-
         if (!IsLocalPlayerDead())
         {
             Debug.LogWarning(
@@ -603,8 +705,13 @@ public class NetworkSkillUI : MonoBehaviour
             return;
         }
 
-        if (hasUsedSkill)
+        if (!CanHunterRevengeNow())
+        {
+            Debug.LogWarning(
+                "SKILL UI | Hunter không thể bắn trả thù ở thời điểm này hoặc đã dùng quyền bắn."
+            );
             return;
+        }
 
         Debug.Log(
             "SKILL UI | Hunter mở Target Panel."
@@ -627,6 +734,40 @@ public class NetworkSkillUI : MonoBehaviour
         }
     }
 
+    private bool isClosingTargetPanel;
+
+    public void CloseTargetPanel()
+    {
+        if (isClosingTargetPanel) return;
+        isClosingTargetPanel = true;
+        try
+        {
+            if (targetPanel != null)
+            {
+                targetPanel.SetActive(false);
+            }
+            if (targetListUI != null)
+            {
+                targetListUI.CloseTargetList();
+            }
+            NetworkTargetListUI.Instance?.CloseTargetList();
+        }
+        finally
+        {
+            isClosingTargetPanel = false;
+        }
+    }
+
+    public void NotifyActionDispatched()
+    {
+        CloseTargetPanel();
+        if (isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened()) || isSeer || isVillageGuardian || isKiller)
+        {
+            hasUsedSkill = true;
+            UpdateSkillUI();
+        }
+    }
+
     private void OnNetworkActionResult(
         bool success,
         string message)
@@ -640,11 +781,32 @@ public class NetworkSkillUI : MonoBehaviour
         );
 
         if (!success)
+        {
+            hasUsedSkill = false;
+            UpdateSkillUI();
             return;
+        }
 
-        hasUsedSkill = true;
-
-        if (isShaman)
+        if (isHunter)
+        {
+            hasUsedSkill = true;
+            int localId = GetLocalPlayerId();
+            if (localId >= 0 && PlayerManager.Instance != null)
+            {
+                PlayerData me = PlayerManager.Instance.GetplayerByID(localId);
+                if (me != null)
+                {
+                    me.hasHunterTrap = false;
+                    me.hasUsedHunterShot = true;
+                }
+            }
+            if (NetworkRoleSync.LocalInstance != null)
+            {
+                NetworkRoleSync.LocalInstance.HasUsedHunterShot = true;
+            }
+            Debug.Log("SKILL UI | Hunter đã thực hiện phát đạn trả thù thành công.");
+        }
+        else if (isShaman)
         {
             if (pendingSubActionId == 1)
             {
@@ -656,15 +818,15 @@ public class NetworkSkillUI : MonoBehaviour
                 shamanHasUsedKill = true;
                 Debug.Log("SKILL UI | Shaman đã sử dụng Bùa Hại (Giết).");
             }
+            hasUsedSkill = shamanHasUsedSave && shamanHasUsedKill;
         }
-
-        if (targetPanel != null)
+        else
         {
-            targetPanel.SetActive(false);
+            hasUsedSkill = true;
         }
 
+        CloseTargetPanel();
         HideShamanPrompt();
-
         UpdateSkillUI();
     }
 
@@ -980,4 +1142,51 @@ public class NetworkSkillUI : MonoBehaviour
             }
         }
     }
-}
+
+    // =========================================================
+    // TESTING AND SIMULATION HELPERS
+    // =========================================================
+
+    public void SetupForTest(
+        RoleType role,
+        bool isNightPhase,
+        GameObject testSkillPanel = null,
+        GameObject testSaveBtn = null,
+        GameObject testKillBtn = null)
+    {
+        if (testSkillPanel != null) skillPanel = testSkillPanel;
+        if (testSaveBtn != null) saveButton = testSaveBtn;
+        if (testKillBtn != null) killButton = testKillBtn;
+
+        isNight = isNightPhase;
+        OnRoleReceived(role);
+        UpdateSkillUI();
+    }
+
+    public void SetPhaseForTest(bool isNightPhase, bool isDiscussionPhase)
+    {
+        bool phaseChanged = isNightPhase != isNight || isDiscussionPhase != isDiscussion;
+        if (phaseChanged)
+        {
+            hasUsedSkill = false;
+            isNight = isNightPhase;
+            isDiscussion = isDiscussionPhase;
+            if (targetPanel != null) targetPanel.SetActive(false);
+            if (!isNight) HideShamanPrompt();
+        }
+        UpdateSkillUI();
+    }
+
+    public void SimulateActionResultForTest(bool success, int subActionId)
+    {
+        pendingSubActionId = subActionId;
+        OnNetworkActionResult(success, "Test Action");
+    }
+
+    public void SetShamanCharmState(bool usedSave, bool usedKill)
+    {
+        shamanHasUsedSave = usedSave;
+        shamanHasUsedKill = usedKill;
+        UpdateSkillUI();
+    }
+}

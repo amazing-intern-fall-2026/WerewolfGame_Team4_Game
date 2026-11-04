@@ -33,6 +33,8 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             + State.Value
         );
 
+        UpdateVisualForState(State.Value);
+
         // Trường hợp Player đã Dead trước khi UI subscribe
         if (IsOwner &&
             State.Value == NetworkPlayerStateType.Dead)
@@ -59,12 +61,43 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             + newState
         );
 
+        UpdateVisualForState(newState);
+
         // Chỉ thông báo cho chính Player bị chết
         if (IsOwner &&
             oldState != NetworkPlayerStateType.Dead &&
             newState == NetworkPlayerStateType.Dead)
         {
             OnLocalPlayerDeath?.Invoke();
+        }
+    }
+
+    public void UpdateVisualForState(NetworkPlayerStateType state)
+    {
+        SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
+        if (state == NetworkPlayerStateType.Dead)
+        {
+            foreach (var sr in renderers)
+            {
+                if (sr != null)
+                {
+                    sr.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
+                }
+            }
+            Collider2D col = GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
+        }
+        else if (state == NetworkPlayerStateType.Alive || state == NetworkPlayerStateType.Sleeping)
+        {
+            foreach (var sr in renderers)
+            {
+                if (sr != null)
+                {
+                    sr.color = Color.white;
+                }
+            }
+            Collider2D col = GetComponent<Collider2D>();
+            if (col != null) col.enabled = true;
         }
     }
 
@@ -97,24 +130,68 @@ public class NetworkPlayerStateSync : NetworkBehaviour
             !NetworkManager.Singleton.IsServer)
             return;
 
-        if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(
-                (ulong)playerID,
-                out NetworkClient client) ||
-            client.PlayerObject == null)
-            return;
-
-        NetworkPlayerStateSync stateSync =
-            client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+        NetworkPlayerStateSync stateSync = null;
+        if (NetworkManager.Singleton.ConnectedClients.TryGetValue((ulong)playerID, out NetworkClient client) && client.PlayerObject != null)
+        {
+            stateSync = client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+        }
 
         if (stateSync == null)
+        {
+            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in controllers)
+            {
+                if (pc != null && (int)pc.OwnerClientId == playerID)
+                {
+                    stateSync = pc.GetComponent<NetworkPlayerStateSync>();
+                    break;
+                }
+            }
+        }
+
+        if (stateSync == null)
+        {
+            Debug.LogWarning($"[NetworkPlayerStateSync] KhÃ´ng tÃ¬m tháº¥y stateSync cho playerID {playerID}");
             return;
+        }
 
         if (isAlive)
-            stateSync.SetState(
-                NetworkPlayerStateType.Alive
-            );
+        {
+            stateSync.SetState(NetworkPlayerStateType.Alive);
+        }
         else
+        {
             stateSync.KillPlayer();
+        }
+
+        PlayerController controller = stateSync.GetComponent<PlayerController>();
+        if (controller != null)
+        {
+            controller.State.Value = isAlive ? PlayerState.Alive : PlayerState.Dead;
+        }
+
+        if (PlayerManager.Instance != null)
+        {
+            PlayerData p = PlayerManager.Instance.GetplayerByID(playerID);
+            if (p != null)
+            {
+                p.isAlive = isAlive;
+                if (!isAlive && p.lastDeathCause == default)
+                {
+                    p.lastDeathCause = DeathCause.Monster;
+                }
+
+                if (p.roleType == RoleType.Hunter && !p.hasUsedHunterShot)
+                {
+                    bool validCause = (p.lastDeathCause == DeathCause.Monster ||
+                                       p.lastDeathCause == DeathCause.Vote ||
+                                       p.wasVotedOut);
+                    p.hasHunterTrap = validCause;
+                    NetworkRoleSync.SyncHunterRevengeState((ulong)playerID, validCause, p.hasUsedHunterShot);
+                    Debug.Log($"HUNTER SYNC: Player {playerID + 1} Hunter death resolved (Cause={p.lastDeathCause}, ValidCause={validCause}) -> Sync canShoot={validCause}");
+                }
+            }
+        }
     }
 
     // Server cho Player chết
@@ -205,6 +282,7 @@ public class NetworkPlayerStateSync : NetworkBehaviour
                 if (stateSync != null)
                 {
                     stateSync.SetState(NetworkPlayerStateType.Alive);
+                    stateSync.UpdateVisualForState(NetworkPlayerStateType.Alive);
                 }
 
                 var controller = client.PlayerObject.GetComponent<PlayerController>();

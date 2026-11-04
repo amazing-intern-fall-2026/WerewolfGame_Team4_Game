@@ -101,6 +101,7 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
         _instance = this;
+        ResetUIState();
         EnsureLoiMatchEvaluatorInstalled();
     }
 
@@ -196,6 +197,24 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void OnDev2PhaseChanged(GamePhase oldPhase, GamePhase newPhase)
     {
+        if (oldPhase == GamePhase.Night || newPhase == GamePhase.ResolveNight || newPhase == GamePhase.Discussion || newPhase == GamePhase.DayStart)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            SynchronizeWhiteHoundState();
+        }
+
+        // Kiem tra dieu kien thang tai thoi diem ket thuc cac phase
+        if (oldPhase == GamePhase.Night || oldPhase == GamePhase.ResolveNight ||
+            oldPhase == GamePhase.Discussion || oldPhase == GamePhase.Voting ||
+            oldPhase == GamePhase.ResolveVote)
+        {
+            CheckServerWinCondition(forceCheck: true);
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winner = GameRoleManager.Instance?.Winner;
@@ -206,6 +225,24 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void OnNetworkPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
     {
+        if (oldPhase == GamePhase.Night || newPhase == GamePhase.ResolveNight || newPhase == GamePhase.Discussion || newPhase == GamePhase.DayStart)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            SynchronizeWhiteHoundState();
+        }
+
+        // Kiem tra dieu kien thang tai thoi diem ket thuc cac phase
+        if (oldPhase == GamePhase.Night || oldPhase == GamePhase.ResolveNight ||
+            oldPhase == GamePhase.Discussion || oldPhase == GamePhase.Voting ||
+            oldPhase == GamePhase.ResolveVote)
+        {
+            CheckServerWinCondition(forceCheck: true);
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winner = string.Empty;
@@ -382,19 +419,77 @@ public class NetworkGameOverManager : MonoBehaviour
         foreach (var p in PlayerManager.Instance.players)
         {
             if (p == null) continue;
-            if (p.roleType == RoleType.Hunter && !p.isAlive && p.hasHunterTrap && !p.hasUsedHunterShot)
+            if (p.roleType == RoleType.Hunter && !p.isAlive && !p.hasUsedHunterShot)
             {
                 // Nếu người chơi này đã rời phòng hoặc ngắt kết nối thì bỏ qua
                 if (p.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)p.playerID))
                     continue;
 
-                return true;
+                // Kiểm tra nguyên nhân tử vong: chỉ Monster (DogSpirit) hoặc Vote
+                bool validCause = (p.lastDeathCause == DeathCause.Monster ||
+                                   p.lastDeathCause == DeathCause.Vote ||
+                                   p.wasVotedOut);
+                if (!validCause)
+                    continue;
+
+                // TC73: Kiểm tra xem có mục tiêu hợp lệ nào còn sống không
+                bool hasAliveTarget = false;
+                foreach (var target in PlayerManager.Instance.players)
+                {
+                    if (target == null || target.playerID == p.playerID) continue;
+                    if (target.isAlive && !target.isDisconnected && !NetworkGameManager.IsPlayerLeft((ulong)target.playerID))
+                    {
+                        hasAliveTarget = true;
+                        break;
+                    }
+                }
+
+                if (!hasAliveTarget)
+                {
+                    p.hasHunterTrap = false;
+                    continue;
+                }
+
+                if (p.hasHunterTrap)
+                {
+                    return true;
+                }
             }
         }
         return false;
     }
 
-    public void CheckServerWinCondition()
+    /// <summary>
+    /// Kiểm tra xem có đang trong Night Phase hoặc có hành động ban đêm chưa được giải quyết hay không.
+    /// Tuyệt đối không đánh giá điều kiện thắng khi các hành động ban đêm chưa được xử lý hoàn tất!
+    /// </summary>
+    public static bool HasUnresolvedNightActions()
+    {
+        // 1. Kiểm tra NightManager còn pending actions chưa được resolve
+        if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            return true;
+
+        // 2. Nếu còn pending Shaman Kill action chưa được resolve
+        if (NetworkRoleActionBridge.HasPendingShamanKill)
+            return true;
+
+        // 3. Nếu đang trong Night Phase và phase timer còn đang chạy (người chơi vẫn đang chọn action đêm)
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Night);
+        if (isNight)
+        {
+            var netTimer = NetworkGameTimer.Instance ?? UnityEngine.Object.FindFirstObjectByType<NetworkGameTimer>();
+            if (netTimer != null && netTimer.IsSpawned && netTimer.TimeRemaining != null && netTimer.TimeRemaining.Value > 0.05f)
+                return true;
+
+            if (GameRoleManager.Instance != null && GameRoleManager.Instance.PhaseTimeRemaining > 0.05f)
+                return true;
+        }
+
+        return false;
+    }
+
+    public void CheckServerWinCondition(bool forceCheck = false)
     {
         EnsureLoiMatchEvaluatorInstalled();
 
@@ -402,6 +497,31 @@ public class NetworkGameOverManager : MonoBehaviour
 
         bool isServer = NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer;
         if (!isServer) return;
+
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Night);
+
+        // Khi Night Phase kết thúc, tiến hành resolve theo đúng thứ tự:
+        // 1. NightManager actions (DogSpirit cắn White Hound thức tỉnh)
+        // 2. Shaman Kill target
+        // 3. Đồng bộ trạng thái White Hound và người chơi
+        if (!isNight)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+
+            if (NetworkRoleActionBridge.HasPendingShamanKill)
+            {
+                NetworkRoleActionBridge.ResolvePendingShamanKill();
+                SynchronizeWhiteHoundState();
+            }
+        }
+
+        // Nếu còn hành động ban đêm chưa được xử lý xong, tuyệt đối hoãn kiểm tra thắng thua
+        if (HasUnresolvedNightActions())
+            return;
 
         // Nếu Pháp Sư vừa dùng Bùa Hại (Kill), tạm hoãn kiểm tra để các action đêm và người chơi kịp thấy kết quả
         if (shamanKillDelayTimer > 0f)
@@ -434,8 +554,8 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
-        // Chưa hết time của phase thì không tính điều kiện thắng (chờ phase kết thúc để mọi vai trò hoàn tất action)
-        if (IsPhaseTimerActive())
+        // Chưa hết time của phase thì không tính điều kiện thắng (trừ khi forceCheck = true sau khi phase kết thúc)
+        if (!forceCheck && IsPhaseTimerActive())
             return;
 
         // 1. Kiểm tra Kẻ Điên (Madman) bị xử tử ngày 1
@@ -482,7 +602,7 @@ public class NetworkGameOverManager : MonoBehaviour
 
         foreach (var player in PlayerManager.Instance.players)
         {
-            if (player == null || !player.isAlive) continue;
+            if (player == null || !player.isAlive || player.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)player.playerID)) continue;
 
             if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
             {
@@ -504,10 +624,11 @@ public class NetworkGameOverManager : MonoBehaviour
         int aliveVillagers = 0;
         int aliveThirdParty = 0;
         int aliveKillers = 0;
+        int unawakenedWhiteHounds = 0;
 
         foreach (var player in PlayerManager.Instance.players)
         {
-            if (player == null || !player.isAlive) continue;
+            if (player == null || !player.isAlive || player.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)player.playerID)) continue;
 
             bool isWhiteHound = player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf;
 
@@ -569,15 +690,20 @@ public class NetworkGameOverManager : MonoBehaviour
                 if (player.roleType == RoleType.Killer || player.roleType == RoleType.SerialKiller)
                     aliveKillers++;
             }
-            else if (!isWhiteHound)
+            else if (isWhiteHound && !isAwakenedWhiteHound)
+            {
+                // Bạch Khuyển chưa thức tỉnh (vẫn còn khả năng chuyển phe)
+                unawakenedWhiteHounds++;
+            }
+            else
             {
                 // Bạch Khuyển tuyệt đối KHÔNG BAO GIỜ được cộng vào aliveVillagers!
                 aliveVillagers++;
             }
         }
 
-        // 5. Phe thứ 3 (Sát Nhân / Cáo Tinh / Kẻ Điên...): thắng khi đã loại hết Quái vật (kể cả WhiteHound thức tỉnh) và Dân làng
-        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers == 0)
+        // 5. Phe thứ 3 (Sát Nhân / Cáo Tinh / Kẻ Điên...): thắng khi đã loại hết Quái vật (kể cả WhiteHound) và Dân làng
+        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers == 0 && unawakenedWhiteHounds == 0)
         {
             if (aliveKillers > 0)
             {
@@ -606,10 +732,15 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
-        // 6. Ma Sói (Phe DogSpirit + WhiteHound thức tỉnh) thắng khi số Monster >= số Dân làng & phe khác (VD: 1 Dân vs 1 Bạch Khuyển thức tỉnh -> Monster thắng!)
-        if (aliveMonsters > 0 && aliveMonsters >= aliveVillagers + aliveThirdParty)
+        // 6. Ma Sói (Phe DogSpirit + WhiteHound thức tỉnh) thắng theo cơ chế parity:
+        // aliveMonsters >= aliveVillagers + aliveThirdParty
+        // Lưu ý:
+        // - unawakenedWhiteHounds còn khả năng chuyển phe -> được tính vào phía đối kháng (nonMonsters)
+        // - Nếu còn Killer (aliveKillers > 0) -> Killer có thể giết Sói vào ban đêm nên Sói không thể thắng parity
+        int nonMonsters = aliveVillagers + aliveThirdParty + unawakenedWhiteHounds;
+        if (aliveMonsters > 0 && aliveKillers == 0 && aliveMonsters >= nonMonsters)
         {
-            Debug.Log($"[NetworkWinCondition] Phe DogSpirit/Monster ({aliveMonsters}) >= Dân làng & phe khác ({aliveVillagers + aliveThirdParty}) -> Ma Sói thắng!");
+            Debug.Log($"[NetworkWinCondition] Phe DogSpirit/Monster ({aliveMonsters}) >= Dân làng & phe khác ({nonMonsters}) -> Ma Sói thắng!");
             if (GameRoleManager.Instance != null) GameRoleManager.Instance.WerewolfWin();
             TriggerGameOver("Werewolves");
             return;
@@ -626,7 +757,7 @@ public class NetworkGameOverManager : MonoBehaviour
         }
 
         // 7. Dân Làng chỉ thắng khi đã diệt sạch cả Quái vật, Bạch Khuyển (WhiteHound) LẪN toàn bộ Phe thứ 3
-        if (aliveMonsters == 0 && aliveWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
+        if (aliveMonsters == 0 && unawakenedWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
         {
             Debug.Log("[NetworkWinCondition] Quái vật, Bạch Khuyển và Phe thứ 3 đã bị tiêu diệt hết -> Dân làng thắng!");
             if (GameRoleManager.Instance != null) GameRoleManager.Instance.VillagerWin();
@@ -636,7 +767,7 @@ public class NetworkGameOverManager : MonoBehaviour
 
         // 8. Trường hợp TẤT CẢ NGƯỜI CHƠI ĐỀU CHẾT hoặc nhiều phe cùng bị tiêu diệt:
         //    Phân định phe thắng theo luật hiện có, không bao giờ Hòa:
-        if (aliveMonsters == 0 && aliveVillagers == 0 && aliveThirdParty == 0)
+        if (aliveMonsters == 0 && aliveVillagers == 0 && aliveThirdParty == 0 && unawakenedWhiteHounds == 0)
         {
             string winner = ResolveAllDeadWinner();
             Debug.Log($"[NetworkWinCondition] Tất cả người chơi đã chết -> Phân định phe thắng: {winner}");
@@ -722,7 +853,7 @@ public class NetworkGameOverManager : MonoBehaviour
         int count = 0;
         foreach (var p in PlayerManager.Instance.players)
         {
-            if (p != null && p.isAlive)
+            if (p != null && p.isAlive && !p.isDisconnected && !NetworkGameManager.IsPlayerLeft((ulong)p.playerID))
             {
                 count++;
                 if (count > 2) return false;
@@ -931,7 +1062,15 @@ public class NetworkGameOverManager : MonoBehaviour
         bool isHost = NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer || NetworkManager.Singleton.IsHost;
         float btnY = -180f;
 
-        if (isHost)
+        if (winner == "Host Disconnected")
+        {
+            CreateButton(card.transform, "LeaveBtn",
+                "V\u1ec0 MAIN MENU",
+                new Vector2(0f, btnY), new Vector2(360, 88),
+                new Color(0.65f, 0.20f, 0.25f),
+                OnLeaveRoomClicked, 28);
+        }
+        else if (isHost)
         {
             // Host thấy 3 nút: Chơi Lại, Về Lobby (cùng phòng), và Rời Phòng (về MainMenu)
             // Khoảng cách giữa các nút chính xác là 26px
@@ -1013,7 +1152,14 @@ public class NetworkGameOverManager : MonoBehaviour
             }
 
             bool isHost = NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer || NetworkManager.Singleton.IsHost;
-            if (isHost)
+            if (currentWinner == "Host Disconnected")
+            {
+                if (GUI.Button(new Rect(x + 160, y + 175, 200, 55), "V\u1ec0 MAIN MENU"))
+                {
+                    OnLeaveRoomClicked();
+                }
+            }
+            else if (isHost)
             {
                 if (GUI.Button(new Rect(x + 15, y + 175, 145, 55), "CHƠI LẠI"))
                 {
@@ -1078,6 +1224,7 @@ public class NetworkGameOverManager : MonoBehaviour
             DayTimer.Instance?.StopTimer();
 
             // BƯỚC 2: Xóa dữ liệu action và kết quả tạm thời của ván cũ
+            NetworkGameManager.ResetProcessedDisconnects();
             NetworkPlayerAction.ResetServerActionData();
             NightManager.Instance?.ResetForNewMatch();
             VoteManager.Instance?.StartVote();
@@ -1357,6 +1504,7 @@ public class NetworkGameOverManager : MonoBehaviour
             }
         }
 
+        bool stateChanged = false;
         foreach (var p in PlayerManager.Instance.players)
         {
             if (p == null) continue;
@@ -1374,6 +1522,7 @@ public class NetworkGameOverManager : MonoBehaviour
                         p.isAlive = true;
                         NetworkPlayerStateSync.SyncGameplayAliveState(p.playerID, true);
                         Debug.LogWarning($"[NetworkGameOverManager] WhiteHound (Player {p.playerID + 1}) bị cắn đêm nay -> Đảm bảo isAlive = true!");
+                        stateChanged = true;
                     }
                 }
 
@@ -1401,8 +1550,17 @@ public class NetworkGameOverManager : MonoBehaviour
                     {
                         p.roleDefinition = RoleManager.Instance.roleDefinitions.Find(RoleType.DogSpirit);
                     }
+
+                    p.NotifyChanged();
+                    NetworkPlayerStateSync.SyncGameplayAliveState(p.playerID, true);
+                    stateChanged = true;
                 }
             }
+        }
+
+        if (stateChanged)
+        {
+            NetworkRoleSync.SyncAllRoleSyncs();
         }
     }
 
@@ -1472,11 +1630,32 @@ public class NetworkGameOverManager : MonoBehaviour
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
 
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (game != null && game.currentPhase == GamePhase.Night);
+
+        // Khi Night Phase kết thúc, tiến hành resolve theo đúng thứ tự trước khi đánh giá điều kiện thắng
+        if (!isNight)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+
+            if (NetworkRoleActionBridge.HasPendingShamanKill)
+            {
+                NetworkRoleActionBridge.ResolvePendingShamanKill();
+                SynchronizeWhiteHoundState();
+            }
+        }
+
+        // Không kiểm tra điều kiện thắng khi đang còn hành động ban đêm chưa giải quyết xong
+        if (HasUnresolvedNightActions()) return;
+
         if (_instance != null && _instance.shamanKillDelayTimer > 0f) return;
 
         if (_instance != null && _instance.isActiveAndEnabled && NetworkManager.Singleton != null)
         {
-            _instance.CheckServerWinCondition();
+            _instance.CheckServerWinCondition(forceCheck: true);
             return;
         }
 
@@ -1518,7 +1697,7 @@ public class NetworkGameOverManager : MonoBehaviour
 
         foreach (var player in PlayerManager.Instance.players)
         {
-            if (player == null || !player.isAlive) continue;
+            if (player == null || !player.isAlive || player.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)player.playerID)) continue;
 
             if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
             {
@@ -1540,10 +1719,11 @@ public class NetworkGameOverManager : MonoBehaviour
         int aliveVillagers = 0;
         int aliveThirdParty = 0;
         int aliveKillers = 0;
+        int unawakenedWhiteHounds = 0;
 
         foreach (var player in PlayerManager.Instance.players)
         {
-            if (player == null || !player.isAlive) continue;
+            if (player == null || !player.isAlive || player.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)player.playerID)) continue;
 
             bool isWhiteHound = player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf;
 
@@ -1605,7 +1785,12 @@ public class NetworkGameOverManager : MonoBehaviour
                 if (player.roleType == RoleType.Killer || player.roleType == RoleType.SerialKiller)
                     aliveKillers++;
             }
-            else if (!isWhiteHound)
+            else if (isWhiteHound && !isAwakenedWhiteHound)
+            {
+                // Bạch Khuyển chưa thức tỉnh (vẫn còn khả năng chuyển phe)
+                unawakenedWhiteHounds++;
+            }
+            else
             {
                 // Bạch Khuyển tuyệt đối KHÔNG BAO GIỜ được cộng vào aliveVillagers!
                 aliveVillagers++;
@@ -1637,12 +1822,13 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
+        int nonMonstersFallback = aliveVillagers + aliveThirdParty + unawakenedWhiteHounds;
         // Dân làng chỉ chiến thắng khi đã loại hết cả Quái vật, Bạch Khuyển (WhiteHound) LẪN toàn bộ Phe thứ 3
-        if (aliveMonsters == 0 && aliveWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
+        if (aliveMonsters == 0 && unawakenedWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
         {
             SetDev2GameOver("Villagers");
         }
-        else if (aliveMonsters > 0 && aliveMonsters >= aliveVillagers + aliveThirdParty)
+        else if (aliveMonsters > 0 && aliveKillers == 0 && aliveMonsters >= nonMonstersFallback)
         {
             SetDev2GameOver("Werewolves");
         }
@@ -1845,6 +2031,7 @@ public class NetworkGameOverManager : MonoBehaviour
         "Fox Spirit" or "Fox"                    => "PHE THỨ 3 CHIẾN THẮNG",
         "Killer"                                 => "PHE THỨ 3 CHIẾN THẮNG",
         "Neutral" or "ThirdParty"                => "PHE THỨ 3 CHIẾN THẮNG",
+        "Host Disconnected"                      => "HOST \u0110\u00c3 R\u1edcI PH\u00d2NG",
         _                                        => "DÂN LÀNG CHIẾN THẮNG"
     };
 
@@ -1858,6 +2045,7 @@ public class NetworkGameOverManager : MonoBehaviour
         "Fox Spirit" or "Fox"                    => "Cáo Tinh đã mê hoặc thành công hai người.",
         "Killer"                                 => "Sát Nhân là người cuối cùng còn lại.",
         "Neutral" or "ThirdParty"                => "Phe thứ 3 đã đạt điều kiện chiến thắng.",
+        "Host Disconnected"                      => "Host \u0111\u00e3 r\u1eddi ph\u00f2ng. Tr\u1eadn \u0111\u1ea5u \u0111\u00e3 k\u1ebft th\u00fac.",
         _                                        => "Tất cả quái vật đã bị tiêu diệt."
     };
 
