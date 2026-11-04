@@ -58,6 +58,7 @@ public class NetworkTargetListUI : MonoBehaviour
         if (targetPanel != null)
         {
             targetPanel.SetActive(false);
+            NetworkSkillUI.Instance?.CloseTargetPanel();
         }
     }
 
@@ -283,9 +284,20 @@ public class NetworkTargetListUI : MonoBehaviour
 
             if (stateSync != null)
             {
+                // Khi vào ban đêm (Night Phase), các player còn sống được chuyển sang trạng thái Sleeping.
+                // Do đó, cả Alive và Sleeping đều được xem là còn sống hợp lệ.
                 isAlive =
-                    stateSync.State.Value ==
-                    NetworkPlayerStateType.Alive;
+                    stateSync.State.Value == NetworkPlayerStateType.Alive ||
+                    stateSync.State.Value == NetworkPlayerStateType.Sleeping;
+            }
+
+            if (PlayerManager.Instance != null)
+            {
+                PlayerData pd = PlayerManager.Instance.GetplayerByID(playerID);
+                if (pd != null && !pd.isAlive)
+                {
+                    isAlive = false;
+                }
             }
 
             // ==========================================

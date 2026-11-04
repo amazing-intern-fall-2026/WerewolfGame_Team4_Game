@@ -7,7 +7,7 @@ using TMPro;
 public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
 {
     [Serializable]
-    private class RoleImageEntry
+    public class RoleImageEntry
     {
         public RoleType role;
         public Sprite image;
@@ -24,10 +24,32 @@ public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
     [SerializeField]
     private RoleImageEntry[] roleImages;
 
+    private void Awake()
+    {
+        RegisterImagesToDatabase();
+    }
+
+    public void RegisterImagesToDatabase()
+    {
+        if (roleImages == null) return;
+        foreach (RoleImageEntry entry in roleImages)
+        {
+            if (entry != null && entry.image != null)
+            {
+                RoleInfoDatabase.RegisterRoleSprite(entry.role, entry.image);
+            }
+        }
+    }
+
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived +=
             OnRoleReceived;
+
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
+        {
+            OnRoleReceived(NetworkRoleSync.LocalInstance.LocalRole);
+        }
     }
 
     private void OnDisable()
@@ -38,6 +60,8 @@ public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
 
     private void Start()
     {
+        RegisterImagesToDatabase();
+
         Button btn = GetComponent<Button>();
         if (btn == null)
         {
@@ -57,11 +81,33 @@ public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
         if (roleText != null) roleText.raycastTarget = false;
         if (roleImage != null) roleImage.raycastTarget = false;
 
-        if (NetworkRoleSync.LocalInstance != null)
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
         {
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
+        }
+        else
+        {
+            ResetCardUI();
+        }
+    }
+
+    private void Update()
+    {
+        if (roleImage != null && (roleImage.sprite == null || !roleImage.enabled) && NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
+        {
+            OnRoleReceived(NetworkRoleSync.LocalInstance.LocalRole);
+        }
+    }
+
+    public void ResetCardUI()
+    {
+        if (roleText != null) roleText.text = "";
+        if (roleImage != null)
+        {
+            roleImage.sprite = null;
+            roleImage.enabled = false;
         }
     }
 
@@ -79,7 +125,7 @@ public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    private void OnRoleReceived(RoleType role)
+    public void OnRoleReceived(RoleType role)
     {
         Debug.Log(
             "ROLE CARD UI | Role = " + role
@@ -104,18 +150,27 @@ public class NetworkRoleCardUI : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    private Sprite GetRoleImage(RoleType role)
+    public Sprite GetRoleImage(RoleType role)
     {
-        if (roleImages == null)
-            return null;
+        // 1. Ưu tiên lấy Sprite từ RoleInfoDatabase
+        Sprite dbSprite = RoleInfoDatabase.GetRoleSprite(role);
+        if (dbSprite != null)
+            return dbSprite;
 
-        foreach (RoleImageEntry entry in roleImages)
+        // 2. Tra cứu trong roleImages cục bộ và lưu vào Database
+        if (roleImages != null)
         {
-            if (entry == null)
-                continue;
+            foreach (RoleImageEntry entry in roleImages)
+            {
+                if (entry == null)
+                    continue;
 
-            if (entry.role == role)
-                return entry.image;
+                if (entry.role == role && entry.image != null)
+                {
+                    RoleInfoDatabase.RegisterRoleSprite(role, entry.image);
+                    return entry.image;
+                }
+            }
         }
 
         return null;

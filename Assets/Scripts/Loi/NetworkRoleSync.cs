@@ -10,11 +10,15 @@ public class NetworkRoleSync : NetworkBehaviour
     public static event Action<RoleType> OnLocalRoleReceived;
     public static event Action<bool> OnLocalWhiteHoundAwakenedChanged;
     public static event Action<bool, bool> OnLocalShamanCharmsChanged;
+    public static event Action<bool> OnLocalHunterRevengeStateChanged;
 
     public RoleType LocalRole { get; private set; }
+    public bool HasAssignedRole { get; private set; }
     public bool IsWhiteHoundAwakened { get; private set; }
     public bool HasUsedSave { get; set; }
     public bool HasUsedKill { get; set; }
+    public bool CanHunterRevengeShot { get; private set; }
+    public bool HasUsedHunterShot { get; set; }
 
     [SerializeField] private ulong testOwnerClientId = ulong.MaxValue;
     public ulong TargetPlayerId => testOwnerClientId != ulong.MaxValue ? testOwnerClientId : OwnerClientId;
@@ -148,6 +152,7 @@ public class NetworkRoleSync : NetworkBehaviour
         }
 
         LocalRole = roleType;
+        HasAssignedRole = true;
         IsWhiteHoundAwakened = awakened;
 
         bool isShamanRole = roleType == RoleType.Shaman || (pData != null && pData.roleType == RoleType.Shaman);
@@ -254,6 +259,7 @@ public class NetworkRoleSync : NetworkBehaviour
         ClientRpcParams clientRpcParams = default)
     {
         LocalRole = roleType;
+        HasAssignedRole = true;
 
         int playerID = (int)TargetPlayerId;
         PlayerData pData = PlayerManager.Instance?.GetplayerByID(playerID);
@@ -392,6 +398,79 @@ public class NetworkRoleSync : NetworkBehaviour
         }
     }
 
+    public void SendHunterRevengeStateToOwnerClient(
+        bool canShoot,
+        bool hasUsedShot,
+        ulong clientId)
+    {
+        ClientRpcParams rpcParams =
+            new ClientRpcParams
+            {
+                Send =
+                    new ClientRpcSendParams
+                    {
+                        TargetClientIds =
+                            new List<ulong>
+                            {
+                                clientId
+                            }
+                    }
+            };
+
+        ReceiveHunterRevengeStateClientRpc(
+            canShoot,
+            hasUsedShot,
+            rpcParams
+        );
+    }
+
+    [ClientRpc]
+    private void ReceiveHunterRevengeStateClientRpc(
+        bool canShoot,
+        bool hasUsedShot,
+        ClientRpcParams clientRpcParams = default)
+    {
+        CanHunterRevengeShot = canShoot;
+        HasUsedHunterShot = hasUsedShot;
+
+        int playerID = (int)TargetPlayerId;
+        PlayerData pData = PlayerManager.Instance?.GetplayerByID(playerID);
+        if (pData != null)
+        {
+            pData.hasHunterTrap = canShoot;
+            pData.hasUsedHunterShot = hasUsedShot;
+        }
+
+        Debug.Log(
+            $"NETWORK ROLE SYNC | HUNTER REVENGE: CanShoot={canShoot}, HasUsedShot={hasUsedShot}"
+        );
+
+        OnLocalHunterRevengeStateChanged?.Invoke(canShoot);
+    }
+
+    public static void SyncHunterRevengeState(ulong clientId, bool canShoot, bool hasUsedShot)
+    {
+        NetworkRoleSync[] syncs = FindObjectsByType<NetworkRoleSync>(FindObjectsSortMode.None);
+        foreach (var s in syncs)
+        {
+            if (s.TargetPlayerId == clientId)
+            {
+                s.CanHunterRevengeShot = canShoot;
+                s.HasUsedHunterShot = hasUsedShot;
+
+                if (NetworkManager.Singleton == null)
+                {
+                    OnLocalHunterRevengeStateChanged?.Invoke(canShoot);
+                }
+                else if (NetworkManager.Singleton.IsServer)
+                {
+                    s.SendHunterRevengeStateToOwnerClient(canShoot, hasUsedShot, clientId);
+                }
+                break;
+            }
+        }
+    }
+
     private void OnDestroy()
     {
         if (LocalInstance == this)
@@ -411,17 +490,42 @@ public class NetworkRoleSync : NetworkBehaviour
         HasUsedSave = false;
         HasUsedKill = false;
         LocalRole = RoleType.Villager;
+        HasAssignedRole = false;
         OnLocalWhiteHoundAwakenedChanged?.Invoke(false);
         OnLocalShamanCharmsChanged?.Invoke(false, false);
+        CanHunterRevengeShot = false;
+        HasUsedHunterShot = false;
+        OnLocalHunterRevengeStateChanged?.Invoke(false);
     }
 
     public static void ResetAllRoleSyncs()
     {
-        NetworkRoleSync[] syncs = FindObjectsByType<NetworkRoleSync>(FindObjectsSortMode.None);
-        foreach (var s in syncs)
+        NetworkRoleSync[] syncs = null;
+        try { syncs = FindObjectsByType<NetworkRoleSync>(FindObjectsSortMode.None); } catch { syncs = new NetworkRoleSync[0]; }
+        if (syncs != null)
         {
-            s.ResetForNewMatch();
+            foreach (var s in syncs)
+            {
+                s.ResetForNewMatch();
+            }
         }
-        Debug.Log($"NETWORK ROLE SYNC: Đã reset {syncs.Length} NetworkRoleSync.");
+        try { Debug.Log($"NETWORK ROLE SYNC: Đã reset {syncs?.Length ?? 0} NetworkRoleSync."); } catch { }
+    }
+
+    /// <summary>
+    /// Xóa toàn bộ static event listener, static instance và cache khi rời phòng hoặc vào phòng mới.
+    /// Giúp ngăn rò rỉ bộ nhớ, lỗi MissingReferenceException và đảm bảo ván mới nhận đúng role/sprite.
+    /// </summary>
+    public static void ResetStaticSessionState()
+    {
+        OnLocalRoleReceived = null;
+        OnLocalWhiteHoundAwakenedChanged = null;
+        OnLocalShamanCharmsChanged = null;
+        LocalInstance = null;
+
+        NetworkGameRoleSetup.Clear();
+        RoleInfoDatabase.ClearSpriteCache();
+
+        Debug.Log("NETWORK ROLE SYNC: ResetStaticSessionState hoàn tất.");
     }
 }

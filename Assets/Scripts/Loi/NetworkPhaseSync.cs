@@ -350,6 +350,87 @@ public class NetworkPhaseSync : NetworkBehaviour
         NetworkGameOverManager.Instance?.ResetUIState();
     }
 
+    // =========================================================
+    // NIGHT RESOLUTION BROADCAST
+    // =========================================================
+
+    public void AnnounceNightDeath(int victimId, string victimName, string deathCause)
+    {
+        if (IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            BroadcastNightDeathClientRpc(victimId, victimName, deathCause);
+        }
+        else
+        {
+            ExecuteNightDeathBroadcast(victimId, victimName, deathCause);
+        }
+    }
+
+    [ClientRpc]
+    public void BroadcastNightDeathClientRpc(int victimId, string victimName, string deathCause)
+    {
+        ExecuteNightDeathBroadcast(victimId, victimName, deathCause);
+    }
+
+    public void ExecuteNightDeathBroadcast(int victimId, string victimName, string deathCause)
+    {
+        Debug.Log($"[NetworkPhaseSync] NightDeathBroadcast: Player {victimId + 1} ({victimName}) chết do {deathCause}");
+
+        string displayName = string.IsNullOrEmpty(victimName) ? $"Player {victimId + 1}" : victimName;
+        string message = $"Đêm qua, {displayName} đã bị tiêu diệt ({deathCause})!";
+
+        NetworkChatManager.Instance?.BroadcastSystemMessage(message);
+
+        NetworkVoteResultNotification notificationUI = FindFirstObjectByType<NetworkVoteResultNotification>();
+        if (notificationUI != null)
+        {
+            notificationUI.ShowResult("KẾT QUẢ ĐÊM", message);
+        }
+
+        if (NetworkManager.Singleton != null && (int)NetworkManager.Singleton.LocalClientId == victimId)
+        {
+            NetworkDeathNotification.Instance?.ShowDeathNotification();
+        }
+
+        NetworkTargetListUI.Instance?.Refresh();
+        NetworkSkillUI.Instance?.CloseTargetPanel();
+    }
+
+    public void AnnounceNightPeaceful()
+    {
+        if (IsServer && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            BroadcastNightPeacefulClientRpc();
+        }
+        else
+        {
+            ExecuteNightPeacefulBroadcast();
+        }
+    }
+
+    [ClientRpc]
+    public void BroadcastNightPeacefulClientRpc()
+    {
+        ExecuteNightPeacefulBroadcast();
+    }
+
+    public void ExecuteNightPeacefulBroadcast()
+    {
+        Debug.Log("[NetworkPhaseSync] NightPeacefulBroadcast: Đêm qua là một đêm bình yên.");
+        string message = "Đêm qua là một đêm bình yên, không ai chết!";
+
+        NetworkChatManager.Instance?.BroadcastSystemMessage(message);
+
+        NetworkVoteResultNotification notificationUI = FindFirstObjectByType<NetworkVoteResultNotification>();
+        if (notificationUI != null)
+        {
+            notificationUI.ShowResult("KẾT QUẢ ĐÊM", message);
+        }
+
+        NetworkTargetListUI.Instance?.Refresh();
+        NetworkSkillUI.Instance?.CloseTargetPanel();
+    }
+
     [ServerRpc(RequireOwnership = false)]
     public void RequestReturnToLobbyServerRpc(ServerRpcParams rpcParams = default)
     {

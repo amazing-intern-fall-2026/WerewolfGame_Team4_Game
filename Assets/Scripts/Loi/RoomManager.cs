@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
@@ -28,6 +29,7 @@ public static class RoomManager
     public static string CurrentVoiceChannelId { get; set; }
     public static string CurrentLobbyId { get; set; } // UGS Lobby Id nếu có
     public static bool IsHostOfCurrentRoom { get; set; }
+    private static CancellationTokenSource heartbeatCts;
 
     private static readonly string SharedRegistryFilePath = Path.Combine(Path.GetTempPath(), "Werewolf_LocalLobbies.json");
     private static readonly object FileLock = new object();
@@ -183,6 +185,12 @@ public static class RoomManager
 
     public static async Task<RoomSessionData> CreateRoomSessionAsync(int maxPlayers = DEFAULT_MAX_PLAYERS)
     {
+        // 0. Nếu đang còn giữ Lobby cũ, đóng sạch sẽ trước khi tạo mới để tránh lỗi "Player already in lobby"
+        if (!string.IsNullOrEmpty(CurrentLobbyId) || !string.IsNullOrEmpty(CurrentRoomCode))
+        {
+            await CloseCurrentRoomAsync();
+        }
+
         string roomCode = GenerateRoomCode();
         ushort hostPort = GetAvailableUdpPort(BASE_PORT);
         string sessionId = "sess-" + roomCode + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -225,7 +233,7 @@ public static class RoomManager
                 }
                 catch (Exception relayEx)
                 {
-                    Debug.LogWarning($"ROOM MANAGER | UGS Relay không khả dụng (dùng Direct Port): {relayEx.Message}");
+                    Debug.LogWarning($"[RoomManager] UGS Relay không khả dụng (dùng Direct Port): {relayEx.Message}");
                 }
 
                 // Thử tạo UGS Lobby
@@ -239,23 +247,36 @@ public static class RoomManager
                             { "RoomCode", new DataObject(DataObject.VisibilityOptions.Public, roomCode, DataObject.IndexOptions.S1) },
                             { "VoiceChannelId", new DataObject(DataObject.VisibilityOptions.Public, voiceChannel) },
                             { "HostPort", new DataObject(DataObject.VisibilityOptions.Public, hostPort.ToString()) },
-                            { "RelayJoinCode", new DataObject(DataObject.VisibilityOptions.Member, sessionData.relayJoinCode ?? string.Empty) }
+                            { "RelayJoinCode", new DataObject(DataObject.VisibilityOptions.Public, sessionData.relayJoinCode ?? string.Empty) }
                         }
                     };
 
                     Lobby lobby = await LobbyService.Instance.CreateLobbyAsync("Werewolf_" + roomCode, maxPlayers, options);
                     CurrentLobbyId = lobby.Id;
-                    Debug.Log($"ROOM MANAGER | Đã tạo UGS Lobby: {lobby.Id} với RoomCode: {roomCode}");
+
+                    // Log dữ liệu thực tế Host theo yêu cầu Section 2.C
+                    string dataKeys = options.Data != null ? string.Join(", ", options.Data.Keys) : "none";
+                    string roomCodeVis = options.Data != null && options.Data.ContainsKey("RoomCode") ? options.Data["RoomCode"].Visibility.ToString() : "unknown";
+                    Debug.Log($"[RoomManager] Host tạo Lobby thành công:");
+                    Debug.Log($"[RoomManager] - Lobby ID: {lobby.Id}");
+                    Debug.Log($"[RoomManager] - Lobby Name: {lobby.Name}");
+                    Debug.Log($"[RoomManager] - Room Code: {roomCode}");
+                    Debug.Log($"[RoomManager] - Lobby Data keys: [{dataKeys}]");
+                    Debug.Log($"[RoomManager] - Visibility của Room Code: {roomCodeVis}");
+                    Debug.Log($"[RoomManager] - Lobby State: Active, IsPrivate={lobby.IsPrivate}, IsLocked={lobby.IsLocked}");
+
+                    // Khởi động Heartbeat định kỳ 15s để giữ Lobby sống trên UGS
+                    StartHeartbeat(lobby.Id);
                 }
                 catch (Exception lobbyEx)
                 {
-                    Debug.LogWarning($"ROOM MANAGER | UGS Lobby Service không khả dụng (dùng Local Hub): {lobbyEx.Message}");
+                    Debug.LogWarning($"[RoomManager] UGS Lobby Service không khả dụng (dùng Local Hub): {lobbyEx.Message}");
                 }
             }
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"ROOM MANAGER | Bỏ qua UGS Cloud, chạy ở chế độ Local Hub: {ex.Message}");
+            Debug.LogWarning($"[RoomManager] Bỏ qua UGS Cloud, chạy ở chế độ Local Hub: {ex.Message}");
         }
 
         // Cập nhật lại registry sau khi có thêm thông tin
@@ -263,14 +284,48 @@ public static class RoomManager
         return sessionData;
     }
 
+    public static async Task UpdateHostPortInLobbyAsync(ushort newPort)
+    {
+        if (string.IsNullOrEmpty(CurrentLobbyId) || !IsHostOfCurrentRoom)
+            return;
+
+        try
+        {
+            if (UnityServices.State == ServicesInitializationState.Initialized &&
+                AuthenticationService.Instance != null &&
+                AuthenticationService.Instance.IsSignedIn)
+            {
+                var updateOptions = new UpdateLobbyOptions
+                {
+                    Data = new Dictionary<string, DataObject>
+                    {
+                        { "HostPort", new DataObject(DataObject.VisibilityOptions.Public, newPort.ToString()) }
+                    }
+                };
+                await LobbyService.Instance.UpdateLobbyAsync(CurrentLobbyId, updateOptions);
+                Debug.Log($"[RoomManager] Đã cập nhật HostPort={newPort} lên UGS Lobby {CurrentLobbyId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[RoomManager] Lỗi khi cập nhật HostPort lên UGS Lobby: {ex.Message}");
+        }
+    }
+
     // =========================================================
     // 4. TRA CỨU PHÒNG (CLIENT)
     // =========================================================
 
-    public static async Task<RoomLookupResult> LookupRoomAsync(string roomCode)
+    public static async Task<RoomLookupResult> LookupRoomAsync(string rawRoomCode)
     {
+        string roomCode = rawRoomCode?.Trim();
+
+        // Log Client Room Code nhập vào theo yêu cầu Section 2.C
+        Debug.Log($"[RoomManager] Client Room Code nhập vào: '{roomCode}'");
+
         if (!IsValidRoomCode(roomCode))
         {
+            Debug.LogWarning($"[RoomManager] Lý do không tìm thấy phòng: Mã '{roomCode}' không đúng định dạng (phải gồm đúng 6 chữ số).");
             return new RoomLookupResult
             {
                 success = false,
@@ -284,6 +339,7 @@ public static class RoomManager
         {
             if (localRoom.isClosed)
             {
+                Debug.LogWarning($"[RoomManager] Lý do không tìm thấy phòng: Phòng '{roomCode}' trong Local Registry đã đóng hoặc kết thúc.");
                 return new RoomLookupResult
                 {
                     success = false,
@@ -293,6 +349,7 @@ public static class RoomManager
 
             if (localRoom.currentPlayers >= localRoom.maxPlayers)
             {
+                Debug.LogWarning($"[RoomManager] Lý do không tìm thấy phòng: Phòng '{roomCode}' trong Local Registry đã đầy người chơi.");
                 return new RoomLookupResult
                 {
                     success = false,
@@ -300,6 +357,7 @@ public static class RoomManager
                 };
             }
 
+            Debug.Log($"[RoomManager] Client tìm thấy phòng '{roomCode}' trong Local Registry (Port: {localRoom.hostPort})");
             return new RoomLookupResult
             {
                 success = true,
@@ -307,66 +365,130 @@ public static class RoomManager
             };
         }
 
-        // 2. Nếu không có trong Local Registry, thử tìm qua UGS Lobby Service (nếu online)
+        // 2. Nếu không có trong Local Registry, thử tìm qua UGS Lobby Service (nếu online) với retry có giới hạn
+        string lastFailureReason = null;
         try
         {
             if (UnityServices.State == ServicesInitializationState.Initialized &&
                 AuthenticationService.Instance != null &&
                 AuthenticationService.Instance.IsSignedIn)
             {
+                // Log Query Filter đang sử dụng theo yêu cầu Section 2.C
+                Debug.Log($"[RoomManager] Client Query Filter: S1 EQ '{roomCode}'");
+
                 var queryOptions = new QueryLobbiesOptions
                 {
+                    Count = 10,
                     Filters = new List<QueryFilter>
                     {
                         new QueryFilter(QueryFilter.FieldOptions.S1, roomCode, QueryFilter.OpOptions.EQ)
                     }
                 };
 
-                QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync(queryOptions);
-                if (response != null && response.Results != null && response.Results.Count > 0)
+                const int maxAttempts = 3;
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
                 {
-                    Lobby ugsLobby = response.Results[0];
+                    QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync(queryOptions);
+                    int resultCount = response?.Results?.Count ?? 0;
 
-                    string voiceChannel = ugsLobby.Data != null && ugsLobby.Data.ContainsKey("VoiceChannelId")
-                        ? ugsLobby.Data["VoiceChannelId"].Value
-                        : "ww-" + roomCode;
+                    // Log Số Lobby nhận được theo yêu cầu Section 2.C
+                    Debug.Log($"[RoomManager] Client số Lobby nhận được: {resultCount} (Lần thử {attempt}/{maxAttempts})");
 
-                    string relayCode = ugsLobby.Data != null && ugsLobby.Data.ContainsKey("RelayJoinCode")
-                        ? ugsLobby.Data["RelayJoinCode"].Value
-                        : string.Empty;
-
-                    ushort port = BASE_PORT;
-                    if (ugsLobby.Data != null && ugsLobby.Data.ContainsKey("HostPort"))
+                    if (response != null && response.Results != null && response.Results.Count > 0)
                     {
-                        ushort.TryParse(ugsLobby.Data["HostPort"].Value, out port);
+                        for (int i = 0; i < response.Results.Count; i++)
+                        {
+                            var l = response.Results[i];
+                            string lCode = l.Data != null && l.Data.ContainsKey("RoomCode") ? l.Data["RoomCode"].Value : "Unknown";
+                            // Log Room Code của từng Lobby trả về theo yêu cầu Section 2.C
+                            Debug.Log($"[RoomManager] Lobby #{i + 1} trả về: ID={l.Id}, Name={l.Name}, RoomCode={lCode}, Slots={l.AvailableSlots}/{l.MaxPlayers}, IsLocked={l.IsLocked}");
+                        }
+
+                        Lobby ugsLobby = response.Results[0];
+
+                        if (ugsLobby.IsLocked)
+                        {
+                            lastFailureReason = $"Phòng '{roomCode}' đang bị khóa hoặc trận đấu đã bắt đầu.";
+                            Debug.LogWarning($"[RoomManager] Lý do không tìm thấy phòng: {lastFailureReason}");
+                            return new RoomLookupResult
+                            {
+                                success = false,
+                                errorMessage = "Phòng đang bị khóa hoặc trận đấu đã bắt đầu."
+                            };
+                        }
+
+                        if (ugsLobby.AvailableSlots <= 0)
+                        {
+                            lastFailureReason = $"Phòng '{roomCode}' đã đầy người chơi.";
+                            Debug.LogWarning($"[RoomManager] Lý do không tìm thấy phòng: {lastFailureReason}");
+                            return new RoomLookupResult
+                            {
+                                success = false,
+                                errorMessage = "Phòng đã đầy người chơi."
+                            };
+                        }
+
+                        string voiceChannel = ugsLobby.Data != null && ugsLobby.Data.ContainsKey("VoiceChannelId")
+                            ? ugsLobby.Data["VoiceChannelId"].Value
+                            : "ww-" + roomCode;
+
+                        string relayCode = ugsLobby.Data != null && ugsLobby.Data.ContainsKey("RelayJoinCode")
+                            ? ugsLobby.Data["RelayJoinCode"].Value
+                            : string.Empty;
+
+                        ushort port = BASE_PORT;
+                        if (ugsLobby.Data != null && ugsLobby.Data.ContainsKey("HostPort"))
+                        {
+                            ushort.TryParse(ugsLobby.Data["HostPort"].Value, out port);
+                        }
+
+                        var cloudSession = new RoomSessionData
+                        {
+                            roomCode = roomCode,
+                            sessionId = ugsLobby.Id,
+                            hostAddress = "127.0.0.1",
+                            hostPort = port,
+                            voiceChannelId = voiceChannel,
+                            relayJoinCode = relayCode,
+                            currentPlayers = ugsLobby.Players != null ? ugsLobby.Players.Count : 1,
+                            maxPlayers = ugsLobby.MaxPlayers,
+                            lastHeartbeat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                            isClosed = false
+                        };
+
+                        Debug.Log($"[RoomManager] Tra cứu UGS Lobby thành công: RoomCode={roomCode}, LobbyId={ugsLobby.Id}, Voice={voiceChannel}");
+
+                        return new RoomLookupResult
+                        {
+                            success = true,
+                            sessionData = cloudSession
+                        };
                     }
 
-                    var cloudSession = new RoomSessionData
+                    // Nếu chưa tìm thấy kết quả và còn lượt thử, chờ một khoảng ngắn trước khi thử lại (UGS indexing delay)
+                    if (attempt < maxAttempts)
                     {
-                        roomCode = roomCode,
-                        sessionId = ugsLobby.Id,
-                        hostAddress = "127.0.0.1",
-                        hostPort = port,
-                        voiceChannelId = voiceChannel,
-                        relayJoinCode = relayCode,
-                        currentPlayers = ugsLobby.Players != null ? ugsLobby.Players.Count : 1,
-                        maxPlayers = ugsLobby.MaxPlayers,
-                        lastHeartbeat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                        isClosed = false
-                    };
-
-                    return new RoomLookupResult
-                    {
-                        success = true,
-                        sessionData = cloudSession
-                    };
+                        int delayMs = 800 + (attempt * 400); // 1200ms, 1600ms
+                        Debug.Log($"[RoomManager] Chưa thấy Lobby '{roomCode}' trên index UGS, đang chờ {delayMs}ms để thử lại (lần {attempt + 1}/{maxAttempts})...");
+                        await Task.Delay(delayMs);
+                    }
                 }
+
+                lastFailureReason = $"Không tìm thấy Lobby nào trên UGS với RoomCode '{roomCode}' sau {maxAttempts} lần truy vấn.";
+            }
+            else
+            {
+                lastFailureReason = "Chưa kết nối Unity Services hoặc không có mạng/Authentication.";
             }
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"ROOM MANAGER | Lỗi khi tra cứu UGS Lobby: {ex.Message}");
+            lastFailureReason = $"Ngoại lệ khi tra cứu UGS Lobby: {ex.Message}";
+            Debug.LogWarning($"[RoomManager] {lastFailureReason}");
         }
+
+        // Log Lý do không tìm thấy phòng theo yêu cầu Section 2.C
+        Debug.LogWarning($"[RoomManager] Lý do không tìm thấy phòng: {lastFailureReason ?? "Phòng không tồn tại hoặc đã hết hạn."}");
 
         return new RoomLookupResult
         {
@@ -381,33 +503,112 @@ public static class RoomManager
 
     public static async Task CloseCurrentRoomAsync()
     {
-        if (string.IsNullOrEmpty(CurrentRoomCode))
-            return;
+        StopHeartbeat();
 
         string codeToClose = CurrentRoomCode;
         string lobbyIdToClose = CurrentLobbyId;
-
-        // Xóa / Đánh dấu đóng trong Local Registry
-        RemoveRoomFromLocalRegistry(codeToClose);
-
-        // Đóng trên UGS Lobby nếu là Host
-        if (IsHostOfCurrentRoom && !string.IsNullOrEmpty(lobbyIdToClose))
-        {
-            try
-            {
-                await LobbyService.Instance.DeleteLobbyAsync(lobbyIdToClose);
-                Debug.Log($"ROOM MANAGER | Đã xóa UGS Lobby {lobbyIdToClose}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"ROOM MANAGER | Lỗi khi xóa UGS Lobby: {ex.Message}");
-            }
-        }
 
         CurrentRoomCode = null;
         CurrentVoiceChannelId = null;
         CurrentLobbyId = null;
         IsHostOfCurrentRoom = false;
+
+        // Xóa / Đánh dấu đóng trong Local Registry
+        if (!string.IsNullOrEmpty(codeToClose))
+        {
+            RemoveRoomFromLocalRegistry(codeToClose);
+        }
+
+        // Đóng trên UGS Lobby nếu có LobbyId
+        if (!string.IsNullOrEmpty(lobbyIdToClose))
+        {
+            try
+            {
+                if (UnityServices.State == ServicesInitializationState.Initialized &&
+                    AuthenticationService.Instance != null &&
+                    AuthenticationService.Instance.IsSignedIn)
+                {
+                    await LobbyService.Instance.DeleteLobbyAsync(lobbyIdToClose);
+                    Debug.Log($"[RoomManager] Đã xóa UGS Lobby {lobbyIdToClose}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[RoomManager] Lỗi khi xóa UGS Lobby {lobbyIdToClose}: {ex.Message}");
+            }
+        }
+    }
+
+    // =========================================================
+    // 5B. HEARTBEAT CHO UGS LOBBY
+    // =========================================================
+
+    public static void StartHeartbeat(string lobbyId)
+    {
+        StopHeartbeat();
+        if (string.IsNullOrEmpty(lobbyId))
+            return;
+
+        heartbeatCts = new CancellationTokenSource();
+        var token = heartbeatCts.Token;
+        _ = RunHeartbeatLoopAsync(lobbyId, token);
+        Debug.Log($"[RoomManager] Đã bắt đầu Heartbeat cho UGS Lobby {lobbyId}");
+    }
+
+    public static void StopHeartbeat()
+    {
+        if (heartbeatCts != null)
+        {
+            try
+            {
+                heartbeatCts.Cancel();
+            }
+            catch { }
+            heartbeatCts.Dispose();
+            heartbeatCts = null;
+            Debug.Log("[RoomManager] Đã dừng Heartbeat Lobby.");
+        }
+    }
+
+    private static async Task RunHeartbeatLoopAsync(string lobbyId, CancellationToken token)
+    {
+        while (!token.IsCancellationRequested && !string.IsNullOrEmpty(CurrentLobbyId) && CurrentLobbyId == lobbyId && IsHostOfCurrentRoom)
+        {
+            try
+            {
+                await Task.Delay(15000, token);
+                if (token.IsCancellationRequested) break;
+
+                if (UnityServices.State == ServicesInitializationState.Initialized &&
+                    AuthenticationService.Instance != null &&
+                    AuthenticationService.Instance.IsSignedIn)
+                {
+                    await LobbyService.Instance.SendHeartbeatPingAsync(lobbyId);
+                    UpdateHeartbeatInLocalRegistry(CurrentRoomCode);
+                    Debug.Log($"[RoomManager] Heartbeat ping gửi thành công cho Lobby {lobbyId}");
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[RoomManager] Cảnh báo Heartbeat ping cho Lobby {lobbyId}: {ex.Message}");
+            }
+        }
+    }
+
+    public static void UpdateHeartbeatInLocalRegistry(string roomCode)
+    {
+        if (string.IsNullOrEmpty(roomCode)) return;
+        var wrapper = LoadRegistry();
+        var room = wrapper.rooms.Find(r => r.roomCode == roomCode);
+        if (room != null)
+        {
+            room.lastHeartbeat = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            SaveRegistry(wrapper);
+        }
     }
 
     // =========================================================

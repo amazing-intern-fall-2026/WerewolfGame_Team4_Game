@@ -93,6 +93,7 @@ public class NetworkTargetCardUI : MonoBehaviour
             );
 
             NetworkTargetListUI.Instance?.CloseTargetList();
+            NetworkSkillUI.Instance?.NotifyActionDispatched();
             return;
         }
 

@@ -58,6 +58,7 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
 
         if (networkManager.IsServer)
         {
+            NetworkGameManager.ResetProcessedDisconnects();
             var connectedIds = networkManager.ConnectedClientsIds;
             var validActiveIds = new HashSet<ulong>();
 
@@ -134,11 +135,11 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
         }
         else
         {
-            // Client: Tiêu hủy mọi PlayerController GameObject của client đã bị đánh dấu Left hoặc không trong NetworkGamePlayerSetup
+            // Client: Tiêu hủy PlayerController GameObject nếu thực sự thuộc LeftPlayerClientIds hoặc có match setup mà không thuộc ván đấu
             PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
             foreach (var pc in controllers)
             {
-                if (pc != null && (NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) || !NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId)))
+                if (pc != null && (NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) || (NetworkGamePlayerSetup.HasActiveMatchSetup && !NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId))))
                 {
                     Debug.Log($"[NetworkGamePlayerBootstrap] Client tiêu hủy PlayerController mồ côi ClientId={pc.OwnerClientId}");
                     Destroy(pc.gameObject);
@@ -151,7 +152,7 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
             var activeIds = new HashSet<ulong>();
             foreach (var pc in controllers)
             {
-                if (pc != null && !NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) && NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId))
+                if (pc != null && !NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) && (!NetworkGamePlayerSetup.HasActiveMatchSetup || NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId)))
                 {
                     activeIds.Add(pc.OwnerClientId);
                 }
@@ -165,7 +166,7 @@ public class NetworkGamePlayerBootstrap : MonoBehaviour
 
             foreach (var pc in controllers)
             {
-                if (pc != null && !NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) && NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId))
+                if (pc != null && !NetworkGameManager.LeftPlayerClientIds.Contains(pc.OwnerClientId) && (!NetworkGamePlayerSetup.HasActiveMatchSetup || NetworkGamePlayerSetup.IsClientInMatch(pc.OwnerClientId)))
                 {
                     RegisterPlayer(playerManager, pc.OwnerClientId);
                 }
