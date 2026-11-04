@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 
 public class NetworkHunterDeathUI : MonoBehaviour
@@ -78,6 +79,8 @@ public class NetworkHunterDeathUI : MonoBehaviour
             phaseSync.CurrentPhase.OnValueChanged +=
                 OnPhaseChanged;
         }
+
+        ResetForNewMatch();
 
         FindLocalState();
 
@@ -214,6 +217,8 @@ public class NetworkHunterDeathUI : MonoBehaviour
             Debug.Log(
                 "HUNTER UI | Hunter đã chết."
             );
+
+            CheckHunterDiscussion();
         }
     }
 
@@ -237,10 +242,35 @@ public class NetworkHunterDeathUI : MonoBehaviour
             return;
 
         if (!hunterHasDied)
+        {
+            int localId = NetworkManager.Singleton != null ? (int)NetworkManager.Singleton.LocalClientId : -1;
+            if (localId >= 0 && PlayerManager.Instance != null)
+            {
+                PlayerData p = PlayerManager.Instance.GetplayerByID(localId);
+                if (p != null && !p.isAlive)
+                {
+                    hunterHasDied = true;
+                }
+            }
+        }
+
+        if (!hunterHasDied)
             return;
 
         if (hasOpenedTargetUI)
             return;
+
+        // Nếu đã bắn rồi thì không mở lại
+        int myId = NetworkManager.Singleton != null ? (int)NetworkManager.Singleton.LocalClientId : -1;
+        if (myId >= 0 && PlayerManager.Instance != null)
+        {
+            PlayerData me = PlayerManager.Instance.GetplayerByID(myId);
+            if (me != null && me.hasUsedHunterShot)
+                return;
+        }
+
+        if (phaseSync == null)
+            phaseSync = FindFirstObjectByType<NetworkPhaseSync>();
 
         if (phaseSync == null)
             return;
@@ -248,12 +278,11 @@ public class NetworkHunterDeathUI : MonoBehaviour
         GamePhase currentPhase =
             phaseSync.CurrentPhase.Value;
 
-        /*
-         * Hunter chỉ được bắn khi Discussion bắt đầu.
-         */
-        if (currentPhase != GamePhase.Discussion)
+        // Không mở trong lúc Setup, Night (chờ trời sáng), hoặc GameOver
+        if (currentPhase == GamePhase.Setup || currentPhase == GamePhase.Night || currentPhase == GamePhase.GameOver)
             return;
 
+        // Cho phép Hunter bắn khi bị vote chết hoặc bị DogSpirit cắn chết khi trời sáng (Discussion, Voting, ResolveVote, DayResolution, DayStart)
         OpenHunterTargetUI();
     }
 
@@ -271,7 +300,7 @@ public class NetworkHunterDeathUI : MonoBehaviour
         hasOpenedTargetUI = true;
 
         Debug.Log(
-            "HUNTER UI | Discussion → mở Target Panel."
+            "HUNTER UI | Mở Target Panel để Thợ Săn bắn trả thù."
         );
 
         // Đóng thông báo Bạn đã chết để không che chắn bảng chọn mục tiêu
@@ -284,6 +313,10 @@ public class NetworkHunterDeathUI : MonoBehaviour
         else if (targetPanel != null)
         {
             targetPanel.SetActive(true);
+        }
+        else if (NetworkTargetListUI.Instance != null)
+        {
+            NetworkTargetListUI.Instance.ShowTargetList();
         }
         else
         {

@@ -4,6 +4,23 @@ using UnityEngine;
 namespace Thuong.Maps
 {
     [Serializable]
+    public sealed class ThuongMapZone
+    {
+        public string zoneId, displayName;
+        public Rect area;
+        public Vector2 reservedTaskPoint;
+    }
+
+    [Serializable]
+    public sealed class ThuongMapConnection
+    {
+        public string connectionId, fromZone, toZone;
+        public Vector2[] points = Array.Empty<Vector2>();
+        public float width = 3;
+        public bool shortcut;
+    }
+
+    [Serializable]
     public sealed class ThuongMapStation
     {
         public string stationId;
@@ -28,6 +45,8 @@ namespace Thuong.Maps
         public Rect[] obstacles = Array.Empty<Rect>();
         public Vector2 plaza, stage, gate;
         public Vector2[] lanterns = Array.Empty<Vector2>();
+        public ThuongMapZone[] zones = Array.Empty<ThuongMapZone>();
+        public ThuongMapConnection[] connections = Array.Empty<ThuongMapConnection>();
         public bool released = true;
     }
 }

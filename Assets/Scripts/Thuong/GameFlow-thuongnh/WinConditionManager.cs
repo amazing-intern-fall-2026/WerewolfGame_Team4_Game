@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 public class WinConditionManager : MonoBehaviour
 {
     public static WinConditionManager Instance;
@@ -30,6 +30,7 @@ public class WinConditionManager : MonoBehaviour
     {
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
+        if (NetworkGameOverManager.HasPendingHunterDeathShot()) return;
         if (HasMatchEvaluator(game)) { matchEvaluator(dayFinished); return; }
         if (game.manualLogicPrototype || game.HasIntegratedLogic) { EvaluateIntegrated(game, dayFinished); return; }
 
@@ -153,6 +154,7 @@ public class WinConditionManager : MonoBehaviour
     private void EvaluateIntegrated(GameRoleManager game, bool dayFinished)
     {
         if (PlayerManager.Instance?.players == null) return;
+        if (NetworkGameOverManager.HasPendingHunterDeathShot()) return;
         var state = new System.Collections.Generic.List<Thuong.Online.ThuongWinPlayer>();
         foreach (var player in PlayerManager.Instance.players)
         {

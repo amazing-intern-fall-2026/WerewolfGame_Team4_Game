@@ -589,6 +589,10 @@ public class RoleAbilityUI : MonoBehaviour
         else if (player.roleType == RoleType.WeaverOfFate &&
                  GetLocalWeaverRole()?.HasUsedAbility == true)
             reason = "Dệt Duyên chỉ dùng được một lần mỗi ván.";
+        else if (player.roleType == RoleType.Killer &&
+                 ((NightManager.Instance != null ? NightManager.Instance.CurrentNightNumber : 0) <= 0
+                  || (NightManager.Instance != null ? NightManager.Instance.CurrentNightNumber : 0) % 2 != 0))
+            reason = "Sát Nhân chỉ có thể tấn công vào đêm chẵn.";
         else if (player.hasUseNightAction)
             reason = "Bạn đã dùng kỹ năng trong đêm này.";
         else if (RoleManager.Instance == null && RoleManger.Instance == null)

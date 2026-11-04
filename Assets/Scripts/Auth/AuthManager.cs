@@ -487,10 +487,17 @@ public class AuthManager : MonoBehaviour
         {
             SetStatus("Đang đăng xuất...");
 
-            if (AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn)
+            try
             {
-                AuthenticationService.Instance.SignOut();
-                AuthenticationService.Instance.ClearSessionToken();
+                if (IsInitialized && AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn)
+                {
+                    AuthenticationService.Instance.SignOut();
+                    AuthenticationService.Instance.ClearSessionToken();
+                }
+            }
+            catch (Exception authEx)
+            {
+                Debug.LogWarning($"[AUTH] Bỏ qua lỗi AuthenticationService khi SignOut: {authEx.Message}");
             }
 
             CurrentState = AuthState.Unauthenticated;
@@ -505,6 +512,8 @@ public class AuthManager : MonoBehaviour
         {
             Debug.LogWarning($"[AUTH] Lỗi khi đăng xuất: {ex.Message}");
             CurrentState = AuthState.Unauthenticated;
+            PlayerId = string.Empty;
+            CurrentUsername = string.Empty;
             OnAuthStateChanged?.Invoke(CurrentState, null, null);
         }
     }

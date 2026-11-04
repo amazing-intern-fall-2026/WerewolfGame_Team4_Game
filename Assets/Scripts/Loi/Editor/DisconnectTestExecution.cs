@@ -9,8 +9,10 @@ public static class DisconnectTestExecution
     [InitializeOnLoadMethod]
     private static void OnEditorReload()
     {
+        if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying) return;
         EditorApplication.delayCall += () =>
         {
+            if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying) return;
             RunBatch();
         };
     }

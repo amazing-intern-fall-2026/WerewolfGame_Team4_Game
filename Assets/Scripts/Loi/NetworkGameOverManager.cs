@@ -52,6 +52,22 @@ public class NetworkGameOverManager : MonoBehaviour
     private NetworkPhaseSync cachedPhaseSync;
     private bool isRestarting;
     private float gameOverWaitTimer = 0f;
+    private float shamanKillDelayTimer = 0f;
+    public float ShamanKillDelayTimer => shamanKillDelayTimer;
+
+    public void SetShamanKillDelay(float seconds = 5.0f)
+    {
+        shamanKillDelayTimer = Mathf.Max(shamanKillDelayTimer, seconds);
+        Debug.Log($"[NetworkGameOverManager] Pháp Sư dùng Bùa Hại -> Chờ {shamanKillDelayTimer:F1}s trước khi kiểm tra điều kiện thắng.");
+    }
+
+    public static void TriggerShamanKillDelay(float seconds = 5.0f)
+    {
+        if (_instance != null)
+        {
+            _instance.SetShamanKillDelay(seconds);
+        }
+    }
 
     public void ResetUIState()
     {
@@ -60,6 +76,7 @@ public class NetworkGameOverManager : MonoBehaviour
         isRestarting = false;
         currentWinner = string.Empty;
         gameOverWaitTimer = 0f;
+        shamanKillDelayTimer = 0f;
         if (gameOverPanel != null)
         {
             Destroy(gameOverPanel);
@@ -84,16 +101,19 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
         _instance = this;
+        EnsureLoiMatchEvaluatorInstalled();
     }
 
     private void Start()
     {
         EnableDev2EliminationWin();
+        EnsureLoiMatchEvaluatorInstalled();
     }
 
     private void OnEnable()
     {
         SubscribeToEvents();
+        EnsureLoiMatchEvaluatorInstalled();
     }
 
     private void OnDisable()
@@ -176,6 +196,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void OnDev2PhaseChanged(GamePhase oldPhase, GamePhase newPhase)
     {
+        if (oldPhase == GamePhase.Night || newPhase == GamePhase.ResolveNight || newPhase == GamePhase.Discussion || newPhase == GamePhase.DayStart)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            SynchronizeWhiteHoundState();
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winner = GameRoleManager.Instance?.Winner;
@@ -186,6 +216,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void OnNetworkPhaseChanged(GamePhase oldPhase, GamePhase newPhase)
     {
+        if (oldPhase == GamePhase.Night || newPhase == GamePhase.ResolveNight || newPhase == GamePhase.Discussion || newPhase == GamePhase.DayStart)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+            NetworkRoleActionBridge.ResolvePendingShamanKill();
+            SynchronizeWhiteHoundState();
+        }
+
         if (newPhase == GamePhase.GameOver)
         {
             string winner = string.Empty;
@@ -221,10 +261,22 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void Update()
     {
+        EnsureLoiMatchEvaluatorInstalled();
+
+        if (shamanKillDelayTimer > 0f)
+        {
+            shamanKillDelayTimer -= Time.deltaTime;
+        }
+
         // 1. Kiểm tra điều kiện thắng tức thời trên Server (VD: 1 Dân vs 1 DogSpirit -> DogSpirit thắng ngay)
         CheckServerWinCondition();
 
-        if (uiShown) return;
+        if (uiShown)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            return;
+        }
 
         // Kết nối cachedPhaseSync nếu chưa có
         if (cachedPhaseSync == null)
@@ -281,21 +333,178 @@ public class NetworkGameOverManager : MonoBehaviour
     ///   - Phe thứ 3: Kẻ Điên (bị vote ngày 1), Cáo Tinh (mê hoặc 2 người), Bạch Khuyển (thức tỉnh còn sống và quái vật sạch), Sát Nhân, Cặp đôi
     ///   - Khi tất cả cùng chết hoặc nhiều phe cùng bị tiêu diệt: Phân định theo đòn kết liễu cuối cùng (Thợ săn trả thù, treo cổ, sói cắn...)
     /// </summary>
+    /// <summary>
+    /// Kiểm tra xem phase hiện tại có đang trong thời gian đếm ngược (timer chưa hết) hay không.
+    /// Nếu phase timer còn đang chạy (> 0), server không được tính điều kiện thắng / kết thúc ván
+    /// để người chơi kịp hoàn tất các hành động của mình (cứu, giết, bẫy, thảo luận, vote...).
+    /// </summary>
+    public static bool IsPhaseTimerActive()
+    {
+        // 1. Kiểm tra NetworkGameTimer nếu có
+        var netTimer = NetworkGameTimer.Instance ?? UnityEngine.Object.FindFirstObjectByType<NetworkGameTimer>();
+        if (netTimer != null && netTimer.IsSpawned && netTimer.TimeRemaining != null)
+        {
+            if (netTimer.TimeRemaining.Value > 0.05f)
+            {
+                // Nếu có NetworkPhaseSync, chỉ coi là active nếu phase hiện tại là phase có đếm giờ
+                if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.IsSpawned)
+                {
+                    var phase = NetworkPhaseSync.Instance.CurrentPhase.Value;
+                    if (phase == GamePhase.Night || phase == GamePhase.DayStart || phase == GamePhase.Task ||
+                        phase == GamePhase.Discussion || phase == GamePhase.Voting || phase == GamePhase.RoleReveal)
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    return true;
+                }
+            }
+        }
+
+        // 2. Kiểm tra GameRoleManager và DayTimer
+        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentState != GameState.GameOver)
+        {
+            // Nếu đang ở phase resolution thì không coi là active timer
+            if (GameRoleManager.Instance.currentPhase == GamePhase.ResolveNight ||
+                GameRoleManager.Instance.currentPhase == GamePhase.ResolveVote ||
+                GameRoleManager.Instance.currentPhase == GamePhase.DayResolution ||
+                GameRoleManager.Instance.currentPhase == GamePhase.GameOver)
+            {
+                return false;
+            }
+
+            if (GameRoleManager.Instance.currentState == GameState.Day)
+            {
+                if (DayTimer.Instance != null && DayTimer.Instance.TimeRemaining > 0.05f)
+                    return true;
+            }
+            else
+            {
+                if (GameRoleManager.Instance.PhaseTimeRemaining > 0.05f)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Kiểm tra xem có Thợ Săn nào đã chết nhưng vẫn còn quyền bắn phát đạn trả thù chưa sử dụng hay không.
+    /// Nếu có, hoãn việc kết thúc ván để Thợ Săn bắn xong rồi mới xác định số người chơi và cho ra kết quả.
+    /// </summary>
+    public static bool HasPendingHunterDeathShot()
+    {
+        EnsureLoiMatchEvaluatorInstalled();
+
+        if (PlayerManager.Instance?.players == null) return false;
+        foreach (var p in PlayerManager.Instance.players)
+        {
+            if (p == null) continue;
+            if (p.roleType == RoleType.Hunter && !p.isAlive && p.hasHunterTrap && !p.hasUsedHunterShot)
+            {
+                // Nếu người chơi này đã rời phòng hoặc ngắt kết nối thì bỏ qua
+                if (p.isDisconnected || NetworkGameManager.IsPlayerLeft((ulong)p.playerID))
+                    continue;
+
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Kiểm tra xem có đang trong Night Phase hoặc có hành động ban đêm chưa được giải quyết hay không.
+    /// Tuyệt đối không đánh giá điều kiện thắng khi các hành động ban đêm chưa được xử lý hoàn tất!
+    /// </summary>
+    public static bool HasUnresolvedNightActions()
+    {
+        // 1. Kiểm tra NightManager còn pending actions chưa được resolve
+        if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            return true;
+
+        // 2. Nếu đang trong Night Phase (đang chọn hành động đêm, chưa đến bước ResolveNight / Ban ngày)
+        if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night)
+            return true;
+
+        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Night)
+            return true;
+
+        // 3. Nếu còn pending Shaman Kill action chưa được resolve
+        if (NetworkRoleActionBridge.HasPendingShamanKill)
+            return true;
+
+        return false;
+    }
+
     public void CheckServerWinCondition()
     {
+        EnsureLoiMatchEvaluatorInstalled();
+
         if (isGameOver || GameEnded) return;
 
         bool isServer = NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer;
         if (!isServer) return;
 
-        // Không kiểm tra trong giai đoạn khởi tạo / phân vai
-        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Setup)
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (GameRoleManager.Instance != null && GameRoleManager.Instance.currentPhase == GamePhase.Night);
+
+        // Khi Night Phase kết thúc, tiến hành resolve theo đúng thứ tự:
+        // 1. NightManager actions (DogSpirit cắn White Hound thức tỉnh)
+        // 2. Shaman Kill target
+        // 3. Đồng bộ trạng thái White Hound và người chơi
+        if (!isNight)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+
+            if (NetworkRoleActionBridge.HasPendingShamanKill)
+            {
+                NetworkRoleActionBridge.ResolvePendingShamanKill();
+                SynchronizeWhiteHoundState();
+            }
+        }
+
+        // Nếu còn hành động ban đêm chưa được xử lý xong, tuyệt đối hoãn kiểm tra thắng thua
+        if (HasUnresolvedNightActions())
             return;
 
-        if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Setup)
+        // Nếu Pháp Sư vừa dùng Bùa Hại (Kill), tạm hoãn kiểm tra để các action đêm và người chơi kịp thấy kết quả
+        if (shamanKillDelayTimer > 0f)
+            return;
+
+        // Không kiểm tra trong giai đoạn khởi tạo / phân vai
+        if (GameRoleManager.Instance != null &&
+            (GameRoleManager.Instance.currentPhase == GamePhase.Setup ||
+             (GameRoleManager.Instance.currentPhase == GamePhase.RoleReveal &&
+              GameRoleManager.Instance.currentState == GameState.RoleReveal)))
+            return;
+
+        if (NetworkPhaseSync.Instance != null &&
+            (NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Setup ||
+             NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.RoleReveal))
+            return;
+
+        if (NetworkGameRoleSetup.HasSetup() && NetworkRoleActionBridge.Instance != null && !NetworkRoleActionBridge.Instance.LobbyRolesApplied)
             return;
 
         if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
+            return;
+
+        // Tiến độ nhiệm vụ đạt 100% -> Dân làng thắng ngay lập tức
+        if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
+        {
+            Debug.Log("[NetworkWinCondition] Tiến độ nhiệm vụ đạt 100% -> Dân làng thắng!");
+            if (GameRoleManager.Instance != null) GameRoleManager.Instance.VillagerWin();
+            TriggerGameOver("Villagers");
+            return;
+        }
+
+        // Chưa hết time của phase thì không tính điều kiện thắng (chờ phase kết thúc để mọi vai trò hoàn tất action)
+        if (IsPhaseTimerActive())
             return;
 
         // 1. Kiểm tra Kẻ Điên (Madman) bị xử tử ngày 1
@@ -326,72 +535,157 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
-        // 4. Nhiệm vụ đạt 100%
-        if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
+        // Không kết thúc ván khi Thợ Săn đã chết nhưng vẫn còn phát đạn trả thù chưa dùng.
+        // Phải để Thợ Săn hoàn thành chức năng bắn rồi mới xác định số người chơi và cho ra kết quả!
+        if (HasPendingHunterDeathShot())
         {
-            Debug.Log("[NetworkWinCondition] Tiến độ nhiệm vụ đạt 100% -> Dân làng thắng!");
-            if (GameRoleManager.Instance != null) GameRoleManager.Instance.VillagerWin();
-            TriggerGameOver("Villagers");
+            Debug.Log("[NetworkWinCondition] Thợ Săn đã chết nhưng chưa hoàn thành phát đạn bắn báo thù -> Tạm hoãn Game Over để Thợ Săn bắn!");
             return;
         }
 
-        int aliveMonsters = 0;
-        int aliveVillagers = 0;
-        int aliveWhiteWolf = 0;
-        int aliveThirdParty = 0;
+        // Đảm bảo đồng bộ WhiteHound (khôi phục isAlive nếu bị cắn, thức tỉnh gia nhập DogSpirit nếu bị cắn hoặc DogSpirit chết)
+        SynchronizeWhiteHoundState();
+
+        int aliveDogSpirits = 0;
+        int aliveWhiteHounds = 0;
 
         foreach (var player in PlayerManager.Instance.players)
         {
             if (player == null || !player.isAlive) continue;
 
-            bool isMonster = player.faction == FactionType.Monster ||
+            if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
+            {
+                aliveWhiteHounds++;
+            }
+            else if (player.roleType == RoleType.DogSpirit || player.roleType == RoleType.SerpentSpirit || player.roleType == RoleType.Ogre)
+            {
+                aliveDogSpirits++;
+            }
+            else if (RoleManager.Instance?.playerRoles != null &&
+                     RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole r) &&
+                     r != null && r.faction == FactionType.Monster)
+            {
+                aliveDogSpirits++;
+            }
+        }
+
+        int aliveMonsters = 0;
+        int aliveVillagers = 0;
+        int aliveThirdParty = 0;
+        int aliveKillers = 0;
+
+        foreach (var player in PlayerManager.Instance.players)
+        {
+            if (player == null || !player.isAlive) continue;
+
+            bool isWhiteHound = player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf;
+
+            bool roleIsMonster = RoleManager.Instance?.playerRoles != null &&
+                                 RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole assignedRole) &&
+                                 assignedRole != null && assignedRole.faction == FactionType.Monster;
+
+            // Bạch Khuyển thức tỉnh nếu:
+            // 1. Đã được đánh dấu thức tỉnh (isWhiteHoundAwakened)
+            // 2. Thuộc phe Monster
+            // 3. Đã bị DogSpirit cắn trong đêm
+            // 4. Hoặc DogSpirit đã chết (aliveDogSpirits == 0): Bạch Khuyển tự động thức tỉnh thành Quái vật duy trì ván game!
+            bool isAwakenedWhiteHound = isWhiteHound && (
+                player.isWhiteHoundAwakened ||
+                roleIsMonster ||
+                player.faction == FactionType.Monster ||
+                (NetworkRoleActionBridge.Instance != null && NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(player.playerID)) ||
+                aliveDogSpirits == 0
+            );
+
+            if (isWhiteHound && isAwakenedWhiteHound)
+            {
+                player.isWhiteHoundAwakened = true;
+                player.faction = FactionType.Monster;
+                player.roleType = RoleType.DogSpirit;
+                if (RoleManager.Instance?.playerRoles != null &&
+                    RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole whiteHoundRole) &&
+                    whiteHoundRole is WhiteHound wh)
+                {
+                    wh.BecomeMonster();
+                }
+            }
+
+            bool isMonster = isAwakenedWhiteHound ||
+                             roleIsMonster ||
+                             player.faction == FactionType.Monster ||
                              player.roleType == RoleType.DogSpirit ||
                              player.roleType == RoleType.SerpentSpirit ||
                              player.roleType == RoleType.Ogre;
 
-            if ((player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) &&
-                player.isWhiteHoundAwakened)
-                aliveWhiteWolf++;
-            else if (isMonster)
+            bool isThirdParty = !isMonster && !isWhiteHound && (
+                                player.faction == FactionType.Neutral ||
+                                player.roleType == RoleType.Madman ||
+                                player.roleType == RoleType.Jester ||
+                                player.roleType == RoleType.Lover ||
+                                player.roleType == RoleType.FoxSpirit ||
+                                player.roleType == RoleType.Piper ||
+                                player.roleType == RoleType.Killer ||
+                                player.roleType == RoleType.SerialKiller ||
+                                player.roleType == RoleType.DeathHerald);
+
+            if (isMonster)
+            {
                 aliveMonsters++;
-            else if (player.roleType == RoleType.Madman || player.roleType == RoleType.FoxSpirit || player.roleType == RoleType.Killer)
+            }
+            else if (isThirdParty)
+            {
                 aliveThirdParty++;
-            else
+                if (player.roleType == RoleType.Killer || player.roleType == RoleType.SerialKiller)
+                    aliveKillers++;
+            }
+            else if (!isWhiteHound)
+            {
+                // Bạch Khuyển tuyệt đối KHÔNG BAO GIỜ được cộng vào aliveVillagers!
                 aliveVillagers++;
+            }
         }
 
-        // 5. Bạch Khuyển thức tỉnh: Sói trắng thắng khi chỉ còn WhiteHound và <= 2 dân làng (và sạch quái vật)
-        if (aliveWhiteWolf > 0 && aliveMonsters == 0 && aliveVillagers <= 2)
+        // 5. Phe thứ 3 (Sát Nhân / Cáo Tinh / Kẻ Điên...): thắng khi đã loại hết Quái vật (kể cả WhiteHound thức tỉnh) và Dân làng
+        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers == 0)
         {
-            Debug.Log("[NetworkWinCondition] Bạch Khuyển thức tỉnh thắng -> Phe thứ 3 thắng!");
-            if (GameRoleManager.Instance != null) GameRoleManager.Instance.WhiteWolfWin();
-            TriggerGameOver("White Wolf");
+            if (aliveKillers > 0)
+            {
+                Debug.Log("[NetworkWinCondition] Sát Nhân là người sống sót cuối cùng -> Phe thứ 3 thắng!");
+                if (GameRoleManager.Instance != null) GameRoleManager.Instance.KillerWin();
+                TriggerGameOver("Killer");
+            }
+            else if (PlayerManager.Instance.players.Exists(p => p != null && p.isAlive && (p.roleType == RoleType.FoxSpirit || p.roleType == RoleType.Piper)))
+            {
+                Debug.Log("[NetworkWinCondition] Cáo Tinh là người sống sót cuối cùng -> Phe thứ 3 thắng!");
+                if (GameRoleManager.Instance != null) GameRoleManager.Instance.FoxSpiritWin();
+                TriggerGameOver("Fox Spirit");
+            }
+            else if (PlayerManager.Instance.players.Exists(p => p != null && p.isAlive && (p.roleType == RoleType.Madman || p.roleType == RoleType.Jester)))
+            {
+                Debug.Log("[NetworkWinCondition] Kẻ Điên là người sống sót cuối cùng -> Phe thứ 3 thắng!");
+                if (GameRoleManager.Instance != null) GameRoleManager.Instance.MadmanWin();
+                TriggerGameOver("Madman");
+            }
+            else
+            {
+                Debug.Log("[NetworkWinCondition] Phe thứ 3 là người sống sót cuối cùng -> Phe thứ 3 thắng!");
+                if (GameRoleManager.Instance != null) GameRoleManager.Instance.KillerWin();
+                TriggerGameOver("ThirdParty");
+            }
             return;
         }
 
-        // 6. Sát Nhân: Thắng nếu chỉ còn sát nhân và <= 2 dân làng (và sạch quái vật)
-        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers <= 2 &&
-            PlayerManager.Instance.players.Exists(p => p != null && p.roleType == RoleType.Killer && p.isAlive))
+        // 6. Ma Sói (Phe DogSpirit + WhiteHound thức tỉnh) thắng khi số Monster >= số Dân làng & phe khác (VD: 1 Dân vs 1 Bạch Khuyển thức tỉnh -> Monster thắng!)
+        if (aliveMonsters > 0 && aliveMonsters >= aliveVillagers + aliveThirdParty)
         {
-            Debug.Log("[NetworkWinCondition] Sát Nhân thắng -> Phe thứ 3 thắng!");
-            if (GameRoleManager.Instance != null) GameRoleManager.Instance.KillerWin();
-            TriggerGameOver("Killer");
-            return;
-        }
-
-        // 7. Ma Sói thắng:
-        //    a. Số lượng Quái vật >= tổng số người phe khác còn sống (và có ít nhất 1 Monster)
-        //       (Ví dụ: 1 Dân vs 1 DogSpirit -> DogSpirit áp đảo và thắng ngay!)
-        if (aliveMonsters > 0 && aliveMonsters >= aliveVillagers + aliveWhiteWolf + aliveThirdParty)
-        {
-            Debug.Log($"[NetworkWinCondition] DogSpirit/Monster ({aliveMonsters}) >= Dân làng & phe khác ({aliveVillagers + aliveWhiteWolf + aliveThirdParty}) -> Ma Sói thắng!");
+            Debug.Log($"[NetworkWinCondition] Phe DogSpirit/Monster ({aliveMonsters}) >= Dân làng & phe khác ({aliveVillagers + aliveThirdParty}) -> Ma Sói thắng!");
             if (GameRoleManager.Instance != null) GameRoleManager.Instance.WerewolfWin();
             TriggerGameOver("Werewolves");
             return;
         }
 
         //    b. Hết số ngày tối đa (MaxDay) mà quái vật vẫn chưa bị diệt sạch:
-        if (GameRoleManager.Instance != null && WinConditionManager.Instance != null &&
+        if (aliveMonsters > 0 && GameRoleManager.Instance != null && WinConditionManager.Instance != null &&
             GameRoleManager.Instance.currentDay >= WinConditionManager.Instance.MaxDay)
         {
             Debug.Log("[NetworkWinCondition] Hết thời gian tối đa mà Dân làng chưa diệt sạch sói -> Ma Sói thắng!");
@@ -400,18 +694,18 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
-        // 8. Dân Làng thắng khi diệt sạch quái vật (và vẫn còn dân làng sống)
-        if (aliveMonsters == 0 && aliveVillagers > 0 && aliveWhiteWolf == 0 && aliveThirdParty == 0)
+        // 7. Dân Làng chỉ thắng khi đã diệt sạch cả Quái vật, Bạch Khuyển (WhiteHound) LẪN toàn bộ Phe thứ 3
+        if (aliveMonsters == 0 && aliveWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
         {
-            Debug.Log("[NetworkWinCondition] Quái vật đã bị tiêu diệt hết -> Dân làng thắng!");
+            Debug.Log("[NetworkWinCondition] Quái vật, Bạch Khuyển và Phe thứ 3 đã bị tiêu diệt hết -> Dân làng thắng!");
             if (GameRoleManager.Instance != null) GameRoleManager.Instance.VillagerWin();
             TriggerGameOver("Villagers");
             return;
         }
 
-        // 9. Trường hợp TẤT CẢ NGƯỜI CHƠI ĐỀU CHẾT hoặc nhiều phe cùng bị tiêu diệt:
+        // 8. Trường hợp TẤT CẢ NGƯỜI CHƠI ĐỀU CHẾT hoặc nhiều phe cùng bị tiêu diệt:
         //    Phân định phe thắng theo luật hiện có, không bao giờ Hòa:
-        if (aliveMonsters == 0 && aliveVillagers == 0 && aliveWhiteWolf == 0 && aliveThirdParty == 0)
+        if (aliveMonsters == 0 && aliveVillagers == 0 && aliveThirdParty == 0)
         {
             string winner = ResolveAllDeadWinner();
             Debug.Log($"[NetworkWinCondition] Tất cả người chơi đã chết -> Phân định phe thắng: {winner}");
@@ -453,7 +747,9 @@ public class NetworkGameOverManager : MonoBehaviour
                 bool isMonster = p.faction == FactionType.Monster ||
                                  p.roleType == RoleType.DogSpirit ||
                                  p.roleType == RoleType.SerpentSpirit ||
-                                 p.roleType == RoleType.Ogre;
+                                 p.roleType == RoleType.Ogre ||
+                                 p.roleType == RoleType.WhiteHound ||
+                                 p.roleType == RoleType.WhiteWolf;
 
                 if (isMonster)
                 {
@@ -510,6 +806,30 @@ public class NetworkGameOverManager : MonoBehaviour
     // TRIGGER GAME OVER
     // =========================================================
 
+    private static void SetDev2GameOver(string winner)
+    {
+        var grm = GameRoleManager.Instance;
+        if (grm == null) return;
+
+        if (string.IsNullOrEmpty(winner))
+            winner = "Villagers";
+
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(grm))
+        {
+            grm.FinishEvaluatedMatch(winner);
+        }
+        else
+        {
+            grm.FinishLocalMatch(winner);
+        }
+
+        if (grm.currentState != GameState.GameOver || grm.currentPhase != GamePhase.GameOver)
+        {
+            grm.currentState = GameState.GameOver;
+            grm.currentPhase = GamePhase.GameOver;
+        }
+    }
+
     public void TriggerGameOver(string winner)
     {
         if (string.IsNullOrEmpty(winner))
@@ -519,6 +839,9 @@ public class NetworkGameOverManager : MonoBehaviour
 
         isGameOver = true;
         currentWinner = winner;
+
+        // Cập nhật trạng thái GameRoleManager sang GameOver để NetworkPhaseSync không ghi đè ngược về phase cũ
+        SetDev2GameOver(winner);
 
         Debug.Log($"GAME OVER MANAGER | TriggerGameOver! Winner: {winner} -> {FormatWinner(winner)}");
 
@@ -582,9 +905,20 @@ public class NetworkGameOverManager : MonoBehaviour
     private void BuildGameOverUIDirect(string winner)
     {
         // 1. Đảm bảo có EventSystem để nhận tương tác chuột
-        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+        var existingEventSystem = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+        if (existingEventSystem == null)
         {
-            new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.EventSystems.StandaloneInputModule));
+            var esGO = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem));
+#if ENABLE_INPUT_SYSTEM
+            esGO.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+#else
+            esGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+#endif
+        }
+        else
+        {
+            existingEventSystem.gameObject.SetActive(true);
+            existingEventSystem.enabled = true;
         }
 
         // 2. Tạo Canvas overlay riêng biệt với sortingOrder tối đa (32767) để đảm bảo không bị đè
@@ -593,6 +927,7 @@ public class NetworkGameOverManager : MonoBehaviour
             dedicatedCanvasGO = new GameObject("GameOverDedicatedCanvas");
             Canvas canvas = dedicatedCanvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
             canvas.sortingOrder = 32767;
 
             var scaler = dedicatedCanvasGO.AddComponent<CanvasScaler>();
@@ -909,12 +1244,17 @@ public class NetworkGameOverManager : MonoBehaviour
             NetworkRoleActionBridge.Instance?.ResetForNewMatch();
             NetworkSkillUI.Instance?.ResetForNewMatch();
             NetworkHunterDeathUI.Instance?.ResetForNewMatch();
+            NetworkRoleSync.ResetAllRoleSyncs();
 
             // BƯỚC 5: Reset night cycle, vote data và phase về trạng thái khởi tạo ván mới
             if (NetworkPhaseSync.Instance != null)
             {
                 NetworkPhaseSync.Instance.CurrentNightCycle.Value = 0;
                 NetworkPhaseSync.Instance.Winner.Value = default;
+                if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+                {
+                    NetworkPhaseSync.Instance.CurrentPhase.Value = GamePhase.RoleReveal;
+                }
             }
 
             var timerController = FindFirstObjectByType<NetworkPhaseTimerController>();
@@ -959,8 +1299,8 @@ public class NetworkGameOverManager : MonoBehaviour
                 NetworkRoleActionBridge.Instance.TryApplyLobbyRoles();
             }
 
-            // Reset RoleSync để Server gửi lại Role mới cho tất cả Client
-            NetworkRoleSync.ResetAllRoleSyncs();
+            // Đồng bộ lại Role mới cho tất cả Client
+            NetworkRoleSync.SyncAllRoleSyncs();
 
             // BƯỚC 7: Đồng bộ phase và thông báo reset đến tất cả Client
             if (NetworkGameManager.Instance != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
@@ -1010,7 +1350,7 @@ public class NetworkGameOverManager : MonoBehaviour
             grm.currentPhase = GamePhase.Setup;
             grm.currentDay = 1;
 
-            // 3. Reset Winner property
+            // 3. Reset Winner và Result property
             var winnerProp = grmType.GetProperty("Winner", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             if (winnerProp != null && winnerProp.CanWrite)
             {
@@ -1020,6 +1360,17 @@ public class NetworkGameOverManager : MonoBehaviour
             {
                 var winnerBacking = grmType.GetField("<Winner>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
                 if (winnerBacking != null) winnerBacking.SetValue(grm, null);
+            }
+
+            var resultProp = grmType.GetProperty("Result", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (resultProp != null && resultProp.CanWrite)
+            {
+                resultProp.SetValue(grm, null);
+            }
+            else
+            {
+                var resultBacking = grmType.GetField("<Result>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (resultBacking != null) resultBacking.SetValue(grm, null);
             }
 
             // 4. Reset PhaseTimeRemaining property
@@ -1049,6 +1400,92 @@ public class NetworkGameOverManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Đồng bộ trạng thái Bạch Khuyển (WhiteHound):
+    /// 1. Nếu bị DogSpirit cắn trong đêm: KHÔNG BAO GIỜ CHẾT (cú cắn là để chuyển hóa). Luôn đảm bảo isAlive = true!
+    /// 2. Khi bị cắn hoặc DogSpirit đã chết: Thức tỉnh thành Quái vật (Monster) và chính thức chuyển role thành DogSpirit
+    ///    để duy trì ván game, ngăn chặn tuyệt đối trường hợp Dân Làng thắng sớm khi WhiteHound còn sống!
+    /// </summary>
+    public static void SynchronizeWhiteHoundState()
+    {
+        if (NetworkRoleActionBridge.Instance != null)
+        {
+            NetworkRoleActionBridge.Instance.SyncAwakenedWhiteHoundsForNextDay();
+        }
+
+        if (PlayerManager.Instance?.players == null) return;
+
+        bool anyDogSpiritAlive = false;
+        foreach (var p in PlayerManager.Instance.players)
+        {
+            if (p != null && p.isAlive &&
+                (p.roleType == RoleType.DogSpirit || p.roleType == RoleType.SerpentSpirit || p.roleType == RoleType.Ogre))
+            {
+                anyDogSpiritAlive = true;
+                break;
+            }
+        }
+
+        bool stateChanged = false;
+        foreach (var p in PlayerManager.Instance.players)
+        {
+            if (p == null) continue;
+            bool isWh = p.roleType == RoleType.WhiteHound || p.roleType == RoleType.WhiteWolf;
+            bool wasBitten = NetworkRoleActionBridge.Instance != null &&
+                             NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(p.playerID);
+
+            if (isWh)
+            {
+                // Cú cắn của DogSpirit vào Bạch Khuyển là để thức tỉnh chuyển hóa, TUYỆT ĐỐI KHÔNG làm Bạch Khuyển chết!
+                if (wasBitten && !p.isAlive)
+                {
+                    if (p.lastDeathCause != DeathCause.Vote && p.lastDeathCause != DeathCause.Poison)
+                    {
+                        p.isAlive = true;
+                        NetworkPlayerStateSync.SyncGameplayAliveState(p.playerID, true);
+                        Debug.LogWarning($"[NetworkGameOverManager] WhiteHound (Player {p.playerID + 1}) bị cắn đêm nay -> Đảm bảo isAlive = true!");
+                        stateChanged = true;
+                    }
+                }
+
+                // Nếu bị cắn hoặc DogSpirit gốc đã chết, WhiteHound thức tỉnh và chính thức mang role DogSpirit:
+                if (wasBitten || !anyDogSpiritAlive || p.isWhiteHoundAwakened || p.faction == FactionType.Monster)
+                {
+                    p.isWhiteHoundAwakened = true;
+                    p.faction = FactionType.Monster;
+                    p.roleType = RoleType.DogSpirit;
+
+                    if (RoleManager.Instance?.playerRoles != null)
+                    {
+                        if (!RoleManager.Instance.playerRoles.TryGetValue(p.playerID, out BaseRole role) ||
+                            role == null || role.roleType != RoleType.DogSpirit)
+                        {
+                            RoleManager.Instance.playerRoles[p.playerID] = RoleCatalog.Create(RoleType.DogSpirit, p);
+                        }
+                        else
+                        {
+                            role.faction = FactionType.Monster;
+                        }
+                    }
+
+                    if (RoleManager.Instance?.roleDefinitions != null)
+                    {
+                        p.roleDefinition = RoleManager.Instance.roleDefinitions.Find(RoleType.DogSpirit);
+                    }
+
+                    p.NotifyChanged();
+                    NetworkPlayerStateSync.SyncGameplayAliveState(p.playerID, true);
+                    stateChanged = true;
+                }
+            }
+        }
+
+        if (stateChanged)
+        {
+            NetworkRoleSync.SyncAllRoleSyncs();
+        }
+    }
+
     private void EnableDev2EliminationWin()
     {
         if (WinConditionManager.Instance != null)
@@ -1057,12 +1494,258 @@ public class NetworkGameOverManager : MonoBehaviour
             {
                 var wcmType = typeof(WinConditionManager);
                 var elimField = wcmType.GetField("useEliminationWin", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                if (elimField != null) elimField.SetValue(WinConditionManager.Instance, true);
+                if (elimField != null) elimField.SetValue(WinConditionManager.Instance, false);
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning($"[NetworkGameOverManager] Không thể bật useEliminationWin qua reflection: {ex.Message}");
+                Debug.LogWarning($"[NetworkGameOverManager] Không thể tắt useEliminationWin qua reflection: {ex.Message}");
             }
+        }
+
+        EnsureLoiMatchEvaluatorInstalled();
+    }
+
+    /// <summary>
+    /// Đăng ký bộ đánh giá điều kiện thắng của Loi vào WinConditionManager mà không cần sửa code bên Thuong.
+    /// </summary>
+    public static void EnsureLoiMatchEvaluatorInstalled()
+    {
+        var wcm = WinConditionManager.Instance;
+        var game = GameRoleManager.Instance;
+        if (wcm == null || game == null) return;
+
+        // Luôn đảm bảo useEliminationWin = false để tránh fallback lỗi của Thuong
+        try
+        {
+            var elimField = typeof(WinConditionManager).GetField("useEliminationWin", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            elimField?.SetValue(wcm, false);
+        }
+        catch { }
+
+        if (wcm.HasMatchEvaluator(game)) return;
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return;
+        if (game.gameObject != null && game.gameObject.scene.name == Thuong.Online.ThuongOnlineBootstrap.SceneName) return;
+
+        try
+        {
+            if (game.gameObject.scene == wcm.gameObject.scene)
+            {
+                wcm.InstallMatchEvaluator(game, EvaluateLoiMatchWinCondition);
+            }
+            else
+            {
+                var wcmType = typeof(WinConditionManager);
+                var ownerField = wcmType.GetField("matchEvaluatorOwner", BindingFlags.Instance | BindingFlags.NonPublic);
+                var evalField = wcmType.GetField("matchEvaluator", BindingFlags.Instance | BindingFlags.NonPublic);
+                ownerField?.SetValue(wcm, game);
+                evalField?.SetValue(wcm, (System.Action<bool>)EvaluateLoiMatchWinCondition);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[NetworkGameOverManager] Không thể đăng ký MatchEvaluator: {ex.Message}");
+        }
+    }
+
+    private static void EvaluateLoiMatchWinCondition(bool dayFinished)
+    {
+        var game = GameRoleManager.Instance;
+        if (game == null || game.currentState == GameState.GameOver) return;
+
+        bool isNight = (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentPhase.Value == GamePhase.Night) ||
+                       (game != null && game.currentPhase == GamePhase.Night);
+
+        // Khi Night Phase kết thúc, tiến hành resolve theo đúng thứ tự trước khi đánh giá điều kiện thắng
+        if (!isNight)
+        {
+            if (NightManager.Instance != null && NightManager.Instance.HasUnresolvedNightResolution)
+            {
+                NightManager.Instance.ResolveNight();
+            }
+
+            if (NetworkRoleActionBridge.HasPendingShamanKill)
+            {
+                NetworkRoleActionBridge.ResolvePendingShamanKill();
+                SynchronizeWhiteHoundState();
+            }
+        }
+
+        // Không kiểm tra điều kiện thắng khi đang còn hành động ban đêm chưa giải quyết xong
+        if (HasUnresolvedNightActions()) return;
+
+        if (_instance != null && _instance.shamanKillDelayTimer > 0f) return;
+
+        if (_instance != null && _instance.isActiveAndEnabled && NetworkManager.Singleton != null)
+        {
+            _instance.CheckServerWinCondition();
+            return;
+        }
+
+        // Đánh giá trực tiếp khi chạy local / unit test không có NetworkManager
+        if (dayFinished && game.currentDay == 1 &&
+            PlayerManager.Instance != null &&
+            PlayerManager.Instance.players.Exists(player =>
+                player != null && player.roleType == RoleType.Madman &&
+                !player.isAlive && player.wasVotedOut))
+        {
+            SetDev2GameOver("Madman");
+            return;
+        }
+
+        if (WinConditionManager.Instance != null && WinConditionManager.Instance.FoxSpiritHasWon())
+        {
+            SetDev2GameOver("Fox Spirit");
+            return;
+        }
+
+        if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
+        {
+            SetDev2GameOver("Villagers");
+            return;
+        }
+
+        // Chưa hết time của phase thì không tính điều kiện thắng
+        if (IsPhaseTimerActive())
+            return;
+
+        if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
+            return;
+
+        // Đảm bảo đồng bộ WhiteHound (khôi phục isAlive nếu bị cắn, thức tỉnh gia nhập DogSpirit nếu bị cắn hoặc DogSpirit chết)
+        SynchronizeWhiteHoundState();
+
+        int aliveDogSpirits = 0;
+        int aliveWhiteHounds = 0;
+
+        foreach (var player in PlayerManager.Instance.players)
+        {
+            if (player == null || !player.isAlive) continue;
+
+            if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
+            {
+                aliveWhiteHounds++;
+            }
+            else if (player.roleType == RoleType.DogSpirit || player.roleType == RoleType.SerpentSpirit || player.roleType == RoleType.Ogre)
+            {
+                aliveDogSpirits++;
+            }
+            else if (RoleManager.Instance?.playerRoles != null &&
+                     RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole r) &&
+                     r != null && r.faction == FactionType.Monster)
+            {
+                aliveDogSpirits++;
+            }
+        }
+
+        int aliveMonsters = 0;
+        int aliveVillagers = 0;
+        int aliveThirdParty = 0;
+        int aliveKillers = 0;
+
+        foreach (var player in PlayerManager.Instance.players)
+        {
+            if (player == null || !player.isAlive) continue;
+
+            bool isWhiteHound = player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf;
+
+            bool roleIsMonster = RoleManager.Instance?.playerRoles != null &&
+                                 RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole assignedRole) &&
+                                 assignedRole != null && assignedRole.faction == FactionType.Monster;
+
+            // Bạch Khuyển thức tỉnh nếu:
+            // 1. Đã được đánh dấu thức tỉnh (isWhiteHoundAwakened)
+            // 2. Thuộc phe Monster
+            // 3. Đã bị DogSpirit cắn trong đêm
+            // 4. Hoặc DogSpirit đã chết (aliveDogSpirits == 0): Bạch Khuyển tự động thức tỉnh thành Quái vật duy trì ván game!
+            bool isAwakenedWhiteHound = isWhiteHound && (
+                player.isWhiteHoundAwakened ||
+                roleIsMonster ||
+                player.faction == FactionType.Monster ||
+                (NetworkRoleActionBridge.Instance != null && NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(player.playerID)) ||
+                aliveDogSpirits == 0
+            );
+
+            if (isWhiteHound && isAwakenedWhiteHound)
+            {
+                player.isWhiteHoundAwakened = true;
+                player.faction = FactionType.Monster;
+                player.roleType = RoleType.DogSpirit;
+                if (RoleManager.Instance?.playerRoles != null &&
+                    RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole whiteHoundRole) &&
+                    whiteHoundRole is WhiteHound wh)
+                {
+                    wh.BecomeMonster();
+                }
+            }
+
+            bool isMonster = isAwakenedWhiteHound ||
+                             roleIsMonster ||
+                             player.faction == FactionType.Monster ||
+                             player.roleType == RoleType.DogSpirit ||
+                             player.roleType == RoleType.SerpentSpirit ||
+                             player.roleType == RoleType.Ogre;
+
+            bool isThirdParty = !isMonster && !isWhiteHound && (
+                                player.faction == FactionType.Neutral ||
+                                player.roleType == RoleType.Madman ||
+                                player.roleType == RoleType.Jester ||
+                                player.roleType == RoleType.Lover ||
+                                player.roleType == RoleType.FoxSpirit ||
+                                player.roleType == RoleType.Piper ||
+                                player.roleType == RoleType.Killer ||
+                                player.roleType == RoleType.SerialKiller ||
+                                player.roleType == RoleType.DeathHerald);
+
+            if (isMonster)
+            {
+                aliveMonsters++;
+            }
+            else if (isThirdParty)
+            {
+                aliveThirdParty++;
+                if (player.roleType == RoleType.Killer || player.roleType == RoleType.SerialKiller)
+                    aliveKillers++;
+            }
+            else if (!isWhiteHound)
+            {
+                // Bạch Khuyển tuyệt đối KHÔNG BAO GIỜ được cộng vào aliveVillagers!
+                aliveVillagers++;
+            }
+        }
+
+        if (_instance != null && _instance.LoversAreLastTwoAlive())
+        {
+            SetDev2GameOver("Lovers");
+            return;
+        }
+
+        if (aliveThirdParty > 0 && aliveMonsters == 0 && aliveVillagers == 0)
+        {
+            if (aliveKillers > 0)
+                SetDev2GameOver("Killer");
+            else if (PlayerManager.Instance.players.Exists(p => p != null && p.isAlive && (p.roleType == RoleType.FoxSpirit || p.roleType == RoleType.Piper)))
+                SetDev2GameOver("Fox Spirit");
+            else if (PlayerManager.Instance.players.Exists(p => p != null && p.isAlive && (p.roleType == RoleType.Madman || p.roleType == RoleType.Jester)))
+                SetDev2GameOver("Madman");
+            else
+                SetDev2GameOver("Killer");
+            return;
+        }
+
+        if (dayFinished && WinConditionManager.Instance != null && game.currentDay >= WinConditionManager.Instance.MaxDay && aliveMonsters > 0)
+        {
+            SetDev2GameOver("Werewolves");
+            return;
+        }
+
+        // Dân làng chỉ chiến thắng khi đã loại hết cả Quái vật, Bạch Khuyển (WhiteHound) LẪN toàn bộ Phe thứ 3
+        if (aliveMonsters == 0 && aliveWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
+        {
+            SetDev2GameOver("Villagers");
+        }
+        else if (aliveMonsters > 0 && aliveMonsters >= aliveVillagers + aliveThirdParty)
+        {
+            SetDev2GameOver("Werewolves");
         }
     }
 
@@ -1075,6 +1758,10 @@ public class NetworkGameOverManager : MonoBehaviour
         {
             ReturnToLobbyServer();
         }
+        else if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.IsSpawned)
+        {
+            NetworkPhaseSync.Instance.RequestReturnToLobbyServerRpc();
+        }
         else
         {
             RequestReturnToLobbyServerRpc();
@@ -1083,7 +1770,7 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void ReturnToLobbyServer()
     {
-        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !NetworkManager.Singleton.IsServer)
         {
             Debug.LogWarning("[NetworkGameOverManager] Chỉ Host/Server mới có quyền chuyển phòng về Lobby.");
             return;
@@ -1091,13 +1778,23 @@ public class NetworkGameOverManager : MonoBehaviour
 
         Debug.Log("GAME OVER | Host thực hiện đưa cả phòng về Lobby, giữ kết nối và Room Code.");
 
-        if (gameOverPanel != null) Destroy(gameOverPanel);
-        if (dedicatedCanvasGO != null) Destroy(dedicatedCanvasGO);
-        uiShown = false;
-        isGameOver = false;
+        DayTimer.Instance?.StopTimer();
+        ResetGameRoleManagerDev2();
+
+        if (NetworkPhaseSync.Instance != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            NetworkPhaseSync.Instance.CurrentNightCycle.Value = 0;
+            NetworkPhaseSync.Instance.Winner.Value = default;
+            NetworkPhaseSync.Instance.CurrentPhase.Value = GamePhase.Setup;
+            NetworkPhaseSync.Instance.HideGameOverUIClientRpc();
+        }
+
+        ResetUIState();
 
         // Reset NetworkGameRoleSetup để Lobby thiết lập role mới cho ván kế tiếp
         NetworkGameRoleSetup.Clear();
+        NetworkRoleSync.ResetAllRoleSyncs();
+        NetworkPlayerAction.ResetServerActionData();
 
         // Ngắt kết nối dứt điểm các client đã rời phòng / văng game trước khi tải Lobby
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)

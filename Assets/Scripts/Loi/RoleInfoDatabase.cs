@@ -103,12 +103,12 @@ public static class RoleInfoDatabase
                 {
                     Role = role,
                     DisplayName = "Bạch khuyển",
-                    FactionName = "Dân làng (Ban đầu) / Quái vật (Thức tỉnh)",
+                    FactionName = "Dân làng (Ban đầu) / Phe DogSpirit (Sau khi bị cắn)",
                     Faction = FactionType.Villager,
-                    Description = "Linh thú ngụy trang trong lốt dân lành. Khi điều kiện thức tỉnh diễn ra, bản năng bóng đêm sẽ trỗi dậy.",
-                    SkillName = "Thức tỉnh & Săn đêm",
-                    SkillDescription = "Khi chưa thức tỉnh, tính là Dân làng. Sau khi thức tỉnh, gia nhập Phe Quái vật và có thể tấn công vào ban đêm.",
-                    Restrictions = "Chỉ có thể tấn công ban đêm sau khi đã thức tỉnh thành công."
+                    Description = "Linh thú ngụy trang trong lốt dân lành. Khi bị DogSpirit cắn trong đêm, sang ngày hôm sau sẽ thức tỉnh và chuyển qua phe DogSpirit.",
+                    SkillName = "Thức tỉnh & Tấn công ban đêm",
+                    SkillDescription = "Khi chưa bị cắn, tính là Dân làng. Sau khi bị DogSpirit cắn, hôm sau chuyển qua phe DogSpirit và mở khóa chức năng tấn công ban đêm.",
+                    Restrictions = "Chức năng tấn công ban đêm được mở từ ngày hôm sau khi bị DogSpirit cắn."
                 };
 
             case RoleType.SerpentSpirit:
@@ -157,10 +157,10 @@ public static class RoleInfoDatabase
                     DisplayName = "Pháp sư",
                     FactionName = "Phe Dân làng",
                     Faction = FactionType.Villager,
-                    Description = "Phù thủy huyền bí nắm giữ hai loại bùa chú cổ xưa: bùa hộ mệnh cứu người và bùa hại phong ấn.",
-                    SkillName = "Bùa hộ mệnh / Bùa phong ấn",
-                    SkillDescription = "Dùng bùa lợi để bảo vệ một người chơi khỏi cái chết, hoặc bùa hại để làm câm lặng (ngăn nói và bỏ phiếu).",
-                    Restrictions = "Mỗi loại bùa (Bùa lợi / Bùa hại) chỉ được sử dụng duy nhất một lần trong toàn bộ ván chơi."
+                    Description = "Pháp sư nắm giữ bùa chú bí truyền: sở hữu 1 bùa lợi để cứu và 1 bùa lợi để giết.",
+                    SkillName = "Bùa cứu / Bùa giết",
+                    SkillDescription = "Vào ban đêm, có 1 bùa lợi để cứu một người chơi khỏi cái chết (kể cả bản thân), và 1 bùa lợi để tiêu diệt một người chơi.",
+                    Restrictions = "Mỗi loại bùa (1 bùa cứu, 1 bùa giết) chỉ được sử dụng duy nhất một lần trong toàn bộ ván chơi."
                 };
 
             case RoleType.WeaverOfFate:

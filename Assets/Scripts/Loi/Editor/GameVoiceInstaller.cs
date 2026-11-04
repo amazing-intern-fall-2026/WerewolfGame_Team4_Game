@@ -16,6 +16,12 @@ public static class GameVoiceInstaller
 
     public static bool InstallInternal(bool saveScene = true, bool writeReport = true)
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying)
+        {
+            Debug.LogWarning("[GameVoiceInstaller] Không thể cài đặt Game Voice trong Play Mode.");
+            return false;
+        }
+
         StringBuilder sb = new StringBuilder();
         void Log(string s) { Debug.Log(s); sb.AppendLine(s); }
 

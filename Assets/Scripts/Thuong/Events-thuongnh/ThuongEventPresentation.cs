@@ -65,10 +65,11 @@ public sealed class ThuongEventPresentation : MonoBehaviour
         if (current == GameEventType.Fog)
         {
             EnsureFog();
-            for (int i = 0; i < 7; i++)
+            int bands = ExpandedFog ? Mathf.CeilToInt((definition.boundsMax.y-definition.boundsMin.y)/3.1f)+1 : 7;
+            for (int i = 0; i < bands; i++)
             {
-                var strip = Prop("Fog band", fogSprite, new Vector2(definition.boundsMin.x + 3 + i * 3.1f, definition.boundsMin.y + 2 + i * 3.1f));
-                strip.transform.localScale = new Vector3(14, 2.8f, 1);
+                var strip = Prop("Fog band", fogSprite, FogBandPosition(i));
+                strip.transform.localScale = new Vector3(ExpandedFog ? definition.boundsMax.x-definition.boundsMin.x+4 : 14, ExpandedFog ? 6 : 2.8f, 1);
                 strip.color = new Color(.64f, .75f, .8f, .13f); strip.sortingOrder = 3500;
             }
         }
@@ -130,6 +131,16 @@ public sealed class ThuongEventPresentation : MonoBehaviour
         fogSprite = Sprite.Create(fogTexture, new Rect(0, 0, 64, 16), new Vector2(.5f, .5f), 64);
     }
 
+    private bool ExpandedFog => map != null && (map.Definition.boundsMax.x-map.Definition.boundsMin.x>32 || map.Definition.boundsMax.y-map.Definition.boundsMin.y>28);
+
+    private Vector2 FogBandPosition(int index)
+    {
+        var definition=map.Definition;
+        return ExpandedFog
+            ? new Vector2((definition.boundsMin.x+definition.boundsMax.x)/2,definition.boundsMin.y+1+index*3.1f)
+            : new Vector2(definition.boundsMin.x+3+index*3.1f,definition.boundsMin.y+2+index*3.1f);
+    }
+
     private void Update()
     {
         if (overlay == null || !overlay.activeSelf) return;
@@ -137,8 +148,7 @@ public sealed class ThuongEventPresentation : MonoBehaviour
         foreach (Transform child in overlay.transform)
         {
             if (current == GameEventType.Fog)
-                child.localPosition = new Vector3(map.Definition.boundsMin.x + 3 + index * 3.1f + Mathf.Sin(Time.unscaledTime * .12f + index) * 1.6f,
-                    map.Definition.boundsMin.y + 2 + index * 3.1f, 0);
+                child.localPosition = FogBandPosition(index) + Vector2.right * (Mathf.Sin(Time.unscaledTime * .12f + index) * 1.6f);
             else if (child.name == "Atmosphere")
                 child.localScale = Vector3.one * (.23f + Mathf.Sin(Time.unscaledTime * 1.5f + index) * .04f);
             else if (current == GameEventType.GhostMonth && child.name == "Event lantern")

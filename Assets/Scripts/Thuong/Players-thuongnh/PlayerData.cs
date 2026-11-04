@@ -25,6 +25,8 @@ public class PlayerData
 
     public bool hasHunterTrap;
 
+    public bool hasUsedHunterShot;
+
     public int hunterTargetID = -1;
 
     public int loverID = -1;
@@ -75,7 +77,7 @@ public class PlayerData
         hasVoted = hasUseNightAction = false;
         votePower = 1;
         serpentNightCount = 0;
-        hasHunterTrap = isWhiteHoundAwakened = isCursed = false;
+        hasHunterTrap = hasUsedHunterShot = isWhiteHoundAwakened = isCursed = false;
         hunterTargetID = loverID = -1;
         status = new PlayerStatus();
         effects ??= new();

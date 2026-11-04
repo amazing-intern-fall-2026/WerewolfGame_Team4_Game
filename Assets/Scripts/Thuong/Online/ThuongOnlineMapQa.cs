@@ -29,6 +29,11 @@ namespace Thuong.Online
         {
             qaStarted = Time.realtimeSinceStartup;
             Application.runInBackground = true;
+            QaCheck(SelectedMap?.mapId == "village_large" && localMapReady, "Online scene starts with the large village ready");
+            var sceneEntry = game.gameObject.scene.GetRootGameObjects().Select(root => root.GetComponent<ThuongOnlineSceneEntry>()).FirstOrDefault(entry => entry != null);
+            QaCheck(sceneEntry?.InitialMap == SelectedMap, "Default map comes from the saved scene configuration");
+            QaCheck(!game.gameObject.scene.GetRootGameObjects().Any(root => root.name == "Thuong Online Map Preview" && root.activeSelf),
+                "Editor preview is disabled before the live online map is created");
             portText="17986"; address="127.0.0.1"; playerName=host?"Map QA Host":"Map QA Client";
             SetLobbyCapacity(2);
             if (!host) mapCatalog.Find("harvest_market").contentRevision++;
@@ -52,7 +57,7 @@ namespace Thuong.Online
             {
                 ApplyMapVariant(new Thuong.Maps.ThuongMapVariant(mapCatalog.Find("village"), GameEventType.None));
                 while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
-                for (int i=0;i<6;i++)
+                for (int i=0;i<mapCatalog.Released.Length;i++)
                 {
                     SelectMap(1);
                     QaCheck(!AllMapsReady,"Map switch requires fresh acknowledgement");
@@ -69,6 +74,11 @@ namespace Thuong.Online
                     foreach (var spawn in SelectedMap.spawns) QaCheck(Thuong.Maps.ThuongMapCollision.IsFree(SelectedMap,spawn),"Valid spawn");
                 }
                 yield return QaBenchmark(output);
+                while (SelectedMap.mapId != "village_large")
+                {
+                    SelectMap(1);
+                    while (!AllMapsReady) { if (!QaAlive(output)) yield break; yield return null; }
+                }
                 AssignLobbyRolesOnServer(); QaCheck(rolesAssigned,"Roles assigned after content acknowledged");
             }
             while (!matchStarted)
@@ -108,7 +118,7 @@ namespace Thuong.Online
             else
             {
                 while (!qaDone) { if (!QaAlive(output)) yield break; QaObserve(); yield return null; }
-                QaCheck(qaMaps.Count==6,"Independent client loaded all six map layouts");
+                QaCheck(qaMaps.Count==mapCatalog.Released.Length && qaMaps.Contains("village_large"),"Independent client loaded all released map layouts");
                 QaCheck(qaEvents.Count==6,"Independent client displayed all six public events");
             }
             eventPresentation.Clear(); QaCheck(eventPresentation.OverlayCount==0,"Leave cleans overlay");
@@ -161,25 +171,33 @@ namespace Thuong.Online
             string summary="25 visible avatars = 2 network players + 23 static render stand-ins.\n"+
                 "Full map overview, lobby hidden, batchmode, VSync off; engine frame time (not GPU timestamp).\n"+
                 SystemInfo.processorType+" / "+SystemInfo.graphicsDeviceName+" / "+Screen.width+"x"+Screen.height+"\n";
-            for (int scenario=0;scenario<2;scenario++)
+            var originalVariant=new Thuong.Maps.ThuongMapVariant(SelectedMap,selectedMapEvent);
+            var scenarios=new[]{("village",GameEventType.None),("mist_swamp",GameEventType.Fog)}
+                .Concat(mapCatalog.Released.Where(m=>m.mapId == "village_large" || m.mapId.EndsWith("_expanded",StringComparison.Ordinal))
+                    .SelectMany(m=>new[]{(m.mapId,GameEventType.None),(m.mapId,GameEventType.Fog)})).ToArray();
+            foreach (var scenario in scenarios)
             {
-                if (scenario==1)
+                var definition=mapCatalog.Find(scenario.Item1);
+                if(definition==null) continue;
+                ApplyMapVariant(new Thuong.Maps.ThuongMapVariant(definition,GameEventType.None));
+                while(!AllMapsReady) { if(!QaAlive(output)) yield break; yield return null; }
+                foreach(Transform avatar in standins.transform)
                 {
-                    SelectMap(3); while(!AllMapsReady) { if(!QaAlive(output)) yield break; yield return null; }
-                    qaPresentationOverride=true;
-                    eventPresentation.Apply(GameEventType.Fog,1,GamePhase.Task,true);
+                    int index=avatar.GetSiblingIndex()+2; avatar.position=SelectedMap.spawns[index];
+                    avatar.GetComponent<SpriteRenderer>().sortingOrder=ThuongDepthSort.Order(avatar.position.y);
                 }
+                worldCamera.Refresh(true);
                 var times=new List<float>();
                 for (int frame=0;frame<150;frame++)
                 {
-                    if(scenario==1) eventPresentation.Apply(GameEventType.Fog,1,GamePhase.Task,true);
+                    eventPresentation.Apply(scenario.Item2,1,GamePhase.Task,true);
                     yield return null;
                     if(frame>=30) times.Add(Time.unscaledDeltaTime*1000);
                 }
-                times.Sort(); summary+=(scenario==0?"village_day":"mist_swamp_fog")+": mean_ms="+times.Average().ToString("F2")+
+                times.Sort(); summary+=scenario.Item1+(scenario.Item2==GameEventType.None?"_day":"_fog")+": mean_ms="+times.Average().ToString("F2")+
                     "; p95_ms="+times[(int)(times.Count*.95f)].ToString("F2")+"; allocated_bytes="+UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong()+"\n";
             }
-            qaPresentationOverride=false; Destroy(standins); eventPresentation.Clear(); SelectMap(-3);
+            qaPresentationOverride=false; Destroy(standins); eventPresentation.Clear(); ApplyMapVariant(originalVariant);
             worldCamera.overview=previousOverview; Camera.main.rect=previousViewport; worldCamera.Refresh(true);
             while(!AllMapsReady) { if(!QaAlive(output)) yield break; yield return null; }
             File.WriteAllText(output+".performance.txt",summary);

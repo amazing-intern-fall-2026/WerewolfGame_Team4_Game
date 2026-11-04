@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using Object = UnityEngine.Object;
 
-public static class ThuongMapInstaller
+public static partial class ThuongMapInstaller
 {
     public const string Root = "Assets/Scenes/Thuong/Maps";
     private const string ExistingArt = "Assets/Scenes/Thuong/Prototype/Art/Medieval/Sprites/World/";
@@ -66,7 +66,7 @@ public static class ThuongMapInstaller
             else { world = new GameObject(names[index]); BuildWorld(world.transform, index); }
             world.name = "World " + ids[index];
             var definition = Asset<ThuongMapDefinition>(Root + "/Definitions/" + ids[index] + ".asset");
-            definition.mapId = ids[index]; definition.displayName = names[index]; definition.contentRevision = index==3||index==4?3:2;
+            definition.mapId = ids[index]; definition.displayName = names[index]; definition.contentRevision = Mathf.Max(definition.contentRevision, index==3||index==4?3:2);
             definition.boundsMin = new(-13, -11); definition.boundsMax = new(15, 13);
             definition.obstacles = blockers.ToArray();
             definition.spawns = Enumerable.Range(0, 25).Select(i => new Vector2(1 + (i % 5 - 2) * .85f, (i / 5 - 2) * .85f)).ToArray();
@@ -82,7 +82,7 @@ public static class ThuongMapInstaller
             EditorUtility.SetDirty(definition); definitions.Add(definition); Object.DestroyImmediate(world);
         }
         var catalog = Asset<ThuongMapCatalog>(Root + "/Resources/ThuongMapCatalog.asset");
-        catalog.maps = definitions.ToArray(); EditorUtility.SetDirty(catalog);
+        catalog.maps = definitions.Concat(catalog.maps.Where(m => m != null && !ids.Contains(m.mapId))).ToArray(); EditorUtility.SetDirty(catalog);
         var events = Asset<ThuongEventPresentationCatalog>(Root + "/Resources/ThuongEventPresentationCatalog.asset");
         events.lantern = Sprite("Lantern"); events.banner = Sprite("Banner"); events.stage = Sprite("StageBoards"); events.tuongMask = Sprite("TuongTheatreSign");
         events.events = Enumerable.Range(1, 6).Select(i => new ThuongEventVisual
@@ -93,7 +93,8 @@ public static class ThuongMapInstaller
             volume = i == 1 || i == 4 ? 0 : i == 6 ? .025f : .012f
         }).ToArray(); EditorUtility.SetDirty(events);
         AssetDatabase.SaveAssets();
-        Debug.Log("THUONG_MAPS_INSTALLED: six map prefabs, stable task slots, thumbnails and six events.");
+        InstallLargeVillage();
+        Debug.Log("THUONG_MAPS_INSTALLED: original maps and large village refreshed; additional layouts retained.");
         ThuongMapChecks.Run();
     }
 
@@ -241,10 +242,18 @@ public static class ThuongMapInstaller
         }
         return(map,tiles);
     }
-    private static Sprite RenderThumbnail(GameObject world, string id)
+    private static Sprite RenderThumbnail(GameObject world, string id, Vector2? boundsMin = null, Vector2? boundsMax = null)
     {
         var cameraRoot = new GameObject("Map preview", typeof(Camera)); var camera = cameraRoot.GetComponent<Camera>();
+        camera.scene = world.scene;
         camera.orthographic = true; camera.orthographicSize = 13; camera.transform.position = new Vector3(1,1,-10);
+        if (boundsMin.HasValue && boundsMax.HasValue)
+        {
+            Vector2 size = boundsMax.Value - boundsMin.Value;
+            camera.orthographicSize = Mathf.Max(size.y / 2, size.x / (2 * (512f / 448))) + 1;
+            Vector2 center = (boundsMin.Value + boundsMax.Value) / 2;
+            camera.transform.position = new Vector3(center.x, center.y, -10);
+        }
         camera.backgroundColor = new Color(.14f,.17f,.13f); camera.clearFlags = CameraClearFlags.SolidColor;
         var texture = new RenderTexture(512, 448, 24); camera.targetTexture = texture;
         var previous = RenderTexture.active;

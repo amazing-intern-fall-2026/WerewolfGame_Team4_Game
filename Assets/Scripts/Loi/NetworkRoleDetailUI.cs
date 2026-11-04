@@ -275,6 +275,16 @@ public class NetworkRoleDetailUI : NetworkBehaviour
 
         RoleInfoData info = isSecret ? RoleInfoDatabase.GetSecretRoleInfo(playerName) : RoleInfoDatabase.GetRoleInfo(role);
 
+        if (!isSecret && (role == RoleType.WhiteHound || role == RoleType.WhiteWolf) && IsDisplayedPlayerWhiteHoundAwakened())
+        {
+            info.DisplayName = "Bạch khuyển (Phe DogSpirit)";
+            info.FactionName = "Phe Quái vật (DogSpirit)";
+            info.Faction = FactionType.Monster;
+            info.SkillName = "Tấn công ban đêm";
+            info.SkillDescription = "Đã bị DogSpirit cắn và chuyển sang phe DogSpirit! Mỗi đêm có thể chọn một người chơi để tấn công.";
+            info.Restrictions = "Sử dụng chức năng tấn công vào ban đêm cùng phe DogSpirit.";
+        }
+
         if (headerText != null)
         {
             headerText.text = isSecret ? "THÔNG TIN NGƯỜI CHƠI" : "THÔNG TIN VAI TRÒ";
@@ -328,6 +338,26 @@ public class NetworkRoleDetailUI : NetworkBehaviour
     private void DisplaySecretInfo(string playerName)
     {
         DisplayRoleInfo(playerName, RoleType.Villager, isSecret: true);
+    }
+
+    private bool IsDisplayedPlayerWhiteHoundAwakened()
+    {
+        int localId = GetLocalPlayerId();
+        if (currentDisplayedPlayerId == localId &&
+            NetworkRoleSync.LocalInstance != null &&
+            NetworkRoleSync.LocalInstance.IsWhiteHoundAwakened)
+        {
+            return true;
+        }
+
+        if (currentDisplayedPlayerId >= 0 && PlayerManager.Instance != null)
+        {
+            PlayerData p = PlayerManager.Instance.GetplayerByID(currentDisplayedPlayerId);
+            if (p != null && p.isWhiteHoundAwakened)
+                return true;
+        }
+
+        return false;
     }
 
     public void Close()
