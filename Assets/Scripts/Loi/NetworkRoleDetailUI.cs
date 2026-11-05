@@ -70,6 +70,7 @@ public class NetworkRoleDetailUI : NetworkBehaviour
             return;
         }
         instance = this;
+        RegisterImagesToDatabase();
     }
 
     private void Start()
@@ -416,8 +417,24 @@ public class NetworkRoleDetailUI : NetworkBehaviour
         return RoleType.Villager;
     }
 
+    private void RegisterImagesToDatabase()
+    {
+        if (roleImages == null) return;
+        foreach (RoleImageEntry entry in roleImages)
+        {
+            if (entry != null && entry.image != null)
+            {
+                RoleInfoDatabase.RegisterRoleSprite(entry.role, entry.image);
+            }
+        }
+    }
+
     private Sprite GetRoleSprite(RoleType role)
     {
+        Sprite dbSprite = RoleInfoDatabase.GetRoleSprite(role);
+        if (dbSprite != null)
+            return dbSprite;
+
         if (roleImages != null)
         {
             foreach (RoleImageEntry entry in roleImages)

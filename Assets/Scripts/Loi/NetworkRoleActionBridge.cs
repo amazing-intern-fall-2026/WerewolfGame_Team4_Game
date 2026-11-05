@@ -63,6 +63,20 @@ public class NetworkRoleActionBridge : MonoBehaviour
         Debug.Log("ROLE ACTION BRIDGE: Reset For New Match hoàn tất.");
     }
 
+    public static void ResetAllRoleActionBridgeData()
+    {
+        if (Instance != null)
+        {
+            Instance.ResetForNewMatch();
+        }
+        else
+        {
+            ResetShamanCharms();
+            ClearPendingShamanKill();
+        }
+        Debug.Log("ROLE ACTION BRIDGE: ResetAllRoleActionBridgeData hoàn tất.");
+    }
+
     // =========================================================
     // SERVER-AUTHORITATIVE SHAMAN CHARM TRACKING
     // =========================================================
@@ -118,6 +132,16 @@ public class NetworkRoleActionBridge : MonoBehaviour
     public static void ClearPendingShamanKill()
     {
         pendingShamanKills.Clear();
+    }
+
+    public static void CancelDisconnectedPlayerActions(int playerId)
+    {
+        pendingShamanKills.RemoveAll(k => k.requesterId == playerId || k.targetId == playerId);
+        if (Instance != null)
+        {
+            Instance.bittenWhiteHoundPlayerIds.Remove(playerId);
+        }
+        Debug.Log($"[NetworkRoleActionBridge] ÄÃ£ há»§y cÃ¡c action liÃªn quan Ä‘áº¿n Player {playerId} do disconnect.");
     }
 
     public static void ResolvePendingShamanKill()
@@ -237,6 +261,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
             }
             ResolvePendingShamanKill();
             NetworkGameOverManager.SynchronizeWhiteHoundState();
+            NetworkGameOverManager.Instance?.CheckServerWinCondition(forceCheck: true);
         }
 
         if (currentPhase == GamePhase.Night)
@@ -766,18 +791,28 @@ public class NetworkRoleActionBridge : MonoBehaviour
             !roleManager.playerRoles.TryGetValue(
                 requesterID,
                 out BaseRole role
-            )
+            ) || role == null
         )
         {
+            PlayerData reqData = PlayerManager.Instance != null ? PlayerManager.Instance.GetplayerByID(requesterID) : null;
+            if (reqData != null)
+            {
+                role = RoleCatalog.Create(reqData.roleType, reqData);
+                roleManager.playerRoles[requesterID] = role;
+                Debug.Log($"ROLE ACTION BRIDGE | Phục hồi Role {reqData.roleType} cho Player {requesterID + 1}");
+            }
+        }
+
+        if (role == null)
+        {
             Debug.LogError(
-                "HUNTER DEBUG | Không tìm thấy Role của Player "
-                + requesterID
+                "HUNTER DEBUG | Role NULL."
             );
 
             SendResult(
                 requesterClientId,
                 false,
-                "Không tìm thấy Role của Player!"
+                "Role đang NULL!"
             );
 
             return;
@@ -1393,6 +1428,71 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
                 return;
             }
+        }
+
+        // =====================================================
+        // DOGSPIRIT (MA SÓI) & AWAKENED WHITEHOUND LOGIC
+        // =====================================================
+        if (role.roleType == RoleType.DogSpirit ||
+            (role.roleType == RoleType.WhiteHound && requester != null && requester.isWhiteHoundAwakened))
+        {
+            if (requester == null || !requester.isAlive)
+            {
+                SendResult(requesterClientId, false, "Người chơi đã bị loại.");
+                return;
+            }
+
+            if (target == null || !target.isAlive)
+            {
+                SendResult(requesterClientId, false, "Mục tiêu không tồn tại hoặc đã bị loại.");
+                return;
+            }
+
+            if (requesterID == targetID)
+            {
+                SendResult(requesterClientId, false, "Ma Sói không thể tự tấn công chính mình!");
+                return;
+            }
+
+            if (currentPhase != GamePhase.Night)
+            {
+                SendResult(requesterClientId, false, "Chỉ có thể tấn công vào ban đêm!");
+                return;
+            }
+
+            // Ghi nhận mục tiêu tấn công vào NightManager
+            RoleType monsterSource = (role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf) ? RoleType.WhiteHound : RoleType.DogSpirit;
+            if (NightManager.Instance != null)
+            {
+                NightManager.Instance.SetMonsterTarget(targetID, monsterSource);
+                NightManager.Instance.RecordSubmittedAction(requester, targetID, monsterSource.ToString());
+            }
+
+            // Đánh dấu WhiteHound bị cắn nếu cắn trúng WhiteHound
+            if (role.roleType == RoleType.DogSpirit && target != null)
+            {
+                if (target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf)
+                {
+                    bittenWhiteHoundPlayerIds.Add(targetID);
+                    Debug.Log($"ROLE ACTION BRIDGE | DogSpirit đã cắn WhiteHound (Player {targetID + 1}) -> Ghi nhận WhiteHound bị cắn đêm nay để thức tỉnh và ngăn Dân làng thắng!");
+                }
+            }
+
+            // Đồng bộ gọi TryUseNightAbility của DogSpirit / WhiteHound để giữ tương thích
+            role.TryUseNightAbility(targetID, out string dogFeedback);
+
+            // Thông báo cho Shaman biết mục tiêu bị Sói tấn công để Shaman kịp dùng Bùa Cứu
+            NotifyShamanAboutDogSpiritTarget(targetID);
+
+            Debug.Log($"ROLE ACTION BRIDGE | DogSpirit (Player {requesterID + 1}) đã chọn mục tiêu tấn công là Player {targetID + 1}.");
+
+            SendResult(
+                requesterClientId,
+                true,
+                $"Đã chọn Player {targetID + 1} để tấn công."
+            );
+
+            return;
         }
 
         // =====================================================

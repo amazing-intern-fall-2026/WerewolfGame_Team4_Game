@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 
 public class SceneLoader : MonoBehaviour
 {
+    public static string DisconnectNoticeMessage = null;
     public static SceneLoader Instance;
 
     private bool isLeaving = false;
@@ -65,6 +66,52 @@ public class SceneLoader : MonoBehaviour
     // =========================================================
     // CLIENT / HOST CHỦ ĐỘNG RỜI PHÒNG VỀ MAINMENU
     // =========================================================
+
+    /// <summary>
+    /// Dọn dẹp toàn diện mọi dữ liệu session, static cache, danh sách người chơi, vote, action
+    /// khi rời phòng, ngắt kết nối, hoặc trước khi bắt đầu tạo/vào phòng mới.
+    /// Đảm bảo tính lũy đẳng (idempotent), có thể gọi nhiều lần liên tiếp an toàn.
+    /// </summary>
+    public static void CleanupNetworkSession()
+    {
+        Debug.Log("[SceneLoader] Bắt đầu CleanupNetworkSession...");
+
+        // 1. Cho phép Leave lần tiếp theo
+        if (Instance != null)
+        {
+            Instance.isLeaving = false;
+        }
+
+        // 2. Dọn dẹp dữ liệu disconnect và left players
+        NetworkGameManager.ResetSessionData();
+
+        // 3. Xóa danh sách player và tên của match cũ
+        NetworkGamePlayerSetup.Clear();
+        NetworkGamePlayerNameSetup.Clear();
+
+        // 4. Xóa cấu hình role và cache sprite
+        NetworkRoleSync.ResetStaticSessionState();
+
+        // 5. Reset Role Action Bridge (Shaman charms, pending kills, bitten whitehounds)
+        NetworkRoleActionBridge.ResetAllRoleActionBridgeData();
+
+        // 6. Reset votes
+        NetworkPlayerVote.ResetNetworkVotes();
+
+        // 7. Reset player actions
+        NetworkPlayerAction.ResetServerActionData();
+
+        // 8. Reset GameOver manager UI & timers
+        if (NetworkGameOverManager.Instance != null)
+        {
+            NetworkGameOverManager.Instance.ResetUIState();
+        }
+
+        // 9. Dọn dẹp heartbeat và cache room nếu không còn trong trận
+        RoomManager.StopHeartbeat();
+
+        Debug.Log("[SceneLoader] CleanupNetworkSession hoàn tất thành công.");
+    }
 
     public void LeaveRoomToMainMenu()
     {
@@ -131,8 +178,8 @@ public class SceneLoader : MonoBehaviour
             }
         }
 
-        // 2. Đóng session phòng nếu là Host
-        if (RoomManager.IsHostOfCurrentRoom || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer))
+        // 2. Đóng session phòng nếu là Host hoặc còn LobbyId
+        if (RoomManager.IsHostOfCurrentRoom || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer) || !string.IsNullOrEmpty(RoomManager.CurrentLobbyId))
         {
             Debug.Log("SceneLoader: [2/3] Đang đóng session phòng Host...");
             Task closeRoomTask = RoomManager.CloseCurrentRoomAsync();
@@ -193,22 +240,53 @@ public class SceneLoader : MonoBehaviour
         if (NetworkManager.Singleton == null)
             return;
 
-        // Nếu là Client (không phải Server) và nhận disconnect cho chính mình HOẶC cho Server (Host shutdown)
+        // Neu la Client (khong phai Server) va nhan disconnect cho chinh minh HOAC cho Server (Host shutdown)
         if (!NetworkManager.Singleton.IsServer)
         {
             if (clientId == NetworkManager.Singleton.LocalClientId || clientId == NetworkManager.ServerClientId)
             {
-                Debug.Log($"SceneLoader: Client bị disconnect khỏi Host (clientId={clientId}, localId={NetworkManager.Singleton.LocalClientId}).");
+                Debug.Log($"SceneLoader: Client bi disconnect khoi Host (clientId={clientId}, localId={NetworkManager.Singleton.LocalClientId}).");
                 isLeaving = true;
+                CleanupNetworkSession();
+                if (clientId == NetworkManager.ServerClientId)
+                {
+                    DisconnectNoticeMessage = "Host \u0111\u00e3 r\u1eddi ph\u00f2ng. Tr\u1eadn \u0111\u1ea5u \u0111\u00e3 k\u1ebft th\u00fac.";
+                    if (NetworkGameOverManager.Instance != null)
+                    {
+                        NetworkGameOverManager.Instance.ShowGameOverUI("Host Disconnected");
+                    }
+                }
                 StartCoroutine(ShutdownThenLoadMainMenu());
             }
         }
     }
 
-    // =========================================================
-    // SCENE ĐÃ LOAD
-    // =========================================================
+    private void OnGUI()
+    {
+        if (!string.IsNullOrEmpty(DisconnectNoticeMessage))
+        {
+            GUI.depth = -2000;
+            float w = 520;
+            float h = 130;
+            float x = (Screen.width - w) / 2f;
+            float y = 50;
 
+            GUI.Box(new Rect(x, y, w, h), "");
+            GUIStyle style = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 18,
+                alignment = TextAnchor.MiddleCenter,
+                fontStyle = FontStyle.Bold
+            };
+            style.normal.textColor = Color.yellow;
+            GUI.Box(new Rect(x, y, w, h), DisconnectNoticeMessage, style);
+
+            if (GUI.Button(new Rect(x + w / 2 - 50, y + h - 35, 100, 28), "\u0110\u00d3NG"))
+            {
+                DisconnectNoticeMessage = null;
+            }
+        }
+    }
     private void OnSceneLoaded(
         Scene scene,
         LoadSceneMode mode)
@@ -216,15 +294,10 @@ public class SceneLoader : MonoBehaviour
         if (scene.name != "MainMenu")
             return;
 
-        Debug.Log(
-            "SceneLoader: Đã về MainMenu."
-        );
-
-        // Cho phép Leave lần tiếp theo
-        isLeaving = false;
+        CleanupNetworkSession();
 
         Debug.Log(
-            "SceneLoader: isLeaving = false."
+            "SceneLoader: Đã về MainMenu và hoàn tất Cleanup."
         );
     }
 

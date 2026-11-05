@@ -16,6 +16,7 @@ public class NetworkHunterDeathUI : MonoBehaviour
     private bool isHunter;
     private bool hunterHasDied;
     private bool hasOpenedTargetUI;
+    private bool hasUsedHunterShot;
 
     public static NetworkHunterDeathUI Instance { get; private set; }
 
@@ -39,6 +40,7 @@ public class NetworkHunterDeathUI : MonoBehaviour
     {
         hunterHasDied = false;
         hasOpenedTargetUI = false;
+        hasUsedHunterShot = false;
         if (targetPanel != null)
         {
             targetPanel.SetActive(false);
@@ -49,11 +51,15 @@ public class NetworkHunterDeathUI : MonoBehaviour
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived += OnRoleReceived;
+        NetworkRoleSync.OnLocalHunterRevengeStateChanged += OnHunterRevengeStateChanged;
+        NetworkPlayerAction.OnNetworkActionResult += OnNetworkActionResult;
     }
 
     private void OnDisable()
     {
         NetworkRoleSync.OnLocalRoleReceived -= OnRoleReceived;
+        NetworkRoleSync.OnLocalHunterRevengeStateChanged -= OnHunterRevengeStateChanged;
+        NetworkPlayerAction.OnNetworkActionResult -= OnNetworkActionResult;
 
         if (localStateSync != null)
         {
@@ -63,6 +69,39 @@ public class NetworkHunterDeathUI : MonoBehaviour
         if (phaseSync != null)
         {
             phaseSync.CurrentPhase.OnValueChanged -= OnPhaseChanged;
+        }
+    }
+
+    private void OnHunterRevengeStateChanged(bool canShoot)
+    {
+        Debug.Log($"HUNTER UI | Nhận sync quyền bắn trả thù từ Server: {canShoot}");
+        if (canShoot)
+        {
+            hunterHasDied = true;
+            if (targetPanel != null && targetPanel.activeSelf && isHunter && !hasUsedHunterShot)
+        {
+            NetworkDeathNotification.Instance?.HideDeathNotification();
+        }
+
+        CheckHunterDiscussion();
+        }
+    }
+
+    private void OnNetworkActionResult(bool success, string message)
+    {
+        if (!isHunter) return;
+        if (success)
+        {
+            hasUsedHunterShot = true;
+            if (targetPanel != null)
+            {
+                targetPanel.SetActive(false);
+            }
+            if (targetListUI != null)
+            {
+                targetListUI.CloseTargetList();
+            }
+            Debug.Log("HUNTER UI | Thợ Săn đã hoàn thành phát bắn trả thù.");
         }
     }
 
@@ -89,6 +128,11 @@ public class NetworkHunterDeathUI : MonoBehaviour
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
+        }
+
+        if (targetPanel != null && targetPanel.activeSelf && isHunter && !hasUsedHunterShot)
+        {
+            NetworkDeathNotification.Instance?.HideDeathNotification();
         }
 
         CheckHunterDiscussion();
@@ -120,6 +164,11 @@ public class NetworkHunterDeathUI : MonoBehaviour
          * Kiểm tra liên tục để tránh trường hợp
          * Hunter chết trước khi UI được tạo/subcribe event.
          */
+        if (targetPanel != null && targetPanel.activeSelf && isHunter && !hasUsedHunterShot)
+        {
+            NetworkDeathNotification.Instance?.HideDeathNotification();
+        }
+
         CheckHunterDiscussion();
     }
 
@@ -218,7 +267,12 @@ public class NetworkHunterDeathUI : MonoBehaviour
                 "HUNTER UI | Hunter đã chết."
             );
 
-            CheckHunterDiscussion();
+            if (targetPanel != null && targetPanel.activeSelf && isHunter && !hasUsedHunterShot)
+        {
+            NetworkDeathNotification.Instance?.HideDeathNotification();
+        }
+
+        CheckHunterDiscussion();
         }
     }
 
@@ -233,7 +287,19 @@ public class NetworkHunterDeathUI : MonoBehaviour
             + newPhase
         );
 
+        if (targetPanel != null && targetPanel.activeSelf && isHunter && !hasUsedHunterShot)
+        {
+            NetworkDeathNotification.Instance?.HideDeathNotification();
+        }
+
         CheckHunterDiscussion();
+    }
+
+    public void TriggerHunterRevenge()
+    {
+        hunterHasDied = true;
+        hasOpenedTargetUI = false;
+        OpenHunterTargetUI();
     }
 
     private void CheckHunterDiscussion()
@@ -241,33 +307,46 @@ public class NetworkHunterDeathUI : MonoBehaviour
         if (!isHunter)
             return;
 
+        if (hasUsedHunterShot)
+            return;
+
+        int localId = NetworkManager.Singleton != null ? (int)NetworkManager.Singleton.LocalClientId : -1;
+        PlayerData me = localId >= 0 && PlayerManager.Instance != null ? PlayerManager.Instance.GetplayerByID(localId) : null;
+
+        if (me != null && me.hasUsedHunterShot)
+            return;
+
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasUsedHunterShot)
+            return;
+
         if (!hunterHasDied)
         {
-            int localId = NetworkManager.Singleton != null ? (int)NetworkManager.Singleton.LocalClientId : -1;
-            if (localId >= 0 && PlayerManager.Instance != null)
+            if (me != null && !me.isAlive)
             {
-                PlayerData p = PlayerManager.Instance.GetplayerByID(localId);
-                if (p != null && !p.isAlive)
-                {
-                    hunterHasDied = true;
-                }
+                hunterHasDied = true;
+            }
+            else if (localStateSync != null && localStateSync.State.Value == NetworkPlayerStateType.Dead)
+            {
+                hunterHasDied = true;
             }
         }
 
         if (!hunterHasDied)
             return;
 
-        if (hasOpenedTargetUI)
-            return;
-
-        // Nếu đã bắn rồi thì không mở lại
-        int myId = NetworkManager.Singleton != null ? (int)NetworkManager.Singleton.LocalClientId : -1;
-        if (myId >= 0 && PlayerManager.Instance != null)
+        // Kiểm tra nguyên nhân tử vong: Chỉ Monster (DogSpirit) hoặc Vote
+        if (me != null && me.hasDeathRecord)
         {
-            PlayerData me = PlayerManager.Instance.GetplayerByID(myId);
-            if (me != null && me.hasUsedHunterShot)
+            bool validCause = me.lastDeathCause == DeathCause.Monster || me.lastDeathCause == DeathCause.Vote || me.wasVotedOut;
+            bool serverPermitted = NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.CanHunterRevengeShot;
+            if (!validCause && !serverPermitted)
+            {
                 return;
+            }
         }
+
+        if (hasOpenedTargetUI && targetPanel != null && targetPanel.activeSelf)
+            return;
 
         if (phaseSync == null)
             phaseSync = FindFirstObjectByType<NetworkPhaseSync>();
@@ -275,8 +354,7 @@ public class NetworkHunterDeathUI : MonoBehaviour
         if (phaseSync == null)
             return;
 
-        GamePhase currentPhase =
-            phaseSync.CurrentPhase.Value;
+        GamePhase currentPhase = phaseSync.CurrentPhase.Value;
 
         // Không mở trong lúc Setup, Night (chờ trời sáng), hoặc GameOver
         if (currentPhase == GamePhase.Setup || currentPhase == GamePhase.Night || currentPhase == GamePhase.GameOver)
@@ -286,15 +364,20 @@ public class NetworkHunterDeathUI : MonoBehaviour
         OpenHunterTargetUI();
     }
 
-    private void OpenHunterTargetUI()
+    public void OpenHunterTargetUI()
     {
         if (!isHunter)
             return;
 
-        if (!hunterHasDied)
+        if (hasUsedHunterShot)
             return;
 
-        if (hasOpenedTargetUI)
+        int myId = NetworkManager.Singleton != null ? (int)NetworkManager.Singleton.LocalClientId : -1;
+        PlayerData myData = myId >= 0 && PlayerManager.Instance != null ? PlayerManager.Instance.GetplayerByID(myId) : null;
+        if (myData != null && myData.hasUsedHunterShot)
+            return;
+
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasUsedHunterShot)
             return;
 
         hasOpenedTargetUI = true;

@@ -12,11 +12,56 @@ public class RoleInfoData
     public string SkillDescription { get; set; }
     public string Restrictions { get; set; }
     public bool IsSecret { get; set; }
+    public Sprite RoleSprite { get; set; }
 }
 
 public static class RoleInfoDatabase
 {
+    private static readonly System.Collections.Generic.Dictionary<RoleType, Sprite> roleSpriteCache =
+        new System.Collections.Generic.Dictionary<RoleType, Sprite>();
+
+    public static void RegisterRoleSprite(RoleType role, Sprite sprite)
+    {
+        if (sprite != null)
+        {
+            roleSpriteCache[role] = sprite;
+        }
+    }
+
+    public static void ClearSpriteCache()
+    {
+        roleSpriteCache.Clear();
+    }
+
+    public static Sprite GetRoleSprite(RoleType role)
+    {
+        if (roleSpriteCache.TryGetValue(role, out Sprite sprite) && sprite != null)
+        {
+            return sprite;
+        }
+
+        // Fallback: tra cuu tu RoleManager.Instance.roleDefinitions neu co
+        if (RoleManager.Instance?.roleDefinitions != null)
+        {
+            var def = RoleManager.Instance.roleDefinitions.Find(role);
+            if (def != null && def.portrait != null)
+            {
+                roleSpriteCache[role] = def.portrait;
+                return def.portrait;
+            }
+        }
+
+        return null;
+    }
+
     public static RoleInfoData GetRoleInfo(RoleType role)
+    {
+        RoleInfoData data = GetBaseRoleInfo(role);
+        data.RoleSprite = GetRoleSprite(role);
+        return data;
+    }
+
+    private static RoleInfoData GetBaseRoleInfo(RoleType role)
     {
         switch (role)
         {

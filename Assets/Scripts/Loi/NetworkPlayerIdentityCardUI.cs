@@ -27,10 +27,32 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
 
     private bool playerNameInitialized;
 
+    private void Awake()
+    {
+        RegisterImagesToDatabase();
+    }
+
+    public void RegisterImagesToDatabase()
+    {
+        if (roleImages == null) return;
+        foreach (RoleImageEntry entry in roleImages)
+        {
+            if (entry != null && entry.image != null)
+            {
+                RoleInfoDatabase.RegisterRoleSprite(entry.role, entry.image);
+            }
+        }
+    }
+
     private void OnEnable()
     {
         NetworkRoleSync.OnLocalRoleReceived += OnRoleReceived;
         NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged += OnWhiteHoundAwakenedChanged;
+
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
+        {
+            OnRoleReceived(NetworkRoleSync.LocalInstance.LocalRole);
+        }
     }
 
     private void OnDisable()
@@ -41,6 +63,8 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
 
     private void Start()
     {
+        RegisterImagesToDatabase();
+
         if (cardButton == null)
         {
             cardButton = GetComponent<Button>();
@@ -71,11 +95,25 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
 
         TrySetLocalPlayerName();
 
-        if (NetworkRoleSync.LocalInstance != null)
+        if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
         {
             OnRoleReceived(
                 NetworkRoleSync.LocalInstance.LocalRole
             );
+        }
+        else
+        {
+            ResetIdentityCardUI();
+        }
+    }
+
+    public void ResetIdentityCardUI()
+    {
+        if (roleNameText != null) roleNameText.text = "";
+        if (characterImage != null)
+        {
+            characterImage.sprite = null;
+            characterImage.enabled = false;
         }
     }
 
@@ -100,10 +138,15 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
 
     private void Update()
     {
-        if (playerNameInitialized)
-            return;
+        if (!playerNameInitialized)
+        {
+            TrySetLocalPlayerName();
+        }
 
-        TrySetLocalPlayerName();
+        if (characterImage != null && (characterImage.sprite == null || !characterImage.enabled) && NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
+        {
+            OnRoleReceived(NetworkRoleSync.LocalInstance.LocalRole);
+        }
     }
 
     private void TrySetLocalPlayerName()
@@ -146,7 +189,7 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
         );
     }
 
-    private void OnRoleReceived(RoleType role)
+    public void OnRoleReceived(RoleType role)
     {
         Debug.Log(
             "IDENTITY CARD | Local Role = " + role
@@ -166,18 +209,27 @@ public class NetworkPlayerIdentityCardUI : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    private Sprite GetRoleImage(RoleType role)
+    public Sprite GetRoleImage(RoleType role)
     {
-        if (roleImages == null)
-            return null;
+        // 1. Ưu tiên lấy Sprite từ RoleInfoDatabase
+        Sprite dbSprite = RoleInfoDatabase.GetRoleSprite(role);
+        if (dbSprite != null)
+            return dbSprite;
 
-        foreach (RoleImageEntry entry in roleImages)
+        // 2. Tra cứu trong roleImages cục bộ và lưu vào Database
+        if (roleImages != null)
         {
-            if (entry == null)
-                continue;
+            foreach (RoleImageEntry entry in roleImages)
+            {
+                if (entry == null)
+                    continue;
 
-            if (entry.role == role)
-                return entry.image;
+                if (entry.role == role && entry.image != null)
+                {
+                    RoleInfoDatabase.RegisterRoleSprite(role, entry.image);
+                    return entry.image;
+                }
+            }
         }
 
         return null;

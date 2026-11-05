@@ -6,6 +6,7 @@ using UnityEngine;
 
 public static class DisconnectTestExecution
 {
+    // Trigger domain reload batch execution
     [InitializeOnLoadMethod]
     private static void OnEditorReload()
     {
@@ -22,6 +23,8 @@ public static class DisconnectTestExecution
     {
         Debug.Log("[DisconnectTestExecution] Starting batch execution of NetworkDisconnectSyncTests...");
         NetworkDisconnectSyncTests.RunAllTests();
+        Debug.Log("[DisconnectTestExecution] Starting batch execution of NetworkGameOverTests...");
+        NetworkGameOverTests.RunAllTests();
         Debug.Log("[DisconnectTestExecution] Completed batch execution.");
     }
 }
