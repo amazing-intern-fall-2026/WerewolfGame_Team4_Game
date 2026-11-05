@@ -81,13 +81,19 @@ public class NetworkPlayerDataBridge : NetworkBehaviour
         // TẠO PLAYER DATA
         // ==========================================
 
+        string displayName = NetworkGamePlayerNameSetup.GetName(OwnerClientId);
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = "Player " + (playerID + 1);
+        }
+
         PlayerData player =
             new PlayerData
             {
                 playerID = playerID,
 
                 playerName =
-                    "Player " + playerID,
+                    displayName,
 
                 isAlive = true,
 
@@ -99,6 +105,8 @@ public class NetworkPlayerDataBridge : NetworkBehaviour
 
                 status = new PlayerStatus()
             };
+        player.ResetForNewMatch();
+        player.playerName = displayName;
 
         // ==========================================
         // ĐĂNG KÝ VÀO PLAYER MANAGER

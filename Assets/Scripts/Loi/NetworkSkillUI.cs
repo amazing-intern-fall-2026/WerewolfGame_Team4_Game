@@ -238,7 +238,7 @@ public class NetworkSkillUI : MonoBehaviour
         {
             RoleType r = NetworkRoleSync.LocalInstance.LocalRole;
             bool roleRecognized = isDogSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller;
-            if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer))
+            if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.SerpentSpirit || r == RoleType.Ogre || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer))
             {
                 OnRoleReceived(r);
             }
@@ -250,7 +250,7 @@ public class NetworkSkillUI : MonoBehaviour
     private void OnRoleReceived(RoleType role)
     {
         isDogSpirit =
-            role == RoleType.DogSpirit;
+            role == RoleType.DogSpirit || role == RoleType.SerpentSpirit || role == RoleType.Ogre;
 
         isWhiteHound =
             role == RoleType.WhiteHound || role == RoleType.WhiteWolf;
