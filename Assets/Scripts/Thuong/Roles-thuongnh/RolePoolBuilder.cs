@@ -84,7 +84,7 @@ public static class RoleCatalog
 public static class RolePoolBuilder
 {
     // A seed makes a draw reproducible in tests. In normal play Unity supplies it.
-    public static List<RoleType> Build(int playerCount, int? seed = null)
+    public static List<RoleType> Build(int playerCount, int? seed = null, ICollection<RoleType> allowedRoles = null)
     {
         if (playerCount < 1)
             throw new ArgumentOutOfRangeException(nameof(playerCount));
@@ -113,6 +113,7 @@ public static class RolePoolBuilder
         specials.AddRange(RoleCatalog.MonsterSpecials);
         specials.AddRange(RoleCatalog.VillagerSpecials);
         specials.AddRange(RoleCatalog.NeutralSpecials);
+        if (allowedRoles != null) specials.RemoveAll(role => !allowedRoles.Contains(role));
         Shuffle(specials, random);
         int monsters = 1;
         int neutrals = 0;

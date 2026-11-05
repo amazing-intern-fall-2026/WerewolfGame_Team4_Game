@@ -235,7 +235,7 @@ public static class ThuongMedievalSceneChecks
 
     // A separate UI camera preserves the real full-screen HUD when the world
     // camera uses a smaller viewport. Original layers/canvas settings are restored.
-    public static void SavePreview(string path)
+    public static void SavePreview(string path, int width = 1600, int height = 900)
     {
         Object.FindAnyObjectByType<GameHUD>().SendMessage("Update");
         foreach (var ui in Object.FindObjectsByType<RoleAbilityUI>()) ui.SendMessage("Update");
@@ -245,10 +245,10 @@ public static class ThuongMedievalSceneChecks
             .Select(c => (canvas:c, mode:c.renderMode, camera:c.worldCamera, distance:c.planeDistance)).ToArray();
         var uiObjects = canvases.SelectMany(entry => entry.canvas.GetComponentsInChildren<Transform>(true))
             .Select(t => (go:t.gameObject, layer:t.gameObject.layer)).ToArray();
-        var rt = new RenderTexture(1600, 900, 24);
-        var texture = new Texture2D(1600, 900, TextureFormat.RGBA32, false);
-        var uiTarget = new RenderTexture(1600, 900, 24);
-        var uiTexture = new Texture2D(1600, 900, TextureFormat.RGBA32, false);
+        var rt = new RenderTexture(width, height, 24);
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        var uiTarget = new RenderTexture(width, height, 24);
+        var uiTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
         var uiObject = new GameObject("Temporary screenshot UI camera", typeof(Camera));
         var uiCamera = uiObject.GetComponent<Camera>();
         var oldTarget = world.targetTexture; var oldActive = RenderTexture.active; int oldMask = world.cullingMask;
@@ -265,9 +265,9 @@ public static class ThuongMedievalSceneChecks
             world.GetComponent<ThuongTopDownCamera>()?.Refresh(true);
             RenderTexture.active = rt; GL.Clear(true, true, new Color32(26, 33, 25, 255));
             Canvas.ForceUpdateCanvases(); world.Render();
-            RenderTexture.active = rt; texture.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0); texture.Apply();
+            RenderTexture.active = rt; texture.ReadPixels(new Rect(0, 0, width, height), 0, 0); texture.Apply();
             uiCamera.Render(); RenderTexture.active = uiTarget;
-            uiTexture.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0); uiTexture.Apply();
+            uiTexture.ReadPixels(new Rect(0, 0, width, height), 0, 0); uiTexture.Apply();
             var pixels = texture.GetPixels32(); var overlay = uiTexture.GetPixels32();
             for (int i = 0; i < pixels.Length; i++)
             {

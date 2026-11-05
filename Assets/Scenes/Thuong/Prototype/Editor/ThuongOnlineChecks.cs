@@ -418,7 +418,7 @@ public static class ThuongOnlineChecks
         network.NetworkConfig = new NetworkConfig
         {
             NetworkTransport = transport, ConnectionApproval = true, EnableSceneManagement = false, TickRate = 30,
-            ConnectionData = Encoding.UTF8.GetBytes("THUONG6|Người chơi " + index + "_" + new string('A', 24))
+            ConnectionData = Encoding.UTF8.GetBytes("THUONG8|J" + Guid.NewGuid().ToString("N") + "Người chơi " + index + "_" + new string('A', 24))
         };
         transport.SetConnectionData("127.0.0.1", Port);
         var peer = new Peer { Network = network, Skin = index % 20 }; peers.Add(peer);
@@ -431,7 +431,7 @@ public static class ThuongOnlineChecks
             SendReady(network);
         };
         Require(network.StartClient(), "LAN client starts");
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v3", (_, reader) =>
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v4", (_, reader) =>
         {
             reader.ReadValueSafe(out int capacity); reader.ReadValueSafe(out ushort count);
             Require(capacity == 25, "Lobby capacity synchronized"); peer.RosterCount = count;

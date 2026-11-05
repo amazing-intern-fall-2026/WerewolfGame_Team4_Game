@@ -135,7 +135,7 @@ public class NetworkUI : MonoBehaviour
         // Tạo container cho Input
         GameObject inputObj = new GameObject("RoomCodeInput", typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         inputObj.transform.SetParent(canvasTransform, false);
-        inputObj.transform.SetSiblingIndex(0);
+        if (clientButton != null) { inputObj.transform.SetSiblingIndex(clientButton.transform.GetSiblingIndex()); }
 
         bool isSignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
         inputObj.SetActive(isSignedIn);
@@ -146,14 +146,14 @@ public class NetworkUI : MonoBehaviour
         rect.pivot = new Vector2(0.5f, 0.5f);
 
         // Đặt ở vị trí giữa nút Host và nút Join hoặc ngay trên nút Join
-        Vector2 pos = new Vector2(-350, -80);
+        Vector2 pos = new Vector2(-134, -55);
         if (clientButton != null)
         {
             RectTransform cbRect = clientButton.GetComponent<RectTransform>();
-            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y + 125);
+            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y + 100);
         }
         rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(400, 88);
+        rect.sizeDelta = new Vector2(420, 76);
 
         Image bg = inputObj.GetComponent<Image>();
         bg.color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
@@ -211,7 +211,7 @@ public class NetworkUI : MonoBehaviour
     {
         GameObject statusObj = new GameObject("NetworkStatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
         statusObj.transform.SetParent(canvasTransform, false);
-        statusObj.transform.SetSiblingIndex(0);
+        statusObj.transform.SetAsLastSibling();
 
         bool isSignedIn = AuthManager.Instance != null && AuthManager.Instance.IsSignedIn;
         statusObj.SetActive(isSignedIn);
@@ -221,14 +221,14 @@ public class NetworkUI : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
 
-        Vector2 pos = new Vector2(-350, -322);
+        Vector2 pos = new Vector2(-134, -240);
         if (clientButton != null)
         {
             RectTransform cbRect = clientButton.GetComponent<RectTransform>();
-            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y - 117);
+            pos = new Vector2(cbRect.anchoredPosition.x, cbRect.anchoredPosition.y - 85);
         }
         rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(480, 75);
+        rect.sizeDelta = new Vector2(680, 50);
 
         statusText = statusObj.GetComponent<TextMeshProUGUI>();
         TMP_FontAsset font = AuthUI.GetVietnameseFont();

@@ -216,7 +216,14 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         if (!lobbyRolesApplied)
         {
-            TryApplyLobbyRoles();
+            if (NetworkGameRoleSetup.HasSetup())
+            {
+                TryApplyLobbyRoles();
+            }
+            else
+            {
+                EnsureDefaultRolesAssigned();
+            }
         }
 
         // ==========================================
@@ -353,6 +360,37 @@ public class NetworkRoleActionBridge : MonoBehaviour
         {
             NetworkRoleSync.SyncAllRoleSyncs();
         }
+    }
+
+    // =====================================================
+    // DEFAULT ROLE ASSIGNMENT (KHI KHÔNG CÓ SETUP TỪ LOBBY)
+    // =====================================================
+    public void EnsureDefaultRolesAssigned()
+    {
+        if (lobbyRolesApplied) return;
+        if (NetworkGameRoleSetup.HasSetup()) return;
+
+        RoleManager roleManager = RoleManager.Instance ?? FindFirstObjectByType<RoleManager>();
+        if (roleManager == null) return;
+
+        PlayerManager playerManager = PlayerManager.Instance ?? FindFirstObjectByType<PlayerManager>();
+        if (playerManager == null || playerManager.players == null || playerManager.players.Count == 0) return;
+
+        if (Unity.Netcode.NetworkManager.Singleton != null && playerManager.players.Count < Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count)
+        {
+            return;
+        }
+
+        if (roleManager.playerRoles != null && roleManager.playerRoles.Count > 0)
+        {
+            lobbyRolesApplied = true;
+            return;
+        }
+
+        roleManager.AssignRole();
+        lobbyRolesApplied = true;
+        NetworkRoleSync.SyncAllRoleSyncs();
+        Debug.Log($"ROLE ACTION BRIDGE | Phân vai mặc định tự động hoàn tất cho {playerManager.players.Count} người chơi.");
     }
 
     // =====================================================
@@ -1431,10 +1469,14 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
 
         // =====================================================
-        // DOGSPIRIT (MA SÓI) & AWAKENED WHITEHOUND LOGIC
+        // MONSTER ATTACK (DOGSPIRIT, SERPENTSPIRIT, OGRE & AWAKENED WHITEHOUND) LOGIC
         // =====================================================
-        if (role.roleType == RoleType.DogSpirit ||
-            (role.roleType == RoleType.WhiteHound && requester != null && requester.isWhiteHoundAwakened))
+        bool isMonsterAttacker = role.roleType == RoleType.DogSpirit ||
+                                 role.roleType == RoleType.SerpentSpirit ||
+                                 role.roleType == RoleType.Ogre ||
+                                 (role.roleType == RoleType.WhiteHound && requester != null && requester.isWhiteHoundAwakened);
+
+        if (isMonsterAttacker)
         {
             if (requester == null || !requester.isAlive)
             {
@@ -1450,7 +1492,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
             if (requesterID == targetID)
             {
-                SendResult(requesterClientId, false, "Ma Sói không thể tự tấn công chính mình!");
+                SendResult(requesterClientId, false, "Quái vật không thể tự tấn công chính mình!");
                 return;
             }
 
@@ -1461,7 +1503,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
             }
 
             // Ghi nhận mục tiêu tấn công vào NightManager
-            RoleType monsterSource = (role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf) ? RoleType.WhiteHound : RoleType.DogSpirit;
+            RoleType monsterSource = (role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf) ? RoleType.WhiteHound : role.roleType;
             if (NightManager.Instance != null)
             {
                 NightManager.Instance.SetMonsterTarget(targetID, monsterSource);
@@ -1469,22 +1511,22 @@ public class NetworkRoleActionBridge : MonoBehaviour
             }
 
             // Đánh dấu WhiteHound bị cắn nếu cắn trúng WhiteHound
-            if (role.roleType == RoleType.DogSpirit && target != null)
+            if ((role.roleType == RoleType.DogSpirit || role.roleType == RoleType.SerpentSpirit || role.roleType == RoleType.Ogre) && target != null)
             {
                 if (target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf)
                 {
                     bittenWhiteHoundPlayerIds.Add(targetID);
-                    Debug.Log($"ROLE ACTION BRIDGE | DogSpirit đã cắn WhiteHound (Player {targetID + 1}) -> Ghi nhận WhiteHound bị cắn đêm nay để thức tỉnh và ngăn Dân làng thắng!");
+                    Debug.Log($"ROLE ACTION BRIDGE | {role.roleType} đã cắn WhiteHound (Player {targetID + 1}) -> Ghi nhận WhiteHound bị cắn đêm nay để thức tỉnh và ngăn Dân làng thắng!");
                 }
             }
 
-            // Đồng bộ gọi TryUseNightAbility của DogSpirit / WhiteHound để giữ tương thích
-            role.TryUseNightAbility(targetID, out string dogFeedback);
+            // Đồng bộ gọi TryUseNightAbility để giữ tương thích
+            role.TryUseNightAbility(targetID, out string monsterFeedback);
 
-            // Thông báo cho Shaman biết mục tiêu bị Sói tấn công để Shaman kịp dùng Bùa Cứu
+            // Thông báo cho Shaman biết mục tiêu bị Quái vật tấn công để Shaman kịp dùng Bùa Cứu
             NotifyShamanAboutDogSpiritTarget(targetID);
 
-            Debug.Log($"ROLE ACTION BRIDGE | DogSpirit (Player {requesterID + 1}) đã chọn mục tiêu tấn công là Player {targetID + 1}.");
+            Debug.Log($"ROLE ACTION BRIDGE | {role.roleType} (Player {requesterID + 1}) đã chọn mục tiêu tấn công là Player {targetID + 1}.");
 
             SendResult(
                 requesterClientId,

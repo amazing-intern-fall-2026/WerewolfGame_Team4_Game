@@ -42,6 +42,7 @@ namespace Thuong.Online
             lobbyRaycaster.enabled = visible;
             if (!visible) return;
             RefreshMapSelector();
+            RefreshRulesView();
 
             var local = lobby.FirstOrDefault(member => member.ClientId == network.LocalClientId);
             bool ready = local != null && local.Ready;
@@ -81,6 +82,7 @@ namespace Thuong.Online
             if (!localMapReady) lobbyHintLabel.text = mapError;
             else if (!rolesAssigned && network.IsServer && !AllMapsReady)
                 lobbyHintLabel.text = "Đang chờ mọi người xác nhận map. Nếu chưa hoàn tất, hãy kiểm tra tất cả đang dùng cùng bản game.";
+            else if (lobby.Any(member => member.Offline)) lobbyHintLabel.text = status;
             if (lobby.Count == 2)
                 lobbyHintLabel.text += "  •  Phòng thử 2 người: tắt thắng do cân bằng quân số.";
 
@@ -95,7 +97,7 @@ namespace Thuong.Online
                 row.Avatar.enabled = row.Avatar.sprite != null;
                 row.Name.text = $"P{member.PlayerId + 1:00}  {member.Name}" +
                     (member.ClientId == network.LocalClientId ? "  (Bạn)" : string.Empty);
-                row.Status.text = !member.MapReady ? "ĐANG TẢI MAP" : member.Ready ? "READY" : "NOT READY";
+                row.Status.text = member.Offline ? "MẤT KẾT NỐI" : !member.MapReady ? "ĐANG TẢI MAP" : member.Ready ? "READY" : "NOT READY";
                 row.StatusBadge.color = !member.MapReady ? new Color32(139, 91, 40, 255)
                     : member.Ready ? new Color32(57, 105, 65, 255) : new Color32(111, 90, 70, 255);
             }
@@ -126,7 +128,8 @@ namespace Thuong.Online
             lobbyCodeLabel = LobbyText("Room code", heading, "", new Vector2(.60f, .08f), new Vector2(.98f, .92f), 19, TextAlignmentOptions.MidlineRight);
             lobbyStepLabel = LobbyText("Lobby steps", card, "", new Vector2(.03f, .815f), new Vector2(.97f, .875f), 20);
 
-            var character = LobbyPanel("Character selection", card, new Vector2(.025f, .205f), new Vector2(.265f, .80f));
+            roomRulesSummary = LobbyText("Room rules summary", card, "", new Vector2(.03f, .777f), new Vector2(.97f, .815f), 17, TextAlignmentOptions.Center);
+            var character = LobbyPanel("Character selection", card, new Vector2(.025f, .205f), new Vector2(.265f, .77f));
             LobbyText("Character heading", character, "NHÂN VẬT CỦA BẠN", new Vector2(.025f, .88f), new Vector2(.975f, .98f), 20, TextAlignmentOptions.Center);
             var portrait = LobbyPanel("Portrait frame", character, new Vector2(.22f, .61f), new Vector2(.78f, .85f));
             lobbyPortrait = LobbyPanel("Character avatar", portrait, new Vector2(.12f, .08f), new Vector2(.88f, .92f), false).GetComponent<Image>();
@@ -140,7 +143,7 @@ namespace Thuong.Online
             lobbyIncreaseButton = LobbyButton("Increase capacity", character, "+", new Vector2(.56f, .275f), new Vector2(.88f, .35f), () => SetLobbyCapacity(lobbyCapacity + 1));
             BuildMapSelector(card);
 
-            var table = LobbyPanel("Lobby table", card, new Vector2(.285f, .205f), new Vector2(.975f, .80f));
+            var table = LobbyPanel("Lobby table", card, new Vector2(.285f, .205f), new Vector2(.975f, .77f));
             var columns = LobbyPanel("TopBar", table, new Vector2(.015f, .89f), new Vector2(.985f, .99f));
             LobbyText("Avatar column", columns, "AVATAR", new Vector2(.015f, 0), new Vector2(.155f, 1), 18, TextAlignmentOptions.Center);
             LobbyText("Player column", columns, "TÊN NGƯỜI CHƠI", new Vector2(.17f, 0), new Vector2(.72f, 1), 20);
@@ -180,7 +183,8 @@ namespace Thuong.Online
             lobbyRoleLabel = lobbyRoleButton.GetComponentInChildren<TMP_Text>();
             lobbyStartButton = LobbyButton("Lobby Start", card, "BẮT ĐẦU GAME", new Vector2(.685f, .035f), new Vector2(.825f, .12f), StartMatchOnServer);
             LobbyButton("Leave lobby", card, "RỜI PHÒNG", new Vector2(.845f, .035f), new Vector2(.975f, .12f), LeaveSession);
-            mapSettingsButton = LobbyButton("Map settings button", card, "MAP: NGẪU NHIÊN", new Vector2(.025f, .035f), new Vector2(.265f, .12f), OpenMapSettings);
+            mapSettingsButton = LobbyButton("Map settings button", card, "MAP", new Vector2(.025f, .035f), new Vector2(.14f, .12f), OpenMapSettings);
+            rulesSettingsButton = LobbyButton("Room rules button", card, "LUẬT VÁN", new Vector2(.15f, .035f), new Vector2(.265f, .12f), OpenRulesSettings);
         }
 
         private LobbyRow CreateLobbyRow(int playerId)
