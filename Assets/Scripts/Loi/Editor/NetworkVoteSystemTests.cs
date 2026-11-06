@@ -226,8 +226,10 @@ public static class NetworkVoteSystemTests
 
         // 1. Kiểm tra phát hiện sớm khi tất cả người chơi hợp lệ đã bỏ phiếu
         // Giả lập phòng có 3 người chơi sống: 0, 1, 2
+        var prevPm = PlayerManager.Instance;
         GameObject pmObj = new GameObject("TestPM_E");
         var pm = pmObj.AddComponent<PlayerManager>();
+        PlayerManager.Instance = pm;
         pm.players.Clear();
         pm.RegisterPlayer(new PlayerData { playerID = 0, playerName = "P0", isAlive = true });
         pm.RegisterPlayer(new PlayerData { playerID = 1, playerName = "P1", isAlive = true });
@@ -255,6 +257,7 @@ public static class NetworkVoteSystemTests
         Assert(!thirdFinishFromTimer, "TestE_TimerFinishBlockedIfAlreadyEnding", "Timer hết giờ gửi tín hiệu cũng bị chặn nếu đã kết thúc");
 
         UnityEngine.Object.DestroyImmediate(pmObj);
+        PlayerManager.Instance = prevPm;
     }
 
     // =========================================================================
@@ -310,8 +313,10 @@ public static class NetworkVoteSystemTests
         Assert(NetworkPlayerVote.GetCurrentChoice(0) == -1, "TestG_NoChoiceInitial", "Lựa chọn ban đầu là -1");
 
         // 2. Chế độ 1 player (eligibleCount <= 1): Cho phép tự vote chính mình
+        var prevPmG = PlayerManager.Instance;
         GameObject pmObj = new GameObject("TestPM_G");
         var pm = pmObj.AddComponent<PlayerManager>();
+        PlayerManager.Instance = pm;
         pm.players.Clear();
         pm.RegisterPlayer(new PlayerData { playerID = 0, playerName = "Player 1", isAlive = true });
 
@@ -326,5 +331,6 @@ public static class NetworkVoteSystemTests
         Assert(!NetworkPlayerVote.HasLocalPlayerVoted(0), "TestG_LocalResetWorked", "ResetLocalStaticVotes() làm sạch toàn bộ dữ liệu static");
 
         UnityEngine.Object.DestroyImmediate(pmObj);
+        PlayerManager.Instance = prevPmG;
     }
 }
