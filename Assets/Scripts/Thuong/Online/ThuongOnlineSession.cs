@@ -157,6 +157,7 @@ namespace Thuong.Online
             UpdateMinigames();
             RefreshMapPresentation();
             RefreshTaskGuidance();
+            UpdateTutorialInput();
             if (!connected || network == null || !network.IsListening) return;
 
             if (network.IsServer)
@@ -183,13 +184,14 @@ namespace Thuong.Online
                 SendMovementInput(ReadMovementInput());
             }
 
-            if (matchStarted && !PlayerEmoteWheelUI.IsOpenFor(this) && Keyboard.current?.eKey.wasPressedThisFrame == true)
-                RequestNearestTask();
+            ProcessContextInteractionInput();
         }
 
         private Vector2 ReadMovementInput()
         {
-            if (Keyboard.current == null || visibleState != GameState.Day || IsPlayingTask || !localMapReady ||
+            bool movablePhase = visibleState == GameState.Day ||
+                roomRules.mode == ThuongMatchMode.RealtimeProximity && visibleState == GameState.Night && visiblePhase == GamePhase.Night;
+            if (Keyboard.current == null || !movablePhase || !LocalPlayerAlive || IsPlayingTask || NotebookIsOpen || TutorialIsOpen || InteractionMenuOpen || !localMapReady ||
                 PlayerEmoteWheelUI.IsOpenFor(this)) return Vector2.zero;
             float x = 0f;
             float y = 0f;
@@ -220,7 +222,8 @@ namespace Thuong.Online
 
         private void SimulateServerMovement()
         {
-            bool canMove = game != null && game.currentState == GameState.Day;
+            bool canMove = game != null && (game.currentState == GameState.Day ||
+                roomRules.mode == ThuongMatchMode.RealtimeProximity && game.currentState == GameState.Night && game.currentPhase == GamePhase.Night);
             float delta = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
 
             foreach (ThuongOnlineServerPlayer member in serverPlayers.Values)
@@ -666,6 +669,7 @@ namespace Thuong.Online
             matchEpoch++;
             rolesAssigned = true;
             matchStarted = false;
+            ResetCorpseState();
             localRoleCardOpen = false;
             localRoleConfirmed = false;
             players.prototypeLobbySize = 0;
@@ -757,6 +761,7 @@ namespace Thuong.Online
             writer.WriteValueSafe(matchEpoch);
             writer.WriteValueSafe(matchStarted);
             writer.WriteValueSafe(rolesAssigned);
+            writer.WriteValueSafe((byte)roomRules.mode);
             WriteWinSettings(writer);
             WriteMapState(writer, day);
             writer.WriteValueSafe((byte)state);
@@ -784,6 +789,7 @@ namespace Thuong.Online
                 writer.WriteValueSafe(member.Position.x);
                 writer.WriteValueSafe(member.Position.y);
             }
+            WriteCorpseSnapshot(writer);
             WriteVoteResult(writer);
             WriteMatchResult(writer);
             network.CustomMessagingManager.SendNamedMessage(
@@ -844,6 +850,9 @@ namespace Thuong.Online
             if (epoch != matchEpoch) ResetReplicatedRound(epoch);
             reader.ReadValueSafe(out matchStarted);
             reader.ReadValueSafe(out rolesAssigned);
+            reader.ReadValueSafe(out byte mode);
+            if (!Enum.IsDefined(typeof(ThuongMatchMode), (ThuongMatchMode)mode)) return;
+            roomRules.mode = (ThuongMatchMode)mode;
             clientHadRoles = rolesAssigned;
             ReadWinSettings(reader);
             ReadMapState(reader);
@@ -887,6 +896,7 @@ namespace Thuong.Online
                 if (clientId == network.LocalClientId) localPlayerId = playerId;
             }
 
+            if (!ReadCorpseSnapshot(reader)) return;
             ReadVoteResult(reader);
             ReadMatchResult(reader);
             if (!localMapReady) status = mapError;
@@ -1006,7 +1016,7 @@ namespace Thuong.Online
 
         private void RequestNearestTask()
         {
-            if (IsPlayingTask || localPlayerId < 0 || visibleState != GameState.Day ||
+            if (IsPlayingTask || localPlayerId < 0 || !LocalPlayerAlive || visibleState != GameState.Day ||
                 !avatars.TryGetValue(localPlayerId, out ThuongOnlineAvatar avatar)) return;
             int best = -1;
             float bestDistance = float.MaxValue;
@@ -1087,6 +1097,11 @@ namespace Thuong.Online
             PlayerData actor = players?.GetplayerByID(member.PlayerId);
             if (actor == null) { Reply(member, "Không tìm thấy người chơi."); return; }
 
+            if (roomRules.mode == ThuongMatchMode.RealtimeProximity &&
+                action is ThuongOnlineAction.MakeLovers or ThuongOnlineAction.NightAbility or
+                    ThuongOnlineAction.ShamanGoodCharm or ThuongOnlineAction.ShamanBadCharm)
+            { Reply(member, "Mode tương tác gần dùng phím E; kỹ năng chọn người toàn map đã tắt."); return; }
+
             bool accepted = false;
             string feedback = string.Empty;
             switch (action)
@@ -1119,6 +1134,19 @@ namespace Thuong.Online
                         : ActionValidationResult.Fail(ActionFailureReason.MatchNotRunning, "Chưa có hệ thống bỏ phiếu.");
                     accepted = vote.IsValid && VoteManager.Instance.TryVote(actor.playerID, argument);
                     feedback = accepted ? "Đã ghi nhận phiếu bầu." : vote.Message;
+                    break;
+                case ThuongOnlineAction.NoEliminationVote:
+                    var noEliminationVote = VoteManager.Instance != null
+                        ? VoteManager.Instance.ValidateNoEliminationVote(actor.playerID)
+                        : ActionValidationResult.Fail(ActionFailureReason.MatchNotRunning, "Chưa có hệ thống bỏ phiếu.");
+                    accepted = noEliminationVote.IsValid && VoteManager.Instance.TryVoteNoElimination(actor.playerID);
+                    feedback = accepted ? "Đã ghi nhận lựa chọn không loại ai." : noEliminationVote.Message;
+                    break;
+                case ThuongOnlineAction.RealtimeAbility:
+                    accepted = TryRealtimeAbility(member, actor, argument, out feedback);
+                    break;
+                case ThuongOnlineAction.ReportCorpse:
+                    accepted = TryReportCorpse(member, actor, argument, out feedback);
                     break;
                 default:
                     feedback = "Yêu cầu không được hỗ trợ.";
@@ -1415,6 +1443,9 @@ namespace Thuong.Online
         private void ClearClientState()
         {
             ResetEmotes();
+            ResetNotebook();
+            ResetCorpseState();
+            CloseTutorial();
             ClearMapPresentation();
             ResetMinigames();
             ResetTaskBoard();
@@ -1434,6 +1465,7 @@ namespace Thuong.Online
             privateStateReceived = false;
             privateFlags = 0;
             matchEpoch = privateMatchEpoch = 0;
+            roomRules = new ThuongRoomRules(); rulesRevision = 1; receivedRulesRevision = 0;
             localEffects.Clear(); localAllowedTargets.Clear();
             localVotedTarget = -1;
             inputSequence = 0;
@@ -1619,6 +1651,8 @@ namespace Thuong.Online
             ResetMinigames();
             if (Active == this) Active = null;
             if (game != null) game.PhaseChanged -= HandleOnlineLogicPhaseChanged;
+            StopObservingRealtimeDeaths();
+            ResetCorpseState();
             RemoveOnlineWinRules();
             RestoreOtherGameOverManager();
             if (endgameCanvas != null) Destroy(endgameCanvas.gameObject);

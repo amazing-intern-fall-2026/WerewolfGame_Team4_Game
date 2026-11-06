@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -1591,6 +1592,12 @@ public class NetworkGameOverManager : MonoBehaviour
         var wcm = WinConditionManager.Instance;
         var game = GameRoleManager.Instance;
         if (wcm == null || game == null) return;
+
+        // This evaluator belongs only to the Lợi gameplay scene. GameRoleManager
+        // is also used by Thương prototypes, so do not claim their shared
+        // WinConditionManager or change its elimination settings.
+        string gameplayScenePath = game.gameObject.scene.path;
+        if (!gameplayScenePath.StartsWith("Assets/Scenes/Loi/", StringComparison.Ordinal)) return;
 
         // Luôn đảm bảo useEliminationWin = false để tránh fallback lỗi của Thuong
         try

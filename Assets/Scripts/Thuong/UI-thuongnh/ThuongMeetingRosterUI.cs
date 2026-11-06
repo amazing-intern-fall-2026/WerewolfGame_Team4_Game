@@ -10,6 +10,8 @@ public sealed class ThuongMeetingRosterUI : MonoBehaviour
     private GameHUD hud;
     private RectTransform content;
     private VoteButton template;
+    private Button skipVoteButton;
+    private TMP_Text skipVoteLabel;
     private readonly Dictionary<int, VoteButton> rows = new();
     public void Initialize(GameHUD owner)
     {
@@ -37,6 +39,7 @@ public sealed class ThuongMeetingRosterUI : MonoBehaviour
         var scroll = viewport.GetComponent<ScrollRect>();
         scroll.viewport = rect; scroll.content = content; scroll.horizontal = false;
         scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 30;
+        BuildSkipVoteButton();
         foreach (var row in original)
         {
             row.transform.SetParent(content, false);
@@ -50,9 +53,47 @@ public sealed class ThuongMeetingRosterUI : MonoBehaviour
         var layout = row.GetComponent<LayoutElement>() ?? row.gameObject.AddComponent<LayoutElement>();
         layout.minHeight = layout.preferredHeight = 48;
     }
+
+    private void BuildSkipVoteButton()
+    {
+        var root = new GameObject("No elimination vote", typeof(RectTransform), typeof(Image), typeof(Button));
+        var rect = root.GetComponent<RectTransform>();
+        rect.SetParent(hud.meetingPanel.transform, false);
+        rect.anchorMin = new Vector2(.06f, .70f); rect.anchorMax = new Vector2(.52f, .80f);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        var image = root.GetComponent<Image>();
+        image.color = new Color(.30f, .48f, .43f, .98f);
+        ThuongMedievalTheme.Active?.StylePanel(image, "No elimination vote");
+        skipVoteButton = root.GetComponent<Button>();
+        skipVoteButton.targetGraphic = image;
+        skipVoteButton.onClick.AddListener(SubmitNoEliminationVote);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(root.transform, false);
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero; labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(8, 2); labelRect.offsetMax = new Vector2(-8, -2);
+        skipVoteLabel = labelObject.GetComponent<TMP_Text>();
+        skipVoteLabel.text = "KHÔNG LOẠI AI";
+        skipVoteLabel.font = hud.phaseText != null ? hud.phaseText.font : null;
+        skipVoteLabel.fontSize = 17;
+        skipVoteLabel.alignment = TextAlignmentOptions.Center;
+        skipVoteLabel.raycastTarget = false;
+        ThuongMedievalTheme.Active?.StyleText(skipVoteLabel);
+    }
+
+    private void SubmitNoEliminationVote()
+    {
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        if (online != null) online.RequestNoEliminationVote();
+        else VoteManager.Instance?.TryVoteNoElimination(hud.localVoterID);
+        Refresh();
+    }
+
     private void Update() { if (content != null) Refresh(); }
     public void Refresh()
     {
+        RefreshSkipVoteButton();
         var players = PlayerManager.Instance?.players;
         if (players == null || content == null) return;
         var ids = new HashSet<int>(players.Where(player => player != null).Select(player => player.playerID));
@@ -83,5 +124,24 @@ public sealed class ThuongMeetingRosterUI : MonoBehaviour
             row.Refresh();
         }
         foreach (var pair in rows) if (!ids.Contains(pair.Key)) pair.Value.gameObject.SetActive(false);
+    }
+
+    private void RefreshSkipVoteButton()
+    {
+        if (skipVoteButton == null || hud == null) return;
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        bool voting = online != null
+            ? online.VisibleState == GameState.Voting
+            : GameRoleManager.Instance != null && GameRoleManager.Instance.currentState == GameState.Voting;
+        bool votedSkip = online != null
+            ? online.LocalVotedNoElimination
+            : VoteManager.Instance != null && VoteManager.Instance.VotedNoElimination(hud.localVoterID);
+        bool canVote = online != null
+            ? online.CanVoteNoElimination
+            : VoteManager.Instance != null && VoteManager.Instance.ValidateNoEliminationVote(hud.localVoterID).IsValid;
+        skipVoteButton.gameObject.SetActive(voting);
+        skipVoteButton.interactable = voting && canVote;
+        if (skipVoteLabel != null)
+            skipVoteLabel.text = votedSkip ? "ĐÃ CHỌN: KHÔNG LOẠI AI" : "KHÔNG LOẠI AI";
     }
 }

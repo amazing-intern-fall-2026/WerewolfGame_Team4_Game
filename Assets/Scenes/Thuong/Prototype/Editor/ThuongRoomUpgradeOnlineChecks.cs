@@ -346,7 +346,7 @@ public static class ThuongRoomUpgradeOnlineChecks
         var networkRoot = new GameObject("Upgrade LAN " + index);
         var transport = networkRoot.AddComponent<UnityTransport>(); var net = networkRoot.AddComponent<NetworkManager>();
         var token = resumeToken ?? Guid.NewGuid();
-        string payload = resumeToken.HasValue ? "THUONG8|R" + token.ToString("N") : "THUONG8|J" + token.ToString("N") + "QA " + index;
+        string payload = resumeToken.HasValue ? "THUONG10|R" + token.ToString("N") : "THUONG10|J" + token.ToString("N") + "QA " + index;
         net.NetworkConfig = new NetworkConfig { NetworkTransport = transport, ConnectionApproval = true, EnableSceneManagement = false,
             TickRate = 30, ConnectionData = Encoding.UTF8.GetBytes(payload) };
         transport.SetConnectionData("127.0.0.1", Port);
@@ -367,9 +367,9 @@ public static class ThuongRoomUpgradeOnlineChecks
         if (!net.StartClient()) throw new Exception("LAN start failed");
         void Register(string name, string method) => net.CustomMessagingManager.RegisterNamedMessageHandler(name,
             (sender, reader) => { try { Call(proxy, method, sender, reader); } catch (Exception error) { failure = error; } });
-        Register("thuong.online.roster.v4", "ReceiveRoster"); Register("thuong.online.snapshot.v6", "ReceiveSnapshot");
+        Register("thuong.online.roster.v4", "ReceiveRoster"); Register("thuong.online.snapshot.v8", "ReceiveSnapshot");
         Register("thuong.online.private.v4", "ReceivePrivateState");
-        net.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.room-state.v1", (sender, reader) =>
+        net.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.room-state.v2", (sender, reader) =>
         {
             roomPackets++;
             roomPayloadBytes += reader.Length;

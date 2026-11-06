@@ -21,7 +21,7 @@ Mã thay đổi của luồng này nằm trong `Assets/Scripts/Thuong`, kiểm t
 
 Manager kết quả toàn cục của Lợi được tạm ngưng trong khi scene Thương sở hữu trận và khôi phục khi rời scene. Không sửa mã nguồn manager đó. Những chỉnh sửa scene, font, `NetworkPhaseSync` và ProjectSettings đã tồn tại trước yêu cầu được giữ nguyên.
 
-Các packet mới: `thuong.online.action.v3`, `thuong.online.snapshot.v6`, `thuong.online.private.v3`, `thuong.minigame.request.v2`, `thuong.minigame.state.v2`; dấu phiên bản kết nối là `THUONG6|`. Host và client cần cùng bản build mới.
+Các packet hiện tại: `thuong.online.action.v5`, `thuong.online.snapshot.v8`, `thuong.online.private.v4`, `thuong.online.room-state.v2`, `thuong.minigame.request.v2`, `thuong.minigame.state.v2`; dấu phiên bản kết nối là `THUONG10|`. Snapshot đồng bộ mode phòng và xác công khai; host và client cần cùng bản build.
 
 ## Kiểm tra
 

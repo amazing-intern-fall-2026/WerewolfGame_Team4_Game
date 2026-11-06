@@ -2,7 +2,7 @@
 
 Ngày: 28/10/2026. Nền code khảo sát: `058f41f` trên nhánh local `thuong`.
 
-Trạng thái: thiết kế đề xuất để triển khai, chưa thay đổi gameplay hoặc scene.
+Trạng thái: thiết kế ban đầu cho luồng Lợi. Ngày 06/11/2026, phần MVP được adapter vào `Thuong.Online` theo lộ trình `Docs/ThuongFeatureRoadmap.md`: mode E opt-in, ba role cơ bản, host kiểm tra khoảng cách/đường nhìn, xác và báo họp. Các role nâng cao và tutorial thực hành vẫn là việc tiếp theo; tài liệu dưới đây tiếp tục giữ luật thiết kế chi tiết để mở rộng.
 
 ## 1. Hướng đã được người dùng chọn
 

@@ -113,7 +113,8 @@ public static class ThuongEndgameChecks
     private static object Player(int id, RoleType role, FactionType faction, bool alive = true,
         bool votedOut = false, int loverId = -1, bool awakened = false, bool foxQualified = false) =>
         Activator.CreateInstance(playerType, id, $"Player {id}", id, role, faction,
-            alive, votedOut, loverId, awakened, foxQualified);
+            alive, votedOut, loverId, awakened, foxQualified,
+            false, default(DeathCause), -1, null);
 
     private static object[] P(params object[] players) => players;
 

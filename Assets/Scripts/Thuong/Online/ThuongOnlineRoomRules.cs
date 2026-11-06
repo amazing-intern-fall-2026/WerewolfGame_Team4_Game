@@ -10,7 +10,7 @@ namespace Thuong.Online
 {
     public sealed partial class ThuongOnlineSession
     {
-        private const string RoomStateMessage = "thuong.online.room-state.v1";
+        private const string RoomStateMessage = "thuong.online.room-state.v2";
         private ThuongRoomRules roomRules = new();
         private uint rulesRevision = 1, receivedRulesRevision;
         private ulong roomStateRevision;
@@ -22,6 +22,7 @@ namespace Thuong.Online
         private readonly TMP_Text[] durationLabels = new TMP_Text[4];
         private readonly Button[] presetButtons = new Button[3];
         private TMP_Text automaticTimesLabel;
+        private TMP_Text modeLabel;
         private ThuongRoomRules draftRules;
         private readonly int[] taskTargets = new int[16], taskDone = new int[16], taskOccupancy = new int[16], taskCapacity = new int[16];
         private ushort personalTaskMask;
@@ -103,7 +104,8 @@ namespace Thuong.Online
         {
             using var writer = new FastBufferWriter(512, Allocator.Temp);
             writer.WriteValueSafe(matchEpoch); writer.WriteValueSafe(taskBoardDay); writer.WriteValueSafe(rulesRevision);
-            writer.WriteValueSafe((byte)roomRules.preset); writer.WriteValueSafe(roomRules.automaticTimes);
+            writer.WriteValueSafe((byte)roomRules.preset); writer.WriteValueSafe((byte)roomRules.mode);
+            writer.WriteValueSafe(roomRules.automaticTimes);
             writer.WriteValueSafe(roomRules.day); writer.WriteValueSafe(roomRules.night);
             writer.WriteValueSafe(roomRules.discussion); writer.WriteValueSafe(roomRules.voting);
             writer.WriteValueSafe(personal);
@@ -125,8 +127,8 @@ namespace Thuong.Online
             {
                 reader.ReadValueSafe(out uint epoch); reader.ReadValueSafe(out int day); reader.ReadValueSafe(out uint revision);
                 if (epoch != matchEpoch || revision < receivedRulesRevision) return;
-                reader.ReadValueSafe(out byte preset); reader.ReadValueSafe(out bool automatic);
-                var rules = new ThuongRoomRules { preset = (ThuongRolePreset)preset, automaticTimes = automatic };
+                reader.ReadValueSafe(out byte preset); reader.ReadValueSafe(out byte mode); reader.ReadValueSafe(out bool automatic);
+                var rules = new ThuongRoomRules { preset = (ThuongRolePreset)preset, mode = (ThuongMatchMode)mode, automaticTimes = automatic };
                 reader.ReadValueSafe(out rules.day); reader.ReadValueSafe(out rules.night);
                 reader.ReadValueSafe(out rules.discussion); reader.ReadValueSafe(out rules.voting);
                 reader.ReadValueSafe(out ushort personal); reader.ReadValueSafe(out byte count);
@@ -183,6 +185,12 @@ namespace Thuong.Online
             for (int i = 0; i < 3; i++) presetButtons[i].GetComponentInChildren<TMP_Text>().text =
                 ((int)draftRules.preset == i ? "✓ " : "") + ThuongRoomRules.PresetName((ThuongRolePreset)i);
             automaticTimesLabel.text = (draftRules.automaticTimes ? "[x] " : "[ ] ") + "Thời gian tự đề xuất theo số người";
+            if (modeLabel != null) modeLabel.text = draftRules.mode == ThuongMatchMode.RealtimeProximity
+                ? "✓ TƯƠNG TÁC GẦN (E) · chỉ dùng role Cơ bản · kỹ năng Night có hiệu lực ngay · có xác/báo xác"
+                : "✓ THEO PHASE CỔ ĐIỂN · giữ kỹ năng chờ xử lý cuối Night";
+            for (int i = 0; i < presetButtons.Length; i++)
+                if (presetButtons[i] != null)
+                    presetButtons[i].interactable = draftRules.mode != ThuongMatchMode.RealtimeProximity || i == (int)ThuongRolePreset.Basic;
             rulesHelp.text = draftRules.preset == ThuongRolePreset.Basic ? "Dân làng, Khuyển tinh, Tiên tri và Bảo vệ. Phù hợp người mới."
                 : draftRules.preset == ThuongRolePreset.Standard ? "Thêm Trưởng làng, Thằng khờ, Thợ săn, Pháp sư và Kẻ bị nguyền."
                 : "Cho phép toàn bộ 17 role hiện có, gồm phe trung lập và role đặc biệt.";
@@ -211,23 +219,36 @@ namespace Thuong.Online
             {
                 int index = i;
                 presetButtons[i] = LobbyButton("Role preset " + i, panel, "", new Vector2(.05f + i * .31f, .80f), new Vector2(.33f + i * .31f, .89f),
-                    () => { draftRules.preset = (ThuongRolePreset)index; RefreshDraftRules(); });
+                    () =>
+                    {
+                        if (draftRules.mode == ThuongMatchMode.RealtimeProximity && index != (int)ThuongRolePreset.Basic) return;
+                        draftRules.preset = (ThuongRolePreset)index; RefreshDraftRules();
+                    });
+                presetButtons[i].interactable = draftRules.mode != ThuongMatchMode.RealtimeProximity || i == (int)ThuongRolePreset.Basic;
             }
             rulesHelp = LobbyText("Preset help", panel, "", new Vector2(.06f, .70f), new Vector2(.94f, .79f), 18, TextAlignmentOptions.Center);
             rulesHelp.textWrappingMode = TextWrappingModes.Normal;
             var automatic = LobbyButton("Automatic times", panel, "", new Vector2(.06f, .61f), new Vector2(.94f, .69f),
                 () => { draftRules.automaticTimes = !draftRules.automaticTimes; RefreshDraftRules(); });
             automaticTimesLabel = automatic.GetComponentInChildren<TMP_Text>();
+            LobbyButton("Match mode", panel, "", new Vector2(.06f, .535f), new Vector2(.94f, .60f), () =>
+            {
+                draftRules.mode = draftRules.mode == ThuongMatchMode.ClassicQueued
+                    ? ThuongMatchMode.RealtimeProximity : ThuongMatchMode.ClassicQueued;
+                if (draftRules.mode == ThuongMatchMode.RealtimeProximity) draftRules.preset = ThuongRolePreset.Basic;
+                RefreshDraftRules();
+            });
+            modeLabel = panel.Find("Match mode/Text")?.GetComponent<TMP_Text>();
             string[] labels = { "Ban ngày", "Ban đêm", "Thảo luận", "Bỏ phiếu" };
             for (int i = 0; i < 4; i++)
             {
-                int index = i; float y = .51f - i * .095f;
+                int index = i; float y = .445f - i * .09f;
                 LobbyText(labels[i], panel, labels[i], new Vector2(.08f, y), new Vector2(.41f, y + .075f), 20);
                 LobbyButton("Less " + i, panel, "−", new Vector2(.44f, y), new Vector2(.54f, y + .075f), () => ChangeDuration(index, index == 0 ? -15 : -5));
                 durationLabels[i] = LobbyText("Duration " + i, panel, "", new Vector2(.55f, y), new Vector2(.78f, y + .075f), 21, TextAlignmentOptions.Center);
                 LobbyButton("More " + i, panel, "+", new Vector2(.80f, y), new Vector2(.90f, y + .075f), () => ChangeDuration(index, index == 0 ? 15 : 5));
             }
-            LobbyText("Task balance hint", panel, "Nhiệm vụ tự cân bằng theo số người · Tối đa +40% tổng tiến độ mỗi ngày", new Vector2(.05f, .125f), new Vector2(.95f, .20f), 16, TextAlignmentOptions.Center);
+            LobbyText("Task balance hint", panel, "Nhiệm vụ tự cân bằng theo số người · Tối đa +40% tổng tiến độ mỗi ngày", new Vector2(.05f, .08f), new Vector2(.95f, .145f), 16, TextAlignmentOptions.Center);
             LobbyButton("Cancel rules", panel, "HỦY", new Vector2(.08f, .035f), new Vector2(.45f, .115f), () => rulesSettingsRoot.SetActive(false));
             LobbyButton("Apply rules", panel, "ÁP DỤNG", new Vector2(.55f, .035f), new Vector2(.92f, .115f),
                 () => { if (SetRoomRules(draftRules)) rulesSettingsRoot.SetActive(false); });

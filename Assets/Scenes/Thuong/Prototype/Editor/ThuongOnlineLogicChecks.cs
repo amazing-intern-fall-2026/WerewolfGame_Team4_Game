@@ -244,7 +244,7 @@ public static class ThuongOnlineLogicChecks
         void Handle(string method, ulong sender, FastBufferReader reader)
         { try { Call(proxy, method, sender, reader); } catch (Exception error) { callbackError = error; } }
         peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v4", (sender, reader) => Handle("ReceivePrivateState", sender, reader));
-        peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v6", (sender, reader) => Handle("ReceiveSnapshot", sender, reader));
+        peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v8", (sender, reader) => Handle("ReceiveSnapshot", sender, reader));
         peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v4", (sender, reader) => Handle("ReceiveRoster", sender, reader));
         return proxy;
     }
@@ -270,7 +270,7 @@ public static class ThuongOnlineLogicChecks
         writer.WriteValueSafe(id); writer.WriteValueSafe(epoch); writer.WriteValueSafe(action);
         writer.WriteValueSafe(target); writer.WriteValueSafe(-1); writer.WriteValueSafe(GameRoleManager.Instance.currentDay);
         writer.WriteValueSafe((byte)GameRoleManager.Instance.currentPhase);
-        peer.CustomMessagingManager.SendNamedMessage("thuong.online.action.v3", 0, writer);
+        peer.CustomMessagingManager.SendNamedMessage("thuong.online.action.v5", 0, writer);
     }
     private static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Flags).GetValue(target);
     private static void Set(object target, string name, object value) => target.GetType().GetField(name, Flags).SetValue(target, value);

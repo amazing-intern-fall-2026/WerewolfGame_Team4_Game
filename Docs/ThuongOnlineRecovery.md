@@ -18,7 +18,7 @@ Mã Thương thêm nút khi MainMenu được tải. Build Settings thêm scene 
 - Nếu hết hạn ở màn phân vai, host mở lại lobby để những người còn lại phân vai lại. Nếu hết hạn trong ván, người đó bị loại với lý do mất kết nối và luật thắng/thua chạy tiếp. Nếu host đóng hoặc mất kết nối, các client mất phiên do host quản lý.
 - Nút **Rời phòng** gửi yêu cầu từ bỏ chỗ nếu còn kết nối. Khi đường truyền đã mất, host xử lý theo hạn giữ chỗ. Chơi lại sau khi ván kết thúc sẽ bỏ các chỗ đã mất kết nối.
 
-Host và client cần cùng bản `THUONG8|`. Roster `thuong.online.roster.v4` có cờ mất kết nối. Snapshot `thuong.online.snapshot.v6` và gói trạng thái riêng `thuong.online.private.v4` giữ cấu trúc. Token chỉ được gửi trong handshake và không nằm trong roster hay snapshot.
+Host và client cần cùng bản `THUONG10|`. Roster `thuong.online.roster.v4` có cờ mất kết nối. Snapshot `thuong.online.snapshot.v8` đồng bộ mode và xác; gói trạng thái riêng `thuong.online.private.v4` không đổi. Token chỉ được gửi trong handshake và không nằm trong roster hay snapshot.
 
 ## Luồng lobby
 

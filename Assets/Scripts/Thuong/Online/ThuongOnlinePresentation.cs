@@ -21,6 +21,9 @@ namespace Thuong.Online
         public int LocalPlayerId => localPlayerId;
         public GameState VisibleState => visibleState;
         public float PhaseTimeRemaining => visibleRemaining;
+        public bool LocalVotedNoElimination => HasLocalRole && (privateFlags & 2) != 0 && localVotedTarget < 0;
+        public bool CanVoteNoElimination => HasLocalRole && visibleState == GameState.Voting &&
+            (privateFlags & 1) != 0 && (privateFlags & 2) == 0 && (privateFlags & 32) != 0;
         public string Feedback => (string.IsNullOrEmpty(localActionFeedback) ? status : localActionFeedback) +
             (string.IsNullOrEmpty(LocalStatusSummary) ? "" : "\n" + LocalStatusSummary);
         public bool HasReadRole => (privateFlags & 2048) != 0;
@@ -44,10 +47,13 @@ namespace Thuong.Online
         private string voteResultMessage = string.Empty;
         private int voteResultDay;
         private int voteEliminatedId = -1;
+        private int voteNoEliminationVotes;
         private bool voteIsTie;
+        private bool voteNoEliminationWon;
         private float voteResultUntil;
         private Button closeVoteResult;
         private Button reopenVoteResult;
+        private TMP_Text realtimePrompt;
 
         private void PreparePresentation()
         {
@@ -98,6 +104,7 @@ namespace Thuong.Online
             SendAction(ThuongOnlineAction.RevealRead, -1);
         }
         public void RequestVote(int targetId) => SendAction(ThuongOnlineAction.Vote, targetId);
+        public void RequestNoEliminationVote() => SendAction(ThuongOnlineAction.NoEliminationVote, -1);
 
         public void RequestAbility(int targetId, int secondTargetId = -1, bool shaman = false, bool goodCharm = false, bool trap = false)
         {
@@ -112,6 +119,8 @@ namespace Thuong.Online
             if (!HasLocalRole) reason = "Đang chờ phân vai trò.";
             else if (visibleState == GameState.GameOver) reason = "Ván chơi đã kết thúc.";
             else if (!matchStarted) reason = "Trở về lobby và bấm Ready để bắt đầu ván.";
+            else if (ActiveMatchMode == ThuongMatchMode.RealtimeProximity)
+            { reason = "Dùng E khi đứng gần mục tiêu; kỹ năng chọn toàn map đã tắt."; return false; }
             else if (CanSetHunterTrap) { reason = "Chọn mục tiêu cho bẫy."; return true; }
             else if ((privateFlags & 1) == 0) reason = "Bạn đã bị loại.";
             else if ((privateFlags & 8) == 0) reason = "Vai trò này có kỹ năng nội tại.";
@@ -129,6 +138,11 @@ namespace Thuong.Online
 
         private bool IsKillerRestrictedThisNight()
         {
+            // Remote clients receive the authoritative day in the online
+            // snapshot; their local gameplay managers do not advance phases.
+            if (network != null && !network.IsServer)
+                return visibleDay <= 0 || visibleDay % 2 != 0;
+
             int night = NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0
                 ? NightManager.Instance.CurrentNightNumber
                 : (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentNightCycle.Value > 0
@@ -202,7 +216,11 @@ namespace Thuong.Online
             voteResultDay = game.currentDay;
             voteEliminatedId = result.Eliminated != null ? result.Eliminated.playerID : -1;
             voteIsTie = result.IsTie;
-            voteResultMessage = result.Message;
+            voteNoEliminationVotes = result.NoEliminationVotes;
+            voteNoEliminationWon = result.NoEliminationWon;
+            voteResultMessage = result.NoEliminationVotes > 0
+                ? $"{result.Message} Không loại ai: {result.NoEliminationVotes} phiếu."
+                : result.Message;
             voteTallies.Clear();
             foreach (var tally in result.Tallies) voteTallies[tally.Key] = tally.Value;
             voteResultUntil = Time.unscaledTime + 10f;
@@ -216,6 +234,8 @@ namespace Thuong.Online
             writer.WriteValueSafe(voteResultDay);
             writer.WriteValueSafe(voteEliminatedId);
             writer.WriteValueSafe(voteIsTie);
+            writer.WriteValueSafe(voteNoEliminationVotes);
+            writer.WriteValueSafe(voteNoEliminationWon);
             FixedString512Bytes message = new(TrimUtf8(voteResultMessage ?? string.Empty, 500));
             writer.WriteValueSafe(message);
             writer.WriteValueSafe((ushort)voteTallies.Count);
@@ -232,6 +252,8 @@ namespace Thuong.Online
             reader.ReadValueSafe(out voteResultDay);
             reader.ReadValueSafe(out voteEliminatedId);
             reader.ReadValueSafe(out voteIsTie);
+            reader.ReadValueSafe(out voteNoEliminationVotes);
+            reader.ReadValueSafe(out voteNoEliminationWon);
             reader.ReadValueSafe(out FixedString512Bytes message);
             voteResultMessage = message.ToString();
             reader.ReadValueSafe(out ushort count);
@@ -251,6 +273,8 @@ namespace Thuong.Online
             voteResultRevision = 0;
             voteTallies.Clear();
             voteResultMessage = string.Empty;
+            voteNoEliminationVotes = 0;
+            voteNoEliminationWon = false;
             voteResultUntil = 0;
         }
 
@@ -274,9 +298,16 @@ namespace Thuong.Online
             if (LocalMinigameInvalid) CloseLocalMinigame();
             SetGameplayHudVisible(matchStarted);
             RefreshEndgamePresentation();
-            if (!matchStarted) return;
+            if (!matchStarted)
+            {
+                RefreshSpectatorHud(hud);
+                RefreshNotebookHud();
+                return;
+            }
             hud.localVoterID = localPlayerId;
             EnsureMatchButtons(hud);
+            RefreshNotebookHud();
+            RefreshRealtimePrompt(hud);
             if (hud.progressSlider != null) { hud.progressSlider.maxValue = 100; hud.progressSlider.value = visibleProgress; }
             if (hud.dailyProgressSlider != null) { hud.dailyProgressSlider.maxValue = 100; hud.dailyProgressSlider.value = visibleDailyProgress; }
             if (hud.progressText != null) hud.progressText.text = $"{visibleProgress:0}%";
@@ -310,13 +341,16 @@ namespace Thuong.Online
                     : !HasLocalRole ? "Đang nhận dữ liệu người chơi."
                     : (privateFlags & 1) == 0 ? "Bạn đã bị loại và không thể bỏ phiếu."
                     : (privateFlags & 32) == 0 ? "Bạn đang bị cấm bỏ phiếu."
-                    : (privateFlags & 2) != 0 ? $"Đã chọn P{localVotedTarget + 1:00}. Đang chờ kết quả."
-                    : $"Bạn có {LocalVoteWeight} phiếu. Chọn một người còn sống.";
+                    : (privateFlags & 2) != 0 ? localVotedTarget < 0
+                        ? "Đã chọn Không loại ai. Đang chờ kết quả."
+                        : $"Đã chọn P{localVotedTarget + 1:00}. Đang chờ kết quả."
+                    : $"Bạn có {LocalVoteWeight} phiếu. Chọn người chơi hoặc Không loại ai.";
             if (closeVoteResult != null) closeVoteResult.gameObject.SetActive(ShowingVoteResult);
             if (reopenVoteResult != null) reopenVoteResult.gameObject.SetActive(voteResultRevision > 0 && !meeting && visibleState != GameState.GameOver);
             // Online has a personal result overlay. The offline result panel stays unchanged.
             if (hud.resultPanel != null) hud.resultPanel.SetActive(false);
             hud.SetOnlineFeedback(PhaseLabel(visibleState), Feedback);
+            RefreshSpectatorHud(hud);
         }
 
         private void EnsureMatchButtons(GameHUD hud)
@@ -325,6 +359,9 @@ namespace Thuong.Online
             reopenVoteResult = MatchButton(hud, "Xem kết quả vote", hud.transform,
                 new Vector2(.60f, .014f), new Vector2(.76f, .071f), () => voteResultUntil = Time.unscaledTime + 10f);
             MatchButton(hud, "Rời phòng", hud.transform, new Vector2(.77f, .014f), new Vector2(.86f, .071f), LeaveSession);
+            MatchButton(hud, "HƯỚNG DẪN", hud.transform, new Vector2(.46f, .014f), new Vector2(.59f, .071f), OpenMatchTutorial);
+            EnsureNotebookUi(hud);
+            EnsureRealtimePrompt(hud);
             if (hud.meetingPanel != null)
             {
                 closeVoteResult = MatchButton(hud, "ĐÓNG", hud.meetingPanel.transform,
@@ -340,7 +377,9 @@ namespace Thuong.Online
                 }
             }
             TMP_Text instructions = hud.transform.Find("TaskPanel/Instructions")?.GetComponent<TMP_Text>();
-            if (instructions != null) instructions.text = "WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / chọn đường đi\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
+            if (instructions != null) instructions.text = ActiveMatchMode == ThuongMatchMode.RealtimeProximity
+                ? "WASD / MŨI TÊN  Di chuyển\nE ban ngày  Nhiệm vụ hoặc báo xác ở gần\nE ban đêm  Kỹ năng gần của Khuyển tinh, Bảo vệ, Tiên tri\n\nBáo xác mở cuộc họp."
+                : "WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / chọn đường đi\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
             TMP_Text footer = hud.transform.Find("Footer")?.GetComponent<TMP_Text>();
             if (footer != null)
             {
@@ -368,6 +407,102 @@ namespace Thuong.Online
             text.fontSize = 17; text.text = label; text.alignment = TextAlignmentOptions.Center; text.raycastTarget = false;
             ThuongMedievalTheme.Active?.StyleText(text);
             return button;
+        }
+
+        private void EnsureRealtimePrompt(GameHUD hud)
+        {
+            if (realtimePrompt != null) return;
+            var prompt = new GameObject("Nearby interaction prompt", typeof(RectTransform), typeof(TextMeshProUGUI));
+            prompt.transform.SetParent(hud.transform, false);
+            var rect = prompt.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(.22f, .075f); rect.anchorMax = new Vector2(.74f, .125f);
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            realtimePrompt = prompt.GetComponent<TMP_Text>();
+            realtimePrompt.font = hud.phaseText != null ? hud.phaseText.font : null;
+            realtimePrompt.fontSize = 20; realtimePrompt.alignment = TextAlignmentOptions.Center;
+            realtimePrompt.enableAutoSizing = true; realtimePrompt.fontSizeMin = 13; realtimePrompt.fontSizeMax = 20;
+            realtimePrompt.raycastTarget = false;
+            ThuongMedievalTheme.Active?.StyleText(realtimePrompt);
+        }
+
+        private void RefreshRealtimePrompt(GameHUD hud)
+        {
+            if (realtimePrompt == null) return;
+            if (!matchStarted || NotebookIsOpen || TutorialIsOpen || !HasLocalRole)
+            { realtimePrompt.gameObject.SetActive(false); return; }
+            realtimePrompt.gameObject.SetActive(true);
+            if (!LocalPlayerAlive)
+            { realtimePrompt.text = "ĐÃ BỊ LOẠI · Dùng bảng quan sát để theo dõi người còn sống"; return; }
+            if (InteractionMenuOpen)
+            {
+                var menuText = new StringBuilder("GIỮ E · CHỌN TƯƠNG TÁC\n");
+                for (int i = 0; i < interactionOptions.Count; i++)
+                    menuText.AppendLine((i == interactionMenuSelection ? "▶ " : "   ") + interactionOptions[i].Label);
+                realtimePrompt.text = menuText.ToString();
+                return;
+            }
+            if (hasSelectedInteraction)
+            { realtimePrompt.text = $"ĐÃ CHỌN · {selectedInteraction.Label} · NHẤN E ĐỂ THỰC HIỆN"; return; }
+            if (!avatars.TryGetValue(localPlayerId, out ThuongOnlineAvatar localAvatar))
+            { realtimePrompt.text = string.Empty; return; }
+
+            if (visibleState == GameState.Day)
+            {
+                if (ActiveMatchMode == ThuongMatchMode.RealtimeProximity)
+                {
+                    OnlineCorpse corpse = onlineCorpses.OrderBy(item => Vector2.Distance(localAvatar.Root.transform.position, item.Position))
+                        .FirstOrDefault(item => Vector2.Distance(localAvatar.Root.transform.position, item.Position) <= RealtimeInteractionRange &&
+                            SelectedMap != null && Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap,
+                                localAvatar.Root.transform.position, item.Position));
+                    if (corpse != null)
+                    {
+                        int nearbyTask = NearestAvailableTask(localAvatar.Root.transform.position, out float taskDistance);
+                        bool taskInRange = nearbyTask >= 0 && taskDistance <= stations[nearbyTask].interactionRadius + .25f;
+                        realtimePrompt.text = "E · BÁO XÁC" + (taskInRange ? " · GIỮ E ĐỂ CHỌN NHIỆM VỤ" : string.Empty);
+                        return;
+                    }
+                }
+                int stationId = NearestAvailableTask(localAvatar.Root.transform.position, out float taskDistance);
+                if (stationId >= 0 && taskDistance <= stations[stationId].interactionRadius + .25f)
+                    realtimePrompt.text = "E · NHIỆM VỤ · " + stations[stationId].task.taskName;
+                else realtimePrompt.text = "BAN NGÀY · Đi đến trạm nhiệm vụ";
+                return;
+            }
+            if (visibleState == GameState.Night)
+            {
+                if (ActiveMatchMode != ThuongMatchMode.RealtimeProximity)
+                { realtimePrompt.text = "BAN ĐÊM · Mở ROLE / KỸ NĂNG để chọn hành động"; return; }
+                bool corpseNearby = onlineCorpses.Any(item => Vector2.Distance(localAvatar.Root.transform.position, item.Position) <= RealtimeInteractionRange &&
+                    SelectedMap != null && Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, localAvatar.Root.transform.position, item.Position));
+                if (privateRole is not (RoleType.DogSpirit or RoleType.VillageGuardian or RoleType.Seer))
+                { realtimePrompt.text = corpseNearby ? "E · BÁO XÁC" : "BAN ĐÊM · Vai trò này không có kỹ năng E trong mode này"; return; }
+                int targetId = NearestAlivePlayer(localAvatar.Root.transform.position, out _);
+                if (targetId >= 0)
+                {
+                    ThuongOnlinePublicPlayer target = publicPlayers.First(item => item.PlayerId == targetId);
+                    string action = privateRole switch
+                    { RoleType.DogSpirit => "TẤN CÔNG", RoleType.VillageGuardian => "BẢO VỆ", _ => "SOI" };
+                    realtimePrompt.text = $"E · {action} · {target.Name}" + (corpseNearby ? " · GIỮ E ĐỂ CHỌN BÁO XÁC" : string.Empty);
+                }
+                else realtimePrompt.text = corpseNearby ? "E · BÁO XÁC" : "BAN ĐÊM · Tiến gần một người chơi, không xuyên tường";
+                return;
+            }
+            realtimePrompt.text = string.Empty;
+        }
+
+        private int NearestAvailableTask(Vector2 position, out float distance)
+        {
+            int best = -1;
+            distance = float.MaxValue;
+            for (int i = 0; i < stations.Length && i < 16; i++)
+            {
+                ushort bit = (ushort)(1 << i);
+                if ((activeTaskMask & bit) == 0 || (completedTaskMask & bit) != 0 || (personalTaskMask & bit) != 0 || stations[i].task == null) continue;
+                float candidate = Vector2.Distance(position, stations[i].transform.position);
+                if (candidate >= distance) continue;
+                best = i; distance = candidate;
+            }
+            return best;
         }
 
         private static string PhaseLabel(GameState state) => state switch
