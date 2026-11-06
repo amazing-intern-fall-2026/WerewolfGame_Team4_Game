@@ -246,78 +246,205 @@ public static class GameUIScaleEnhancer
         Canvas canvas = UnityEngine.Object.FindAnyObjectByType<Canvas>();
         if (canvas != null)
         {
+            // 1. CanvasScaler chuẩn hóa 1920x1080 (match=0.5 cho mobile Android/iOS)
             CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
             if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
+            EditorUtility.SetDirty(scaler);
             log("  -> CanvasScaler MainMenu: ScaleWithScreenSize 1920x1080 (match=0.5)");
 
-            // HostButton
+            TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+            if (font == null) font = AuthUI.GetVietnameseFont();
+
+            // Áp dụng font tiếng Việt cho toàn bộ TextMeshProUGUI trong scene
+            if (font != null)
+            {
+                var allTmps = canvas.GetComponentsInChildren<TextMeshProUGUI>(true);
+                foreach (var t in allTmps)
+                {
+                    t.font = font;
+                    t.fontSharedMaterial = font.material;
+                    EditorUtility.SetDirty(t);
+                }
+            }
+
+            // 2. Background Image (Tái sử dụng Assets/Art/menu game.png)
+            Transform bgTransform = canvas.transform.Find("BackgroundImage");
+            GameObject bgObj;
+            if (bgTransform == null)
+            {
+                bgObj = new GameObject("BackgroundImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
+                bgObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                bgObj = bgTransform.gameObject;
+            }
+            bgObj.transform.SetSiblingIndex(0); // Luôn ở vị trí 0 phía sau toàn bộ UI
+
+            RectTransform bgRt = bgObj.GetComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+            bgRt.pivot = new Vector2(0.5f, 0.5f);
+
+            Sprite menuBgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/menu game.png");
+            if (menuBgSprite == null)
+            {
+                var allAssets = AssetDatabase.LoadAllAssetsAtPath("Assets/Art/menu game.png");
+                foreach (var a in allAssets) { if (a is Sprite s) { menuBgSprite = s; break; } }
+            }
+
+            Image bgImg = bgObj.GetComponent<Image>();
+            if (menuBgSprite != null) bgImg.sprite = menuBgSprite;
+            bgImg.type = Image.Type.Simple;
+            bgImg.color = Color.white;
+            bgImg.raycastTarget = false;
+
+            AspectRatioFitter arf = bgObj.GetComponent<AspectRatioFitter>();
+            if (arf == null) arf = bgObj.AddComponent<AspectRatioFitter>();
+            arf.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            arf.aspectRatio = 1232f / 687f;
+            EditorUtility.SetDirty(bgObj);
+            log("  -> BackgroundImage MainMenu: Gán Sprite 'menu game.png', EnvelopeParent (ratio 1.7933), raycastTarget=false, siblingIndex=0");
+
+            // 3. Logo / Title (Định vị tại bảng hiệu phía trên của đình làng trong Art: x = -134, y = 180)
+            Transform titleT = canvas.transform.Find("GameTitle");
+            GameObject titleObj;
+            if (titleT == null)
+            {
+                titleObj = new GameObject("GameTitle", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                titleObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                titleObj = titleT.gameObject;
+            }
+            titleObj.transform.SetSiblingIndex(1);
+
+            RectTransform titleRt = titleObj.GetComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.5f, 0.5f);
+            titleRt.anchorMax = new Vector2(0.5f, 0.5f);
+            titleRt.pivot = new Vector2(0.5f, 0.5f);
+            titleRt.anchoredPosition = new Vector2(-134f, 180f);
+            titleRt.sizeDelta = new Vector2(760f, 70f);
+
+            TextMeshProUGUI titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
+            titleTmp.text = "<color=#FFEAA7><b>MA SÓI</b></color> <color=#FFFFFF>MULTIPLAYER</color>";
+            titleTmp.fontSize = 44f;
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.alignment = TextAlignmentOptions.Center;
+            titleTmp.raycastTarget = false;
+            if (font != null) { titleTmp.font = font; titleTmp.fontSharedMaterial = font.material; }
+            EditorUtility.SetDirty(titleObj);
+            log("  -> GameTitle MainMenu: Căn vị trí x=-134, y=180, font=44 Bold 'MA SÓI MULTIPLAYER'");
+
+            // 4. HostButton (TẠO PHÒNG - căn giữa điện thờ x = -134)
             Transform hostT = canvas.transform.Find("HostButton");
             if (hostT != null)
             {
+                hostT.SetSiblingIndex(2);
                 RectTransform hostRt = hostT.GetComponent<RectTransform>();
-                hostRt.sizeDelta = new Vector2(400f, 108f);
-                hostRt.anchoredPosition = new Vector2(-350f, 45f);
+                hostRt.anchorMin = new Vector2(0.5f, 0.5f);
+                hostRt.anchorMax = new Vector2(0.5f, 0.5f);
+                hostRt.pivot = new Vector2(0.5f, 0.5f);
+                hostRt.sizeDelta = new Vector2(420f, 84f);
+                hostRt.anchoredPosition = new Vector2(-134f, 45f);
                 TextMeshProUGUI hostTmp = hostT.GetComponentInChildren<TextMeshProUGUI>();
                 if (hostTmp != null)
                 {
-                    hostTmp.fontSize = 34f;
+                    hostTmp.text = "TẠO PHÒNG (HOST)";
+                    hostTmp.fontSize = 30f;
                     hostTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { hostTmp.font = font; hostTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(hostTmp);
                 }
-                log($"  -> HostButton: size=(400, 108), pos=(-350, 45), font=34 Bold");
+                Image hostImg = hostT.GetComponent<Image>();
+                if (hostImg != null) hostImg.color = new Color(0.72f, 0.18f, 0.18f, 1f);
+                EditorUtility.SetDirty(hostT.gameObject);
+                log($"  -> HostButton: size=(420, 84), pos=(-134, 45), font=30 Bold");
             }
 
-            // ClientButton
-            Transform clientT = canvas.transform.Find("ClientButton");
-            if (clientT != null)
-            {
-                RectTransform clientRt = clientT.GetComponent<RectTransform>();
-                clientRt.sizeDelta = new Vector2(400f, 108f);
-                clientRt.anchoredPosition = new Vector2(-350f, -205f);
-                TextMeshProUGUI clientTmp = clientT.GetComponentInChildren<TextMeshProUGUI>();
-                if (clientTmp != null)
-                {
-                    clientTmp.fontSize = 34f;
-                    clientTmp.fontStyle = FontStyles.Bold;
-                }
-                log($"  -> ClientButton: size=(400, 108), pos=(-350, -205), font=34 Bold");
-            }
-
-            // RoomCodeInput
+            // 5. RoomCodeInput (Căn giữa HostButton và ClientButton: x = -134, y = -55)
             Transform roomCodeT = canvas.transform.Find("RoomCodeInput");
             if (roomCodeT != null)
             {
+                roomCodeT.SetSiblingIndex(3);
                 RectTransform roomCodeRt = roomCodeT.GetComponent<RectTransform>();
-                roomCodeRt.sizeDelta = new Vector2(400f, 88f);
-                roomCodeRt.anchoredPosition = new Vector2(-350f, -80f);
+                roomCodeRt.anchorMin = new Vector2(0.5f, 0.5f);
+                roomCodeRt.anchorMax = new Vector2(0.5f, 0.5f);
+                roomCodeRt.pivot = new Vector2(0.5f, 0.5f);
+                roomCodeRt.sizeDelta = new Vector2(420f, 76f);
+                roomCodeRt.anchoredPosition = new Vector2(-134f, -55f);
                 var input = roomCodeT.GetComponent<TMP_InputField>();
                 if (input != null && input.textComponent != null)
                 {
                     input.textComponent.fontSize = 28f;
                     input.textComponent.fontStyle = FontStyles.Bold;
+                    if (font != null) { input.textComponent.font = font; input.textComponent.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(input.textComponent);
                 }
-                log($"  -> RoomCodeInput: size=(400, 88), pos=(-350, -80), font=28 Bold");
+                Image inputBg = roomCodeT.GetComponent<Image>();
+                if (inputBg != null) inputBg.color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
+                EditorUtility.SetDirty(roomCodeT.gameObject);
+                log($"  -> RoomCodeInput: size=(420, 76), pos=(-134, -55), font=28 Bold");
             }
 
-            // NetworkStatusText
+            // 6. ClientButton (VÀO PHÒNG: x = -134, y = -155)
+            Transform clientT = canvas.transform.Find("ClientButton");
+            if (clientT != null)
+            {
+                clientT.SetSiblingIndex(4);
+                RectTransform clientRt = clientT.GetComponent<RectTransform>();
+                clientRt.anchorMin = new Vector2(0.5f, 0.5f);
+                clientRt.anchorMax = new Vector2(0.5f, 0.5f);
+                clientRt.pivot = new Vector2(0.5f, 0.5f);
+                clientRt.sizeDelta = new Vector2(420f, 84f);
+                clientRt.anchoredPosition = new Vector2(-134f, -155f);
+                TextMeshProUGUI clientTmp = clientT.GetComponentInChildren<TextMeshProUGUI>();
+                if (clientTmp != null)
+                {
+                    clientTmp.text = "VÀO PHÒNG (JOIN)";
+                    clientTmp.fontSize = 30f;
+                    clientTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { clientTmp.font = font; clientTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(clientTmp);
+                }
+                Image clientImg = clientT.GetComponent<Image>();
+                if (clientImg != null) clientImg.color = new Color(0.18f, 0.42f, 0.70f, 1f);
+                EditorUtility.SetDirty(clientT.gameObject);
+                log($"  -> ClientButton: size=(420, 84), pos=(-134, -155), font=30 Bold");
+            }
+
+            // 7. NetworkStatusText (x = -134, y = -240)
             Transform statusT = canvas.transform.Find("NetworkStatusText");
             if (statusT != null)
             {
+                statusT.SetSiblingIndex(5);
                 RectTransform statusRt = statusT.GetComponent<RectTransform>();
-                statusRt.sizeDelta = new Vector2(480f, 75f);
-                statusRt.anchoredPosition = new Vector2(-350f, -322f);
+                statusRt.anchorMin = new Vector2(0.5f, 0.5f);
+                statusRt.anchorMax = new Vector2(0.5f, 0.5f);
+                statusRt.pivot = new Vector2(0.5f, 0.5f);
+                statusRt.sizeDelta = new Vector2(680f, 50f);
+                statusRt.anchoredPosition = new Vector2(-134f, -240f);
                 var tmp = statusT.GetComponent<TextMeshProUGUI>();
                 if (tmp != null)
                 {
-                    tmp.fontSize = 24f;
+                    tmp.fontSize = 22f;
+                    tmp.alignment = TextAlignmentOptions.Center;
+                    if (font != null) { tmp.font = font; tmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(tmp);
                 }
-                log($"  -> NetworkStatusText: size=(480, 75), pos=(-350, -322), font=24 (Khoảng cách với ClientButton: 26px)");
+                EditorUtility.SetDirty(statusT.gameObject);
+                log($"  -> NetworkStatusText: size=(680, 50), pos=(-134, -240), font=22 Center");
             }
         }
 
+        EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         log("  -> Đã lưu scene MainMenu.unity.");
     }
@@ -334,80 +461,313 @@ public static class GameUIScaleEnhancer
         Canvas canvas = UnityEngine.Object.FindAnyObjectByType<Canvas>();
         if (canvas != null)
         {
+            // 1. CanvasScaler
             CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
             if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
+            EditorUtility.SetDirty(scaler);
             log("  -> CanvasScaler Lobby: ScaleWithScreenSize 1920x1080 (match=0.5)");
 
-            // Start Game Button & Other buttons
-            Button[] allButtons = canvas.GetComponentsInChildren<Button>(true);
-            foreach (var b in allButtons)
-            {
-                string bName = b.gameObject.name.ToLower();
-                TextMeshProUGUI btnText = b.GetComponentInChildren<TextMeshProUGUI>();
-                string textStr = btnText != null ? btnText.text.ToLower() : "";
+            TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+            if (font == null) font = AuthUI.GetVietnameseFont();
 
-                if (bName.Contains("start") || textStr.Contains("bắt đầu") || textStr.Contains("start"))
+            // Áp dụng font tiếng Việt cho toàn bộ TextMeshProUGUI trong Lobby
+            if (font != null)
+            {
+                var allTmps = canvas.GetComponentsInChildren<TextMeshProUGUI>(true);
+                foreach (var t in allTmps)
                 {
-                    RectTransform rt = b.GetComponent<RectTransform>();
-                    rt.sizeDelta = new Vector2(380f, 104f);
-                    rt.anchoredPosition = new Vector2(730f, 412f);
-                    if (btnText != null)
-                    {
-                        btnText.fontSize = 34f;
-                        btnText.fontStyle = FontStyles.Bold;
-                    }
-                    log($"  -> StartGameButton '{b.gameObject.name}': size=(380, 104), pos=(730, 412), font=34 Bold");
-                }
-                else if (bName.Contains("setname") || bName.Contains("name") || textStr.Contains("tên") || textStr.Contains("name"))
-                {
-                    RectTransform rt = b.GetComponent<RectTransform>();
-                    rt.sizeDelta = new Vector2(160f, 86f);
-                    rt.anchoredPosition = new Vector2(252f, 250f);
-                    if (btnText != null)
-                    {
-                        btnText.fontSize = 28f;
-                        btnText.fontStyle = FontStyles.Bold;
-                    }
-                    log($"  -> SetNameButton '{b.gameObject.name}': size=(160, 86), pos=(252, 250), font=28 Bold (Khoảng cách với Input: 24px)");
-                }
-                else if (bName.Contains("role") || textStr.Contains("role") || textStr.Contains("vai"))
-                {
-                    RectTransform rt = b.GetComponent<RectTransform>();
-                    rt.sizeDelta = new Vector2(320f, 84f);
-                    rt.anchoredPosition = new Vector2(730f, 276f);
-                    if (btnText != null)
-                    {
-                        btnText.fontSize = 28f;
-                        btnText.fontStyle = FontStyles.Bold;
-                    }
-                    log($"  -> RoleButton '{b.gameObject.name}': size=(320, 84), pos=(730, 276), font=28 Bold (Cùng trục x=730 với StartGame)");
+                    t.font = font;
+                    t.fontSharedMaterial = font.material;
+                    EditorUtility.SetDirty(t);
                 }
             }
 
-            // Input Fields (Căn chỉnh PlayerNameInput ở -62, 250 để cách SetNameButton đúng 24px)
-            TMP_InputField[] allInputs = canvas.GetComponentsInChildren<TMP_InputField>(true);
-            foreach (var inp in allInputs)
+            // 2. Background Image (Tái sử dụng Assets/Art/san khau.png)
+            Transform bgTransform = canvas.transform.Find("BackgroundImage");
+            GameObject bgObj;
+            if (bgTransform == null)
             {
-                RectTransform rt = inp.GetComponent<RectTransform>();
-                rt.sizeDelta = new Vector2(420f, 86f);
-                rt.anchoredPosition = new Vector2(-62f, 250f);
-                if (inp.textComponent != null) inp.textComponent.fontSize = 28f;
-                if (inp.placeholder is TextMeshProUGUI ph) ph.fontSize = 26f;
-                log($"  -> InputField '{inp.gameObject.name}': size=(420, 86), pos=(-62, 250), font=28");
+                bgObj = new GameObject("BackgroundImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
+                bgObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                bgObj = bgTransform.gameObject;
+            }
+            bgObj.transform.SetSiblingIndex(0); // Luôn ở vị trí 0 phía sau
+
+            RectTransform bgRt = bgObj.GetComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+            bgRt.pivot = new Vector2(0.5f, 0.5f);
+
+            Sprite stageBgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/san khau.png");
+            if (stageBgSprite == null)
+            {
+                var allAssets = AssetDatabase.LoadAllAssetsAtPath("Assets/Art/san khau.png");
+                foreach (var a in allAssets) { if (a is Sprite s) { stageBgSprite = s; break; } }
             }
 
-            // Đảm bảo khung cuộn Role đủ rộng cho hàng 620px và spacing hàng rộng rãi
-            Transform roleScroll = canvas.transform.Find("RoleScroll") ?? canvas.transform.Find("RoleScrollView");
+            Image bgImg = bgObj.GetComponent<Image>();
+            if (stageBgSprite != null) bgImg.sprite = stageBgSprite;
+            bgImg.type = Image.Type.Simple;
+            bgImg.color = Color.white;
+            bgImg.raycastTarget = false;
+
+            AspectRatioFitter arf = bgObj.GetComponent<AspectRatioFitter>();
+            if (arf == null) arf = bgObj.AddComponent<AspectRatioFitter>();
+            arf.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            arf.aspectRatio = 1920f / 1080f;
+            EditorUtility.SetDirty(bgObj);
+            log("  -> BackgroundImage Lobby: Gán Sprite 'san khau.png', EnvelopeParent (16:9), raycastTarget=false, siblingIndex=0");
+
+            // 3. LobbyTitle (Tiêu đề phòng chờ ở trên cùng)
+            Transform titleT = canvas.transform.Find("LobbyTitle");
+            if (titleT != null)
+            {
+                RectTransform titleRt = titleT.GetComponent<RectTransform>();
+                titleRt.anchorMin = new Vector2(0.5f, 1f);
+                titleRt.anchorMax = new Vector2(0.5f, 1f);
+                titleRt.pivot = new Vector2(0.5f, 1f);
+                titleRt.anchoredPosition = new Vector2(0f, -108f);
+                titleRt.sizeDelta = new Vector2(500f, 44f);
+                TextMeshProUGUI titleTmp = titleT.GetComponent<TextMeshProUGUI>();
+                if (titleTmp != null)
+                {
+                    titleTmp.text = "<color=#FFEAA7><b>PHÒNG CHỜ TRẬN ĐẤU</b></color>";
+                    titleTmp.fontSize = 36f;
+                    titleTmp.fontStyle = FontStyles.Bold;
+                    titleTmp.alignment = TextAlignmentOptions.Center;
+                    if (font != null) { titleTmp.font = font; titleTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(titleTmp);
+                }
+                EditorUtility.SetDirty(titleT.gameObject);
+                log("  -> LobbyTitle: pos=(0, -108), size=(500, 44), font=36 Bold 'PHÒNG CHỜ TRẬN ĐẤU'");
+            }
+
+            // 4. RoomCodeBadge (Nếu có trong scene)
+            Transform badgeT = canvas.transform.Find("RoomCodeBadge");
+            if (badgeT != null)
+            {
+                RectTransform badgeRt = badgeT.GetComponent<RectTransform>();
+                badgeRt.anchorMin = new Vector2(0.5f, 1f);
+                badgeRt.anchorMax = new Vector2(0.5f, 1f);
+                badgeRt.pivot = new Vector2(0.5f, 1f);
+                badgeRt.anchoredPosition = new Vector2(0f, -25f);
+                badgeRt.sizeDelta = new Vector2(460f, 76f);
+                EditorUtility.SetDirty(badgeT.gameObject);
+                log("  -> RoomCodeBadge: pos=(0, -25), size=(460, 76)");
+            }
+
+            // 5. LeaveButton (Nút Rời phòng ở góc trên bên trái: anchor 0,1)
+            Transform leaveT = canvas.transform.Find("LeaveButton") ?? canvas.transform.Find("LobbyLeaveButton");
+            if (leaveT != null)
+            {
+                RectTransform leaveRt = leaveT.GetComponent<RectTransform>();
+                leaveRt.anchorMin = new Vector2(0f, 1f);
+                leaveRt.anchorMax = new Vector2(0f, 1f);
+                leaveRt.pivot = new Vector2(0f, 1f);
+                leaveRt.anchoredPosition = new Vector2(35f, -25f);
+                leaveRt.sizeDelta = new Vector2(200f, 56f);
+                TextMeshProUGUI leaveTmp = leaveT.GetComponentInChildren<TextMeshProUGUI>();
+                if (leaveTmp != null)
+                {
+                    leaveTmp.text = "← RỜI PHÒNG";
+                    leaveTmp.fontSize = 24f;
+                    leaveTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { leaveTmp.font = font; leaveTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(leaveTmp);
+                }
+                Image leaveImg = leaveT.GetComponent<Image>();
+                if (leaveImg != null) leaveImg.color = new Color(0.48f, 0.12f, 0.12f, 0.95f);
+                EditorUtility.SetDirty(leaveT.gameObject);
+                log("  -> LeaveButton: pos=(35, -25), size=(200, 56), anchor=(0, 1), font=24 Bold '← RỜI PHÒNG'");
+            }
+
+            // 6. PlayerNameInput & SetNameButton (Căn giữa phía trên sàn sân khấu)
+            Transform nameInpT = canvas.transform.Find("PlayerNameInput");
+            if (nameInpT != null)
+            {
+                RectTransform rt = nameInpT.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(380f, 76f);
+                rt.anchoredPosition = new Vector2(-70f, 260f);
+                TMP_InputField inp = nameInpT.GetComponent<TMP_InputField>();
+                if (inp != null)
+                {
+                    if (inp.textComponent != null)
+                    {
+                        inp.textComponent.fontSize = 28f;
+                        if (font != null) { inp.textComponent.font = font; inp.textComponent.fontSharedMaterial = font.material; }
+                        EditorUtility.SetDirty(inp.textComponent);
+                    }
+                    if (inp.placeholder is TextMeshProUGUI ph)
+                    {
+                        ph.text = "Nhập tên của bạn...";
+                        ph.fontSize = 26f;
+                        if (font != null) { ph.font = font; ph.fontSharedMaterial = font.material; }
+                        EditorUtility.SetDirty(ph);
+                    }
+                }
+                Image inpImg = nameInpT.GetComponent<Image>();
+                if (inpImg != null) inpImg.color = new Color(0.12f, 0.16f, 0.22f, 0.95f);
+                EditorUtility.SetDirty(nameInpT.gameObject);
+                log("  -> PlayerNameInput: pos=(-70, 260), size=(380, 76)");
+            }
+
+            Transform setNameT = canvas.transform.Find("SetNameButton");
+            if (setNameT != null)
+            {
+                RectTransform rt = setNameT.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(160f, 76f);
+                rt.anchoredPosition = new Vector2(180f, 260f);
+                TextMeshProUGUI setTmp = setNameT.GetComponentInChildren<TextMeshProUGUI>();
+                if (setTmp != null)
+                {
+                    setTmp.text = "LƯU TÊN";
+                    setTmp.fontSize = 26f;
+                    setTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { setTmp.font = font; setTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(setTmp);
+                }
+                Image setImg = setNameT.GetComponent<Image>();
+                if (setImg != null) setImg.color = new Color(0.18f, 0.52f, 0.35f, 1f);
+                EditorUtility.SetDirty(setNameT.gameObject);
+                log("  -> SetNameButton: pos=(180, 260), size=(160, 76), font=26 Bold 'LƯU TÊN'");
+            }
+
+            // 7. PlayerList (Khung danh sách người chơi bên trái sân khấu)
+            Transform playerListT = canvas.transform.Find("PlayerList");
+            if (playerListT != null)
+            {
+                RectTransform plRt = playerListT.GetComponent<RectTransform>();
+                plRt.anchorMin = new Vector2(0.5f, 0.5f);
+                plRt.anchorMax = new Vector2(0.5f, 0.5f);
+                plRt.pivot = new Vector2(0.5f, 0.5f);
+                plRt.anchoredPosition = new Vector2(-440f, 20f);
+                plRt.sizeDelta = new Vector2(540f, 420f);
+                TextMeshProUGUI plTmp = playerListT.GetComponent<TextMeshProUGUI>();
+                if (plTmp != null)
+                {
+                    plTmp.fontSize = 28f;
+                    plTmp.alignment = TextAlignmentOptions.TopLeft;
+                    if (font != null) { plTmp.font = font; plTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(plTmp);
+                }
+                EditorUtility.SetDirty(playerListT.gameObject);
+                log("  -> PlayerList: pos=(-440, 20), size=(540, 420), font=28 TopLeft");
+            }
+
+            // 8. Các nút chức năng bên phải sân khấu (StartGame, RoleSetup, JoinVoice)
+            Transform startT = canvas.transform.Find("StartGameButton");
+            if (startT != null)
+            {
+                RectTransform rt = startT.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(420f, 96f);
+                rt.anchoredPosition = new Vector2(450f, 130f);
+                TextMeshProUGUI startTmp = startT.GetComponentInChildren<TextMeshProUGUI>();
+                if (startTmp != null)
+                {
+                    startTmp.text = "BẮT ĐẦU TRẬN ĐẤU";
+                    startTmp.fontSize = 32f;
+                    startTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { startTmp.font = font; startTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(startTmp);
+                }
+                Image startImg = startT.GetComponent<Image>();
+                if (startImg != null) startImg.color = new Color(0.77f, 0.19f, 0.19f, 1f);
+                EditorUtility.SetDirty(startT.gameObject);
+                log("  -> StartGameButton: pos=(450, 130), size=(420, 96), font=32 Bold 'BẮT ĐẦU TRẬN ĐẤU'");
+            }
+
+            Transform roleBtnT = canvas.transform.Find("RoleSetupToggleButton");
+            if (roleBtnT != null)
+            {
+                RectTransform rt = roleBtnT.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(420f, 84f);
+                rt.anchoredPosition = new Vector2(450f, 10f);
+                TextMeshProUGUI roleTmp = roleBtnT.GetComponentInChildren<TextMeshProUGUI>();
+                if (roleTmp != null)
+                {
+                    roleTmp.text = "⚙ CẤU HÌNH VAI TRÒ";
+                    roleTmp.fontSize = 28f;
+                    roleTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { roleTmp.font = font; roleTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(roleTmp);
+                }
+                Image roleImg = roleBtnT.GetComponent<Image>();
+                if (roleImg != null) roleImg.color = new Color(0.17f, 0.30f, 0.49f, 1f);
+                EditorUtility.SetDirty(roleBtnT.gameObject);
+                log("  -> RoleSetupToggleButton: pos=(450, 10), size=(420, 84), font=28 Bold '⚙ CẤU HÌNH VAI TRÒ'");
+            }
+
+            Transform voiceBtnT = canvas.transform.Find("JoinVoiceButton");
+            if (voiceBtnT != null)
+            {
+                RectTransform rt = voiceBtnT.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(420f, 76f);
+                rt.anchoredPosition = new Vector2(450f, -90f);
+                TextMeshProUGUI voiceTmp = voiceBtnT.GetComponentInChildren<TextMeshProUGUI>();
+                if (voiceTmp != null)
+                {
+                    voiceTmp.text = "🔊 KẾT NỐI VOICE";
+                    voiceTmp.fontSize = 26f;
+                    voiceTmp.fontStyle = FontStyles.Bold;
+                    if (font != null) { voiceTmp.font = font; voiceTmp.fontSharedMaterial = font.material; }
+                    EditorUtility.SetDirty(voiceTmp);
+                }
+                Image voiceImg = voiceBtnT.GetComponent<Image>();
+                if (voiceImg != null) voiceImg.color = new Color(0.15f, 0.40f, 0.29f, 1f);
+                EditorUtility.SetDirty(voiceBtnT.gameObject);
+                log("  -> JoinVoiceButton: pos=(450, -90), size=(420, 76), font=26 Bold '🔊 KẾT NỐI VOICE'");
+            }
+
+            // 9. RoleSetupPanel (Modal dialog hiển thị đè lên trên cùng khi mở)
+            Transform rolePanelT = canvas.transform.Find("RoleSetupPanel");
+            if (rolePanelT != null)
+            {
+                rolePanelT.SetAsLastSibling();
+                RectTransform rpRt = rolePanelT.GetComponent<RectTransform>();
+                rpRt.anchorMin = new Vector2(0.5f, 0.5f);
+                rpRt.anchorMax = new Vector2(0.5f, 0.5f);
+                rpRt.pivot = new Vector2(0.5f, 0.5f);
+                rpRt.sizeDelta = new Vector2(860f, 680f);
+                rpRt.anchoredPosition = Vector2.zero;
+                Image rpImg = rolePanelT.GetComponent<Image>();
+                if (rpImg != null) rpImg.color = new Color(0.10f, 0.12f, 0.17f, 0.98f);
+                EditorUtility.SetDirty(rolePanelT.gameObject);
+                log("  -> RoleSetupPanel: pos=(0, 0), size=(860, 680), SetAsLastSibling (Modal)");
+            }
+
+            // Đảm bảo khung cuộn Role đủ rộng cho hàng 620px
+            Transform roleScroll = canvas.transform.Find("RoleScroll") ?? canvas.transform.Find("RoleScrollView") ?? rolePanelT?.Find("RoleScrollView");
             if (roleScroll != null)
             {
                 RectTransform scrollRt = roleScroll.GetComponent<RectTransform>();
                 if (scrollRt.sizeDelta.x < 650f)
                 {
                     scrollRt.sizeDelta = new Vector2(660f, scrollRt.sizeDelta.y > 0 ? scrollRt.sizeDelta.y : 600f);
+                    EditorUtility.SetDirty(scrollRt);
                     log($"  -> Mở rộng RoleScroll để vừa vặn hàng role 620px: size={scrollRt.sizeDelta}");
                 }
             }
@@ -417,28 +777,11 @@ public static class GameUIScaleEnhancer
             foreach (var vlg in layoutGroups)
             {
                 vlg.spacing = 24f;
-                log($"  -> Cập nhật VerticalLayoutGroup '{vlg.gameObject.name}': spacing=24px");
-            }
-
-            // Text elements (Player List, Role Count, Titles)
-            TextMeshProUGUI[] allTexts = canvas.GetComponentsInChildren<TextMeshProUGUI>(true);
-            foreach (var t in allTexts)
-            {
-                string tName = t.gameObject.name.ToLower();
-                if (tName.Contains("playerlist") || tName.Contains("danhsach"))
-                {
-                    t.fontSize = Mathf.Max(t.fontSize, 28f);
-                    log($"  -> PlayerListText: font={t.fontSize}");
-                }
-                else if (tName.Contains("rolecount") || tName.Contains("count"))
-                {
-                    t.fontSize = Mathf.Max(t.fontSize, 32f);
-                    t.fontStyle = FontStyles.Bold;
-                    log($"  -> RoleCountText: font={t.fontSize} Bold");
-                }
+                EditorUtility.SetDirty(vlg);
             }
         }
 
+        EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         log("  -> Đã lưu scene Lobby.unity.");
     }
@@ -510,11 +853,106 @@ public static class GameUIScaleEnhancer
                     log($"  -> Timer Text: font=54 Bold");
                 }
             }
+
+            // =========================================================
+            // HÌNH NỀN SÁNG / TỐI (GameBackgroundController)
+            // =========================================================
+            Sprite daySprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/sang.png");
+            if (daySprite == null)
+            {
+                var allAssets = AssetDatabase.LoadAllAssetsAtPath("Assets/Art/sang.png");
+                foreach (var a in allAssets) { if (a is Sprite s) { daySprite = s; break; } }
+            }
+
+            Sprite nightSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/toi.png");
+            if (nightSprite == null)
+            {
+                var allAssets = AssetDatabase.LoadAllAssetsAtPath("Assets/Art/toi.png");
+                foreach (var a in allAssets) { if (a is Sprite s) { nightSprite = s; break; } }
+            }
+
+            // 1. Background_Day
+            Transform bgDayT = canvas.transform.Find("Background_Day");
+            GameObject bgDayObj;
+            if (bgDayT == null)
+            {
+                bgDayObj = new GameObject("Background_Day", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
+                bgDayObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                bgDayObj = bgDayT.gameObject;
+            }
+            bgDayObj.transform.SetSiblingIndex(0);
+
+            RectTransform dayRt = bgDayObj.GetComponent<RectTransform>();
+            dayRt.anchorMin = Vector2.zero;
+            dayRt.anchorMax = Vector2.one;
+            dayRt.offsetMin = Vector2.zero;
+            dayRt.offsetMax = Vector2.zero;
+            dayRt.pivot = new Vector2(0.5f, 0.5f);
+
+            Image dayImg = bgDayObj.GetComponent<Image>();
+            if (daySprite != null) dayImg.sprite = daySprite;
+            dayImg.type = Image.Type.Simple;
+            dayImg.color = Color.white;
+            dayImg.raycastTarget = false;
+
+            AspectRatioFitter dayArf = bgDayObj.GetComponent<AspectRatioFitter>();
+            if (dayArf == null) dayArf = bgDayObj.AddComponent<AspectRatioFitter>();
+            dayArf.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            dayArf.aspectRatio = 1920f / 1080f;
+            bgDayObj.SetActive(true);
+            EditorUtility.SetDirty(bgDayObj);
+
+            // 2. Background_Night
+            Transform bgNightT = canvas.transform.Find("Background_Night");
+            GameObject bgNightObj;
+            if (bgNightT == null)
+            {
+                bgNightObj = new GameObject("Background_Night", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
+                bgNightObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                bgNightObj = bgNightT.gameObject;
+            }
+            bgNightObj.transform.SetSiblingIndex(1);
+
+            RectTransform nightRt = bgNightObj.GetComponent<RectTransform>();
+            nightRt.anchorMin = Vector2.zero;
+            nightRt.anchorMax = Vector2.one;
+            nightRt.offsetMin = Vector2.zero;
+            nightRt.offsetMax = Vector2.zero;
+            nightRt.pivot = new Vector2(0.5f, 0.5f);
+
+            Image nightImg = bgNightObj.GetComponent<Image>();
+            if (nightSprite != null) nightImg.sprite = nightSprite;
+            nightImg.type = Image.Type.Simple;
+            nightImg.color = Color.white;
+            nightImg.raycastTarget = false;
+
+            AspectRatioFitter nightArf = bgNightObj.GetComponent<AspectRatioFitter>();
+            if (nightArf == null) nightArf = bgNightObj.AddComponent<AspectRatioFitter>();
+            nightArf.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            nightArf.aspectRatio = 1920f / 1080f;
+            bgNightObj.SetActive(false);
+            EditorUtility.SetDirty(bgNightObj);
+
+            // 3. GameBackgroundController Component
+            GameBackgroundController bgController = canvas.GetComponent<GameBackgroundController>();
+            if (bgController == null) bgController = canvas.gameObject.AddComponent<GameBackgroundController>();
+            bgController.EnsureBackgroundElements();
+            EditorUtility.SetDirty(bgController);
+
+            log("  -> GameBackgroundController: Gán Background_Day (sang.png) và Background_Night (toi.png), 16:9 EnvelopeParent, raycastTarget=false, siblingIndex 0-1");
         }
 
+        EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         log("  -> Đã lưu scene Game.unity.");
     }
+
 
     private static void VerifyResponsiveLayout(Action<string> log)
     {

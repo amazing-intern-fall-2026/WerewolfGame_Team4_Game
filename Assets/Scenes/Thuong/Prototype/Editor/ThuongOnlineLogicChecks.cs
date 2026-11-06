@@ -245,7 +245,7 @@ public static class ThuongOnlineLogicChecks
         { try { Call(proxy, method, sender, reader); } catch (Exception error) { callbackError = error; } }
         peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.private.v4", (sender, reader) => Handle("ReceivePrivateState", sender, reader));
         peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v6", (sender, reader) => Handle("ReceiveSnapshot", sender, reader));
-        peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v3", (sender, reader) => Handle("ReceiveRoster", sender, reader));
+        peer.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.roster.v4", (sender, reader) => Handle("ReceiveRoster", sender, reader));
         return proxy;
     }
     private static IEnumerable<object> Members() => Field<IEnumerable>(host, "serverPlayers").Cast<object>()

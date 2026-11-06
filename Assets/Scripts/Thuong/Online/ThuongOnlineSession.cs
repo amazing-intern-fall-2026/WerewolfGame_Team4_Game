@@ -88,7 +88,8 @@ namespace Thuong.Online
             Active = this;
             network = GetComponent<NetworkManager>();
             transport = GetComponent<UnityTransport>();
-            playerName = "Player " + UnityEngine.Random.Range(100, 999);
+            playerName = AuthManager.Instance.IsSignedIn ? SanitizeName(AuthManager.Instance.CurrentUsername) :
+                "Player " + UnityEngine.Random.Range(100, 999);
             PrepareScene();
 
             network.ConnectionApprovalCallback = ApproveConnection;
@@ -131,6 +132,7 @@ namespace Thuong.Online
             PrepareMinigames();
             PrepareOnlineMaps();
             PrepareEmotes();
+            PrepareTaskGuidance();
             foreach (TaskStation station in stations)
             {
                 station.enabled = false;
@@ -154,6 +156,7 @@ namespace Thuong.Online
             UpdateAvatars();
             UpdateMinigames();
             RefreshMapPresentation();
+            RefreshTaskGuidance();
             if (!connected || network == null || !network.IsListening) return;
 
             if (network.IsServer)
@@ -163,7 +166,9 @@ namespace Thuong.Online
                 if (Time.unscaledTime >= nextSnapshotTime)
                 {
                     nextSnapshotTime = Time.unscaledTime + SnapshotInterval;
+                    ExpireReconnects();
                     BroadcastSnapshot();
+                    BroadcastRoomState();
                 }
                 if (rolesAssigned && Time.unscaledTime >= nextPrivateTime)
                 {
@@ -234,7 +239,7 @@ namespace Thuong.Online
             NetworkManager.ConnectionApprovalResponse response)
         {
             string payload = request.Payload != null ? Encoding.UTF8.GetString(request.Payload) : "";
-            if (!payload.StartsWith(BuildPrefix, StringComparison.Ordinal))
+            if (!TryReadConnectionPayload(payload, out Guid token, out bool resume, out string requestedName))
             {
                 response.Approved = false;
                 response.Reason = "Khác phiên bản game. Host và người chơi cần cùng bản Thương Online mới.";
@@ -244,6 +249,14 @@ namespace Thuong.Online
             if (!localMapReady)
             {
                 response.Approved = false; response.Reason = mapError; response.Pending = false; return;
+            }
+            if (resume)
+            {
+                response.Approved = TryReserveReconnect(request.ClientNetworkId, token, Time.realtimeSinceStartupAsDouble);
+                response.CreatePlayerObject = false;
+                response.Pending = false;
+                if (!response.Approved) response.Reason = "Không còn chỗ kết nối lại hoặc chỗ đang được dùng.";
+                return;
             }
             if (roomLocked)
             {
@@ -259,16 +272,23 @@ namespace Thuong.Online
                 response.Pending = false;
                 return;
             }
+            if (serverPlayers.Values.Any(member => member.ClientId != request.ClientNetworkId && member.ReconnectToken == token))
+            {
+                response.Approved = false;
+                response.Reason = "Phiên người chơi đang được sử dụng.";
+                response.Pending = false;
+                return;
+            }
 
             response.Approved = true;
             response.CreatePlayerObject = false;
             response.Pending = false;
             if (!serverPlayers.ContainsKey(request.ClientNetworkId))
             {
-                string requestedName = payload.Substring(BuildPrefix.Length);
                 serverPlayers.Add(request.ClientNetworkId, new ThuongOnlineServerPlayer
                 {
                     ClientId = request.ClientNetworkId,
+                    ReconnectToken = token,
                     PlayerId = NextAvailablePlayerId(),
                     Name = SanitizeName(requestedName),
                     CharacterIndex = 0,
@@ -301,8 +321,19 @@ namespace Thuong.Online
 
         private void HandleClientConnected(ulong clientId)
         {
+            if (network.IsServer && reconnectApprovals.Remove(clientId, out var returning) &&
+                !AttachReturningClient(clientId, returning, Time.realtimeSinceStartupAsDouble))
+            {
+                network.DisconnectClient(clientId, "Hết thời gian kết nối lại.");
+                return;
+            }
             if (network.IsServer && !serverPlayers.ContainsKey(clientId))
             {
+                if (clientId != network.LocalClientId)
+                {
+                    network.DisconnectClient(clientId, "Không tìm thấy chỗ trong phòng.");
+                    return;
+                }
                 serverPlayers.Add(clientId, new ThuongOnlineServerPlayer
                 {
                     ClientId = clientId,
@@ -316,11 +347,13 @@ namespace Thuong.Online
             if (clientId == network.LocalClientId)
             {
                 if (network.IsServer && serverPlayers.TryGetValue(clientId, out var localMember)) localMember.MapReady = localMapReady;
+                bool resumed = reconnectOfferUntil > 0;
                 connected = true;
-                busy = false;
+                busy = relayOperation;
+                reconnectOfferUntil = 0;
                 RegisterMessageHandlers();
                 SendHello();
-                status = network.IsHost ? "Đã tạo phòng." : "Đã tham gia phòng.";
+                status = network.IsHost ? "Đã tạo phòng." : resumed ? "Đã kết nối lại. Đang đồng bộ ván…" : "Đã tham gia phòng.";
             }
 
             if (network.IsServer) rosterDirty = true;
@@ -328,41 +361,33 @@ namespace Thuong.Online
 
         private void HandleClientDisconnected(ulong clientId)
         {
-            if (leavingScene || network == null || network.ShutdownInProgress) return;
-            ResetMinigames();
-            if (network.IsServer && serverPlayers.Remove(clientId))
+            if (leavingScene || network == null || explicitLeave) return;
+            if (network.IsServer)
             {
-                rosterDirty = true;
-                if (rolesAssigned && matchResult == null)
-                {
-                    matchStarted = false;
-                    status = "Trận đã dừng vì một người chơi mất kết nối.";
-                    DayTimer.Instance?.StopTimer();
-                    if (game != null) game.enabled = false;
-                    BroadcastSnapshot();
-                    // A stopped match cannot be restarted on the same gameplay managers.
-                    // Close the room so every peer returns to a fresh lobby.
-                    network.Shutdown();
-                }
+                if (!network.ShutdownInProgress) HandleServerPeerLost(clientId);
+                return;
             }
 
-            if (clientId == network.LocalClientId)
+            if (clientId == network.LocalClientId || clientId == NetworkManager.ServerClientId)
             {
+                OfferReconnect();
                 connected = false;
                 matchStarted = matchResult != null;
-                busy = false;
-                status = matchResult != null ? "Đã ngắt kết nối. Kết quả ván vẫn được giữ lại." : "Đã ngắt kết nối.";
+                busy = relayOperation;
+                status = matchResult != null ? "Đã ngắt kết nối. Kết quả ván vẫn được giữ lại." :
+                    !string.IsNullOrEmpty(network.DisconnectReason) ? network.DisconnectReason : "Đã mất kết nối với chủ phòng.";
             }
         }
 
-        private void HandleNetworkStopped(bool _)
+        private void HandleNetworkStopped(bool wasServer)
         {
-            if (leavingScene) return;
+            if (leavingScene || explicitLeave) return;
+            if (!wasServer) OfferReconnect();
             ClearMapPresentation();
             ResetMinigames();
             UnregisterMessageHandlers();
             connected = false;
-            busy = false;
+            busy = relayOperation;
             // Peers can read their final result even after the host leaves.
             // LeaveSession explicitly clears it when the user exits this screen.
             if (matchResult != null)
@@ -388,8 +413,10 @@ namespace Thuong.Online
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.Roster, ReceiveRoster);
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.Snapshot, ReceiveSnapshot);
             messaging.RegisterNamedMessageHandler(ThuongOnlineMessages.PrivateState, ReceivePrivateState);
+            messaging.RegisterNamedMessageHandler(LeaveMessage, ReceiveVoluntaryLeave);
             RegisterMinigameMessages();
             RegisterEmoteMessages();
+            RegisterRoomMessages();
             messaging.RegisterNamedMessageHandler(MapReadyMessage, ReceiveMapAcknowledgement);
         }
 
@@ -401,6 +428,7 @@ namespace Thuong.Online
             {
                 UnregisterMinigameMessages();
                 UnregisterEmoteMessages();
+                UnregisterRoomMessages();
                 messaging.UnregisterNamedMessageHandler(MapReadyMessage);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Hello);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Ready);
@@ -409,6 +437,7 @@ namespace Thuong.Online
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Roster);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Snapshot);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.PrivateState);
+                messaging.UnregisterNamedMessageHandler(LeaveMessage);
             }
             handlersRegistered = false;
         }
@@ -516,7 +545,7 @@ namespace Thuong.Online
 
         private void SetServerReady(ulong clientId, bool ready)
         {
-            if (matchStarted || !rolesAssigned || !serverPlayers.TryGetValue(clientId, out ThuongOnlineServerPlayer member)) return;
+            if (matchStarted || !rolesAssigned || !serverPlayers.TryGetValue(clientId, out ThuongOnlineServerPlayer member) || member.Offline) return;
             if (ready && !member.MapReady)
             { Reply(member, "Chưa thể Ready: map/revision chưa tải xong."); return; }
             // Ready is also an explicit acknowledgement of the assigned role.
@@ -539,7 +568,8 @@ namespace Thuong.Online
 
         private void ApplyServerInput(ulong sender, ushort sequence, Vector2 input)
         {
-            if (!matchStarted || matchResult != null || !serverPlayers.TryGetValue(sender, out ThuongOnlineServerPlayer member)) return;
+            if (!matchStarted || matchResult != null || !serverPlayers.TryGetValue(sender, out ThuongOnlineServerPlayer member) ||
+                member.Offline || !member.MapReady) return;
             if (float.IsNaN(input.x) || float.IsInfinity(input.x) ||
                 float.IsNaN(input.y) || float.IsInfinity(input.y)) return;
             if (sequence == member.LastInputSequence && member.LastInputTime > 0f) return;
@@ -564,7 +594,8 @@ namespace Thuong.Online
                         Name = member.Name,
                         CharacterIndex = member.CharacterIndex,
                         Ready = member.Ready,
-                        MapReady = member.MapReady
+                        MapReady = member.MapReady,
+                        Offline = member.Offline
                     });
                     if (member.ClientId == network.LocalClientId) localPlayerId = member.PlayerId;
                 }
@@ -581,6 +612,7 @@ namespace Thuong.Online
                 writer.WriteValueSafe(member.CharacterIndex);
                 writer.WriteValueSafe(member.Ready);
                 writer.WriteValueSafe(member.MapReady);
+                writer.WriteValueSafe(member.Offline);
             }
             network.CustomMessagingManager.SendNamedMessage(
                 ThuongOnlineMessages.Roster, network.ConnectedClientsIds, writer,
@@ -601,13 +633,14 @@ namespace Thuong.Online
                 reader.ReadValueSafe(out int characterIndex);
                 reader.ReadValueSafe(out bool ready);
                 reader.ReadValueSafe(out bool mapReady);
+                reader.ReadValueSafe(out bool offline);
                 lobby.Add(new ThuongOnlineLobbyMember
                 {
                     ClientId = clientId,
                     PlayerId = playerId,
                     Name = name.ToString(),
                     CharacterIndex = characterIndex,
-                    Ready = ready, MapReady = mapReady
+                    Ready = ready, MapReady = mapReady, Offline = offline
                 });
                 if (clientId == network.LocalClientId) localPlayerId = playerId;
             }
@@ -664,7 +697,10 @@ namespace Thuong.Online
             // Assign the real roles now, then hold the simulation until the lobby is ready.
             game.enabled = false;
             ConfigureMapEventForMatch();
-            game.BeginGame();
+            ApplyRoomRulesForMatch();
+            roles.rolePoolOverride = roomRules.AllowedRoles;
+            try { game.BeginGame(); }
+            finally { roles.rolePoolOverride = null; }
             if (roles.playerRoles.Count != serverPlayers.Count)
             {
                 status = "Không thể phân đủ vai trò. Hãy rời phòng và tạo lại.";
@@ -808,6 +844,7 @@ namespace Thuong.Online
             if (epoch != matchEpoch) ResetReplicatedRound(epoch);
             reader.ReadValueSafe(out matchStarted);
             reader.ReadValueSafe(out rolesAssigned);
+            clientHadRoles = rolesAssigned;
             ReadWinSettings(reader);
             ReadMapState(reader);
             reader.ReadValueSafe(out byte state);
@@ -894,7 +931,8 @@ namespace Thuong.Online
 
         private void SendPrivateState(ulong clientId, string feedback)
         {
-            if (!serverPlayers.TryGetValue(clientId, out ThuongOnlineServerPlayer member)) return;
+            if (!serverPlayers.TryGetValue(clientId, out ThuongOnlineServerPlayer member) || member.Offline ||
+                !network.ConnectedClientsIds.Contains(clientId)) return;
             PlayerData player = players?.GetplayerByID(member.PlayerId);
             if (player == null) return;
             ushort flags = 0;
@@ -975,7 +1013,7 @@ namespace Thuong.Online
             for (int i = 0; i < stations.Length && i < 16; i++)
             {
                 ushort bit = (ushort)(1 << i);
-                if ((activeTaskMask & bit) == 0 || (completedTaskMask & bit) != 0) continue;
+                if ((activeTaskMask & bit) == 0 || (completedTaskMask & bit) != 0 || (personalTaskMask & bit) != 0) continue;
                 float distance = Vector2.Distance(avatar.Root.transform.position, stations[i].transform.position);
                 if (distance < bestDistance) { best = i; bestDistance = distance; }
             }
@@ -1024,7 +1062,8 @@ namespace Thuong.Online
         private void ApplyServerAction(ulong sender, uint id, ThuongOnlineAction action, int argument,
             int secondArgument, int day, GamePhase phase, uint epoch)
         {
-            if (!rolesAssigned || !serverPlayers.TryGetValue(sender, out ThuongOnlineServerPlayer member)) return;
+            if (!rolesAssigned || !serverPlayers.TryGetValue(sender, out ThuongOnlineServerPlayer member) ||
+                member.Offline || !member.MapReady) return;
             if (epoch != matchEpoch) { Reply(member, "Thao tác thuộc ván cũ. Hãy chọn lại."); return; }
             if (matchResult != null || game != null && game.currentState == GameState.GameOver)
             { Reply(member, "Ván đã kết thúc. Không thể thực hiện thêm thao tác."); return; }
@@ -1229,12 +1268,12 @@ namespace Thuong.Online
 
         private async void HostRelay()
         {
-            if (busy || network.IsListening) return;
-            busy = true;
+            if (busy || network.IsListening || network.ShutdownInProgress) return;
+            busy = relayOperation = true;
             status = "Đang tạo phòng Relay...";
             try
             {
-                PrepareConnectionData();
+                PrepareConnectionData(false);
                 await EnsureUnityServices();
                 var options = new SessionOptions
                 {
@@ -1249,29 +1288,32 @@ namespace Thuong.Online
             catch (Exception exception)
             {
                 status = "Không tạo được Relay: " + exception.Message;
-                busy = false;
             }
+            finally { busy = relayOperation = false; }
         }
 
-        private async void JoinRelay()
+        private void JoinRelay() => _ = JoinRelayConnection(false);
+
+        private async Task JoinRelayConnection(bool resume)
         {
-            if (busy || network.IsListening || string.IsNullOrWhiteSpace(joinCode)) return;
-            busy = true;
-            status = "Đang tham gia Relay...";
+            if (busy || network.IsListening || network.ShutdownInProgress || string.IsNullOrWhiteSpace(joinCode)) return;
+            busy = relayOperation = true;
+            status = resume ? "Đang kết nối lại qua Relay…" : "Đang tham gia Relay...";
             try
             {
-                PrepareConnectionData();
+                if (resume) await CloseRelayMembership();
+                PrepareConnectionData(resume);
+                clientUsedRelay = true;
                 await EnsureUnityServices();
                 relaySession = await MultiplayerService.Instance.JoinSessionByCodeAsync(
                     joinCode.Trim().ToUpperInvariant());
                 sessionCode = relaySession.Code;
-                status = "Đã tham gia phòng Relay.";
             }
             catch (Exception exception)
             {
-                status = "Không tham gia được Relay: " + exception.Message;
-                busy = false;
+                status = "Không tham gia được Relay: " + (string.IsNullOrEmpty(network.DisconnectReason) ? exception.Message : network.DisconnectReason);
             }
+            finally { busy = relayOperation = false; }
         }
 
         private static async Task EnsureUnityServices()
@@ -1295,10 +1337,10 @@ namespace Thuong.Online
 
         private void HostLan()
         {
-            if (busy || network.IsListening || !TryGetPort(out ushort port)) return;
+            if (busy || network.IsListening || network.ShutdownInProgress || !TryGetPort(out ushort port)) return;
             busy = true;
             status = "Đang mở LAN Host...";
-            PrepareConnectionData();
+            PrepareConnectionData(false);
             transport.SetConnectionData(address.Trim(), port, "0.0.0.0");
             if (!network.StartHost())
             {
@@ -1307,12 +1349,15 @@ namespace Thuong.Online
             }
         }
 
-        private void JoinLan()
+        private void JoinLan() => StartLanClient(false);
+
+        private void StartLanClient(bool resume)
         {
-            if (busy || network.IsListening || !TryGetPort(out ushort port)) return;
+            if (busy || network.IsListening || network.ShutdownInProgress || !TryGetPort(out ushort port)) return;
             busy = true;
-            status = "Đang kết nối LAN...";
-            PrepareConnectionData();
+            status = resume ? "Đang kết nối lại qua LAN…" : "Đang kết nối LAN...";
+            PrepareConnectionData(resume);
+            clientUsedRelay = false;
             transport.SetConnectionData(address.Trim(), port);
             if (!network.StartClient())
             {
@@ -1321,10 +1366,16 @@ namespace Thuong.Online
             }
         }
 
-        private void PrepareConnectionData()
+        private void PrepareConnectionData(bool resume)
         {
             playerName = SanitizeName(playerName);
-            network.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes(BuildPrefix + playerName);
+            if (!resume)
+            {
+                reconnectToken = Guid.NewGuid();
+                reconnectOfferUntil = 0;
+                clientHadRoles = false;
+            }
+            network.NetworkConfig.ConnectionData = ConnectionPayload(reconnectToken, playerName, resume);
         }
 
         private bool TryGetPort(out ushort port)
@@ -1337,20 +1388,17 @@ namespace Thuong.Online
         private async void LeaveSession()
         {
             if (busy) return;
-            ResetMinigames();
-            busy = true;
+            busy = explicitLeave = true;
+            reconnectOfferUntil = 0;
+            clientHadRoles = false;
             status = "Đang rời phòng...";
             try
             {
-                if (relaySession != null)
-                {
-                    await relaySession.LeaveAsync();
-                    relaySession = null;
-                }
-                else if (network.IsListening)
-                {
-                    network.Shutdown();
-                }
+                NotifyVoluntaryLeave();
+                if (network.IsListening && !network.ShutdownInProgress) network.Shutdown();
+                while (network.IsListening || network.ShutdownInProgress) await Task.Yield();
+                UnregisterMessageHandlers();
+                await CloseRelayMembership();
                 connected = false;
                 status = "Đã rời phòng.";
                 ClearClientState();
@@ -1358,8 +1406,10 @@ namespace Thuong.Online
             catch (Exception exception)
             {
                 status = "Không thể rời phòng: " + exception.Message;
+                connected = false;
+                ClearClientState();
             }
-            finally { busy = false; }
+            finally { busy = explicitLeave = false; }
         }
 
         private void ClearClientState()
@@ -1367,9 +1417,11 @@ namespace Thuong.Online
             ResetEmotes();
             ClearMapPresentation();
             ResetMinigames();
+            ResetTaskBoard();
             lobby.Clear();
             publicPlayers.Clear();
             serverPlayers.Clear();
+            reconnectApprovals.Clear();
             foreach (ThuongOnlineAvatar avatar in avatars.Values)
                 if (avatar.Root != null) Destroy(avatar.Root);
             avatars.Clear();
@@ -1401,7 +1453,7 @@ namespace Thuong.Online
 
         private void OnGUI()
         {
-            if (matchStarted || connected) return;
+            if (leavingScene || matchStarted || connected) return;
 
             float width = Mathf.Min(520f, Screen.width - 24f);
             float height = Mathf.Min(connected ? 630f : 680f, Screen.height - 24f);
@@ -1416,10 +1468,20 @@ namespace Thuong.Online
         private void DrawWindow(int id)
         {
             GUILayout.BeginVertical();
-            GUILayout.Label("Scene: OnlineSceneGamePlay");
             GUILayout.Label(status, GUILayout.MinHeight(38));
 
-            if (!connected)
+            if (reconnectOfferUntil > 0 || relaySession != null)
+            {
+                double remaining = reconnectOfferUntil - Time.realtimeSinceStartupAsDouble;
+                if (reconnectOfferUntil > 0)
+                    GUILayout.Label(remaining > 0 ? $"Thử kết nối lại trong {Math.Ceiling(remaining)} giây." : "Đã hết thời gian thử kết nối lại.");
+                GUI.enabled = !busy && !network.IsListening && !network.ShutdownInProgress && remaining > 0;
+                if (GUILayout.Button("Kết nối lại")) RetryConnection();
+                GUI.enabled = !busy;
+                if (GUILayout.Button("Rời phòng")) LeaveSession();
+                GUI.enabled = true;
+            }
+            else
             {
                 GUILayout.Space(8);
                 GUILayout.Label("Tên người chơi");
@@ -1452,6 +1514,13 @@ namespace Thuong.Online
 
                 GUILayout.FlexibleSpace();
                 GUILayout.Label("Nhập đủ thông tin rồi chọn Host hoặc Join.");
+                GUI.enabled = !busy && !network.IsListening && !network.ShutdownInProgress;
+                if (Application.CanStreamedLevelBeLoaded(ThuongOnlineMenu.MainMenuName) && GUILayout.Button("Về menu chính"))
+                {
+                    leavingScene = true;
+                    ThuongOnlineMenu.ReturnToMenu(this);
+                }
+                GUI.enabled = true;
             }
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0, 0, windowRect.width, 24));
@@ -1545,6 +1614,7 @@ namespace Thuong.Online
             PlayerEmoteWheelUI.DisposeFor(this);
             leavingScene = true;
             DisposeMapUi();
+            DisposeTaskGuidance();
             ClearMapPresentation();
             ResetMinigames();
             if (Active == this) Active = null;

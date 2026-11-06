@@ -19,17 +19,13 @@ namespace Thuong.Online
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InstallActiveSceneFallback()
         {
-            Scene activeScene = SceneManager.GetActiveScene();
-            if (activeScene.name == SceneName)
-                EnsureInstalled(activeScene);
+            HandleSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
         }
 
         private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != SceneName)
-                return;
-
-            EnsureInstalled(scene);
+            if (scene.name == ThuongOnlineMenu.MainMenuName) ThuongOnlineMenu.Install(scene);
+            else if (scene.name == SceneName) EnsureInstalled(scene);
         }
 
         public static string EnsureInstalled(Scene scene)

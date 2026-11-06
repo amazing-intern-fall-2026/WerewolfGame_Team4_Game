@@ -100,6 +100,8 @@ namespace Thuong.Online
             if (station < 0 || station >= stations.Length || station >= 16) return false;
             var target = stations[station];
             if (target == null || target.task == null || !tasks.currentTasks.Contains(target.task) || tasks.IsCompleted(target.task)) return false;
+            if (tasks.Cooperative && tasks.HasContributed(member.PlayerId, target.task))
+            { reason = "Bạn đã đóng góp nhiệm vụ này hôm nay. Hãy chọn nhiệm vụ khác."; return false; }
             if (Vector2.Distance(member.Position, target.transform.position) > target.interactionRadius + .25f)
             { reason = "Bạn đang đứng quá xa trạm nhiệm vụ."; return false; }
             if (!Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, member.Position, target.transform.position))
@@ -134,10 +136,13 @@ namespace Thuong.Online
                 var entry = minigameCatalog.Find(stations[station].task);
                 if (entry == null) { RejectMinigameBegin(member, "Nhiệm vụ này không dùng minigame."); return; }
                 if (!minigameAuthority.TryBegin(sender, entry.taskId, station, day, entry.kind, entry.rules,
-                    minigameCatalog.IngredientScores(), now, now + (DayTimer.Instance?.TimeRemaining ?? 0), out var state, out reason))
+                    minigameCatalog.IngredientScores(), now, now + (DayTimer.Instance?.TimeRemaining ?? 0), out var state, out reason,
+                    tasks.Cooperative ? Mathf.Min(tasks.CapacityFor(stations[station].task),
+                        tasks.TargetFor(stations[station].task) - tasks.ContributionsFor(stations[station].task)) : 1))
                 { RejectMinigameBegin(member, reason); return; }
                 member.Input = Vector2.zero;
                 SendMinigameState(sender, state);
+                BroadcastSnapshot();
             }
             else if (operation == 1)
             {

@@ -131,6 +131,11 @@ public class NetworkPhaseTimerController : MonoBehaviour
 
         switch (phase)
         {
+            case GamePhase.RoleReveal:
+            case GamePhase.Setup:
+                HandleRoleRevealFinished();
+                break;
+
             case GamePhase.DayStart:
                 HandleDayStartFinished();
                 break;
@@ -146,6 +151,19 @@ public class NetworkPhaseTimerController : MonoBehaviour
             case GamePhase.Voting:
                 HandleVotingFinished();
                 break;
+        }
+    }
+
+    private void HandleRoleRevealFinished()
+    {
+        Debug.Log(
+            "PHASE TIMER CONTROLLER | "
+            + "RoleReveal / Setup hết giờ → Bắt đầu Day 1 (StartDay())"
+        );
+
+        if (GameRoleManager.Instance != null && !NetworkGameOverManager.GameEnded)
+        {
+            GameRoleManager.Instance.StartDay();
         }
     }
 

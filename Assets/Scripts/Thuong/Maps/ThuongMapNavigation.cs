@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Thuong.Maps
 {
-    // Reusable collision grid for offline content checks. Never runs in the movement loop.
+    // Cached collision grid for content checks and optional task guidance, outside the movement loop.
     public sealed class ThuongMapNavigation
     {
         private readonly ThuongMapDefinition map;
@@ -97,6 +97,51 @@ namespace Thuong.Maps
             float[] distances = Distances(origin);
             return Near(destination, spacing * 1.5f).Select(i => distances[i] + Vector2.Distance(Point(i), destination))
                 .DefaultIfEmpty(float.PositiveInfinity).Min();
+        }
+
+        // A* only when the tracked task/player changes; the grid and collision links are cached.
+        public bool TryPath(Vector2 origin, int slot, out List<Vector2> path)
+        {
+            path = new List<Vector2>();
+            if (slot < 0 || slot >= stationNodes.Length || stationNodes[slot].Length == 0) return false;
+            var goals = new HashSet<int>(stationNodes[slot]);
+            var target = map.stations.OrderBy(s => s.maskSlot).ElementAt(slot).position;
+            var costs = Enumerable.Repeat(float.PositiveInfinity, free.Length).ToArray();
+            var parent = Enumerable.Repeat(-1, free.Length).ToArray();
+            var queue = new SortedSet<(float priority, int node)>();
+            foreach (int start in Near(origin, spacing * 1.5f))
+            {
+                costs[start] = Vector2.Distance(origin, Point(start));
+                queue.Add((costs[start] + Vector2.Distance(Point(start), target), start));
+            }
+            int end = -1;
+            while (queue.Count > 0)
+            {
+                var current = queue.Min; queue.Remove(current);
+                if (current.priority > costs[current.node] + Vector2.Distance(Point(current.node), target) + .001f) continue;
+                if (goals.Contains(current.node)) { end = current.node; break; }
+                byte mask = Links(current.node);
+                for (int d = 0; d < Directions.Length; d++)
+                {
+                    if ((mask & (1 << d)) == 0) continue;
+                    int next = current.node + Directions[d].x + Directions[d].y * width;
+                    float cost = costs[current.node] + spacing * (Directions[d].x != 0 && Directions[d].y != 0 ? 1.41421356f : 1);
+                    if (cost >= costs[next]) continue;
+                    costs[next] = cost; parent[next] = current.node;
+                    queue.Add((cost + Vector2.Distance(Point(next), target), next));
+                }
+            }
+            if (end < 0) return false;
+            for (int node = end; node >= 0; node = parent[node]) path.Add(Point(node));
+            path.Reverse(); path.Insert(0, origin);
+            if (ThuongMapCollision.HasLine(map, path[path.Count - 1], target)) path.Add(target);
+            // Keep only collision-checked straight sections for a readable map trail.
+            for (int i = 0; i + 2 < path.Count;)
+            {
+                if (ThuongMapCollision.HasLine(map, path[i], path[i + 2])) path.RemoveAt(i + 1);
+                else i++;
+            }
+            return true;
         }
     }
 }

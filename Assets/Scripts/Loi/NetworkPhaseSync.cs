@@ -4,6 +4,7 @@ using UnityEngine;
 public class NetworkPhaseSync : NetworkBehaviour
 {
     public static NetworkPhaseSync Instance;
+    public static event System.Action<GamePhase> OnPhaseChangedGlobal;
 
     public NetworkVariable<GamePhase> CurrentPhase =
         new NetworkVariable<GamePhase>(
@@ -69,6 +70,7 @@ public class NetworkPhaseSync : NetworkBehaviour
             + " | NightCycle = "
             + CurrentNightCycle.Value
         );
+        OnPhaseChangedGlobal?.Invoke(CurrentPhase.Value);
 
         if (IsServer)
         {
@@ -208,6 +210,7 @@ public class NetworkPhaseSync : NetworkBehaviour
 
         CurrentPhase.Value =
             initialPhase;
+        OnPhaseChangedGlobal?.Invoke(initialPhase);
 
         if (initialPhase == GamePhase.GameOver)
         {
@@ -279,6 +282,7 @@ public class NetworkPhaseSync : NetworkBehaviour
             + " → "
             + newPhase
         );
+        OnPhaseChangedGlobal?.Invoke(newPhase);
 
         if (newPhase == GamePhase.Voting)
         {
