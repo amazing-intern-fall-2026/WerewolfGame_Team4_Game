@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -20,7 +20,7 @@ public static class GameUIScaleEnhancer
     private const string GameScenePath = "Assets/Scenes/Loi/Game.unity";
     private const string RoleRowPrefabPath = "Assets/Prefabs/Loi/RoleRow.prefab";
 
-    [InitializeOnLoadMethod]
+    // [InitializeOnLoadMethod] removed
     private static void OnEditorReload()
     {
         if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying) return;
@@ -352,12 +352,12 @@ public static class GameUIScaleEnhancer
                 hostRt.anchorMin = new Vector2(0.5f, 0.5f);
                 hostRt.anchorMax = new Vector2(0.5f, 0.5f);
                 hostRt.pivot = new Vector2(0.5f, 0.5f);
-                hostRt.sizeDelta = new Vector2(420f, 84f);
-                hostRt.anchoredPosition = new Vector2(-134f, 45f);
+                hostRt.sizeDelta = new Vector2(400f, 108f);
+                hostRt.anchoredPosition = new Vector2(-183f, -67f);
                 TextMeshProUGUI hostTmp = hostT.GetComponentInChildren<TextMeshProUGUI>();
                 if (hostTmp != null)
                 {
-                    hostTmp.text = "TẠO PHÒNG (HOST)";
+                    hostTmp.text = "TẠO PHÒNG";
                     hostTmp.fontSize = 30f;
                     hostTmp.fontStyle = FontStyles.Bold;
                     if (font != null) { hostTmp.font = font; hostTmp.fontSharedMaterial = font.material; }
@@ -403,12 +403,12 @@ public static class GameUIScaleEnhancer
                 clientRt.anchorMin = new Vector2(0.5f, 0.5f);
                 clientRt.anchorMax = new Vector2(0.5f, 0.5f);
                 clientRt.pivot = new Vector2(0.5f, 0.5f);
-                clientRt.sizeDelta = new Vector2(420f, 84f);
-                clientRt.anchoredPosition = new Vector2(-134f, -155f);
+                clientRt.sizeDelta = new Vector2(400f, 108f);
+                clientRt.anchoredPosition = new Vector2(-183f, -303f);
                 TextMeshProUGUI clientTmp = clientT.GetComponentInChildren<TextMeshProUGUI>();
                 if (clientTmp != null)
                 {
-                    clientTmp.text = "VÀO PHÒNG (JOIN)";
+                    clientTmp.text = "VÀO PHÒNG ";
                     clientTmp.fontSize = 30f;
                     clientTmp.fontStyle = FontStyles.Bold;
                     if (font != null) { clientTmp.font = font; clientTmp.fontSharedMaterial = font.material; }
