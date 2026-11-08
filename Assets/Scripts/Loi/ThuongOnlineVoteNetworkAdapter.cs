@@ -321,18 +321,15 @@ public class ThuongOnlineVoteNetworkAdapter : MonoBehaviour
         var localData = localId >= 0 && pm != null ? pm.GetplayerByID(localId) : null;
         bool localCanVote = localData != null && localData.isAlive && localData.CanVote;
 
-        // Lấy mục tiêu mà chính Local Player đã vote
-        int myVotedTarget = GetConfirmedVotedTarget(localId);
-        if (myVotedTarget < 0 && localId >= 0 && syncedVoteChoices.TryGetValue(localId, out int choiceTarget))
+        // Lấy mục tiêu mà chính Local Player đã vote (đảm bảo tính riêng tư: chỉ người chơi đó thấy)
+        int myVotedTarget = -1;
+        if (localId >= 0 && syncedVoteChoices.TryGetValue(localId, out int choiceTarget))
         {
             myVotedTarget = choiceTarget;
         }
-
-        // Tập hợp tất cả các mục tiêu đang được vote trong phòng (tất cả mọi người đều thấy đổi màu)
-        var activeVotedTargets = new HashSet<int>(syncedVoteChoices.Values);
-        if (myVotedTarget >= 0)
+        if (myVotedTarget < 0)
         {
-            activeVotedTargets.Add(myVotedTarget);
+            myVotedTarget = GetConfirmedVotedTarget(localId);
         }
 
         foreach (var btn in voteButtons)
@@ -387,8 +384,9 @@ public class ThuongOnlineVoteNetworkAdapter : MonoBehaviour
                 defaultButtonColors[buttonComp] = buttonComp.colors;
             }
 
-            // Người đang được vote (cả mình vote lẫn người khác vote) sẽ chuyển sang màu xanh lá #35C759
-            bool shouldHighlight = isVotingPhase && activeVotedTargets.Contains(btn.targetID);
+            // BẢO MẬT RIÊNG TƯ: Màu xanh #35C759 CHỈ hiển thị ở phía người chơi đang vote,
+            // TUYỆT ĐỐI KHÔNG hiển thị lựa chọn của người chơi khác!
+            bool shouldHighlight = isVotingPhase && myVotedTarget >= 0 && btn.targetID == myVotedTarget;
 
             if (shouldHighlight)
             {
