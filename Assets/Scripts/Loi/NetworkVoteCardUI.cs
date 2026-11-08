@@ -34,7 +34,11 @@ public class NetworkVoteCardUI : MonoBehaviour
     private bool isCardSelected = false;
 
     private static readonly Color NormalCardColor = new Color(0.12f, 0.15f, 0.22f, 0.95f);
-    private static readonly Color SelectedCardColor = new Color(0.24f, 0.35f, 0.52f, 1f);
+    public static readonly Color SelectedCardColor = new Color(53f / 255f, 199f / 255f, 89f / 255f, 1f); // #35C759
+    private Color defaultCardColor = NormalCardColor;
+    private bool hasCachedDefaultColor = false;
+    private ColorBlock defaultButtonColors;
+    private bool hasCachedButtonColors = false;
 
     private void OnEnable()
     {
@@ -83,8 +87,19 @@ public class NetworkVoteCardUI : MonoBehaviour
             avatarImage.preserveAspect = true;
         }
 
+        if (cardBackgroundImage != null && !hasCachedDefaultColor)
+        {
+            defaultCardColor = cardBackgroundImage.color;
+            hasCachedDefaultColor = true;
+        }
+
         if (cardButton != null)
         {
+            if (!hasCachedButtonColors)
+            {
+                defaultButtonColors = cardButton.colors;
+                hasCachedButtonColors = true;
+            }
             cardButton.interactable = isAlive;
             cardButton.onClick.RemoveAllListeners();
             cardButton.onClick.AddListener(OnCardClicked);
@@ -110,7 +125,34 @@ public class NetworkVoteCardUI : MonoBehaviour
 
         if (cardBackgroundImage != null)
         {
-            cardBackgroundImage.color = isSelected ? SelectedCardColor : NormalCardColor;
+            if (!hasCachedDefaultColor)
+            {
+                defaultCardColor = cardBackgroundImage.color;
+                hasCachedDefaultColor = true;
+            }
+            cardBackgroundImage.color = isSelected ? SelectedCardColor : defaultCardColor;
+        }
+
+        if (cardButton != null)
+        {
+            if (!hasCachedButtonColors)
+            {
+                defaultButtonColors = cardButton.colors;
+                hasCachedButtonColors = true;
+            }
+
+            var cb = cardButton.colors;
+            if (isSelected)
+            {
+                cb.normalColor = SelectedCardColor;
+                cb.selectedColor = SelectedCardColor;
+                cb.highlightedColor = new Color(70f / 255f, 215f / 255f, 105f / 255f, 1f);
+            }
+            else
+            {
+                cb = defaultButtonColors;
+            }
+            cardButton.colors = cb;
         }
     }
 

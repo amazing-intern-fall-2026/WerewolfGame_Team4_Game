@@ -6,6 +6,7 @@ public class NetworkPlayerVote : NetworkBehaviour
 {
     public static event System.Action<int, int> OnVoteCountChanged;
     public static event System.Action<int, int> OnLocalVoteConfirmed;
+    public static event System.Action<int, string> OnLocalVoteRejected;
     public static event System.Action OnVotesReset;
     public static event System.Action OnVotingLocked;
     public static event System.Action<int, int> OnVoteRefunded;
@@ -116,6 +117,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (isEndingVoting || NetworkPhaseSync.Instance == null || NetworkPhaseSync.Instance.CurrentPhase.Value != GamePhase.Voting)
         {
             Debug.LogWarning($"NETWORK VOTE: Từ chối phiếu từ Player {voterID} vì Voting đã kết thúc hoặc đang khóa phiếu ({NetworkPhaseSync.Instance?.CurrentPhase.Value})");
+            SendVoteRejectedClientRpc(voterID, "Voting đã kết thúc hoặc phiếu đang bị khóa.");
             return;
         }
 
@@ -148,6 +150,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (voterState == null || voterState.State.Value != NetworkPlayerStateType.Alive)
         {
             Debug.LogWarning($"NETWORK VOTE: Player {voterID} đã chết hoặc không có trạng thái Alive → TỪ CHỐI VOTE!");
+            SendVoteRejectedClientRpc(voterID, "Bạn đã bị loại, không thể bỏ phiếu.");
             return;
         }
 
@@ -158,6 +161,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (voterID == targetID && eligibleCount > 1)
         {
             Debug.LogWarning("NETWORK VOTE: Không thể vote chính mình trong phòng nhiều người!");
+            SendVoteRejectedClientRpc(voterID, "Không thể tự bỏ phiếu cho chính bản thân mình.");
             return;
         }
 
@@ -167,6 +171,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (NetworkGameManager.IsPlayerLeft((ulong)targetID))
         {
             Debug.LogWarning($"NETWORK VOTE: Target {targetID} đã disconnect khỏi phòng → TỪ CHỐI VOTE!");
+            SendVoteRejectedClientRpc(voterID, "Mục tiêu đã ngắt kết nối.");
             return;
         }
 
@@ -174,6 +179,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         if (!targetConnected)
         {
             Debug.LogWarning($"NETWORK VOTE: Target {targetID} không còn trong ConnectedClients → TỪ CHỐI VOTE!");
+            SendVoteRejectedClientRpc(voterID, "Mục tiêu không còn trong phòng.");
             return;
         }
 
@@ -195,6 +201,7 @@ public class NetworkPlayerVote : NetworkBehaviour
             if (targetStateSync != null && targetStateSync.State.Value != NetworkPlayerStateType.Alive)
             {
                 Debug.LogWarning($"NETWORK VOTE: Target {targetID} đã chết trên mạng → TỪ CHỐI VOTE!");
+                SendVoteRejectedClientRpc(voterID, "Mục tiêu đã bị loại.");
                 return;
             }
         }
@@ -210,12 +217,14 @@ public class NetworkPlayerVote : NetworkBehaviour
             if (voter != null && (!voter.isAlive || !voter.CanVote))
             {
                 Debug.LogWarning($"NETWORK VOTE: PlayerData xác nhận Voter {voterID} không thể vote → TỪ CHỐI VOTE!");
+                SendVoteRejectedClientRpc(voterID, "Bạn không thể bỏ phiếu trong lượt này.");
                 return;
             }
 
             if (target != null && !target.isAlive)
             {
                 Debug.LogWarning($"NETWORK VOTE: PlayerData xác nhận Target {targetID} đã chết → TỪ CHỐI VOTE!");
+                SendVoteRejectedClientRpc(voterID, "Mục tiêu đã bị loại.");
                 return;
             }
         }
@@ -224,7 +233,10 @@ public class NetworkPlayerVote : NetworkBehaviour
         // 7. GHI NHẬN PHIẾU
         // =========================
         if (!RecordVote(voterID, targetID))
+        {
+            SendVoteRejectedClientRpc(voterID, "Không thể ghi nhận phiếu bầu.");
             return;
+        }
 
         // Gửi xác nhận về cho Voter
         SendVoteConfirmedClientRpc(voterID, targetID);
@@ -298,6 +310,16 @@ public class NetworkPlayerVote : NetworkBehaviour
             votedVoters.Add(voterId);
             currentChoices[voterId] = targetId;
             OnLocalVoteConfirmed?.Invoke(voterId, targetId);
+        }
+    }
+
+    [ClientRpc]
+    private void SendVoteRejectedClientRpc(int voterId, string reason)
+    {
+        if (NetworkManager.Singleton != null && (int)NetworkManager.Singleton.LocalClientId == voterId)
+        {
+            Debug.LogWarning($"NETWORK VOTE: Client nhận thông báo từ chối phiếu: {reason}");
+            OnLocalVoteRejected?.Invoke(voterId, reason);
         }
     }
 
@@ -476,6 +498,7 @@ public class NetworkPlayerVote : NetworkBehaviour
         ResetLocalStaticVotes();
         OnVoteCountChanged = null;
         OnLocalVoteConfirmed = null;
+        OnLocalVoteRejected = null;
         OnVotesReset = null;
 
         Debug.Log("NETWORK VOTE: Đã reset toàn bộ lựa chọn vote cho phase mới.");
