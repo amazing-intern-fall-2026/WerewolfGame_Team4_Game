@@ -570,9 +570,10 @@ public class NetworkReturnToMenuController : MonoBehaviour
             NetworkGamePlayerSetup.Clear();
             NetworkGamePlayerNameSetup.Clear();
 
-            // 4. Reset Role Sync & Bridge
+            // 4. Reset Role Sync & Bridge & Role Config
             NetworkRoleSync.ResetStaticSessionState();
             NetworkRoleActionBridge.ResetAllRoleActionBridgeData();
+            ThuongOnlineRoleConfigAdapter.Instance?.ResetCaches();
 
             // 5. Reset Voting & UI
             NetworkPlayerVote.ResetNetworkVotes();
