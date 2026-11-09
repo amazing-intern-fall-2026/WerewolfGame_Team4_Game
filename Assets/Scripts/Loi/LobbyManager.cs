@@ -633,12 +633,15 @@ public class LobbyManager : NetworkBehaviour
         int playerCount = players.Count;
         int roleCount = roleLobbyConfig.GetTotalRoleAmount();
 
-        // Tự động cân bằng vai trò nếu số lượng role chưa khớp sĩ số người chơi thực tế
+        // Chỉ tự động cân bằng nếu Host chưa từng tùy chỉnh vai trò
         if (playerCount != roleCount)
         {
-            Debug.Log($"LOBBY START | Tự động cân bằng vai trò cho {playerCount} người chơi.");
-            roleLobbyConfig.InitializeDefaultRolesForPlayerCount(playerCount);
-            roleCount = roleLobbyConfig.GetTotalRoleAmount();
+            if (!roleLobbyConfig.HasCustomizedRoles)
+            {
+                Debug.Log($"LOBBY START | Tự động cân bằng vai trò mặc định cho {playerCount} người chơi.");
+                roleLobbyConfig.InitializeDefaultRolesForPlayerCount(playerCount);
+                roleCount = roleLobbyConfig.GetTotalRoleAmount();
+            }
         }
 
         Debug.Log(
@@ -651,11 +654,7 @@ public class LobbyManager : NetworkBehaviour
         if (playerCount != roleCount)
         {
             Debug.LogWarning(
-                "Không thể Start Game! Số Role ("
-                + roleCount
-                + ") phải bằng số Player ("
-                + playerCount
-                + ")."
+                $"LOBBY START | Không thể Start Game! Số lượng vai trò ({roleCount}) phải bằng số người chơi ({playerCount}). Vui lòng điều chỉnh lại cấu hình vai trò."
             );
             return;
         }

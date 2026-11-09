@@ -325,6 +325,155 @@ public class ThuongOnlineRoleConfigTests
     }
 
     [Test]
+    public void Test_Simulation_ThreeConsecutiveMatches_8Players()
+    {
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+
+        // Cấu hình phòng 8 người: 2 Sói, 1 Tiên tri, 1 Bảo vệ, 1 Thợ săn, 3 Dân
+        var config8 = new Dictionary<RoleType, int>
+        {
+            { RoleType.DogSpirit, 2 },
+            { RoleType.Seer, 1 },
+            { RoleType.VillageGuardian, 1 },
+            { RoleType.Hunter, 1 },
+            { RoleType.Villager, 3 }
+        };
+        adapter.HostSaveConfig(config8);
+
+        // Tạo môi trường giả lập 8 người chơi
+        GameObject pmGo = new GameObject("TestPlayerManager");
+        PlayerManager pm = pmGo.AddComponent<PlayerManager>();
+        GameObject rmGo = new GameObject("TestRoleManager");
+        RoleManager rm = rmGo.AddComponent<RoleManager>();
+
+        try
+        {
+            pm.players = new List<PlayerData>();
+            for (int i = 0; i < 8; i++)
+            {
+                pm.players.Add(new PlayerData
+                {
+                    playerID = i,
+                    playerName = $"Player_{i}",
+                    isAlive = true
+                });
+            }
+
+            // TRẬN 1: Phân vai với seed 101
+            bool success1 = ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(101);
+            Assert.IsTrue(success1, "Trận 1 phải áp dụng thành công cấu hình của Host.");
+
+            var match1Roles = new Dictionary<int, RoleType>();
+            int wolves1 = 0, seer1 = 0, guardian1 = 0, hunter1 = 0, villager1 = 0, shaman1 = 0;
+
+            foreach (var p in pm.players)
+            {
+                match1Roles[p.playerID] = p.roleType;
+                if (p.roleType == RoleType.DogSpirit) wolves1++;
+                else if (p.roleType == RoleType.Seer) seer1++;
+                else if (p.roleType == RoleType.VillageGuardian) guardian1++;
+                else if (p.roleType == RoleType.Hunter) hunter1++;
+                else if (p.roleType == RoleType.Villager) villager1++;
+                else if (p.roleType == RoleType.Shaman) shaman1++;
+
+                // Xác nhận Host & Client thấy đúng vai trò Server gán
+                Assert.IsTrue(rm.playerRoles.ContainsKey(p.playerID), $"Trận 1: Player {p.playerID} phải có BaseRole trong RoleManager.");
+                Assert.AreEqual(p.roleType, rm.playerRoles[p.playerID].roleType, $"Trận 1: Player {p.playerID} đồng bộ khớp vai trò giữa PlayerData và RoleManager.");
+            }
+
+            Assert.AreEqual(2, wolves1, "Trận 1: Đúng 2 Sói.");
+            Assert.AreEqual(1, seer1, "Trận 1: Đúng 1 Tiên tri.");
+            Assert.AreEqual(1, guardian1, "Trận 1: Đúng 1 Bảo vệ.");
+            Assert.AreEqual(1, hunter1, "Trận 1: Đúng 1 Thợ săn.");
+            Assert.AreEqual(3, villager1, "Trận 1: Đúng 3 Dân làng.");
+            Assert.AreEqual(0, shaman1, "Trận 1: Pháp sư không được xuất hiện.");
+
+            // TRẬN 2: Phân vai với seed 202
+            bool success2 = ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(202);
+            Assert.IsTrue(success2, "Trận 2 phải áp dụng thành công cấu hình của Host.");
+
+            var match2Roles = new Dictionary<int, RoleType>();
+            int wolves2 = 0, seer2 = 0, guardian2 = 0, hunter2 = 0, villager2 = 0, shaman2 = 0;
+
+            foreach (var p in pm.players)
+            {
+                match2Roles[p.playerID] = p.roleType;
+                if (p.roleType == RoleType.DogSpirit) wolves2++;
+                else if (p.roleType == RoleType.Seer) seer2++;
+                else if (p.roleType == RoleType.VillageGuardian) guardian2++;
+                else if (p.roleType == RoleType.Hunter) hunter2++;
+                else if (p.roleType == RoleType.Villager) villager2++;
+                else if (p.roleType == RoleType.Shaman) shaman2++;
+
+                Assert.AreEqual(p.roleType, rm.playerRoles[p.playerID].roleType, $"Trận 2: Player {p.playerID} đồng bộ khớp vai trò.");
+            }
+
+            Assert.AreEqual(2, wolves2, "Trận 2: Đúng 2 Sói.");
+            Assert.AreEqual(1, seer2, "Trận 2: Đúng 1 Tiên tri.");
+            Assert.AreEqual(1, guardian2, "Trận 2: Đúng 1 Bảo vệ.");
+            Assert.AreEqual(1, hunter2, "Trận 2: Đúng 1 Thợ săn.");
+            Assert.AreEqual(3, villager2, "Trận 2: Đúng 3 Dân làng.");
+            Assert.AreEqual(0, shaman2, "Trận 2: Pháp sư không được xuất hiện.");
+
+            // Kiểm tra vị trí người nhận vai trò có khác Trận 1
+            bool diff12 = false;
+            foreach (var kvp in match1Roles)
+            {
+                if (match2Roles[kvp.Key] != kvp.Value)
+                {
+                    diff12 = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(diff12, "Vị trí người nhận vai trò ở Trận 2 phải khác Trận 1 (đảm bảo tính ngẫu nhiên khi phân phối).");
+
+            // TRẬN 3: Phân vai với seed 303
+            bool success3 = ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(303);
+            Assert.IsTrue(success3, "Trận 3 phải áp dụng thành công cấu hình của Host.");
+
+            var match3Roles = new Dictionary<int, RoleType>();
+            int wolves3 = 0, seer3 = 0, guardian3 = 0, hunter3 = 0, villager3 = 0, shaman3 = 0;
+
+            foreach (var p in pm.players)
+            {
+                match3Roles[p.playerID] = p.roleType;
+                if (p.roleType == RoleType.DogSpirit) wolves3++;
+                else if (p.roleType == RoleType.Seer) seer3++;
+                else if (p.roleType == RoleType.VillageGuardian) guardian3++;
+                else if (p.roleType == RoleType.Hunter) hunter3++;
+                else if (p.roleType == RoleType.Villager) villager3++;
+                else if (p.roleType == RoleType.Shaman) shaman3++;
+
+                Assert.AreEqual(p.roleType, rm.playerRoles[p.playerID].roleType, $"Trận 3: Player {p.playerID} đồng bộ khớp vai trò.");
+            }
+
+            Assert.AreEqual(2, wolves3, "Trận 3: Đúng 2 Sói.");
+            Assert.AreEqual(1, seer3, "Trận 3: Đúng 1 Tiên tri.");
+            Assert.AreEqual(1, guardian3, "Trận 3: Đúng 1 Bảo vệ.");
+            Assert.AreEqual(1, hunter3, "Trận 3: Đúng 1 Thợ săn.");
+            Assert.AreEqual(3, villager3, "Trận 3: Đúng 3 Dân làng.");
+            Assert.AreEqual(0, shaman3, "Trận 3: Pháp sư không được xuất hiện.");
+
+            // Kiểm tra vị trí người nhận vai trò có khác Trận 2
+            bool diff23 = false;
+            foreach (var kvp in match2Roles)
+            {
+                if (match3Roles[kvp.Key] != kvp.Value)
+                {
+                    diff23 = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(diff23, "Vị trí người nhận vai trò ở Trận 3 phải khác Trận 2 (đảm bảo tính ngẫu nhiên khi phân phối).");
+        }
+        finally
+        {
+            if (pmGo != null) Object.DestroyImmediate(pmGo);
+            if (rmGo != null) Object.DestroyImmediate(rmGo);
+        }
+    }
+
+    [Test]
     public void Test_NoChangesInThuongDirectory()
     {
         string thuongDir = Path.Combine(Application.dataPath, "Scripts", "Thuong");

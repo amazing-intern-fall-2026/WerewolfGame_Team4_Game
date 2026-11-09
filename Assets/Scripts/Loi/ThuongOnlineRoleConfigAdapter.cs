@@ -110,19 +110,27 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         injectedLobbyButton = null;
         interceptedRoleButton = null;
         string activeScene = SceneManager.GetActiveScene().name;
+
+        // Nếu về MainMenu hoặc Offline hoặc NetworkManager tắt -> Reset
         if (activeScene.IndexOf("MainMenu", StringComparison.OrdinalIgnoreCase) >= 0 ||
             activeScene.IndexOf("Offline", StringComparison.OrdinalIgnoreCase) >= 0 ||
             (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsListening))
         {
             ResetCaches();
+            return;
         }
-        else
+
+        // Adapter này chỉ phục vụ OnlineSceneGamePlay của Thương, không can thiệp vào scene Game của Lợi
+        if (activeScene != "OnlineSceneGamePlay")
         {
-            SubscribeGameplayEvents();
-            if (!isCustomized)
-            {
-                InitializeDefaults(GetCurrentPlayerCount());
-            }
+            return;
+        }
+
+        SubscribeGameplayEvents();
+        // Tuyệt đối không ghi đè nếu NetworkGameRoleSetup đã có cấu hình từ Lobby
+        if (!isCustomized && !NetworkGameRoleSetup.HasSetup())
+        {
+            InitializeDefaults(GetCurrentPlayerCount());
         }
     }
 
@@ -752,34 +760,12 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         }
 
         var validPlayers = pm.players.Where(p => p != null && p.isAlive).ToList();
+        validPlayers.Sort((a, b) => a.playerID.CompareTo(b.playerID));
+
         if (totalRoles != validPlayers.Count)
         {
             Debug.LogWarning($"[ThuongRoleConfig] Số vai trò cấu hình ({totalRoles}) khác số người chơi thực tế ({validPlayers.Count}). Bỏ qua override vai trò tùy chỉnh.");
             return false;
-        }
-
-        // Tạm thời vô hiệu hóa BalanceOnlineOpeningRoles() của Thương để không bị demote Sói thành Dân làng
-        object winSettingsObj = null;
-        System.Reflection.FieldInfo elimWinField = null;
-        bool originalElimWin = true;
-
-        if (ThuongOnlineSession.Active != null)
-        {
-            var wsField = typeof(ThuongOnlineSession).GetField("winSettings",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-            if (wsField != null)
-            {
-                winSettingsObj = wsField.GetValue(ThuongOnlineSession.Active);
-                if (winSettingsObj != null)
-                {
-                    elimWinField = winSettingsObj.GetType().GetField("eliminationWin");
-                    if (elimWinField != null)
-                    {
-                        originalElimWin = (bool)elimWinField.GetValue(winSettingsObj);
-                        elimWinField.SetValue(winSettingsObj, false);
-                    }
-                }
-            }
         }
 
         // Shuffle ngẫu nhiên danh sách vai trò
@@ -793,13 +779,17 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         }
 
         // Clear danh sách role cũ trong RoleManager
+        rm.playerRoles ??= new Dictionary<int, BaseRole>();
         rm.playerRoles.Clear();
+
+        var expectedAssignments = new Dictionary<int, RoleType>();
 
         // Gán từng vai trò theo cấu hình cho từng người chơi
         for (int i = 0; i < validPlayers.Count; i++)
         {
             PlayerData player = validPlayers[i];
             RoleType roleType = rolePool[i];
+            expectedAssignments[player.playerID] = roleType;
 
             BaseRole role = RoleCatalog.Create(roleType, player);
             if (role == null)
@@ -836,10 +826,10 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
             Debug.Log($"[ThuongRoleConfig] Đã gán vai trò tùy chỉnh: Player {player.playerID} ({player.playerName}) -> {roleType} ({role.faction})");
         }
 
-        // Lên lịch xác thực và khôi phục sau khi AssignLobbyRolesOnServer hoàn tất
+        // Lên lịch xác thực và khôi phục để bảo đảm cấu hình Host không bị can thiệp
         if (instance != null)
         {
-            instance.StartCoroutine(instance.PostAssignVerificationRoutine(winSettingsObj, elimWinField, originalElimWin));
+            instance.StartCoroutine(instance.PostAssignVerificationRoutine(expectedAssignments));
         }
 
         Debug.Log($"[ThuongRoleConfig] Hoàn tất phân vai tùy chỉnh cho {validPlayers.Count} người chơi theo đúng cấu hình Host!");
@@ -847,19 +837,42 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     }
 
     private System.Collections.IEnumerator PostAssignVerificationRoutine(
-        object winSettingsObj,
-        System.Reflection.FieldInfo elimWinField,
-        bool originalElimWin)
+        Dictionary<int, RoleType> expectedAssignments)
     {
         yield return null;
 
-        // 1. Khôi phục lại luật thắng eliminationWin ban đầu
-        if (winSettingsObj != null && elimWinField != null)
+        // 1. Kiểm tra và khôi phục nếu có vai trò nào bị thay đổi ngoài ý muốn
+        if (expectedAssignments != null && PlayerManager.Instance != null && RoleManager.Instance != null)
         {
-            elimWinField.SetValue(winSettingsObj, originalElimWin);
+            foreach (var kvp in expectedAssignments)
+            {
+                int pId = kvp.Key;
+                RoleType expRole = kvp.Value;
+                PlayerData p = PlayerManager.Instance.GetplayerByID(pId);
+                if (p != null && (p.roleType != expRole || !RoleManager.Instance.playerRoles.TryGetValue(pId, out BaseRole curRole) || curRole == null || curRole.roleType != expRole))
+                {
+                    Debug.LogWarning($"[ThuongRoleConfig] Phát hiện vai trò của Player {pId} bị thay đổi thành {(p != null ? p.roleType.ToString() : "null")}. Đang khôi phục về {expRole}...");
+                    BaseRole restored = RoleCatalog.Create(expRole, p);
+                    if (restored != null)
+                    {
+                        p.roleType = expRole;
+                        p.faction = restored.faction;
+                        if (RoleManager.Instance.roleDefinitions != null)
+                        {
+                            p.roleDefinition = RoleManager.Instance.roleDefinitions.Find(expRole);
+                        }
+                        p.NotifyChanged();
+                        RoleManager.Instance.playerRoles[pId] = restored;
+                        restored.OnGameStart();
+                    }
+                }
+            }
         }
 
-        // 2. Xác thực và broadcast lại để đảm bảo client và host luôn có dữ liệu vai trò tùy chỉnh
+        // 2. Đồng bộ các NetworkRoleSync nếu có trong scene
+        NetworkRoleSync.SyncAllRoleSyncs();
+
+        // 3. Xác thực và broadcast lại trong ThuongOnlineSession nếu đang chơi Thương Online
         if (ThuongOnlineSession.Active != null)
         {
             var session = ThuongOnlineSession.Active;
