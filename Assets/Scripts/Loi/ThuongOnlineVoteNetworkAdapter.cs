@@ -24,6 +24,7 @@ using Thuong.Online;
 public class ThuongOnlineVoteNetworkAdapter : MonoBehaviour
 {
     private static ThuongOnlineVoteNetworkAdapter instance;
+    public static ThuongOnlineVoteNetworkAdapter Instance => instance;
 
     /// <summary>
     /// Màu xanh lá chuẩn #35C759 theo yêu cầu thiết kế
@@ -78,7 +79,7 @@ public class ThuongOnlineVoteNetworkAdapter : MonoBehaviour
         instance = go.AddComponent<ThuongOnlineVoteNetworkAdapter>();
     }
 
-    private void ResetCaches()
+    public void ResetCaches()
     {
         hookedButtons.Clear();
         defaultImageColors.Clear();
@@ -86,6 +87,24 @@ public class ThuongOnlineVoteNetworkAdapter : MonoBehaviour
         syncedVoteChoices.Clear();
         serverVoteChoices.Clear();
         lastBroadcastHash = 0;
+    }
+
+    /// <summary>
+    /// Khóa voting và hoàn trả màu highlight xanh về mặc định khi rời trận hoặc kết thúc phiên
+    /// </summary>
+    public void LockVotingAndClearHighlight()
+    {
+        syncedVoteChoices.Clear();
+        serverVoteChoices.Clear();
+        try
+        {
+            var allButtons = FindObjectsByType<VoteButton>(FindObjectsSortMode.None);
+            if (allButtons != null && allButtons.Length > 0)
+            {
+                RestoreAllDefaultColors(allButtons);
+            }
+        }
+        catch { }
     }
 
     private void OnDestroy()
