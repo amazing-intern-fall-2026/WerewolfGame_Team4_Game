@@ -44,6 +44,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
     private readonly Dictionary<RoleType, int> draftRoleAmounts = new Dictionary<RoleType, int>();
     private readonly Dictionary<RoleType, TMP_Text> roleAmountLabels = new Dictionary<RoleType, TMP_Text>();
+    private readonly Dictionary<RoleType, TMP_Text> roleNameLabels = new Dictionary<RoleType, TMP_Text>();
     private readonly Dictionary<RoleType, Button> roleMinusButtons = new Dictionary<RoleType, Button>();
     private readonly Dictionary<RoleType, Button> rolePlusButtons = new Dictionary<RoleType, Button>();
 
@@ -291,6 +292,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
     private void BuildRoleRows()
     {
         roleAmountLabels.Clear();
+        roleNameLabels.Clear();
         roleMinusButtons.Clear();
         rolePlusButtons.Clear();
 
@@ -331,18 +333,12 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
             iconImg.enabled = false;
         }
 
-        // 3. Role Name & Faction Text (Căn trái, font to 21, màu kem sáng)
-        RoleInfoData info = RoleInfoDatabase.GetRoleInfo(role);
-        string displayName = info != null ? info.DisplayName : role.ToString();
-        string factionColor = GetFactionColorHex(info != null ? info.Faction : FactionType.Villager);
-        string factionName = info != null ? info.FactionName : "";
-        string roleFullLabel = $"<b>{displayName}</b>   <size=15><color={factionColor}>({factionName})</color></size>";
-
-        var nameText = CreateText("NameText", row.transform, roleFullLabel,
-            new Vector2(0.075f, 0.10f), new Vector2(0.72f, 0.90f), 21, TextAlignmentOptions.MidlineLeft, FontStyle.Normal);
-        nameText.color = new Color32(255, 246, 226, 255);
+        // 3. Role Name & Faction Text (Căn trái, font to 21)
+        var nameText = CreateText("NameText", row.transform, string.Empty,
+            new Vector2(0.075f, 0.10f), new Vector2(0.72f, 0.90f), 20, TextAlignmentOptions.MidlineLeft, FontStyle.Normal);
         nameText.textWrappingMode = TextWrappingModes.NoWrap;
         nameText.overflowMode = TextOverflowModes.Ellipsis;
+        roleNameLabels[role] = nameText;
 
         // 4. Minus Button (−) (Touch target lớn 50px, font 26 dày)
         var minusBtn = CreateButton("MinusBtn", row.transform, "−",
@@ -362,6 +358,8 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
             new Vector2(0.92f, 0.12f), new Vector2(0.99f, 0.88f),
             new Color(0.16f, 0.38f, 0.18f, 1f), () => ChangeRoleAmount(role, 1), fontSize: 26);
         rolePlusButtons[role] = plusBtn;
+
+        RefreshRoleRow(role);
     }
 
     private static string GetFactionColorHex(FactionType faction)
@@ -413,6 +411,25 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         if (roleAmountLabels.TryGetValue(role, out TMP_Text label))
         {
             label.text = amount.ToString();
+        }
+
+        if (roleNameLabels.TryGetValue(role, out TMP_Text nameLabel))
+        {
+            RoleInfoData info = RoleInfoDatabase.GetRoleInfo(role);
+            string displayName = info != null ? info.DisplayName : role.ToString();
+            string factionColor = GetFactionColorHex(info != null ? info.Faction : FactionType.Villager);
+            string factionName = info != null ? info.FactionName : "";
+
+            if (amount > 0)
+            {
+                nameLabel.text = $"<b>{displayName}</b>   <size=15><color={factionColor}>({factionName})</color></size>   <size=13><color=#35C759>● ĐÃ CHỌN</color></size>";
+                nameLabel.color = new Color32(255, 246, 226, 255);
+            }
+            else
+            {
+                nameLabel.text = $"<color=#8E8E93><b>{displayName}</b>   <size=15>({factionName})</size>   <size=13>○ KHÔNG DÙNG</size></color>";
+                nameLabel.color = new Color32(142, 142, 147, 255);
+            }
         }
 
         if (roleMinusButtons.TryGetValue(role, out Button minusBtn))

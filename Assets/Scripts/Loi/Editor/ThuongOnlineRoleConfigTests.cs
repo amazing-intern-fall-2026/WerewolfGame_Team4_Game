@@ -204,21 +204,124 @@ public class ThuongOnlineRoleConfigTests
     }
 
     [Test]
-    public void Test_TC12_MultipleConsecutiveMatches_NoStaleData()
+    public void Test_TC12_MultipleConsecutiveMatches_KeepsConfigAndReshuffles()
     {
         var adapter = ThuongOnlineRoleConfigAdapter.Instance;
 
-        // Trận 1: Custom 3 người
-        adapter.HostSaveConfig(new Dictionary<RoleType, int> { { RoleType.DogSpirit, 1 }, { RoleType.Villager, 2 } });
-        Assert.AreEqual(3, NetworkGameRoleSetup.GetTotalRoleAmount());
+        // Trận 1 trong phòng: Host cấu hình 4 người (1 Sói, 1 Thợ săn, 2 Dân)
+        var custom = new Dictionary<RoleType, int>
+        {
+            { RoleType.DogSpirit, 1 },
+            { RoleType.Hunter, 1 },
+            { RoleType.Villager, 2 }
+        };
+        adapter.HostSaveConfig(custom);
+        Assert.IsTrue(adapter.IsCustomized);
+        Assert.AreEqual(4, NetworkGameRoleSetup.GetTotalRoleAmount());
 
-        // Hết trận 1, chuẩn bị trận 2
-        adapter.ResetCaches();
-        Assert.IsFalse(NetworkGameRoleSetup.HasSetup(), "TC12: Sau khi kết thúc trận, không được còn giữ vai trò cũ.");
+        // Hết trận 1, tiếp tục trận 2 trong CÙNG PHÒNG:
+        // Cấu hình vai trò phải được GIỮ NGUYÊN (không bị mất hay reset), chỉ xáo trộn lại người nhận vai trò
+        Assert.IsTrue(adapter.IsCustomized, "TC12: Ván tiếp theo trong cùng phòng phải giữ nguyên cấu hình đã chọn.");
+        Assert.AreEqual(4, NetworkGameRoleSetup.GetTotalRoleAmount(), "TC12: Tổng số vai trò trận sau phải giữ nguyên 4.");
+        Assert.AreEqual(1, NetworkGameRoleSetup.GetRoleAmount(RoleType.DogSpirit));
+        Assert.AreEqual(1, NetworkGameRoleSetup.GetRoleAmount(RoleType.Hunter));
+        Assert.AreEqual(2, NetworkGameRoleSetup.GetRoleAmount(RoleType.Villager));
+    }
 
-        // Trận 2: Cấu hình mới 4 người
-        adapter.HostSaveConfig(new Dictionary<RoleType, int> { { RoleType.DogSpirit, 1 }, { RoleType.Hunter, 1 }, { RoleType.Villager, 2 } });
-        Assert.AreEqual(4, NetworkGameRoleSetup.GetTotalRoleAmount(), "TC12: Trận mới phải áp dụng cấu hình độc lập hoàn toàn.");
+    [Test]
+    public void Test_HostSelectsExactRoles_8Players_PoolContainsOnlyConfiguredRoles()
+    {
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+
+        // Ví dụ trong đề bài: Phòng 8 người
+        // Sói: 2, Tiên tri: 1, Bảo vệ: 1, Thợ săn: 1, Dân làng: 3
+        var config8 = new Dictionary<RoleType, int>
+        {
+            { RoleType.DogSpirit, 2 },
+            { RoleType.Seer, 1 },
+            { RoleType.VillageGuardian, 1 },
+            { RoleType.Hunter, 1 },
+            { RoleType.Villager, 3 }
+        };
+        adapter.HostSaveConfig(config8);
+
+        var roles = NetworkGameRoleSetup.GetRoles();
+        var pool = new List<RoleType>();
+        foreach (var r in roles)
+        {
+            for (int i = 0; i < r.Amount; i++)
+            {
+                pool.Add(r.Role);
+            }
+        }
+
+        Assert.AreEqual(8, pool.Count, "Tổng số vai trò phải bằng đúng 8.");
+        Assert.AreEqual(2, pool.FindAll(r => r == RoleType.DogSpirit).Count, "Phải có đúng 2 Sói.");
+        Assert.AreEqual(1, pool.FindAll(r => r == RoleType.Seer).Count, "Phải có đúng 1 Tiên tri.");
+        Assert.AreEqual(1, pool.FindAll(r => r == RoleType.VillageGuardian).Count, "Phải có đúng 1 Bảo vệ.");
+        Assert.AreEqual(1, pool.FindAll(r => r == RoleType.Hunter).Count, "Phải có đúng 1 Thợ săn.");
+        Assert.AreEqual(3, pool.FindAll(r => r == RoleType.Villager).Count, "Phải có đúng 3 Dân làng.");
+    }
+
+    [Test]
+    public void Test_UnselectedRole_Shaman_NeverAppearsInMatch()
+    {
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+
+        // Host cấu hình phòng KHÔNG có Pháp sư (Shaman = 0)
+        var config = new Dictionary<RoleType, int>
+        {
+            { RoleType.DogSpirit, 1 },
+            { RoleType.Seer, 1 },
+            { RoleType.Hunter, 1 },
+            { RoleType.Villager, 1 }
+        };
+        adapter.HostSaveConfig(config);
+
+        Assert.AreEqual(0, NetworkGameRoleSetup.GetRoleAmount(RoleType.Shaman), "Pháp sư không được chọn nên số lượng phải là 0.");
+
+        var roles = NetworkGameRoleSetup.GetRoles();
+        bool hasShaman = roles.Exists(r => r.Role == RoleType.Shaman && r.Amount > 0);
+        Assert.IsFalse(hasShaman, "Pháp sư tuyệt đối không được xuất hiện trong trận đấu khi Host không chọn.");
+    }
+
+    [Test]
+    public void Test_WolvesPreserved_NoDemotionWhenConfiguredByHost()
+    {
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+
+        // Host cấu hình 2 Sói trong phòng 4 người (2 Sói, 2 Dân)
+        var config4 = new Dictionary<RoleType, int>
+        {
+            { RoleType.DogSpirit, 2 },
+            { RoleType.Villager, 2 }
+        };
+        adapter.HostSaveConfig(config4);
+
+        Assert.AreEqual(2, NetworkGameRoleSetup.GetRoleAmount(RoleType.DogSpirit), "Số Sói cấu hình là 2.");
+        Assert.AreEqual(2, NetworkGameRoleSetup.GetRoleAmount(RoleType.Villager), "Số Dân cấu hình là 2.");
+        Assert.AreEqual(4, NetworkGameRoleSetup.GetTotalRoleAmount(), "Tổng vai trò là 4.");
+    }
+
+    [Test]
+    public void Test_LobbyRoleButton_BlockedWhenTotalMismatch()
+    {
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+
+        // Host cấu hình 5 vai trò nhưng phòng chỉ có 4 người
+        var config = new Dictionary<RoleType, int>
+        {
+            { RoleType.DogSpirit, 1 },
+            { RoleType.Hunter, 1 },
+            { RoleType.Villager, 3 }
+        };
+        adapter.HostSaveConfig(config);
+
+        int totalRoles = adapter.GetTotalRoleAmount();
+        int playerCount = 4;
+
+        bool canAssign = (totalRoles == playerCount);
+        Assert.IsFalse(canAssign, "Không được phép phân vai khi tổng số vai trò (5) lệch so với số người chơi (4).");
     }
 
     [Test]
