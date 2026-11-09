@@ -1922,6 +1922,12 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnLeaveRoomClicked()
     {
         Debug.Log("GAME OVER | Người chơi bấm Rời phòng về MainMenu.");
+        if (NetworkReturnToMenuController.Instance != null)
+        {
+            NetworkReturnToMenuController.Instance.RequestReturnToMenu();
+            return;
+        }
+
         if (gameOverPanel != null) Destroy(gameOverPanel);
         if (dedicatedCanvasGO != null) Destroy(dedicatedCanvasGO);
         uiShown = false;
