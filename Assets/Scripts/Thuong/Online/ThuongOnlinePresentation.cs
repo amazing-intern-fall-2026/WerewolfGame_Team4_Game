@@ -383,7 +383,8 @@ namespace Thuong.Online
             TMP_Text footer = hud.transform.Find("Footer")?.GetComponent<TMP_Text>();
             if (footer != null)
             {
-                footer.rectTransform.anchorMax = new Vector2(.58f, footer.rectTransform.anchorMax.y);
+                // Leave a clear gap before the HƯỚNG DẪN button (starts at x=.46).
+                footer.rectTransform.anchorMax = new Vector2(.43f, footer.rectTransform.anchorMax.y);
                 footer.text = $"ONLINE • {publicPlayers.Count} NGƯỜI";
             }
             TMP_Text restart = hud.resultPanel != null ? hud.resultPanel.transform.Find("RestartHint")?.GetComponent<TMP_Text>() : null;
@@ -415,7 +416,8 @@ namespace Thuong.Online
             var prompt = new GameObject("Nearby interaction prompt", typeof(RectTransform), typeof(TextMeshProUGUI));
             prompt.transform.SetParent(hud.transform, false);
             var rect = prompt.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(.22f, .075f); rect.anchorMax = new Vector2(.74f, .125f);
+            // Keep the action hint above the footer phase/status panel and below task guidance.
+            rect.anchorMin = new Vector2(.22f, .205f); rect.anchorMax = new Vector2(.74f, .255f);
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             realtimePrompt = prompt.GetComponent<TMP_Text>();
             realtimePrompt.font = hud.phaseText != null ? hud.phaseText.font : null;
@@ -456,8 +458,8 @@ namespace Thuong.Online
                                 localAvatar.Root.transform.position, item.Position));
                     if (corpse != null)
                     {
-                        int nearbyTask = NearestAvailableTask(localAvatar.Root.transform.position, out float taskDistance);
-                        bool taskInRange = nearbyTask >= 0 && taskDistance <= stations[nearbyTask].interactionRadius + .25f;
+                        int nearbyTask = NearestAvailableTask(localAvatar.Root.transform.position, out float nearbyTaskDistance);
+                        bool taskInRange = nearbyTask >= 0 && nearbyTaskDistance <= stations[nearbyTask].interactionRadius + .25f;
                         realtimePrompt.text = "E · BÁO XÁC" + (taskInRange ? " · GIỮ E ĐỂ CHỌN NHIỆM VỤ" : string.Empty);
                         return;
                     }

@@ -40,8 +40,14 @@ namespace Thuong.Online
             taskGuideCanvas.renderMode = RenderMode.ScreenSpaceOverlay; taskGuideCanvas.sortingOrder = 40;
             var scaler = root.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1600, 900); scaler.matchWidthOrHeight = .5f;
-            var prompt = LobbyPanel("Nearby task prompt", root.transform, new Vector2(.32f, .105f), new Vector2(.72f, .20f));
-            prompt.GetComponent<Image>().raycastTarget = false; taskPromptRoot = prompt.gameObject;
+            // Keep task guidance above the footer HUD. The panel is only a text container;
+            // Its default Image is white before the medieval theme initializes, so keep
+            // the text container fully transparent in every initialization order.
+            var prompt = LobbyPanel("Nearby task prompt", root.transform, new Vector2(.30f, .265f), new Vector2(.72f, .355f));
+            var promptImage = prompt.GetComponent<Image>();
+            promptImage.color = new Color(1, 1, 1, 0);
+            promptImage.raycastTarget = false;
+            taskPromptRoot = prompt.gameObject;
             taskPrompt = LobbyText("Interaction", prompt, "", new Vector2(.03f, .48f), new Vector2(.97f, .95f), 21, TextAlignmentOptions.Center);
             taskGuideHint = LobbyText("Route hint", prompt, "", new Vector2(.025f, .03f), new Vector2(.975f, .49f), 16, TextAlignmentOptions.Center);
             var shade = LobbyPanel("Task map shade", root.transform, Vector2.zero, Vector2.one, false);
