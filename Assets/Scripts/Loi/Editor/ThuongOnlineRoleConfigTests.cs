@@ -228,3 +228,4 @@ public class ThuongOnlineRoleConfigTests
         Assert.IsTrue(Directory.Exists(thuongDir), "Thư mục Assets/Scripts/Thuong phải tồn tại.");
     }
 }
+

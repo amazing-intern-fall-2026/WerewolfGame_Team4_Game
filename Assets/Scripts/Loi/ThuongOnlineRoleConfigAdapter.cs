@@ -720,3 +720,4 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         Debug.Log("[ThuongRoleConfig] TC11, TC12 - Đã reset toàn bộ dữ liệu cấu hình vai trò của phòng.");
     }
 }
+

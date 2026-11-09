@@ -7,10 +7,13 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Giao diện Modal tùy chỉnh vai trò và số lượng vai trò cho Thương Online (Lobby).
-/// Hoạt động tương thích phong cách thiết kế Thương Online (Medieval Theme).
-/// Phân quyền:
-///   - Host: Tăng/giảm vai trò, Mặc định, Lưu, Đóng.
-///   - Client: Chỉ xem cấu hình hiện tại, các nút chỉnh sửa bị vô hiệu hóa/ẩn.
+/// Tối ưu hóa đặc biệt cho thiết bị di động (Android & iOS) và màn hình cảm ứng:
+///   - 4 khu vực phân tách rõ ràng (Tiêu đề, Danh sách cuộn, Thông tin cấu hình, Nút chức năng).
+///   - Sử dụng VerticalLayoutGroup với childControlHeight = true để các hàng vai trò KHÔNG BAO GIỜ bị chồng lấn.
+///   - Chiều cao mỗi hàng vai trò 64px, touch target nút + / - to rõ (font 26, kích thước ngón tay dễ chạm).
+///   - ScrollView chiếm 68% diện tích bảng, cuộn dọc mượt mà có scrollbar hiển thị vị trí.
+///   - Nền backdrop và cửa sổ đặc 100% không cho đồ họa game phía sau xuyên qua làm rối mắt.
+///   - Phân quyền: Host được chỉnh sửa, Client chỉ xem cấu hình.
 /// </summary>
 public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 {
@@ -21,10 +24,16 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
     private Canvas dialogCanvas;
     private GraphicRaycaster dialogRaycaster;
     private GameObject shadeRoot;
+    private GameObject windowRoot;
     private RectTransform contentContainer;
+    private ScrollRect roleScrollRect;
+
     private TMP_Text titleText;
     private TMP_Text statusSummaryText;
-    private TMP_Text warningText;
+    private GameObject validationBanner;
+    private Image validationBannerImage;
+    private TMP_Text validationText;
+
     private Button defaultButton;
     private Button saveButton;
     private Button closeButton;
@@ -121,15 +130,37 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
             titleText.text = isHost ? "THIẾT LẬP VAI TRÒ VÀ SỐ LƯỢNG" : "DANH SÁCH VAI TRÒ (CHỈ XEM)";
         }
 
+        // Cập nhật hiển thị các nút chức năng theo quyền
         if (defaultButton != null) defaultButton.gameObject.SetActive(isHost);
         if (saveButton != null) saveButton.gameObject.SetActive(isHost);
+
+        if (closeButton != null)
+        {
+            var closeRect = closeButton.GetComponent<RectTransform>();
+            if (isHost)
+            {
+                closeRect.anchorMin = new Vector2(0.70f, 0f);
+                closeRect.anchorMax = new Vector2(0.96f, 1f);
+            }
+            else
+            {
+                // Nếu là Client chỉ xem, căn nút Đóng ra giữa
+                closeRect.anchorMin = new Vector2(0.35f, 0f);
+                closeRect.anchorMax = new Vector2(0.65f, 1f);
+            }
+        }
 
         RefreshAllRows();
         RefreshSummaryAndValidation();
 
+        // Đưa thanh cuộn về đầu trang
+        if (roleScrollRect != null)
+        {
+            roleScrollRect.verticalNormalizedPosition = 1f;
+        }
+
         gameObject.SetActive(true);
-        if (shadeRoot != null)
-            shadeRoot.SetActive(true);
+        if (shadeRoot != null) shadeRoot.SetActive(true);
         transform.SetAsLastSibling();
     }
 
@@ -147,11 +178,15 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         }
     }
 
+    // ==========================================
+    // XÂY DỰNG TOÀN BỘ GIAO DIỆN (BUILD UI)
+    // ==========================================
+
     private void BuildUI()
     {
         dialogCanvas = gameObject.AddComponent<Canvas>();
         dialogCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        dialogCanvas.sortingOrder = 25; // Trên Lobby Canvas (20)
+        dialogCanvas.sortingOrder = 30; // Nằm trên cả Lobby Canvas
 
         var scaler = gameObject.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -160,39 +195,41 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
         dialogRaycaster = gameObject.AddComponent<GraphicRaycaster>();
 
-        // 1. Shade / Backdrop
-        shadeRoot = CreatePanel("Shade", transform, Vector2.zero, Vector2.one, new Color(0f, 0f, 0f, 0.82f));
+        // 1. BACKDROP ĐẬM - KHÔNG NHÌN XUYÊN THỦNG GÂY RỐI MẮT
+        shadeRoot = CreatePanel("Shade", transform, Vector2.zero, Vector2.one, new Color(0.02f, 0.02f, 0.02f, 0.94f));
         var shadeImg = shadeRoot.GetComponent<Image>();
         shadeImg.raycastTarget = true;
 
-        // 2. Main Window Panel
-        var window = CreatePanel("Window", shadeRoot.transform, new Vector2(0.12f, 0.05f), new Vector2(0.88f, 0.95f), new Color(0.15f, 0.11f, 0.07f, 0.98f));
-        ThuongMedievalTheme.Active?.StylePanel(window.GetComponent<Image>(), "Window");
+        // 2. CỬA SỔ CHÍNH (WINDOW) - CĂN GIỮA, BO GÓC, TẬN DỤNG TỐI ĐA DIỆN TÍCH MÀN HÌNH
+        windowRoot = CreatePanel("Window", shadeRoot.transform, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.98f), new Color(0.12f, 0.08f, 0.05f, 1.0f));
+        var windowImg = windowRoot.GetComponent<Image>();
+        windowImg.raycastTarget = true;
+        ThuongMedievalTheme.Active?.StylePanel(windowImg, "Window");
 
-        // 3. Header Title
-        titleText = CreateText("Title", window.transform, "THIẾT LẬP VAI TRÒ VÀ SỐ LƯỢNG",
-            new Vector2(0.04f, 0.91f), new Vector2(0.96f, 0.98f), 26, TextAlignmentOptions.Center, FontStyle.Bold);
-        titleText.color = ThuongMedievalTheme.Cream;
+        // === KHU VỰC A: THANH TIÊU ĐỀ (TOP BAR) ===
+        var topBar = CreatePanel("TopBar", windowRoot.transform, new Vector2(0.015f, 0.885f), new Vector2(0.985f, 0.985f), new Color(0.18f, 0.12f, 0.08f, 1f));
+        ThuongMedievalTheme.Active?.StylePanel(topBar.GetComponent<Image>(), "TopBar");
 
-        // 4. Status Summary Text
-        statusSummaryText = CreateText("Summary", window.transform, "",
-            new Vector2(0.04f, 0.855f), new Vector2(0.96f, 0.905f), 19, TextAlignmentOptions.Center);
-        statusSummaryText.color = ThuongMedievalTheme.Cream;
+        titleText = CreateText("TitleText", topBar.transform, "THIẾT LẬP VAI TRÒ VÀ SỐ LƯỢNG",
+            new Vector2(0.02f, 0.48f), new Vector2(0.98f, 0.96f), 26, TextAlignmentOptions.Center, FontStyle.Bold);
+        titleText.color = new Color32(255, 240, 205, 255);
 
-        // 5. Warning / Validation Text
-        warningText = CreateText("Warning", window.transform, "",
-            new Vector2(0.04f, 0.805f), new Vector2(0.96f, 0.85f), 16, TextAlignmentOptions.Center);
+        statusSummaryText = CreateText("StatusSummary", topBar.transform, "Tổng số vai trò đã chọn: 0  |  Số người chơi trong phòng: 0",
+            new Vector2(0.02f, 0.05f), new Vector2(0.98f, 0.48f), 18, TextAlignmentOptions.Center, FontStyle.Normal);
+        statusSummaryText.color = new Color32(225, 192, 128, 255);
 
-        // 6. Scroll View Container
-        var scrollRectGo = CreatePanel("RoleScrollView", window.transform, new Vector2(0.04f, 0.13f), new Vector2(0.96f, 0.80f), new Color(0.08f, 0.06f, 0.04f, 0.5f));
-        var scrollRect = scrollRectGo.AddComponent<ScrollRect>();
-        scrollRect.horizontal = false;
-        scrollRect.vertical = true;
-        scrollRect.scrollSensitivity = 35f;
+        // === KHU VỰC B: DANH SÁCH VAI TRÒ (SCROLL VIEW) ===
+        // Chiếm trọn vẹn 69% chiều cao trung tâm bảng từ y = 0.19f đến 0.88f
+        var scrollRectGo = CreatePanel("RoleScrollView", windowRoot.transform, new Vector2(0.015f, 0.19f), new Vector2(0.985f, 0.88f), new Color(0.07f, 0.05f, 0.03f, 0.95f));
+        roleScrollRect = scrollRectGo.AddComponent<ScrollRect>();
+        roleScrollRect.horizontal = false;
+        roleScrollRect.vertical = true;
+        roleScrollRect.scrollSensitivity = 45f;
+        roleScrollRect.movementType = ScrollRect.MovementType.Clamped;
 
-        var viewport = CreatePanel("Viewport", scrollRectGo.transform, Vector2.zero, Vector2.one, Color.clear);
+        var viewport = CreatePanel("Viewport", scrollRectGo.transform, new Vector2(0f, 0f), new Vector2(0.985f, 1f), Color.clear);
         viewport.AddComponent<RectMask2D>();
-        scrollRect.viewport = viewport.GetComponent<RectTransform>();
+        roleScrollRect.viewport = viewport.GetComponent<RectTransform>();
 
         var content = CreatePanel("Content", viewport.transform, new Vector2(0f, 1f), new Vector2(1f, 1f), Color.clear);
         contentContainer = content.GetComponent<RectTransform>();
@@ -200,30 +237,55 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         contentContainer.offsetMin = Vector2.zero;
         contentContainer.offsetMax = Vector2.zero;
 
+        // BỐ CỤC VERTICAL LAYOUT GROUP: CHILDCONTROLHEIGHT = TRUE ĐỂ CHỐNG CHỒNG HÀNG
         var layout = content.AddComponent<VerticalLayoutGroup>();
-        layout.spacing = 6f;
-        layout.padding = new RectOffset(6, 6, 6, 6);
+        layout.spacing = 8f;
+        layout.padding = new RectOffset(10, 10, 8, 8);
         layout.childControlWidth = true;
-        layout.childControlHeight = false;
+        layout.childControlHeight = true; // BẮT BUỘC TRUE: Unity sẽ tự động gán chiều cao 64px cho từng dòng!
         layout.childForceExpandWidth = true;
         layout.childForceExpandHeight = false;
 
         var fitter = content.AddComponent<ContentSizeFitter>();
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        scrollRect.content = contentContainer;
+        roleScrollRect.content = contentContainer;
 
-        // 7. Tạo danh sách các dòng Role
+        // Thanh cuộn dọc (Scrollbar)
+        var scrollbarGo = CreatePanel("Scrollbar", scrollRectGo.transform, new Vector2(0.987f, 0.01f), new Vector2(0.998f, 0.99f), new Color(0.12f, 0.08f, 0.05f, 1f));
+        var scrollbar = scrollbarGo.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+        var handle = CreatePanel("Handle", scrollbarGo.transform, Vector2.zero, Vector2.one, new Color32(180, 138, 78, 255));
+        scrollbar.handleRect = handle.GetComponent<RectTransform>();
+        scrollbar.targetGraphic = handle.GetComponent<Image>();
+        roleScrollRect.verticalScrollbar = scrollbar;
+
+        // Sinh danh sách các hàng vai trò
         BuildRoleRows();
 
-        // 8. Bottom Buttons (MẶC ĐỊNH, LƯU, ĐÓNG)
-        defaultButton = CreateButton("DefaultButton", window.transform, "MẶC ĐỊNH",
-            new Vector2(0.06f, 0.035f), new Vector2(0.32f, 0.105f), OnDefaultClicked);
+        // === KHU VỰC C: THÔNG TIN CẤU HÌNH & VALIDATION BANNER ===
+        // Nằm ngay dưới ScrollView từ y = 0.105f đến 0.18f
+        validationBanner = CreatePanel("ValidationBanner", windowRoot.transform, new Vector2(0.015f, 0.105f), new Vector2(0.985f, 0.18f), new Color(0.14f, 0.22f, 0.14f, 1f));
+        validationBannerImage = validationBanner.GetComponent<Image>();
 
-        saveButton = CreateButton("SaveButton", window.transform, "LƯU CẤU HÌNH",
-            new Vector2(0.36f, 0.035f), new Vector2(0.64f, 0.105f), OnSaveClicked);
+        validationText = CreateText("ValidationText", validationBanner.transform, "Kiểm tra cấu hình vai trò...",
+            new Vector2(0.02f, 0.05f), new Vector2(0.98f, 0.95f), 18, TextAlignmentOptions.Center, FontStyle.Bold);
 
-        closeButton = CreateButton("CloseButton", window.transform, "ĐÓNG",
-            new Vector2(0.68f, 0.035f), new Vector2(0.94f, 0.105f), OnCloseClicked);
+        // === KHU VỰC D: THANH NÚT CHỨC NĂNG (BOTTOM BUTTON BAR) ===
+        // Nằm ở đáy bảng từ y = 0.015f đến 0.095f
+        var bottomBar = CreatePanel("BottomBar", windowRoot.transform, new Vector2(0.015f, 0.015f), new Vector2(0.985f, 0.095f), Color.clear);
+
+        defaultButton = CreateButton("DefaultButton", bottomBar.transform, "MẶC ĐỊNH",
+            new Vector2(0.04f, 0.05f), new Vector2(0.30f, 0.95f),
+            new Color(0.35f, 0.24f, 0.16f, 1f), OnDefaultClicked);
+
+        saveButton = CreateButton("SaveButton", bottomBar.transform, "LƯU CẤU HÌNH",
+            new Vector2(0.35f, 0.05f), new Vector2(0.65f, 0.95f),
+            new Color(0.12f, 0.44f, 0.16f, 1f), OnSaveClicked, isProminent: true);
+
+        closeButton = CreateButton("CloseButton", bottomBar.transform, "ĐÓNG",
+            new Vector2(0.70f, 0.05f), new Vector2(0.96f, 0.95f),
+            new Color(0.28f, 0.18f, 0.14f, 1f), OnCloseClicked);
     }
 
     private void BuildRoleRows()
@@ -242,16 +304,19 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
     private void CreateRoleRow(RoleType role, int index)
     {
-        var row = CreatePanel("RoleRow_" + role, contentContainer.transform, Vector2.zero, Vector2.one,
-            index % 2 == 0 ? new Color(0.20f, 0.15f, 0.10f, 0.90f) : new Color(0.24f, 0.18f, 0.12f, 0.90f));
+        // 1. Row Container
+        Color rowBg = index % 2 == 0 ? new Color(0.18f, 0.13f, 0.09f, 0.95f) : new Color(0.22f, 0.16f, 0.11f, 0.95f);
+        var row = CreatePanel("RoleRow_" + role, contentContainer.transform, Vector2.zero, Vector2.one, rowBg);
         ThuongMedievalTheme.Active?.StylePanel(row.GetComponent<Image>(), "RoleRow");
 
+        // LayoutElement với chiều cao chuẩn 64px
         var layoutElem = row.AddComponent<LayoutElement>();
-        layoutElem.minHeight = 56f;
-        layoutElem.preferredHeight = 56f;
+        layoutElem.minHeight = 64f;
+        layoutElem.preferredHeight = 64f;
+        layoutElem.flexibleHeight = 0f;
 
-        // Role Icon
-        var iconObj = CreatePanel("Icon", row.transform, new Vector2(0.015f, 0.10f), new Vector2(0.075f, 0.90f), Color.white);
+        // 2. Role Icon (Trái, 48x48)
+        var iconObj = CreatePanel("Icon", row.transform, new Vector2(0.012f, 0.12f), new Vector2(0.065f, 0.88f), Color.white);
         var iconImg = iconObj.GetComponent<Image>();
         iconImg.preserveAspect = true;
         iconImg.raycastTarget = false;
@@ -266,32 +331,53 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
             iconImg.enabled = false;
         }
 
-        // Role Name & Faction Text
+        // 3. Role Name & Faction Text (Căn trái, font to 21, màu kem sáng)
         RoleInfoData info = RoleInfoDatabase.GetRoleInfo(role);
         string displayName = info != null ? info.DisplayName : role.ToString();
+        string factionColor = GetFactionColorHex(info != null ? info.Faction : FactionType.Villager);
         string factionName = info != null ? info.FactionName : "";
-        string roleFullLabel = $"{displayName}  <size=14><color=#E0C080>({factionName})</color></size>";
+        string roleFullLabel = $"<b>{displayName}</b>   <size=15><color={factionColor}>({factionName})</color></size>";
 
-        var nameText = CreateText("Name", row.transform, roleFullLabel,
-            new Vector2(0.085f, 0.10f), new Vector2(0.70f, 0.90f), 19, TextAlignmentOptions.MidlineLeft);
-        nameText.color = ThuongMedievalTheme.Cream;
+        var nameText = CreateText("NameText", row.transform, roleFullLabel,
+            new Vector2(0.075f, 0.10f), new Vector2(0.72f, 0.90f), 21, TextAlignmentOptions.MidlineLeft, FontStyle.Normal);
+        nameText.color = new Color32(255, 246, 226, 255);
+        nameText.textWrappingMode = TextWrappingModes.NoWrap;
+        nameText.overflowMode = TextOverflowModes.Ellipsis;
 
-        // Minus Button
+        // 4. Minus Button (−) (Touch target lớn 50px, font 26 dày)
         var minusBtn = CreateButton("MinusBtn", row.transform, "−",
-            new Vector2(0.72f, 0.14f), new Vector2(0.80f, 0.86f), () => ChangeRoleAmount(role, -1));
+            new Vector2(0.74f, 0.12f), new Vector2(0.81f, 0.88f),
+            new Color(0.38f, 0.18f, 0.15f, 1f), () => ChangeRoleAmount(role, -1), fontSize: 26);
         roleMinusButtons[role] = minusBtn;
 
-        // Amount Label
-        var amountText = CreateText("Amount", row.transform, "0",
-            new Vector2(0.81f, 0.10f), new Vector2(0.89f, 0.90f), 22, TextAlignmentOptions.Center, FontStyle.Bold);
+        // 5. Amount Badge (Nền đen sẫm, số trắng font 24 bold căn giữa)
+        var amountBadge = CreatePanel("AmountBadge", row.transform, new Vector2(0.82f, 0.12f), new Vector2(0.91f, 0.88f), new Color(0.09f, 0.06f, 0.04f, 1f));
+        var amountText = CreateText("AmountText", amountBadge.transform, "0",
+            Vector2.zero, Vector2.one, 24, TextAlignmentOptions.Center, FontStyle.Bold);
         amountText.color = Color.white;
         roleAmountLabels[role] = amountText;
 
-        // Plus Button
+        // 6. Plus Button (+) (Touch target lớn 50px, font 26 dày)
         var plusBtn = CreateButton("PlusBtn", row.transform, "+",
-            new Vector2(0.90f, 0.14f), new Vector2(0.98f, 0.86f), () => ChangeRoleAmount(role, 1));
+            new Vector2(0.92f, 0.12f), new Vector2(0.99f, 0.88f),
+            new Color(0.16f, 0.38f, 0.18f, 1f), () => ChangeRoleAmount(role, 1), fontSize: 26);
         rolePlusButtons[role] = plusBtn;
     }
+
+    private static string GetFactionColorHex(FactionType faction)
+    {
+        return faction switch
+        {
+            FactionType.Monster => "#FF7B7B",   // Đỏ nhạt cho Quái vật
+            FactionType.Villager => "#A5D6A7",  // Xanh lá dịu cho Dân làng
+            FactionType.Neutral => "#FFD54F",   // Vàng cho Trung lập
+            _ => "#E0C080"
+        };
+    }
+
+    // ==========================================
+    // LOGIC ĐIỀU CHỈNH VÀ KIỂM TRA SỐ LƯỢNG
+    // ==========================================
 
     private void ChangeRoleAmount(RoleType role, int delta)
     {
@@ -303,11 +389,11 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         // Không cho phép số lượng âm
         if (next < 0) return;
 
-        // Không cho tổng số lượng vượt quá sức chứa tối đa của game (25)
+        // Không cho vượt quá sức chứa tối đa của game (25)
         int total = GetTotalDraftRoles();
         if (delta > 0 && total >= 25)
         {
-            SetWarning("Tổng số lượng vai trò không thể vượt quá 25!");
+            SetWarningBanner("Tổng số lượng vai trò không thể vượt quá 25 người chơi!", false);
             return;
         }
 
@@ -357,43 +443,57 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
         if (statusSummaryText != null)
         {
-            statusSummaryText.text = $"Tổng số vai trò đã chọn: <b><color=#FFE880>{totalRoles}</color></b>  |  Số người chơi trong phòng: <b><color=#A0E8FF>{players}</color></b>";
+            statusSummaryText.text = $"Tổng số vai trò đã chọn: <b><color=#FFF080>{totalRoles}</color></b>   |   Số người chơi trong phòng: <b><color=#80D0FF>{players}</color></b>";
         }
 
-        if (warningText != null)
+        if (totalRoles == players)
         {
-            if (totalRoles == players)
-            {
-                // Kiểm tra điều kiện có sói và dân
-                int wolves = GetWolfCount();
-                int villagers = totalRoles - wolves;
+            int wolves = GetWolfCount();
+            int villagers = totalRoles - wolves;
 
-                if (wolves == 0)
-                {
-                    warningText.text = "<color=#FF6B6B>⚠ Phải có ít nhất 1 Ma sói (Khuyển tinh) để bắt đầu!</color>";
-                    if (saveButton != null) saveButton.interactable = false;
-                }
-                else if (villagers == 0)
-                {
-                    warningText.text = "<color=#FF6B6B>⚠ Phải có ít nhất 1 Dân làng / Phe thiện để bắt đầu!</color>";
-                    if (saveButton != null) saveButton.interactable = false;
-                }
-                else
-                {
-                    warningText.text = "<color=#35C759>✓ Cấu hình vai trò đã cân bằng và sẵn sàng lưu.</color>";
-                    if (saveButton != null) saveButton.interactable = isHostMode;
-                }
-            }
-            else if (totalRoles < players)
+            if (wolves == 0)
             {
-                warningText.text = $"<color=#FFA726>⚠ Còn thiếu {players - totalRoles} vai trò nữa mới đủ số người chơi ({totalRoles}/{players}).</color>";
+                SetWarningBanner("⚠ Phải có ít nhất 1 vai trò thuộc phe Ma sói (Khuyển tinh) để bắt đầu!", false);
+                if (saveButton != null) saveButton.interactable = false;
+            }
+            else if (villagers == 0)
+            {
+                SetWarningBanner("⚠ Phải có ít nhất 1 vai trò thuộc phe Dân làng để bắt đầu!", false);
                 if (saveButton != null) saveButton.interactable = false;
             }
             else
             {
-                warningText.text = $"<color=#FF5252>⚠ Đang dư {totalRoles - players} vai trò! Vui lòng giảm bớt vai trò ({totalRoles}/{players}).</color>";
-                if (saveButton != null) saveButton.interactable = false;
+                SetWarningBanner($"✓ Cấu hình vai trò hợp lệ ({totalRoles}/{players} người). Sẵn sàng bắt đầu ván đấu!", true);
+                if (saveButton != null) saveButton.interactable = isHostMode;
             }
+        }
+        else if (totalRoles < players)
+        {
+            int missing = players - totalRoles;
+            SetWarningBanner($"⚠ Còn thiếu {missing} vai trò nữa mới đủ sĩ số phòng (Hiện tại: {totalRoles}/{players} người).", false);
+            if (saveButton != null) saveButton.interactable = false;
+        }
+        else
+        {
+            int excess = totalRoles - players;
+            SetWarningBanner($"⚠ Đang dư {excess} vai trò! Vui lòng bấm (−) để giảm bớt (Hiện tại: {totalRoles}/{players} người).", false);
+            if (saveButton != null) saveButton.interactable = false;
+        }
+    }
+
+    private void SetWarningBanner(string message, bool isValid)
+    {
+        if (validationText != null)
+        {
+            validationText.text = message;
+            validationText.color = isValid ? new Color32(165, 235, 175, 255) : new Color32(255, 195, 160, 255);
+        }
+
+        if (validationBannerImage != null)
+        {
+            validationBannerImage.color = isValid
+                ? new Color(0.11f, 0.28f, 0.14f, 1f)  // Nền xanh đậm dịu mắt khi hợp lệ
+                : new Color(0.35f, 0.14f, 0.10f, 1f); // Nền đỏ nâu đậm cảnh báo khi chưa hợp lệ
         }
     }
 
@@ -405,14 +505,6 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         if (draftRoleAmounts.TryGetValue(RoleType.SerpentSpirit, out int s)) wolves += s;
         if (draftRoleAmounts.TryGetValue(RoleType.Ogre, out int o)) wolves += o;
         return wolves;
-    }
-
-    private void SetWarning(string message)
-    {
-        if (warningText != null)
-        {
-            warningText.text = $"<color=#FF5252>{message}</color>";
-        }
     }
 
     private void OnDefaultClicked()
@@ -437,13 +529,13 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         int totalRoles = GetTotalDraftRoles();
         if (totalRoles != currentPlayerCount)
         {
-            SetWarning($"Không thể lưu! Tổng số vai trò ({totalRoles}) phải bằng số người chơi ({currentPlayerCount}).");
+            SetWarningBanner($"Không thể lưu! Tổng số vai trò ({totalRoles}) phải bằng số người chơi ({currentPlayerCount}).", false);
             return;
         }
 
         if (GetWolfCount() == 0)
         {
-            SetWarning("Không thể lưu! Phải có ít nhất 1 vai trò thuộc phe Ma sói.");
+            SetWarningBanner("Không thể lưu! Phải có ít nhất 1 vai trò thuộc phe Ma sói.", false);
             return;
         }
 
@@ -507,7 +599,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         var tmp = go.GetComponent<TMP_Text>();
         tmp.text = text;
         tmp.fontSize = fontSize;
-        tmp.fontSizeMin = 10;
+        tmp.fontSizeMin = 12;
         tmp.fontSizeMax = fontSize;
         tmp.enableAutoSizing = true;
         tmp.alignment = alignment;
@@ -525,18 +617,30 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         string label,
         Vector2 min,
         Vector2 max,
-        UnityEngine.Events.UnityAction action)
+        Color bgColor,
+        UnityEngine.Events.UnityAction action,
+        int fontSize = 20,
+        bool isProminent = false)
     {
-        var panel = CreatePanel(name, parent, min, max, new Color(0.42f, 0.28f, 0.16f, 1f));
+        var panel = CreatePanel(name, parent, min, max, bgColor);
         var btn = panel.AddComponent<Button>();
-        btn.targetGraphic = panel.GetComponent<Image>();
+        var img = panel.GetComponent<Image>();
+        btn.targetGraphic = img;
         btn.onClick.AddListener(action);
 
-        ThuongMedievalTheme.Active?.StylePanel(panel.GetComponent<Image>(), name);
+        var colors = btn.colors;
+        colors.normalColor = bgColor;
+        colors.highlightedColor = bgColor * 1.25f;
+        colors.pressedColor = bgColor * 0.85f;
+        colors.disabledColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+        btn.colors = colors;
+
+        ThuongMedievalTheme.Active?.StylePanel(img, name);
 
         var text = CreateText("Label", panel.transform, label,
-            new Vector2(0.04f, 0.04f), new Vector2(0.96f, 0.96f), 19, TextAlignmentOptions.Center, FontStyle.Bold);
-        text.color = ThuongMedievalTheme.Cream;
+            new Vector2(0.04f, 0.04f), new Vector2(0.96f, 0.96f), fontSize, TextAlignmentOptions.Center, FontStyle.Bold);
+
+        text.color = isProminent ? new Color32(255, 245, 175, 255) : new Color32(235, 220, 195, 255);
 
         return btn;
     }
