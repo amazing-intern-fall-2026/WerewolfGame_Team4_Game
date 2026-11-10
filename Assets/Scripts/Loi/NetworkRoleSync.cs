@@ -221,7 +221,22 @@ public class NetworkRoleSync : NetworkBehaviour
 
     public static void SyncAllRoleSyncs()
     {
+        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (currentScene == "OnlineSceneGamePlay")
+        {
+            // Trong OnlineSceneGamePlay của Thương, đồng bộ vai trò được quản lý bằng
+            // ThuongOnlineSession (SendPrivateState/ReceivePrivateState). Không sử dụng NetworkRoleSync.
+            return;
+        }
+
         NetworkRoleSync[] syncs = FindObjectsByType<NetworkRoleSync>(FindObjectsSortMode.None);
+        if (syncs == null || syncs.Length == 0)
+        {
+            // Chưa tìm thấy NetworkRoleSync (ví dụ player prefab chưa được spawn trong scene Game).
+            // Tuyệt đối không log giả vờ thành công với 0 NetworkRoleSync.
+            return;
+        }
+
         foreach (var s in syncs)
         {
             s.SyncCurrentRole();

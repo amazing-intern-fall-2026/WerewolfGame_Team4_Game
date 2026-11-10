@@ -655,6 +655,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
             role.OnGameStart();
 
+            SyncPlayerControllerRole(player.playerID, roleType);
+
             Debug.Log(
                 "ROLE ACTION BRIDGE | "
                 + "Lobby Role Applied | "
@@ -698,6 +700,53 @@ public class NetworkRoleActionBridge : MonoBehaviour
         Debug.Log(
             "========================================"
         );
+    }
+
+    private void SyncPlayerControllerRole(int playerId, RoleType roleType)
+    {
+        if (Unity.Netcode.NetworkManager.Singleton == null || !Unity.Netcode.NetworkManager.Singleton.IsServer)
+            return;
+
+        PlayerRole mappedRole;
+        switch (roleType)
+        {
+            case RoleType.DogSpirit:
+                mappedRole = PlayerRole.Wolf;
+                break;
+            case RoleType.Seer:
+                mappedRole = PlayerRole.Seer;
+                break;
+            case RoleType.VillageGuardian:
+                mappedRole = PlayerRole.Guardian;
+                break;
+            case RoleType.Shaman:
+                mappedRole = PlayerRole.Witch;
+                break;
+            default:
+                mappedRole = PlayerRole.Villager;
+                break;
+        }
+
+        if (Unity.Netcode.NetworkManager.Singleton.ConnectedClients.TryGetValue((ulong)playerId, out var client) && client.PlayerObject != null)
+        {
+            var pc = client.PlayerObject.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                pc.Role.Value = mappedRole;
+            }
+        }
+        else
+        {
+            PlayerController[] allPcs = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in allPcs)
+            {
+                if (pc != null && (int)pc.OwnerClientId == playerId)
+                {
+                    pc.Role.Value = mappedRole;
+                    break;
+                }
+            }
+        }
     }
 
     // =====================================================
@@ -845,14 +894,21 @@ public class NetworkRoleActionBridge : MonoBehaviour
             roleManager.playerRoles.Count == 0
         )
         {
-            Debug.LogWarning(
-                "HUNTER DEBUG | playerRoles đang rỗng. "
-                + "Đang AssignRole()."
-            );
+            if (NetworkGameRoleSetup.HasSetup())
+            {
+                TryApplyLobbyRoles();
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "HUNTER DEBUG | playerRoles đang rỗng. "
+                    + "Đang AssignRole()."
+                );
 
-            roleManager.AssignRole();
+                roleManager.AssignRole();
 
-            TryApplyLobbyRoles();
+                TryApplyLobbyRoles();
+            }
         }
 
         // =====================================================
