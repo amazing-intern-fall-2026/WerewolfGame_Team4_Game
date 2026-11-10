@@ -10,12 +10,13 @@ using UnityEngine.UI;
 using Thuong.Online;
 
 /// <summary>
-/// Adapter tích hợp chức năng chỉnh vai trò và số lượng vai trò cho Thương Online.
+/// Adapter tích hợp chức năng chỉnh vai trò và phân vai cho Thương Online.
 /// Tuân thủ nghiêm ngặt các quy định:
 ///   1. TUYỆT ĐỐI KHÔNG SỬA CODE CỦA THƯƠNG (0 diff trong Assets/Scripts/Thuong/).
 ///   2. KHÔNG DÙNG REFLECTION, không truy cập private field hoặc hack trạng thái nội bộ.
 ///   3. Single Source of Truth: Cấu hình của Host quyết định 100% vai trò xuất hiện trong trận.
-///   4. Bố cục UI Lobby: Tách 8 nút chức năng thành 2 hàng responsive, không cắt chữ, dễ bấm trên điện thoại.
+///   4. Phân vai đồng bộ: Can thiệp an toàn vào sự kiện PhaseChanged (Setup -> RoleReveal) để gán đúng 100% vai trò Host đã chọn.
+///   5. Bố cục UI Lobby: Tách 8 nút chức năng thành 2 hàng responsive, không cắt chữ, dễ bấm trên điện thoại.
 /// </summary>
 public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
 {
@@ -33,9 +34,13 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     private bool isMessagingRegistered = false;
     private bool isGameplayEventsSubscribed = false;
 
+    // Cache kết quả phân vai chính thức để ngăn chặn mọi luồng ghi đè (Anti-Overwrite)
+    private static readonly Dictionary<int, RoleType> confirmedAssignedRoles = new Dictionary<int, RoleType>();
+
     // Lobby UI Elements
     private GameObject injectedLobbyButton;
     private GameObject roleGuardOverlay;
+    private Button interceptedRoleButton;
     private int lastObservedPlayerCount = 0;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -93,9 +98,15 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     {
         EnsureNetworkRegistration();
         EnsureGameplayEventsSubscribed();
+        EnsureSetupPhaseInLobby();
         CheckLobbyUIInjection();
         UpdateRoleGuardOverlay();
         MonitorPlayerCountChanges();
+    }
+
+    private void LateUpdate()
+    {
+        EnforceAssignedRolesIntegrity();
     }
 
     private void OnDestroy()
@@ -111,6 +122,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     {
         injectedLobbyButton = null;
         roleGuardOverlay = null;
+        interceptedRoleButton = null;
         isGameplayEventsSubscribed = false;
 
         string activeScene = SceneManager.GetActiveScene().name;
@@ -134,6 +146,67 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         if (!isCustomized && !NetworkGameRoleSetup.HasSetup())
         {
             InitializeDefaults(GetCurrentPlayerCount());
+        }
+    }
+
+    /// <summary>
+    /// Đảm bảo GameRoleManager.Instance.currentPhase ở trạng thái Setup khi đang ở trong Lobby chưa phân vai.
+    /// Việc này đảm bảo khi BeginGame() gọi SetPhase(GamePhase.RoleReveal), sự kiện PhaseChanged(Setup, RoleReveal)
+    /// BẮT BUỘC SẼ KÍCH HOẠT (vì Setup != RoleReveal). Nếu không có bước này, currentPhase mặc định là 0 (RoleReveal),
+    /// dẫn đến SetPhase(RoleReveal) coi previous == phase và KHÔNG KÍCH HOẠT PhaseChanged!
+    /// </summary>
+    private void EnsureSetupPhaseInLobby()
+    {
+        if (GameRoleManager.Instance == null) return;
+
+        bool inLobby = ThuongOnlineSession.Active != null && !ThuongOnlineSession.Active.RolesAssigned;
+        if (inLobby && GameRoleManager.Instance.currentPhase != GamePhase.Setup)
+        {
+            GameRoleManager.Instance.currentPhase = GamePhase.Setup;
+        }
+    }
+
+    /// <summary>
+    /// Bảo vệ toàn vẹn vai trò (Anti-Overwrite):
+    /// Ngăn chặn bất kỳ cơ chế nào (như BalanceOnlineOpeningRoles của Thương) tự ý thay đổi vai trò sau khi Host đã phân vai.
+    /// </summary>
+    private void EnforceAssignedRolesIntegrity()
+    {
+        if (confirmedAssignedRoles.Count == 0) return;
+        if (PlayerManager.Instance == null || PlayerManager.Instance.players == null) return;
+        if (RoleManager.Instance == null || RoleManager.Instance.playerRoles == null) return;
+
+        bool needsSync = false;
+        foreach (var player in PlayerManager.Instance.players)
+        {
+            if (player == null) continue;
+            if (confirmedAssignedRoles.TryGetValue(player.playerID, out RoleType expectedRole))
+            {
+                if (player.roleType != expectedRole ||
+                    !RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role) ||
+                    role == null || role.roleType != expectedRole)
+                {
+                    Debug.LogWarning($"[ThuongRoleConfig] Phát hiện vai trò Player {player.playerID} bị ghi đè! Đang khôi phục về {expectedRole} theo cấu hình Host...");
+
+                    BaseRole restored = RoleCatalog.Create(expectedRole, player);
+                    player.roleType = expectedRole;
+                    player.faction = restored.faction;
+                    if (RoleManager.Instance.roleDefinitions != null)
+                    {
+                        player.roleDefinition = RoleManager.Instance.roleDefinitions.Find(expectedRole);
+                    }
+                    player.NotifyChanged();
+
+                    RoleManager.Instance.playerRoles[player.playerID] = restored;
+                    restored.OnGameStart();
+                    needsSync = true;
+                }
+            }
+        }
+
+        if (needsSync)
+        {
+            NetworkRoleSync.SyncAllRoleSyncs();
         }
     }
 
@@ -533,7 +606,6 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     /// </summary>
     private void RestructureLobbyBottomButtons(Transform card)
     {
-        // Tìm các nút gốc của Thương
         var mapBtn = card.Find("Map settings button")?.GetComponent<RectTransform>();
         var rulesBtn = card.Find("Room rules button")?.GetComponent<RectTransform>();
         var guideBtn = card.Find("New player guide")?.GetComponent<RectTransform>();
@@ -554,7 +626,6 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         }
         else
         {
-            // Cập nhật nhãn nút nếu quyền thay đổi
             var tmp = injectedLobbyButton.GetComponentInChildren<TMP_Text>();
             if (tmp != null && tmp.text != roleBtnLabel)
             {
@@ -619,6 +690,14 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
                 roleImg.color = new Color(0.46f, 0.32f, 0.15f, 1f);
             }
 
+            // Hook vào nút Phân vai để đặt GameRoleManager về phase Setup trước khi BeginGame
+            var btnComponent = roleBtn.GetComponent<Button>();
+            if (btnComponent != null && interceptedRoleButton != btnComponent)
+            {
+                interceptedRoleButton = btnComponent;
+                btnComponent.onClick.AddListener(HandleLobbyRoleButtonClick);
+            }
+
             EnsureRoleGuardOverlay(roleBtn);
         }
 
@@ -637,12 +716,20 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
             leaveBtn.offsetMin = leaveBtn.offsetMax = Vector2.zero;
             OptimizeButtonText(leaveBtn);
 
-            // Nổi bật nút RỜI PHÒNG với tông màu đỏ vang trầm để phân biệt rõ ràng
             var leaveImg = leaveBtn.GetComponent<Image>();
             if (leaveImg != null)
             {
                 leaveImg.color = new Color(0.42f, 0.18f, 0.16f, 1f);
             }
+        }
+    }
+
+    private void HandleLobbyRoleButtonClick()
+    {
+        // Khi Host click Phân vai, luôn đảm bảo GameRoleManager ở Setup phase để kích hoạt PhaseChanged khi BeginGame
+        if (GameRoleManager.Instance != null)
+        {
+            GameRoleManager.Instance.currentPhase = GamePhase.Setup;
         }
     }
 
@@ -677,7 +764,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         rect.offsetMax = Vector2.zero;
 
         var img = overlayGo.GetComponent<Image>();
-        img.color = Color.clear; // Trong suốt
+        img.color = Color.clear;
         img.raycastTarget = true;
 
         var btn = overlayGo.GetComponent<Button>();
@@ -702,7 +789,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         int totalRoles = GetTotalRoleAmount();
         int playerCount = GetCurrentPlayerCount();
 
-        // Nếu Host đã tùy chỉnh cấu hình mà tổng vai trò lệch so với sĩ số -> Bật overlay chặn phân vai
+        // Chặn phân vai nếu tổng số lượng vai trò không khớp sĩ số
         bool shouldBlock = isCustomized && (totalRoles != playerCount);
         if (roleGuardOverlay.activeSelf != shouldBlock)
         {
@@ -749,7 +836,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         rect.offsetMax = Vector2.zero;
 
         var img = go.GetComponent<Image>();
-        img.color = new Color(0.24f, 0.36f, 0.22f, 1f); // Xanh rêu nổi bật cho nút CHỈNH VAI TRÒ
+        img.color = new Color(0.24f, 0.36f, 0.22f, 1f);
         ThuongMedievalTheme.Active?.StylePanel(img, name);
 
         var btn = go.GetComponent<Button>();
@@ -805,8 +892,8 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
 
     private void HandlePhaseChanged(GamePhase previous, GamePhase next)
     {
-        // Khi game bắt đầu từ Setup chuyển sang RoleReveal
-        if (previous == GamePhase.Setup && next == GamePhase.RoleReveal)
+        // Khi game bắt đầu chuyển sang RoleReveal
+        if (next == GamePhase.RoleReveal)
         {
             bool isServer = NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsServer;
             if (isServer)
@@ -842,25 +929,40 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         List<RoleAmountData> roleSetup = NetworkGameRoleSetup.GetRoles();
         if (roleSetup == null || roleSetup.Count == 0) return false;
 
-        int totalRoles = 0;
+        var validPlayers = pm.players.Where(p => p != null && p.isAlive).ToList();
+        validPlayers.Sort((a, b) => a.playerID.CompareTo(b.playerID));
+
+        if (validPlayers.Count == 0) return false;
+
+        // Tạo pool vai trò chính xác theo cấu hình Host
         List<RoleType> rolePool = new List<RoleType>();
         foreach (var data in roleSetup)
         {
             if (data.Amount <= 0) continue;
-            totalRoles += data.Amount;
             for (int i = 0; i < data.Amount; i++)
             {
                 rolePool.Add(data.Role);
             }
         }
 
-        var validPlayers = pm.players.Where(p => p != null && p.isAlive).ToList();
-        validPlayers.Sort((a, b) => a.playerID.CompareTo(b.playerID));
-
-        if (totalRoles != validPlayers.Count)
+        // Đảm bảo sĩ số vai trò khớp với số người chơi:
+        // Nếu Host chọn ít hơn số người chơi thực tế -> bổ sung Dân làng (Villager), TUYỆT ĐỐI không tự ý sinh vai trò đặc biệt như Shaman!
+        while (rolePool.Count < validPlayers.Count)
         {
-            Debug.LogWarning($"[ThuongRoleConfig] Số vai trò cấu hình ({totalRoles}) khác số người chơi thực tế ({validPlayers.Count}). Bỏ qua override vai trò tùy chỉnh.");
-            return false;
+            rolePool.Add(RoleType.Villager);
+        }
+        // Nếu rolePool nhiều hơn số người chơi thực tế -> tỉa bớt Dân làng trước
+        while (rolePool.Count > validPlayers.Count)
+        {
+            int villagerIndex = rolePool.LastIndexOf(RoleType.Villager);
+            if (villagerIndex >= 0)
+            {
+                rolePool.RemoveAt(villagerIndex);
+            }
+            else
+            {
+                rolePool.RemoveAt(rolePool.Count - 1);
+            }
         }
 
         // Shuffle ngẫu nhiên người nhận vai trò bằng thuật toán Fisher-Yates
@@ -876,6 +978,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         // Xóa danh sách role cũ trong RoleManager để gán danh sách mới
         rm.playerRoles ??= new Dictionary<int, BaseRole>();
         rm.playerRoles.Clear();
+        confirmedAssignedRoles.Clear();
 
         // Gán từng vai trò theo cấu hình Host cho từng người chơi bằng API công khai
         for (int i = 0; i < validPlayers.Count; i++)
@@ -915,7 +1018,10 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
             rm.playerRoles[player.playerID] = role;
             role.OnGameStart();
 
-            Debug.Log($"[ThuongRoleConfig] Đã gán vai trò tùy chỉnh: Player {player.playerID} ({player.playerName}) -> {roleType} ({role.faction})");
+            // Lưu vào danh sách xác nhận để khóa vai trò chống ghi đè
+            confirmedAssignedRoles[player.playerID] = roleType;
+
+            Debug.Log($"[ThuongRoleConfig] ĐÃ GÁN VAI TRÒ CHÍNH THỨC: Player {player.playerID} ({player.playerName}) -> {roleType} ({role.faction})");
         }
 
         // Đồng bộ mạng RoleSync cho scene nếu có
@@ -935,7 +1041,9 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         configRevision = 0;
         injectedLobbyButton = null;
         roleGuardOverlay = null;
+        interceptedRoleButton = null;
         lastObservedPlayerCount = 0;
+        confirmedAssignedRoles.Clear();
         NetworkGameRoleSetup.Clear();
         InitializeDefaults(GetCurrentPlayerCount());
         ThuongOnlineRoleConfigDialog.HideDialog();
