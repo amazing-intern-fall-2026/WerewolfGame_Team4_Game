@@ -30,6 +30,13 @@ public class NetworkRoleManager : NetworkBehaviour
         if (rolesAssigned)
             return;
 
+        if (NetworkGameRoleSetup.HasSetup())
+        {
+            Debug.Log("ROLE MANAGER: Đã có Lobby Role Setup (NetworkGameRoleSetup). Bỏ qua chia Role mặc định.");
+            rolesAssigned = true;
+            return;
+        }
+
         List<PlayerController> players =
             new List<PlayerController>();
 

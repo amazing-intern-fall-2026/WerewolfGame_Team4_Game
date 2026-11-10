@@ -222,6 +222,37 @@ public static class ThuongOnlineRoleConfigTestExecution
                     FailCount++;
                     Log("  [FAIL] Test 5 thất bại: Role trên Host hoặc Client không hợp lệ.");
                 }
+
+                // ----------------------------------------------------
+                // TEST 6: BẢO VỆ CHỐNG GHI ĐÈ (ANTI-OVERWRITE / BALANCEOPENINGROLES INTERCEPTION)
+                // ----------------------------------------------------
+                Log("\n>>> [TEST 6] KIỂM TRA BẢO VỆ TOÀN VẸN VAI TRÒ CHỐNG GHI ĐÈ NGOẠI VI <<<");
+                PlayerData wolfPlayer = pm.players.FirstOrDefault(p => p.roleType == RoleType.DogSpirit);
+                if (wolfPlayer != null)
+                {
+                    // Giả lập cơ chế ngoài (như BalanceOnlineOpeningRoles) cố ép Sói thành Dân làng
+                    wolfPlayer.roleType = RoleType.Villager;
+                    wolfPlayer.NotifyChanged(); // Kích hoạt sự kiện công khai
+
+                    // Kiểm tra cơ chế tự phục hồi ngay lập tức
+                    if (wolfPlayer.roleType == RoleType.DogSpirit &&
+                        rm.playerRoles.ContainsKey(wolfPlayer.playerID) &&
+                        rm.playerRoles[wolfPlayer.playerID].roleType == RoleType.DogSpirit)
+                    {
+                        PassCount++;
+                        Log($"  [PASS] Test 6: Ngăn chặn ghi đè thành công! Khi hệ thống ngoài cố tình đổi Player {wolfPlayer.playerID} thành Villager, cơ chế đã lập tức phục hồi về DogSpirit.");
+                    }
+                    else
+                    {
+                        FailCount++;
+                        Log($"  [FAIL] Test 6 thất bại: Vai trò bị ghi đè thành {wolfPlayer.roleType}!");
+                    }
+                }
+                else
+                {
+                    FailCount++;
+                    Log("  [FAIL] Test 6 thất bại: Không tìm thấy người chơi DogSpirit để thử nghiệm.");
+                }
             }
             finally
             {
@@ -230,7 +261,7 @@ public static class ThuongOnlineRoleConfigTestExecution
             }
 
             Log("\n================================================================================");
-            Log($"TỔNG KẾT: ĐẠT {PassCount}/5 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
+            Log($"TỔNG KẾT: ĐẠT {PassCount}/6 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
             Log("================================================================================");
         }
         catch (Exception ex)
