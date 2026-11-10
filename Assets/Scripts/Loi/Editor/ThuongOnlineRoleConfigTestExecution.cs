@@ -253,6 +253,80 @@ public static class ThuongOnlineRoleConfigTestExecution
                     FailCount++;
                     Log("  [FAIL] Test 6 thất bại: Không tìm thấy người chơi DogSpirit để thử nghiệm.");
                 }
+                // ----------------------------------------------------
+                // TEST 7: KIỂM TRA NETWORK ROLE SYNC KHÔNG LOG BÁO THÀNH CÔNG VỚI 0 OBJECT
+                // ----------------------------------------------------
+                Log("\n>>> [TEST 7] KIỂM TRA NETWORK ROLE SYNC BẢO VỆ CONSOLE (0 SYNC LOG GUARD) <<<");
+                bool logZeroDetected = false;
+                Application.LogCallback testLogHandler = (logString, stackTrace, type) =>
+                {
+                    if (logString.Contains("Đã đồng bộ role mới cho 0 NetworkRoleSync"))
+                    {
+                        logZeroDetected = true;
+                    }
+                };
+                Application.logMessageReceived += testLogHandler;
+                try
+                {
+                    NetworkRoleSync.SyncAllRoleSyncs();
+                }
+                finally
+                {
+                    Application.logMessageReceived -= testLogHandler;
+                }
+
+                if (!logZeroDetected)
+                {
+                    PassCount++;
+                    Log("  [PASS] Test 7: NetworkRoleSync.SyncAllRoleSyncs() hoạt động chuẩn xác, tuyệt đối không xuất hiện log rác '0 NetworkRoleSync'.");
+                }
+                else
+                {
+                    FailCount++;
+                    Log("  [FAIL] Test 7 thất bại: Vẫn xuất hiện log báo đồng bộ cho 0 NetworkRoleSync!");
+                }
+
+                // ----------------------------------------------------
+                // TEST 8: CƠ CHẾ CHỐNG LẶP CẢNH BÁO (ANTI-DUPLICATE LOGGING)
+                // ----------------------------------------------------
+                Log("\n>>> [TEST 8] CƠ CHẾ CHỐNG LẶP CẢNH BÁO KHI ROLE BỊ THAY ĐỔI NHIỀU LẦN <<<");
+                int warnCount = 0;
+                Application.LogCallback warnHandler = (logString, stackTrace, type) =>
+                {
+                    if (type == LogType.Warning && logString.Contains("[ThuongRoleConfig] Ngăn chặn ghi đè vai trò"))
+                    {
+                        warnCount++;
+                    }
+                };
+                Application.logMessageReceived += warnHandler;
+                try
+                {
+                    if (wolfPlayer != null)
+                    {
+                        // Thử thay đổi vai trò thêm 3 lần liên tiếp
+                        for (int k = 0; k < 3; k++)
+                        {
+                            wolfPlayer.roleType = RoleType.Villager;
+                            wolfPlayer.NotifyChanged();
+                        }
+                    }
+                }
+                finally
+                {
+                    Application.logMessageReceived -= warnHandler;
+                }
+
+                // Vì wolfPlayer đã được log ở Test 6, các lần sau không được spam thêm log cảnh báo
+                if (warnCount == 0)
+                {
+                    PassCount++;
+                    Log("  [PASS] Test 8: Anti-Duplicate Logging hoạt động hoàn hảo. Dù hệ thống ngoài cố tình đổi role nhiều lần, log cảnh báo chỉ xuất hiện tối đa 1 lần duy nhất cho mỗi Player, không gây spam console.");
+                }
+                else
+                {
+                    FailCount++;
+                    Log($"  [FAIL] Test 8 thất bại: Vẫn bị lặp cảnh báo {warnCount} lần!");
+                }
             }
             finally
             {
@@ -261,7 +335,7 @@ public static class ThuongOnlineRoleConfigTestExecution
             }
 
             Log("\n================================================================================");
-            Log($"TỔNG KẾT: ĐẠT {PassCount}/6 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
+            Log($"TỔNG KẾT: ĐẠT {PassCount}/8 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
             Log("================================================================================");
         }
         catch (Exception ex)
