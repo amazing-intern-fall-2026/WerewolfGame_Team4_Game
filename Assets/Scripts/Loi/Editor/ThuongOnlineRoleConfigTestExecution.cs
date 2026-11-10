@@ -327,6 +327,36 @@ public static class ThuongOnlineRoleConfigTestExecution
                     FailCount++;
                     Log($"  [FAIL] Test 8 thất bại: Vẫn bị lặp cảnh báo {warnCount} lần!");
                 }
+
+                // ----------------------------------------------------
+                // TEST 9: KIỂM TRA DoesCurrentPlayersMatchHostConfig CHẶN SHAMAN / CURSED
+                // ----------------------------------------------------
+                Log("\n>>> [TEST 9] KIỂM TRA DoesCurrentPlayersMatchHostConfig NGĂN CHẶN SHAMAN / CURSED <<<");
+                adapter.HostSaveConfig(config1); // 2 DogSpirit, 1 Seer, 1 Guardian, 1 Hunter, 3 Villager, 0 Shaman, 0 Cursed
+                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42);
+
+                bool initialMatches = ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
+                
+                // Giả lập hệ thống mặc định gán Shaman cho Player 0 và Cursed cho Player 3
+                pm.players[0].roleType = RoleType.Shaman;
+                pm.players[3].roleType = RoleType.Cursed;
+                bool corruptedDetected = !ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
+
+                // Khôi phục chuẩn theo cấu hình Host
+                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42);
+                bool restoredMatches = ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
+                bool zeroShamanCursed = !pm.players.Any(p => p.roleType == RoleType.Shaman || p.roleType == RoleType.Cursed);
+
+                if (initialMatches && corruptedDetected && restoredMatches && zeroShamanCursed)
+                {
+                    PassCount++;
+                    Log("  [PASS] Test 9: DoesCurrentPlayersMatchHostConfig nhận diện chính xác 100% khi có vai trò ngoài cấu hình (Shaman/Cursed). Sau khi áp dụng cấu hình Host, hoàn toàn không còn Shaman hoặc Cursed.");
+                }
+                else
+                {
+                    FailCount++;
+                    Log($"  [FAIL] Test 9 thất bại: initial={initialMatches}, detected={corruptedDetected}, restored={restoredMatches}, zeroRoles={zeroShamanCursed}");
+                }
             }
             finally
             {
@@ -335,7 +365,7 @@ public static class ThuongOnlineRoleConfigTestExecution
             }
 
             Log("\n================================================================================");
-            Log($"TỔNG KẾT: ĐẠT {PassCount}/8 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
+            Log($"TỔNG KẾT: ĐẠT {PassCount}/9 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
             Log("================================================================================");
         }
         catch (Exception ex)
