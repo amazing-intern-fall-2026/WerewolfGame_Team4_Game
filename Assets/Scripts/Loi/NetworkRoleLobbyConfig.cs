@@ -80,6 +80,13 @@ public class NetworkRoleLobbyConfig : NetworkBehaviour
 
     private void InitializeDefaultRoles()
     {
+        if (Thuong.Online.ThuongMainFlow.BelongsTo(NetworkManager) && NetworkGameRoleSetup.HasSetup())
+        {
+            roleAmounts.Clear();
+            foreach (var entry in NetworkGameRoleSetup.GetRoles()) roleAmounts.Add(entry);
+            hasCustomizedRoles = true;
+            return;
+        }
         int count = LobbyManager.CurrentPlayerCount;
         if (count > 0)
         {

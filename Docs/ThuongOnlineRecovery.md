@@ -4,21 +4,22 @@ Luồng áp dụng cho `Assets/Scenes/Thuong/OnlineSceneGamePlay.unity`. Giao di
 
 ## Vào Thương từ menu chính
 
-1. Đăng nhập hoặc chọn **Chơi ngay** ở MainMenu, rồi bấm **THƯƠNG ONLINE**.
-2. Chọn Host hoặc Join trong màn hình kết nối Thương. Có thể dùng địa chỉ LAN hoặc mã Relay.
-3. Bấm **RỜI PHÒNG** để về màn hình kết nối Thương, sau đó bấm **Về menu chính**.
+1. Đăng nhập hoặc chọn **Chơi ngay** ở MainMenu, tạo/vào phòng bằng giao diện chính.
+2. Chủ phòng bấm **TIẾP TỤC / CHỌN MAP**. Cả phòng chuyển sang Thương, giữ kết nối, tên và mã phòng; không Host/Join lần thứ hai.
+3. Chọn map, phân vai, xác nhận thẻ vai và Ready để bắt đầu. Cuối ván, chủ phòng bấm **VỀ LOBBY** để cả phòng về lobby chính và chơi tiếp.
+4. Bấm **RỜI PHÒNG** để đóng phiên và về MainMenu.
 
-Mã Thương thêm nút khi MainMenu được tải. Build Settings thêm scene Thương sau bốn scene hiện có. Thương thay NetworkManager lúc chuyển scene khi menu đang rảnh và dọn phiên riêng trước khi về MainMenu.
+Build Settings thêm scene Thương sau bốn scene hiện có. Khi đi từ lobby chính, Thương tiếp quản NetworkManager và transport đang dùng. Mở trực tiếp scene online vẫn có Host/Join riêng phục vụ phát triển. Chi tiết luồng chung và quyền chat/voice nằm trong `Docs/ThuongMainFlowCommunications.md`.
 
 ## Mất kết nối và trở lại ván
 
 - Trước phân vai, host bỏ người rớt mạng khỏi lobby. Sau phân vai, host giữ chỗ trong **60 giây**. Trong ván, đồng hồ vẫn chạy và các lượt hợp lệ đã gửi vẫn được xử lý theo luật của phase. Người rớt mạng vẫn có thể bị loại trong thời gian giữ chỗ.
 - Lượt minigame đang mở của người rớt mạng được hủy và giải phóng chỗ. Tiến độ đã ghi nhận, lượt kỹ năng đã dùng, phiếu và trạng thái nhân vật vẫn thuộc về đúng ID người chơi trên host.
-- Trên máy vừa rớt mạng, bấm **Kết nối lại**. LAN dùng lại địa chỉ và cổng, Relay dùng lại mã phòng. Host kiểm tra token giữ trong phiên Thương trên máy người chơi, rồi gắn kết nối mới vào ID cũ và gửi lại dữ liệu công khai, role riêng, luật phòng và tiến độ. Token giữ trong bộ nhớ nên phải thử lại từ cùng phiên game đang mở.
+- Trên máy vừa rớt mạng, bấm **Kết nối lại**. Luồng lobby chung dùng lại cấu hình transport ban đầu; luồng mở scene trực tiếp dùng lại địa chỉ/cổng LAN hoặc mã Relay. Host kiểm tra token giữ trong phiên Thương trên máy người chơi, rồi gắn kết nối mới vào ID cũ và gửi lại dữ liệu công khai, role riêng, luật phòng và tiến độ. Token giữ trong bộ nhớ nên phải thử lại từ cùng phiên game đang mở.
 - Nếu hết hạn ở màn phân vai, host mở lại lobby để những người còn lại phân vai lại. Nếu hết hạn trong ván, người đó bị loại với lý do mất kết nối và luật thắng/thua chạy tiếp. Nếu host đóng hoặc mất kết nối, các client mất phiên do host quản lý.
 - Nút **Rời phòng** gửi yêu cầu từ bỏ chỗ nếu còn kết nối. Khi đường truyền đã mất, host xử lý theo hạn giữ chỗ. Chơi lại sau khi ván kết thúc sẽ bỏ các chỗ đã mất kết nối.
 
-Host và client cần cùng bản `THUONG10|`. Roster `thuong.online.roster.v4` có cờ mất kết nối. Snapshot `thuong.online.snapshot.v8` đồng bộ mode và xác; gói trạng thái riêng `thuong.online.private.v4` không đổi. Token chỉ được gửi trong handshake và không nằm trong roster hay snapshot.
+Host và client cần cùng bản `THUONG11|`. Roster `thuong.online.roster.v4` có cờ mất kết nối. Snapshot `thuong.online.snapshot.v8` đồng bộ mode và xác; gói trạng thái riêng `thuong.online.private.v4` không đổi. Token chỉ được gửi riêng cho chủ sở hữu và trong yêu cầu reconnect, không nằm trong roster hay snapshot.
 
 ## Luồng lobby
 
@@ -38,7 +39,7 @@ Host và client cần cùng bản `THUONG10|`. Roster `thuong.online.roster.v4` 
 
 Log và ảnh kết quả được ghi vào `Logs/OnlineRecovery` trong dự án đang chạy bài kiểm tra. Chạy trong bản dự án riêng khi dự án chính đang được Unity mở.
 
-`ThuongRoomUpgradeOnlineChecks.Run` có thêm kịch bản rớt và nối lại trong phòng đầy, giữ tiến độ cá nhân, tiếp tục minigame của người khác, từ chối token sai và mở lại lobby khi hết hạn ở màn phân vai. Ca kiểm tra thủ công gồm chuyển MainMenu → Thương → MainMenu rồi vào luồng Lợi, thử mất mạng và hết hạn trong ván qua LAN, sau đó lặp lại reconnect Relay trên hai máy.
+`ThuongRoomUpgradeOnlineChecks.Run` có thêm kịch bản rớt và nối lại trong phòng đầy, giữ tiến độ cá nhân, tiếp tục minigame của người khác, từ chối token sai và mở lại lobby khi hết hạn ở màn phân vai. Ca kiểm tra thủ công gồm MainMenu → lobby chung → Thương → kết quả → lobby chung, thử mất mạng và hết hạn trong ván qua LAN, sau đó lặp lại reconnect Relay trên hai máy.
 
 ## Dấu vết phiên bản trước
 

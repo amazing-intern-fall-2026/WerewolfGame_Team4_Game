@@ -18,6 +18,7 @@ namespace Thuong.Online
         private Guid reconnectToken;
         private double reconnectOfferUntil;
         private bool clientUsedRelay, clientHadRoles, explicitLeave, relayOperation;
+        private bool hostSessionTerminated;
 
         private static byte[] ConnectionPayload(Guid token, string name, bool resume) =>
             Encoding.UTF8.GetBytes(BuildPrefix + (resume ? "R" : "J") + token.ToString("N") + (resume ? "" : name));
@@ -147,13 +148,60 @@ namespace Thuong.Online
 
         private void OfferReconnect()
         {
-            if (!explicitLeave && connected && clientHadRoles && reconnectToken != Guid.Empty && matchResult == null)
+            if (!explicitLeave && !hostSessionTerminated && connected && clientHadRoles && reconnectToken != Guid.Empty && matchResult == null)
                 reconnectOfferUntil = Time.realtimeSinceStartupAsDouble + ReconnectGraceSeconds;
+        }
+
+        public void HandleHostSessionTerminated(uint epoch)
+        {
+            if (network == null || network.IsServer || epoch != matchEpoch || hostSessionTerminated) return;
+            hostSessionTerminated = true;
+            reconnectOfferUntil = 0;
+            if (matchResult != null)
+            { status = "Chủ phòng đã rời. Kết quả ván vẫn được giữ lại."; return; }
+            LeaveToMainMenu();
+        }
+
+        public void LeaveToMainMenu()
+        {
+            if (IsMainFlowSession) { LeaveMainFlowRoom(); return; }
+            _ = LeaveStandaloneToMainMenu();
+        }
+
+        private async Task LeaveStandaloneToMainMenu()
+        {
+            if (busy || explicitLeave || leavingScene) return;
+            NotifyVoluntaryLeave();
+            if (network.IsServer) NetworkReturnToMenuController.BroadcastHostSessionTerminated(network, matchEpoch);
+            busy = explicitLeave = true; reconnectOfferUntil = 0;
+            try
+            {
+                await Task.Delay(200);
+                if (NetworkVoiceManager.Instance != null)
+                    await Task.WhenAny(NetworkVoiceManager.Instance.LeaveVoiceChannelAsync(), Task.Delay(3000));
+                await Task.WhenAny(CloseRelayMembership(), Task.Delay(3000));
+            }
+            catch (Exception error) { Debug.LogWarning("Rời phiên: " + error.Message); }
+            finally
+            {
+                if (this != null)
+                {
+                    if (network != null && !network.ShutdownInProgress) network.Shutdown();
+                    ThuongOnlineMenu.ReturnToMenu(this);
+                }
+            }
         }
 
         private void RetryConnection()
         {
             if (busy || network.IsListening || network.ShutdownInProgress || reconnectOfferUntil <= Time.realtimeSinceStartupAsDouble) return;
+            if (IsMainFlowSession)
+            {
+                busy = true;
+                network.NetworkConfig.ConnectionData = ConnectionPayload(reconnectToken, playerName, true);
+                if (!network.StartClient()) { busy = false; status = "Không thể kết nối lại vào phòng."; }
+                return;
+            }
             if (clientUsedRelay) _ = JoinRelayConnection(true);
             else StartLanClient(true);
         }

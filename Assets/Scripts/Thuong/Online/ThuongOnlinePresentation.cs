@@ -20,10 +20,19 @@ namespace Thuong.Online
         public bool ShowRoleCard => HasLocalRole && !matchStarted && localRoleCardOpen;
         public int LocalPlayerId => localPlayerId;
         public GameState VisibleState => visibleState;
+        public uint MatchEpoch => matchEpoch;
+        public bool OwnsNetwork(NetworkManager candidate) => network != null && network == candidate;
+        public int LocalConfirmedVoteTarget => HasLocalRole && (privateFlags & 2) != 0 ? localVotedTarget : -1;
+        public bool HasCompletedMatch => matchResult != null;
+        public bool CanConfigureRolePool => network != null && network.IsServer && network.IsListening &&
+            connected && !busy && !roomLocked && !rolesAssigned && !matchStarted;
+        public int ConnectedPlayerCount => network != null && network.IsServer
+            ? serverPlayers.Values.Count(member => !member.Offline) : lobby.Count(member => !member.Offline);
         public float PhaseTimeRemaining => visibleRemaining;
         public bool LocalVotedNoElimination => HasLocalRole && (privateFlags & 2) != 0 && localVotedTarget < 0;
-        public bool CanVoteNoElimination => HasLocalRole && visibleState == GameState.Voting &&
-            (privateFlags & 1) != 0 && (privateFlags & 2) == 0 && (privateFlags & 32) != 0;
+        public bool CanVoteNoElimination => connected && network != null && network.IsListening && matchStarted &&
+            HasLocalRole && visibleState == GameState.Voting && visiblePhase == GamePhase.Voting &&
+            (privateFlags & 1) != 0 && (privateFlags & 32) != 0;
         public string Feedback => (string.IsNullOrEmpty(localActionFeedback) ? status : localActionFeedback) +
             (string.IsNullOrEmpty(LocalStatusSummary) ? "" : "\n" + LocalStatusSummary);
         public bool HasReadRole => (privateFlags & 2048) != 0;
@@ -153,8 +162,7 @@ namespace Thuong.Online
 
         public bool CanVoteFor(int targetId)
         {
-            return HasLocalRole && visibleState == GameState.Voting &&
-                (privateFlags & 32) != 0 && (privateFlags & 2) == 0 &&
+            return CanVoteNoElimination && targetId != localPlayerId &&
                 publicPlayers.Any(item => item.PlayerId == targetId && item.Alive);
         }
 

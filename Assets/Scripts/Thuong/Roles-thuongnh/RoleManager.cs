@@ -8,6 +8,7 @@ public class RoleManager : MonoBehaviour
     public static RoleManager Instance;
     public ThuongRoleDefinitionCatalog roleDefinitions;
     [System.NonSerialized] public RoleType[] rolePoolOverride;
+    [System.NonSerialized] public List<RoleType> exactRolePoolOverride;
 
     [System.NonSerialized]
     public Dictionary<int, BaseRole> playerRoles = new Dictionary<int, BaseRole>();
@@ -53,10 +54,20 @@ public class RoleManager : MonoBehaviour
             return;
         }
 
+        List<RoleType> rolePool;
+        if (exactRolePoolOverride != null)
+        {
+            if (exactRolePoolOverride.Count != list.Count ||
+                exactRolePoolOverride.Exists(role => System.Array.IndexOf(RoleCatalog.AllConcreteRoles, role) < 0))
+            { Debug.LogError("Cấu hình vai trò không khớp danh sách người chơi."); return; }
+            rolePool = new List<RoleType>(exactRolePoolOverride);
+            var random = new System.Random(seed);
+            for (int i = rolePool.Count - 1; i > 0; i--)
+            { int j = random.Next(i + 1); (rolePool[i], rolePool[j]) = (rolePool[j], rolePool[i]); }
+        }
+        else rolePool = RolePoolBuilder.Build(list.Count, seed, rolePoolOverride);
         Shuffle(list, new System.Random(unchecked(seed ^ 0x5f3759df)));
         playerRoles.Clear();
-
-        List<RoleType> rolePool = RolePoolBuilder.Build(list.Count, seed, rolePoolOverride);
 
         for (int i = 0; i < list.Count; i++)
         {

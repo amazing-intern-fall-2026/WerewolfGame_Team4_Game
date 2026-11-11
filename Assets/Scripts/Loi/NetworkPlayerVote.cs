@@ -106,6 +106,7 @@ public class NetworkPlayerVote : NetworkBehaviour
     [ServerRpc]
     private void RequestVoteServerRpc(int targetID, ServerRpcParams rpcParams = default)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return;
         ulong senderClientId = rpcParams.Receive.SenderClientId;
         int voterID = (int)senderClientId;
 
@@ -247,6 +248,7 @@ public class NetworkPlayerVote : NetworkBehaviour
 
     public static bool RecordVote(int voterID, int targetID)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return false;
         int eligibleCount = GetEligibleVoterCount();
         if (voterID == targetID && eligibleCount > 1)
         {
@@ -325,6 +327,7 @@ public class NetworkPlayerVote : NetworkBehaviour
 
     public static void CheckAndResolveIfAllVoted()
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return;
         if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
             return;
 

@@ -54,7 +54,7 @@ Thiết lập được lưu trong phiên phòng, giữ qua nút chơi lại. Ch�
 - HUD chỉ dẫn ẩn khi ở lobby, đọc role, chết, chơi minigame, mở emote, họp hoặc kết thúc ván.
 - Chơi lại/rời phòng/đổi map xóa bảng task và đường dẫn cũ; cấu hình phòng vẫn giữ qua replay.
 
-Connection prefix hiện tại là **`THUONG10|`**. Host/client phải cùng bản build. Packet `thuong.online.room-state.v2` mang cấu hình mode và bảng nhiệm vụ kèm epoch/ngày/revision. Xem `Docs/ThuongOnlineRecovery.md` cho luồng kết nối lại.
+Connection prefix hiện tại là **`THUONG11|`**. Host/client phải cùng bản build. Packet `thuong.online.room-state.v2` mang cấu hình mode và bảng nhiệm vụ kèm epoch/ngày/revision. Xem `Docs/ThuongOnlineRecovery.md` cho luồng lobby chung và kết nối lại.
 
 Host kiểm tra bảng nhiệm vụ cùng nhịp snapshot. Khi dữ liệu đổi, host gộp thay đổi trong một nhịp gửi và gửi bản mới sau snapshot để client đã nhận đúng map và epoch. Phòng ổn định chỉ gửi bảng hiện tại cho người vừa vào. Mỗi client chỉ nhận cờ hoàn thành cá nhân của mình.
 

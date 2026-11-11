@@ -77,6 +77,11 @@ public class NetworkChatManager : NetworkBehaviour
     /// </summary>
     public void SendChatMessage(string rawText)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null)
+        {
+            Thuong.Online.ThuongOnlineSession.Active.SendChatText(rawText);
+            return;
+        }
         if (string.IsNullOrWhiteSpace(rawText))
             return;
 
@@ -117,6 +122,9 @@ public class NetworkChatManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void SendMessageServerRpc(string text, ServerRpcParams rpcParams = default)
     {
+        // Thuong uses server-validated, recipient-specific messages. This old
+        // broadcast endpoint must not bypass its life/phase rules.
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return;
         ulong senderClientId = rpcParams.Receive.SenderClientId;
 
         if (string.IsNullOrWhiteSpace(text))
@@ -192,11 +200,15 @@ public class NetworkChatManager : NetworkBehaviour
         OnChatMessageReceived?.Invoke(entry);
     }
 
+    internal void ReceiveThuongMessage(ChatMessageEntry entry) => AddMessageInternal(entry);
+
     /// <summary>
     /// Truy vấn tên hiển thị của người chơi dựa trên ClientId từ hệ thống mạng hiện có.
     /// </summary>
     public string ResolveSenderName(ulong clientId)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null)
+            return Thuong.Online.ThuongOnlineSession.Active.ChatPlayerName(clientId);
         // 1. Tìm thông qua NetworkManager ConnectedClients
         if (NetworkManager.Singleton != null &&
             NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) &&
@@ -238,6 +250,8 @@ public class NetworkChatManager : NetworkBehaviour
     /// </summary>
     public bool CanSendUnderCurrentRules(out string reason)
     {
+        var thuong = Thuong.Online.ThuongOnlineSession.Active;
+        if (thuong != null) { reason = thuong.ChatPermissionReason; return thuong.CanSendChat; }
         // Mặc định cho phép trao đổi tự do giữa Host và Client (chưa tự ý giới hạn theo phase)
         reason = string.Empty;
         return true;

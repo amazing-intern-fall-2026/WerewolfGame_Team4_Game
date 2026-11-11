@@ -83,6 +83,32 @@ public static class RoleCatalog
 
 public static class RolePoolBuilder
 {
+    public static bool TryBuildConfigured(int playerCount, IEnumerable<RoleAmountData> configuration,
+        ICollection<RoleType> allowedRoles, out List<RoleType> pool, out string error)
+    {
+        pool = new List<RoleType>(); error = string.Empty;
+        if (playerCount < 1 || playerCount > 25 || configuration == null)
+        { error = "Cần danh sách vai trò và sĩ số từ 1 đến 25 người."; return false; }
+        var seen = new HashSet<RoleType>();
+        foreach (var entry in configuration)
+        {
+            if (Array.IndexOf(RoleCatalog.AllConcreteRoles, entry.Role) < 0 || !seen.Add(entry.Role) ||
+                entry.Amount < 0 || entry.Amount > playerCount)
+            { error = "Danh sách vai trò hoặc số lượng không hợp lệ."; return false; }
+            if (entry.Amount > 0 && allowedRoles != null && !allowedRoles.Contains(entry.Role))
+            { error = $"Vai {entry.Role} chưa được hỗ trợ trong chế độ đã chọn."; return false; }
+            if (pool.Count + entry.Amount > playerCount)
+            { error = "Tổng số vai trò vượt quá số người trong phòng."; return false; }
+            for (int i = 0; i < entry.Amount; i++) pool.Add(entry.Role);
+        }
+        if (pool.Count != playerCount)
+        { error = $"Cần đúng {playerCount} vai trò, hiện có {pool.Count}."; return false; }
+        bool monster = pool.Exists(role => role == RoleType.DogSpirit || Array.IndexOf(RoleCatalog.MonsterSpecials, role) >= 0);
+        if (playerCount > 1 && (!monster || pool.TrueForAll(role => role == RoleType.DogSpirit || Array.IndexOf(RoleCatalog.MonsterSpecials, role) >= 0)))
+        { error = "Cần ít nhất một Ma sói và một người thuộc phe khác."; return false; }
+        return true;
+    }
+
     // A seed makes a draw reproducible in tests. In normal play Unity supplies it.
     public static List<RoleType> Build(int playerCount, int? seed = null, ICollection<RoleType> allowedRoles = null)
     {

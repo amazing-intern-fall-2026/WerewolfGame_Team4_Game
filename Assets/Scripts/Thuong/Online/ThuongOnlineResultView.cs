@@ -147,7 +147,7 @@ namespace Thuong.Online
                 () => showFinalVote = !showFinalVote);
             outcomeVoteButtonLabel = outcomeVoteButton.GetComponentInChildren<TMP_Text>();
             LobbyButton("Leave finished match", card, "RỜI PHÒNG", new Vector2(.69f, .035f), new Vector2(.95f, .115f), LeaveSession);
-            outcomeRestartButton = LobbyButton("Restart finished match", card, "CHƠI LẠI", new Vector2(.035f, .035f), new Vector2(.36f, .115f),
+            outcomeRestartButton = LobbyButton("Restart finished match", card, IsMainFlowSession ? "VỀ LOBBY" : "CHƠI LẠI", new Vector2(.035f, .035f), new Vector2(.36f, .115f),
                 () => RestartMatchInRoom());
             outcomeRestartHelp = LobbyText("Result help", card, "", new Vector2(.035f, .025f), new Vector2(.38f, .125f), 17);
             outcomeRestartHelp.textWrappingMode = TextWrappingModes.Normal;

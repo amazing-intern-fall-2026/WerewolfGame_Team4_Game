@@ -96,7 +96,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         }
 
         var go = new GameObject("[ThuongOnlineRoleConfigDialog]");
-        DontDestroyOnLoad(go);
+        if (Application.isPlaying) DontDestroyOnLoad(go);
         instance = go.AddComponent<ThuongOnlineRoleConfigDialog>();
         instance.BuildUI();
         go.SetActive(false);
@@ -407,6 +407,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
     private void RefreshRoleRow(RoleType role)
     {
+        bool supported = ThuongOnlineRoleConfigAdapter.Instance == null || ThuongOnlineRoleConfigAdapter.Instance.IsRoleSupported(role);
         int amount = draftRoleAmounts.TryGetValue(role, out int val) ? val : 0;
         if (roleAmountLabels.TryGetValue(role, out TMP_Text label))
         {
@@ -441,7 +442,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         if (rolePlusButtons.TryGetValue(role, out Button plusBtn))
         {
             plusBtn.gameObject.SetActive(isHostMode);
-            plusBtn.interactable = isHostMode && GetTotalDraftRoles() < 25;
+            plusBtn.interactable = isHostMode && supported && GetTotalDraftRoles() < 25;
         }
     }
 
@@ -460,8 +461,12 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
         if (statusSummaryText != null)
         {
-            statusSummaryText.text = $"Tổng số vai trò đã chọn: <b><color=#FFF080>{totalRoles}</color></b>   |   Số người chơi trong phòng: <b><color=#80D0FF>{players}</color></b>";
+            statusSummaryText.text = $"Tổng số vai trò đã chọn: <b><color=#FFF080>{totalRoles}</color></b>   |   Số người chơi trong phòng: <b><color=#80D0FF>{players}</color></b>\nVai được phân ngẫu nhiên, không theo vị trí trong danh sách.";
         }
+
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+        if (adapter != null && !adapter.ValidateConfiguration(draftRoleAmounts, out string configurationError))
+        { SetWarningBanner(configurationError, false); if (saveButton != null) saveButton.interactable = false; return; }
 
         if (totalRoles == players)
         {
@@ -528,7 +533,8 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
     {
         if (!isHostMode) return;
 
-        var defaultDict = ThuongOnlineRoleConfigAdapter.GetDefaultRolesForPlayerCount(currentPlayerCount);
+        var defaultDict = ThuongOnlineRoleConfigAdapter.DefaultRolesForRoom(currentPlayerCount,
+            Thuong.Online.ThuongOnlineSession.Active?.RoomRules ?? new Thuong.Online.ThuongRoomRules());
         draftRoleAmounts.Clear();
         foreach (RoleType role in RoleCatalog.AllConcreteRoles)
         {
@@ -542,6 +548,14 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
     private void OnSaveClicked()
     {
         if (!isHostMode) return;
+        var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+        if (adapter != null)
+        {
+            if (!adapter.CanEdit) { SetWarningBanner("Đã khóa cấu hình sau khi phân vai.", false); return; }
+            currentPlayerCount = adapter.GetCurrentPlayerCount();
+            if (!adapter.ValidateConfiguration(draftRoleAmounts, out string error))
+            { SetWarningBanner(error, false); return; }
+        }
 
         int totalRoles = GetTotalDraftRoles();
         if (totalRoles != currentPlayerCount)
@@ -569,6 +583,14 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
     {
         if (shadeRoot != null && shadeRoot.activeSelf)
         {
+            var adapter = ThuongOnlineRoleConfigAdapter.Instance;
+            if (adapter != null)
+            {
+                currentPlayerCount = adapter.GetCurrentPlayerCount();
+                if (isHostMode && !adapter.CanEdit)
+                { isHostMode = false; if (saveButton != null) saveButton.gameObject.SetActive(false); if (defaultButton != null) defaultButton.gameObject.SetActive(false); }
+                RefreshAllRows(); RefreshSummaryAndValidation();
+            }
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 HideDialog();

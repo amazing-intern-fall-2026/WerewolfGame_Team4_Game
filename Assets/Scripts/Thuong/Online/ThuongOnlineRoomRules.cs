@@ -28,6 +28,8 @@ namespace Thuong.Online
         private ushort personalTaskMask;
         private int taskBoardDay;
         public ThuongRoomRules RoomRules => roomRules.Copy();
+        public RoleType[] ConfigurableRoleTypes => roomRules.mode == ThuongMatchMode.RealtimeProximity
+            ? new ThuongRoomRules { preset = ThuongRolePreset.Basic }.AllowedRoles : RoleCatalog.AllConcreteRoles;
 
         private bool CanConfigureRules => network != null && (!network.IsListening || network.IsServer) &&
             !busy && !roomLocked && !rolesAssigned && !matchStarted;
@@ -35,6 +37,10 @@ namespace Thuong.Online
         private bool SetRoomRules(ThuongRoomRules candidate)
         {
             if (!CanConfigureRules || candidate == null || !candidate.IsValid) return false;
+            if (candidate.mode == ThuongMatchMode.RealtimeProximity && NetworkGameRoleSetup.HasSetup() &&
+                !RolePoolBuilder.TryBuildConfigured(ConnectedPlayerCount, NetworkGameRoleSetup.GetRoles(),
+                    new ThuongRoomRules { preset = ThuongRolePreset.Basic }.AllowedRoles, out _, out string error))
+            { status = error + " Hãy chỉnh vai trò trước khi đổi chế độ."; return false; }
             roomRules = candidate.Copy(); rulesRevision++;
             foreach (var member in serverPlayers.Values) member.Ready = false;
             rosterDirty = true;

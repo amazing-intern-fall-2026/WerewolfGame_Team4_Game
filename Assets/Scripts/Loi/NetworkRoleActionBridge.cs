@@ -244,6 +244,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
     private void Update()
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return;
         NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
 
         if (NetworkManager.Singleton == null)
@@ -441,6 +442,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
     public void TryApplyLobbyRoles(int? seed = null)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active != null) return;
         if (!NetworkGameRoleSetup.HasSetup())
             return;
 

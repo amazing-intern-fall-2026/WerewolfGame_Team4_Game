@@ -21,7 +21,7 @@ public sealed class ThuongTopDownCamera : MonoBehaviour
     }
     private void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame) overview = !overview;
+        if (NetworkChatUI.Instance?.IsInputFocused != true && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame) overview = !overview;
     }
     private void LateUpdate() => Refresh(false);
     public void Refresh(bool snap)

@@ -24,6 +24,11 @@ public class LobbyManager : NetworkBehaviour
     private NetworkList<PlayerLobbyData> players;
     private NetworkRoleLobbyConfig roleLobbyConfig;
 
+    [Header("Gameplay")]
+    [SerializeField] private bool useThuongGameplay = true;
+    private bool loadingGameplay;
+    public bool UsesThuongGameplay => useThuongGameplay;
+
     // Mã phòng 6 chữ số — Host đồng bộ cho mọi Client
     private NetworkVariable<FixedString64Bytes> roomCodeNetwork =
         new NetworkVariable<FixedString64Bytes>(
@@ -84,6 +89,7 @@ public class LobbyManager : NetworkBehaviour
         if (IsServer)
         {
             NetworkGamePlayerNameSetup.Clear();
+            Thuong.Online.ThuongMainFlow.RestoreLobbyNames(NetworkManager);
             NetworkGameManager.LeftPlayerClientIds.Clear();
 
             // Khởi tạo Room Code 6 chữ số
@@ -171,6 +177,9 @@ public class LobbyManager : NetworkBehaviour
 
         ulong localId = NetworkManager.Singleton.LocalClientId;
         string defaultName = "Player " + (localId + 1);
+        string previousName = Thuong.Online.ThuongMainFlow.PlayerName(localId);
+        if (!string.IsNullOrWhiteSpace(previousName)) defaultName = previousName;
+        else if (AuthManager.Instance.IsSignedIn) defaultName = AuthManager.Instance.CurrentUsername;
 
         if (playerNameInput != null)
         {
@@ -564,10 +573,18 @@ public class LobbyManager : NetworkBehaviour
             return;
 
         startGameButton.SetActive(IsServer);
+        var button = startGameButton.GetComponent<Button>();
+        if (button != null) button.interactable = !loadingGameplay;
+        if (useThuongGameplay)
+        {
+            var label = startGameButton.GetComponentInChildren<TMP_Text>();
+            if (label != null) label.text = "TIẾP TỤC / CHỌN MAP";
+        }
     }
 
     public void StartGame()
     {
+        if (loadingGameplay) return;
         if (!IsServer)
         {
             Debug.LogWarning("Chỉ Host mới được Start Game!");
@@ -618,6 +635,12 @@ public class LobbyManager : NetworkBehaviour
 
         // 3. Thiết lập danh sách người chơi chính thức cho ván đấu
         NetworkGamePlayerSetup.SetActiveMatchClientIds(lobbyClientIds);
+
+        if (useThuongGameplay)
+        {
+            StartThuongGameplay();
+            return;
+        }
 
         if (roleLobbyConfig == null)
             FindRoleLobbyConfig();
@@ -678,6 +701,44 @@ public class LobbyManager : NetworkBehaviour
             "Game",
             LoadSceneMode.Single
         );
+    }
+
+    private void StartThuongGameplay()
+    {
+        if (players.Count < 2 || players.Count > 25 || !NetworkManager.NetworkConfig.EnableSceneManagement ||
+            !Thuong.Online.ThuongMainFlow.GameplayAvailable)
+        {
+            Debug.LogWarning("Cần 2–25 người và scene Thương trong bản build để chọn map.");
+            return;
+        }
+        if (roleLobbyConfig == null) FindRoleLobbyConfig();
+        if (roleLobbyConfig != null && roleLobbyConfig.HasCustomizedRoles)
+        {
+            var selected = roleLobbyConfig.GetRoleAmounts();
+            if (!RolePoolBuilder.TryBuildConfigured(players.Count, selected, RoleCatalog.AllConcreteRoles, out _, out string error))
+            { Debug.LogWarning(error); return; }
+            NetworkGameRoleSetup.Save(selected);
+            ThuongOnlineRoleConfigAdapter.EnsureInstance();
+            ThuongOnlineRoleConfigAdapter.Instance.HostSaveConfig(selected.ToDictionary(entry => entry.Role, entry => entry.Amount));
+        }
+        var snapshot = new PlayerLobbyData[players.Count];
+        for (int i = 0; i < snapshot.Length; i++) snapshot[i] = players[i];
+        loadingGameplay = true;
+        UpdateStartButton();
+        PrepareThuongGameplayClientRpc(snapshot, roomCodeNetwork.Value);
+        var result = NetworkManager.SceneManager.LoadScene(Thuong.Online.ThuongOnlineBootstrap.SceneName, LoadSceneMode.Single);
+        if (result != SceneEventProgressStatus.Started)
+        {
+            loadingGameplay = false;
+            UpdateStartButton();
+            Debug.LogError("Không thể mở màn chọn map: " + result);
+        }
+    }
+
+    [ClientRpc]
+    private void PrepareThuongGameplayClientRpc(PlayerLobbyData[] snapshot, FixedString64Bytes code)
+    {
+        Thuong.Online.ThuongMainFlow.Capture(NetworkManager, snapshot, code.ToString());
     }
 
     // =========================================================
