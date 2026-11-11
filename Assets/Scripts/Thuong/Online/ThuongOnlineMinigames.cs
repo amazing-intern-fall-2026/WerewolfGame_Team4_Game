@@ -98,13 +98,15 @@ namespace Thuong.Online
                 game.currentState != GameState.Day || game.currentDay != day || tasks == null ||
                 players?.GetplayerByID(member.PlayerId)?.isAlive != true) return false;
             if (station < 0 || station >= stations.Length || station >= 16) return false;
+            if (VillageStationJammed(station)) { reason = "Trạm đang bị phá hoại. Tới điểm sửa để khắc phục."; return false; }
+            if (IsVillageChanneling(member.ClientId)) { reason = "Di chuyển để rời bảng điều khiển trước khi làm nhiệm vụ."; return false; }
             var target = stations[station];
             if (target == null || target.task == null || !tasks.currentTasks.Contains(target.task) || tasks.IsCompleted(target.task)) return false;
             if (tasks.Cooperative && tasks.HasContributed(member.PlayerId, target.task))
             { reason = "Bạn đã đóng góp nhiệm vụ này hôm nay. Hãy chọn nhiệm vụ khác."; return false; }
             if (Vector2.Distance(member.Position, target.transform.position) > target.interactionRadius + .25f)
             { reason = "Bạn đang đứng quá xa trạm nhiệm vụ."; return false; }
-            if (!Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, member.Position, target.transform.position))
+            if (!VillageHasLine(member.Position, target.transform.position))
             { reason = "Địa hình đang chắn trạm nhiệm vụ."; return false; }
             reason = null; return true;
         }
@@ -169,7 +171,12 @@ namespace Thuong.Online
                     minigameCatalog.Find(stations[state.stationId].task)?.taskId != state.taskId ||
                     !tasks.TryCompleteTask(member.PlayerId, stations[state.stationId].task))
                 { state.result = ThuongMinigameResult.Cancelled; state.message = "Lượt đã hết hiệu lực; không cộng tiến độ."; }
-                else state.message = "Hoàn thành nhiệm vụ!";
+                else
+                {
+                    state.message = "Hoàn thành nhiệm vụ!";
+                    AddJournal($"{VillageName(member.PlayerId)} hoàn thành {stations[state.stationId].task.taskName}.");
+                    GrantVillageReward(member.PlayerId);
+                }
             }
             if (state.result != ThuongMinigameResult.Playing) { member.Input = Vector2.zero; Reply(member, state.message); }
             SendMinigameState(owner, state);

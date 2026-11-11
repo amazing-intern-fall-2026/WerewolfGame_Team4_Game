@@ -72,14 +72,14 @@ namespace Thuong.Online
         {
             if (network == null || network.IsListening) return;
             network.NetworkConfig.ConnectionApproval = true;
-            network.NetworkConfig.ConnectionData = System.Text.Encoding.UTF8.GetBytes("THUONG11|lobby");
+            network.NetworkConfig.ConnectionData = System.Text.Encoding.UTF8.GetBytes(ThuongOnlineSession.BuildPrefix + "lobby");
             network.ConnectionApprovalCallback = ApproveLobby;
         }
 
         private static void ApproveLobby(NetworkManager.ConnectionApprovalRequest request,
             NetworkManager.ConnectionApprovalResponse response)
         {
-            response.Approved = System.Text.Encoding.UTF8.GetString(request.Payload ?? Array.Empty<byte>()) == "THUONG11|lobby";
+            response.Approved = System.Text.Encoding.UTF8.GetString(request.Payload ?? Array.Empty<byte>()) == ThuongOnlineSession.BuildPrefix + "lobby";
             response.CreatePlayerObject = response.Approved;
             response.Pending = false;
             if (!response.Approved) response.Reason = "Khác phiên bản. Hãy cập nhật bản game trước khi vào phòng.";

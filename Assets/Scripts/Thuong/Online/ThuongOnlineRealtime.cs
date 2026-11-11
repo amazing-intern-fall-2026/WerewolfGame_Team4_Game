@@ -78,7 +78,7 @@ namespace Thuong.Online
                 VictimId = victim.PlayerId,
                 Position = victim.Position
             });
-            SyncCorpseMarkers(onlineCorpses);
+            SyncCorpseMarkers(onlineCorpses.Where(corpse => CanObserveVillagePosition(localPlayerId, corpse.Position)).ToArray());
             nextSnapshotTime = 0;
         }
 
@@ -346,13 +346,15 @@ namespace Thuong.Online
             return true;
         }
 
-        private void WriteCorpseSnapshot(FastBufferWriter writer)
+        private void WriteCorpseSnapshot(FastBufferWriter writer, int observerId)
         {
-            int count = Mathf.Min(onlineCorpses.Count, MaxPlayers);
+            OnlineCorpse[] visible = onlineCorpses.Where(corpse => CanObserveVillagePosition(observerId, corpse.Position))
+                .Take(MaxPlayers).ToArray();
+            int count = visible.Length;
             writer.WriteValueSafe((byte)count);
             for (int i = 0; i < count; i++)
             {
-                OnlineCorpse corpse = onlineCorpses[i];
+                OnlineCorpse corpse = visible[i];
                 writer.WriteValueSafe(corpse.Id); writer.WriteValueSafe(corpse.VictimId);
                 writer.WriteValueSafe(corpse.Position.x); writer.WriteValueSafe(corpse.Position.y);
             }

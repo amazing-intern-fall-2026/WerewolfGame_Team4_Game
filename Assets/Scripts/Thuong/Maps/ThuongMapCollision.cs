@@ -10,7 +10,7 @@ namespace Thuong.Maps
         public static readonly Vector2 Offset = new(0, .12f);
         private const float Skin = .003f;
 
-        public static bool IsFree(ThuongMapDefinition map, Vector2 feet)
+        public static bool IsFree(ThuongMapDefinition map, Vector2 feet, Rect? barrier = null)
         {
             if (!float.IsFinite(feet.x) || !float.IsFinite(feet.y)) return false;
             Vector2 p = feet + Offset;
@@ -18,12 +18,13 @@ namespace Thuong.Maps
                 p.x + HalfSize.x > map.boundsMax.x || p.y + HalfSize.y > map.boundsMax.y) return false;
             foreach (Rect rect in map.obstacles)
                 if (Expand(rect).Contains(p)) return false;
+            if (barrier.HasValue && Expand(barrier.Value).Contains(p)) return false;
             return true;
         }
 
-        public static Vector2 Move(ThuongMapDefinition map, Vector2 feet, Vector2 displacement)
+        public static Vector2 Move(ThuongMapDefinition map, Vector2 feet, Vector2 displacement, Rect? barrier = null)
         {
-            if (!float.IsFinite(displacement.x) || !float.IsFinite(displacement.y) || !IsFree(map, feet)) return feet;
+            if (!float.IsFinite(displacement.x) || !float.IsFinite(displacement.y) || !IsFree(map, feet, barrier)) return feet;
             Vector2 center = feet + Offset;
             Vector2 end = center + displacement;
             end.x = Mathf.Clamp(end.x, map.boundsMin.x + HalfSize.x + Skin, map.boundsMax.x - HalfSize.x - Skin);
@@ -36,6 +37,8 @@ namespace Thuong.Maps
                 foreach (Rect obstacle in map.obstacles)
                     if (Sweep(center, remaining, Expand(obstacle), out float t, out Vector2 n) && t < nearest)
                     { nearest = t; normal = n; }
+                if (barrier.HasValue && Sweep(center, remaining, Expand(barrier.Value), out float barrierTime, out Vector2 barrierNormal) && barrierTime < nearest)
+                { nearest = barrierTime; normal = barrierNormal; }
                 if (normal == Vector2.zero) { center += remaining; break; }
                 float safe = Mathf.Max(0, nearest - Skin / Mathf.Max(remaining.magnitude, Skin));
                 center += remaining * safe;
@@ -43,11 +46,11 @@ namespace Thuong.Maps
                 remaining -= normal * Mathf.Min(0, Vector2.Dot(remaining, normal));
             }
             Vector2 result = center - Offset;
-            return IsFree(map, result) ? result : feet;
+            return IsFree(map, result, barrier) ? result : feet;
         }
 
-        public static bool HasLine(ThuongMapDefinition map, Vector2 from, Vector2 to)
-            => (Move(map, from, to - from) - to).sqrMagnitude < .0001f;
+        public static bool HasLine(ThuongMapDefinition map, Vector2 from, Vector2 to, Rect? barrier = null)
+            => (Move(map, from, to - from, barrier) - to).sqrMagnitude < .0001f;
 
         private static Rect Expand(Rect r) => Rect.MinMaxRect(r.xMin - HalfSize.x, r.yMin - HalfSize.y,
             r.xMax + HalfSize.x, r.yMax + HalfSize.y);

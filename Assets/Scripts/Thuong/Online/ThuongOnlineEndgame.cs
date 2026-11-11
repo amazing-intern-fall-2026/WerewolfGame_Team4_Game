@@ -142,6 +142,7 @@ namespace Thuong.Online
             privateFeedback.Clear();
             SendAllPrivateStates();
             BroadcastSnapshot();
+            PublishJournalAfterMatch();
         }
 
         private void BalanceOnlineOpeningRoles()

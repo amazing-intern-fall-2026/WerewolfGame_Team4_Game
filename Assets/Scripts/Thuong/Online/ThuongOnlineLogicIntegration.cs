@@ -141,6 +141,7 @@ namespace Thuong.Online
             }
             ResetEndgamePresentation(); ResetVotePresentation();
             ResetNotebook();
+            ResetVillageView(); ResetJournal();
         }
 
         public bool CanRestartMatch => network != null && network.IsServer && network.IsListening &&
@@ -162,6 +163,7 @@ namespace Thuong.Online
             ResetCorpseState();
             game.ResetForOnlineLobby();
             matchEpoch++;
+            ResetVillageRound();
             matchStarted = rolesAssigned = roomLocked = false;
             matchResult = null; privateStateReceived = false; privateFlags = 0;
             localRoleCardOpen = localRoleConfirmed = false;

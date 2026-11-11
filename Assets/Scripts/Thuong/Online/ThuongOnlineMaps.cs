@@ -12,7 +12,7 @@ namespace Thuong.Online
 {
     public sealed partial class ThuongOnlineSession
     {
-        private const string BuildPrefix = "THUONG11|";
+        internal const string BuildPrefix = "THUONG12|";
         private const string MapReadyMessage = "thuong.online.map-ready.v1";
         private ThuongMapCatalog mapCatalog;
         private ThuongMapRuntime mapRuntime;
@@ -62,6 +62,7 @@ namespace Thuong.Online
             ResetMinigames(); ResetTaskBoard(); eventPresentation.Clear();
             if (!mapRuntime.Bind(definition, out mapError)) { localMapReady = false; return false; }
             stations = mapRuntime.Stations;
+            BuildVillageLandmarks();
             tasks.allTasks = stations.Select(s => s.task).ToList();
             tasks.ResetForNewMatch();
             if (worldCamera != null)

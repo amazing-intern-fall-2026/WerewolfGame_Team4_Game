@@ -231,6 +231,7 @@ namespace Thuong.Online
                 : result.Message;
             voteTallies.Clear();
             foreach (var tally in result.Tallies) voteTallies[tally.Key] = tally.Value;
+            RecordJournalVoteResult(result);
             voteResultUntil = Time.unscaledTime + 10f;
             // The next snapshot includes this result even if the game has already changed phase.
             nextSnapshotTime = 0;

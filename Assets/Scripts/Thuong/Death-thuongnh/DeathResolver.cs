@@ -7,6 +7,7 @@ public class DeathResolver:MonoBehaviour
     public System.Collections.Generic.List<DeathCause> protectionBlocks = new() { DeathCause.Monster, DeathCause.Killer, DeathCause.Ability };
     public event System.Action<DeathResult> DeathResolved;
     public event System.Action DeathBatchResolved;
+    [System.NonSerialized] public System.Func<PlayerData, bool> ConsumeAdditionalProtection;
     private int batchDepth;
     private bool batchChanged;
     public System.IDisposable BeginBatch()
@@ -88,6 +89,10 @@ public class DeathResolver:MonoBehaviour
         {
             return Publish(request, DeathOutcome.Prevented, $"{target.DisplayName} được bùa mê bảo vệ.");
         }
+
+        if (!request.BypassProtection && protectionBlocks.Contains(cause) &&
+            ConsumeAdditionalProtection?.Invoke(target) == true)
+            return Publish(request, DeathOutcome.Prevented, $"{target.DisplayName} được bùa bảo vệ và sống sót.");
 
         if (target.roleType == RoleType.WhiteHound &&
             sourceRole == RoleType.DogSpirit && !target.isWhiteHoundAwakened)

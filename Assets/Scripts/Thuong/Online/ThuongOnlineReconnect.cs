@@ -89,6 +89,7 @@ namespace Thuong.Online
             member.Offline = true;
             member.MapReady = false;
             member.Input = Vector2.zero;
+            village.Release(member.PlayerId);
             double now = Time.realtimeSinceStartupAsDouble;
             member.ReconnectUntil = member.ReconnectToken == Guid.Empty ? now : now + ReconnectGraceSeconds;
             status = member.ReconnectToken == Guid.Empty ? $"{member.Name} đã rời phòng." :
