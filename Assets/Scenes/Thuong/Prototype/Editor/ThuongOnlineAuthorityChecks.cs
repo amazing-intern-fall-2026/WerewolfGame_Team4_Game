@@ -19,6 +19,7 @@ public static class ThuongOnlineAuthorityChecks
 
     public static void VerifyAndBuild()
     {
+        ThuongOnlineRoleConfigTestExecution.Run();
         Run();
         ThuongMainFlowChecks.VerifyAndBuild();
     }

@@ -475,30 +475,30 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
 
             if (wolves == 0)
             {
-                SetWarningBanner("⚠ Phải có ít nhất 1 vai trò thuộc phe Ma sói (Khuyển tinh) để bắt đầu!", false);
+                SetWarningBanner("[!] Phải có ít nhất 1 vai trò thuộc phe Ma sói (Khuyển tinh) để bắt đầu!", false);
                 if (saveButton != null) saveButton.interactable = false;
             }
             else if (villagers == 0)
             {
-                SetWarningBanner("⚠ Phải có ít nhất 1 vai trò thuộc phe Dân làng để bắt đầu!", false);
+                SetWarningBanner("[!] Phải có ít nhất 1 vai trò thuộc phe Dân làng để bắt đầu!", false);
                 if (saveButton != null) saveButton.interactable = false;
             }
             else
             {
-                SetWarningBanner($"✓ Cấu hình vai trò hợp lệ ({totalRoles}/{players} người). Sẵn sàng bắt đầu ván đấu!", true);
+                SetWarningBanner($"[OK] Cấu hình vai trò hợp lệ ({totalRoles}/{players} người). Sẵn sàng bắt đầu ván đấu!", true);
                 if (saveButton != null) saveButton.interactable = isHostMode;
             }
         }
         else if (totalRoles < players)
         {
             int missing = players - totalRoles;
-            SetWarningBanner($"⚠ Còn thiếu {missing} vai trò nữa mới đủ sĩ số phòng (Hiện tại: {totalRoles}/{players} người).", false);
+            SetWarningBanner($"[!] Còn thiếu {missing} vai trò nữa mới đủ sĩ số phòng (Hiện tại: {totalRoles}/{players} người).", false);
             if (saveButton != null) saveButton.interactable = false;
         }
         else
         {
             int excess = totalRoles - players;
-            SetWarningBanner($"⚠ Đang dư {excess} vai trò! Vui lòng bấm (−) để giảm bớt (Hiện tại: {totalRoles}/{players} người).", false);
+            SetWarningBanner($"[!] Đang dư {excess} vai trò! Vui lòng bấm (−) để giảm bớt (Hiện tại: {totalRoles}/{players} người).", false);
             if (saveButton != null) saveButton.interactable = false;
         }
     }

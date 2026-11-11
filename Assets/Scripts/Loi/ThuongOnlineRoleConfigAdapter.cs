@@ -252,13 +252,8 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         if (card == null) return;
         if (injectedLobbyButton == null)
         {
-            var map = card.Find("Map settings button") as RectTransform;
-            var rules = card.Find("Room rules button") as RectTransform;
-            if (map != null) { map.anchorMin = new Vector2(.025f, .035f); map.anchorMax = new Vector2(.098f, .12f); }
-            if (rules != null) { rules.anchorMin = new Vector2(.104f, .035f); rules.anchorMax = new Vector2(.179f, .12f); }
             injectedLobbyButton = new GameObject("Role config button", typeof(RectTransform), typeof(Image), typeof(Button));
             var rect = injectedLobbyButton.GetComponent<RectTransform>(); rect.SetParent(card, false);
-            rect.anchorMin = new Vector2(.185f, .035f); rect.anchorMax = new Vector2(.265f, .12f);
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             var image = injectedLobbyButton.GetComponent<Image>(); image.color = new Color(.42f, .28f, .16f);
             ThuongMedievalTheme.Active?.StylePanel(image, "Role config button");
@@ -272,9 +267,47 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
             text.color = ThuongMedievalTheme.Cream; ThuongMedievalTheme.Active?.StyleText(text);
         }
         injectedLobbyButton.GetComponentInChildren<TMP_Text>().text = CanEdit ? "CHỈNH VAI TRÒ" : "XEM VAI TRÒ";
+        // Preserve main's two-row layout without intercepting the session's buttons.
+        PositionLobbyButton(card, "Map settings button", 0, true);
+        PositionLobbyButton(card, "Room rules button", 1, true);
+        PositionLobbyButton(card, "Role config button", 2, true);
+        PositionLobbyButton(card, "New player guide", 3, true);
+        PositionLobbyButton(card, "Lobby Ready", 0, false);
+        PositionLobbyButton(card, "Lobby Role", 1, false);
+        PositionLobbyButton(card, "Lobby Start", 2, false);
+        PositionLobbyButton(card, "Leave lobby", 3, false);
+    }
+
+    private static void PositionLobbyButton(Transform card, string name, int column, bool upperRow)
+    {
+        var rect = card.Find(name) as RectTransform;
+        if (rect == null) return;
+        float x = .025f + column * .24f;
+        rect.anchorMin = new Vector2(x, upperRow ? .075f : .012f);
+        rect.anchorMax = new Vector2(column == 3 ? .975f : x + .22f, upperRow ? .13f : .067f);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        var text = rect.GetComponentInChildren<TMP_Text>();
+        if (text == null) return;
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 12; text.fontSizeMax = 18;
+        text.alignment = TextAlignmentOptions.Center;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
     }
 
     private void OpenRoleConfigUI() => ThuongOnlineRoleConfigDialog.ShowDialog(CanEdit, GetCurrentConfig(), GetCurrentPlayerCount(), HostSaveConfig);
+
+    public static bool DoesCurrentPlayersMatchHostConfig()
+    {
+        var players = PlayerManager.Instance?.players;
+        var roles = RoleManager.Instance?.playerRoles;
+        if (!NetworkGameRoleSetup.HasSetup() || players == null || roles == null ||
+            !RolePoolBuilder.TryBuildConfigured(players.Count, NetworkGameRoleSetup.GetRoles(),
+                RoleCatalog.AllConcreteRoles, out var pool, out _)) return false;
+        return roles.Count == players.Count && players.All(player => player != null &&
+            roles.TryGetValue(player.playerID, out var role) && role.owner == player && role.roleType == player.roleType) &&
+            RoleCatalog.AllConcreteRoles.All(role => players.Count(player => player.roleType == role) == pool.Count(value => value == role));
+    }
 
     // Compatibility for callers outside the online session. Online assignment has
     // a single owner and must never be repeated by a phase callback or coroutine.
