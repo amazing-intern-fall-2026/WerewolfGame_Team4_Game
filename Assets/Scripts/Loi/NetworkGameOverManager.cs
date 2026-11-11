@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -1592,6 +1593,12 @@ public class NetworkGameOverManager : MonoBehaviour
         var game = GameRoleManager.Instance;
         if (wcm == null || game == null) return;
 
+        // This evaluator belongs only to the Lợi gameplay scene. GameRoleManager
+        // is also used by Thương prototypes, so do not claim their shared
+        // WinConditionManager or change its elimination settings.
+        string gameplayScenePath = game.gameObject.scene.path;
+        if (!gameplayScenePath.StartsWith("Assets/Scenes/Loi/", StringComparison.Ordinal)) return;
+
         // Luôn đảm bảo useEliminationWin = false để tránh fallback lỗi của Thuong
         try
         {
@@ -1915,6 +1922,12 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnLeaveRoomClicked()
     {
         Debug.Log("GAME OVER | Người chơi bấm Rời phòng về MainMenu.");
+        if (NetworkReturnToMenuController.Instance != null)
+        {
+            NetworkReturnToMenuController.Instance.RequestReturnToMenu();
+            return;
+        }
+
         if (gameOverPanel != null) Destroy(gameOverPanel);
         if (dedicatedCanvasGO != null) Destroy(dedicatedCanvasGO);
         uiShown = false;

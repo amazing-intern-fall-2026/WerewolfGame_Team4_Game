@@ -40,6 +40,7 @@ namespace Thuong.Online
             if (lobbyCanvas == null) return;
             lobbyCanvas.enabled = visible;
             lobbyRaycaster.enabled = visible;
+            RefreshTutorialVisibility();
             if (!visible) return;
             RefreshMapSelector();
             RefreshRulesView();
@@ -174,17 +175,18 @@ namespace Thuong.Online
             scroll.verticalScrollbar = scrollbar;
 
             lobbyHintLabel = LobbyText("Lobby hint", card, "", new Vector2(.03f, .135f), new Vector2(.97f, .195f), 18);
-            lobbyReadyButton = LobbyButton("Lobby Ready", card, "READY / SẴN SÀNG", new Vector2(.285f, .035f), new Vector2(.465f, .12f), ToggleReady);
+            lobbyReadyButton = LobbyButton("Lobby Ready", card, "READY / SẴN SÀNG", new Vector2(.33f, .035f), new Vector2(.48f, .12f), ToggleReady);
             lobbyReadyLabel = lobbyReadyButton.GetComponentInChildren<TMP_Text>();
-            lobbyRoleButton = LobbyButton("Lobby Role", card, "PHÂN VAI", new Vector2(.485f, .035f), new Vector2(.665f, .12f), () =>
+            lobbyRoleButton = LobbyButton("Lobby Role", card, "PHÂN VAI", new Vector2(.49f, .035f), new Vector2(.64f, .12f), () =>
             {
                 if (rolesAssigned) ViewLocalRole(); else AssignLobbyRolesOnServer();
             });
             lobbyRoleLabel = lobbyRoleButton.GetComponentInChildren<TMP_Text>();
-            lobbyStartButton = LobbyButton("Lobby Start", card, "BẮT ĐẦU GAME", new Vector2(.685f, .035f), new Vector2(.825f, .12f), StartMatchOnServer);
-            LobbyButton("Leave lobby", card, "RỜI PHÒNG", new Vector2(.845f, .035f), new Vector2(.975f, .12f), LeaveSession);
-            mapSettingsButton = LobbyButton("Map settings button", card, "MAP", new Vector2(.025f, .035f), new Vector2(.14f, .12f), OpenMapSettings);
-            rulesSettingsButton = LobbyButton("Room rules button", card, "LUẬT VÁN", new Vector2(.15f, .035f), new Vector2(.265f, .12f), OpenRulesSettings);
+            lobbyStartButton = LobbyButton("Lobby Start", card, "BẮT ĐẦU", new Vector2(.65f, .035f), new Vector2(.81f, .12f), StartMatchOnServer);
+            LobbyButton("Leave lobby", card, "RỜI PHÒNG", new Vector2(.82f, .035f), new Vector2(.975f, .12f), LeaveSession);
+            mapSettingsButton = LobbyButton("Map settings button", card, "MAP", new Vector2(.025f, .035f), new Vector2(.115f, .12f), OpenMapSettings);
+            rulesSettingsButton = LobbyButton("Room rules button", card, "LUẬT VÁN", new Vector2(.12f, .035f), new Vector2(.215f, .12f), OpenRulesSettings);
+            LobbyButton("New player guide", card, "HƯỚNG DẪN", new Vector2(.22f, .035f), new Vector2(.325f, .12f), OpenLobbyTutorial);
         }
 
         private LobbyRow CreateLobbyRow(int playerId)

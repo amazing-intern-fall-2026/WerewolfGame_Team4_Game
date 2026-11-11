@@ -418,8 +418,10 @@ public class GameHUD : MonoBehaviour
             else if (!voter.isAlive) votingStatusText.text = "Bạn đã bị loại và không thể bỏ phiếu.";
             else if (!voter.CanVote) votingStatusText.text = "Bạn đang có CannotVote và không thể bỏ phiếu.";
             else if (voter.hasVoted)
-                votingStatusText.text = chosen >= 0 ? $"Đã chọn Player {chosen + 1}. Đang chờ kết quả." : "Đã bỏ phiếu. Đang chờ kết quả.";
-            else votingStatusText.text = $"Bạn là Player {localVoterID + 1}. Chọn một người còn sống.";
+                votingStatusText.text = VoteManager.Instance != null && VoteManager.Instance.VotedNoElimination(localVoterID)
+                    ? "Đã chọn Không loại ai. Đang chờ kết quả."
+                    : chosen >= 0 ? $"Đã chọn Player {chosen + 1}. Đang chờ kết quả." : "Đã bỏ phiếu. Đang chờ kết quả.";
+            else votingStatusText.text = $"Bạn là Player {localVoterID + 1}. Chọn người chơi hoặc Không loại ai.";
         }
         bool ended = game.currentState == GameState.GameOver;
         if (resultPanel != null) resultPanel.SetActive(ended);

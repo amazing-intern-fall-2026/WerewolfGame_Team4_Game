@@ -85,14 +85,20 @@ public class NetworkVoteUI : MonoBehaviour
     {
         NetworkPlayerNameSync.OnAnyPlayerNameChanged += OnPlayerNameChanged;
         NetworkPlayerVote.OnLocalVoteConfirmed += OnLocalVoteConfirmed;
+        NetworkPlayerVote.OnLocalVoteRejected += OnLocalVoteRejected;
         NetworkPlayerVote.OnVotesReset += OnVotesReset;
+        NetworkPlayerVote.OnVotingLocked += OnVotingLocked;
+        NetworkPlayerVote.OnVoteRefunded += OnVoteRefunded;
     }
 
     private void OnDisable()
     {
         NetworkPlayerNameSync.OnAnyPlayerNameChanged -= OnPlayerNameChanged;
         NetworkPlayerVote.OnLocalVoteConfirmed -= OnLocalVoteConfirmed;
+        NetworkPlayerVote.OnLocalVoteRejected -= OnLocalVoteRejected;
         NetworkPlayerVote.OnVotesReset -= OnVotesReset;
+        NetworkPlayerVote.OnVotingLocked -= OnVotingLocked;
+        NetworkPlayerVote.OnVoteRefunded -= OnVoteRefunded;
     }
 
     private void EnsureUIReferences()
@@ -343,6 +349,10 @@ public class NetworkVoteUI : MonoBehaviour
 
     private void OnLocalVoteConfirmed(int voterId, int targetId)
     {
+        int localPlayerID = GetLocalPlayerID();
+        if (voterId != localPlayerID)
+            return; // Bảo mật riêng tư: chỉ hiển thị mục tiêu của chính mình
+
         hasVotedThisPhase = true;
         selectedTargetID = targetId;
         if (confirmVoteButton != null) confirmVoteButton.interactable = false;
@@ -350,11 +360,12 @@ public class NetworkVoteUI : MonoBehaviour
 
         string targetName = GetPlayerDisplayName(targetId);
         if (selectedTargetText != null)
-            selectedTargetText.text = $"Đã bỏ phiếu cho: <color=#FFDD44>{targetName}</color>";
+            selectedTargetText.text = $"Đã bỏ phiếu cho: <color=#35C759>{targetName}</color>";
 
         if (statusMessageText != null)
-            statusMessageText.text = $"<color=#44FF88>ĐÃ BỎ PHIẾU CHO {targetName}! (Có thể click thẻ khác để đổi vote)</color>";
+            statusMessageText.text = $"<color=#35C759>ĐÃ XÁC NHẬN BỎ PHIẾU CHO {targetName}! (Có thể click thẻ khác để đổi vote)</color>";
 
+        // Cập nhật màu xanh lá #35C759 cho thẻ mục tiêu đã xác nhận, các thẻ khác trả về màu mặc định
         foreach (var kvp in spawnedCards)
         {
             if (kvp.Value != null)
@@ -364,14 +375,86 @@ public class NetworkVoteUI : MonoBehaviour
         }
     }
 
+    private void OnLocalVoteRejected(int voterId, string reason)
+    {
+        int localPlayerID = GetLocalPlayerID();
+        if (voterId != localPlayerID)
+            return;
+
+        if (statusMessageText != null)
+            statusMessageText.text = $"<color=#FF4444>Bỏ phiếu không thành công: {reason}</color>";
+
+        // Giữ nguyên màu thẻ và lựa chọn đã được server xác nhận trước đó
+        foreach (var kvp in spawnedCards)
+        {
+            if (kvp.Value != null)
+            {
+                kvp.Value.SetSelected(kvp.Key == selectedTargetID);
+            }
+        }
+    }
+
     private void OnVotesReset()
     {
         hasVotedThisPhase = false;
         selectedTargetID = -1;
 
+        if (selectedTargetText != null)
+            selectedTargetText.text = "Chưa chọn người chơi nào";
+
+        foreach (var kvp in spawnedCards)
+        {
+            if (kvp.Value != null)
+            {
+                kvp.Value.SetSelected(false);
+            }
+        }
+
         if (isVoting && votePanel != null && votePanel.activeSelf)
         {
             CreateVoteCards();
+        }
+    }
+
+    private void OnVotingLocked()
+    {
+        if (statusMessageText != null)
+        {
+            statusMessageText.text = "<color=#FFCC00>Hết thời gian bỏ phiếu! Đang khóa phiếu và tổng hợp kết quả...</color>";
+        }
+        if (confirmVoteButton != null) confirmVoteButton.interactable = false;
+        if (cancelVoteButton != null) cancelVoteButton.interactable = false;
+        foreach (var kvp in spawnedCards)
+        {
+            if (kvp.Value != null)
+            {
+                Button btn = kvp.Value.GetComponent<Button>();
+                if (btn != null) btn.interactable = false;
+            }
+        }
+    }
+
+    private void OnVoteRefunded(int voterId, int disconnectedTargetId)
+    {
+        int localPlayerID = GetLocalPlayerID();
+        if (localPlayerID == voterId)
+        {
+            hasVotedThisPhase = false;
+            selectedTargetID = -1;
+            if (selectedTargetText != null)
+                selectedTargetText.text = "Chưa chọn người chơi nào";
+            if (statusMessageText != null)
+                statusMessageText.text = "<color=#FF8844>Mục tiêu bạn chọn đã ngắt kết nối! Bạn được hoàn lại phiếu, hãy chọn người khác.</color>";
+
+            foreach (var kvp in spawnedCards)
+            {
+                if (kvp.Value != null)
+                {
+                    kvp.Value.SetSelected(false);
+                    Button btn = kvp.Value.GetComponent<Button>();
+                    if (btn != null) btn.interactable = true;
+                }
+            }
         }
     }
 
@@ -429,6 +512,14 @@ public class NetworkVoteUI : MonoBehaviour
             votePanel.SetActive(false);
         }
 
+        foreach (var kvp in spawnedCards)
+        {
+            if (kvp.Value != null)
+            {
+                kvp.Value.SetSelected(false);
+            }
+        }
+
         ClearCards();
         selectedTargetID = -1;
         hasVotedThisPhase = false;
@@ -474,6 +565,14 @@ public class NetworkVoteUI : MonoBehaviour
 
     public void OnCardClicked(int targetID)
     {
+        if (NetworkPlayerVote.IsEndingVoting)
+        {
+            Debug.LogWarning("VOTE UI: Đã hết thời gian bỏ phiếu hoặc đang khóa phiếu! Không thể đổi vote.");
+            if (statusMessageText != null)
+                statusMessageText.text = "<color=#FF4444>Bỏ phiếu đã kết thúc! Không thể thay đổi phiếu.</color>";
+            return;
+        }
+
         int localPlayerID = GetLocalPlayerID();
         if (!IsLocalPlayerAlive(localPlayerID))
         {
@@ -492,28 +591,17 @@ public class NetworkVoteUI : MonoBehaviour
             string currName = GetPlayerDisplayName(targetID);
             Debug.Log($"VOTE UI: Bạn đang bỏ phiếu cho {currName} rồi.");
             if (statusMessageText != null)
-                statusMessageText.text = $"<color=#FFDD44>Bạn đang bỏ phiếu cho {currName}. (Click thẻ khác để đổi vote)</color>";
+                statusMessageText.text = $"<color=#35C759>Bạn đang bỏ phiếu cho {currName}. (Click thẻ khác để đổi vote)</color>";
             return;
         }
 
-        selectedTargetID = targetID;
-
-        // Cập nhật trạng thái chọn trên tất cả thẻ
-        foreach (var kvp in spawnedCards)
-        {
-            if (kvp.Value != null)
-            {
-                kvp.Value.SetSelected(kvp.Key == selectedTargetID);
-            }
-        }
-
         string targetName = GetPlayerDisplayName(targetID);
-        if (selectedTargetText != null)
+        if (statusMessageText != null)
         {
-            selectedTargetText.text = $"Đã bỏ phiếu cho: <color=#FFDD44>{targetName}</color>";
+            statusMessageText.text = $"<color=#FFCC00>Đang gửi yêu cầu bỏ phiếu cho {targetName} lên Server...</color>";
         }
 
-        // Bỏ phiếu trực tiếp hoặc đổi vote ngay khi click thẻ, không cần nhấn xác nhận
+        // Bỏ phiếu trực tiếp hoặc đổi vote ngay khi click thẻ, Server xác nhận xong mới đổi màu thẻ
         SubmitVoteDirectly(targetID);
     }
 
@@ -536,29 +624,13 @@ public class NetworkVoteUI : MonoBehaviour
         if (localVote == null)
         {
             Debug.LogWarning("VOTE UI: Không tìm thấy NetworkPlayerVote của Local Player!");
+            if (statusMessageText != null)
+                statusMessageText.text = "<color=#FF4444>Không tìm thấy kết nối mạng của bạn để bỏ phiếu!</color>";
             return;
         }
 
-        Debug.Log($"VOTE UI: Local Player trực tiếp bỏ phiếu/đổi vote cho Player {targetID} qua click thẻ.");
+        Debug.Log($"VOTE UI: Local Player gửi yêu cầu bỏ phiếu/đổi vote cho Player {targetID} lên Server.");
         localVote.VoteFromUI(targetID);
-
-        hasVotedThisPhase = true;
-        selectedTargetID = targetID;
-
-        foreach (var kvp in spawnedCards)
-        {
-            if (kvp.Value != null)
-            {
-                kvp.Value.SetSelected(kvp.Key == selectedTargetID);
-            }
-        }
-
-        string targetName = GetPlayerDisplayName(targetID);
-        if (selectedTargetText != null)
-            selectedTargetText.text = $"Đã bỏ phiếu cho: <color=#FFDD44>{targetName}</color>";
-
-        if (statusMessageText != null)
-            statusMessageText.text = $"<color=#44FF88>ĐÃ BỎ PHIẾU CHO {targetName}! (Có thể click thẻ khác để đổi vote)</color>";
     }
 
     public void OnCancelVoteClicked()
@@ -632,8 +704,8 @@ public class NetworkVoteUI : MonoBehaviour
         else if (hasVotedThisPhase && selectedTargetID >= 0)
         {
             string votedName = GetPlayerDisplayName(selectedTargetID);
-            if (selectedTargetText != null) selectedTargetText.text = $"Đã bỏ phiếu cho: <color=#FFDD44>{votedName}</color>";
-            if (statusMessageText != null) statusMessageText.text = $"<color=#44FF88>ĐÃ BỎ PHIẾU CHO {votedName}! (Có thể click thẻ khác để đổi vote)</color>";
+            if (selectedTargetText != null) selectedTargetText.text = $"Đã bỏ phiếu cho: <color=#35C759>{votedName}</color>";
+            if (statusMessageText != null) statusMessageText.text = $"<color=#35C759>ĐÃ BỎ PHIẾU CHO {votedName}! (Có thể click thẻ khác để đổi vote)</color>";
             if (confirmVoteButton != null) confirmVoteButton.interactable = false;
             if (cancelVoteButton != null) cancelVoteButton.interactable = false;
         }

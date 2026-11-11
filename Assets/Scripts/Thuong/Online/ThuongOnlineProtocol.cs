@@ -12,7 +12,10 @@ namespace Thuong.Online
         HunterTrap,
         Vote,
         RevealRead,
-        MakeLovers
+        MakeLovers,
+        NoEliminationVote,
+        RealtimeAbility,
+        ReportCorpse
     }
 
     internal sealed class ThuongOnlineLobbyMember
@@ -61,9 +64,9 @@ namespace Thuong.Online
         public const string Hello = "thuong.online.hello.v1";
         public const string Ready = "thuong.online.ready.v1";
         public const string Input = "thuong.online.input.v1";
-        public const string Action = "thuong.online.action.v3";
+        public const string Action = "thuong.online.action.v5";
         public const string Roster = "thuong.online.roster.v4";
-        public const string Snapshot = "thuong.online.snapshot.v6";
+        public const string Snapshot = "thuong.online.snapshot.v8";
         public const string PrivateState = "thuong.online.private.v4";
     }
 

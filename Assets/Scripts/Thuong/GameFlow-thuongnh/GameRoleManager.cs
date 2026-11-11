@@ -195,6 +195,20 @@ public class GameRoleManager : MonoBehaviour
         if (WinConditionManager.Instance != null && (HasIntegratedLogic || WinConditionManager.Instance.HasMatchEvaluator(this)))
             WinConditionManager.Instance.CheckWinCondition();
     }
+    public bool StartReportedMeeting()
+    {
+        bool freeRoamPhase = currentPhase is GamePhase.DayStart or GamePhase.Event or GamePhase.Task or GamePhase.Night;
+        if (!started || !freeRoamPhase || currentState is not (GameState.Day or GameState.Night)) return false;
+        DayTimer.Instance?.StopTimer();
+        NightManager.Instance?.ClearActions();
+        var players = PlayerManager.Instance?.players;
+        if (players != null)
+            foreach (PlayerData player in players)
+                if (player?.status != null) player.status.isProtected = false;
+        SetPhase(GamePhase.Discussion);
+        PhaseTimeRemaining = discussionDuration;
+        return true;
+    }
     public void FinishVoting()
     {
         if (currentState != GameState.Voting || resolving) return;

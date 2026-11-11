@@ -43,6 +43,7 @@ namespace Thuong.Online
             if (statusSystem.deathSystem == null || abilitySystem.nightSystem == null)
                 throw new InvalidOperationException("Scene Thương Online thiếu hệ thống chết hoặc giải quyết đêm.");
             game.statusEffects = statusSystem; game.abilities = abilitySystem;
+            ObserveRealtimeDeaths();
             abilitySystem.SetMatchRunning(false);
             game.PhaseChanged += HandleOnlineLogicPhaseChanged;
         }
@@ -125,6 +126,7 @@ namespace Thuong.Online
         {
             ResetEmotes();
             ResetTaskBoard();
+            ResetCorpseState();
             matchEpoch = epoch;
             matchResult = null;
             localRoleCardOpen = localRoleConfirmed = false;
@@ -135,6 +137,7 @@ namespace Thuong.Online
                 localEffects.Clear(); localAllowedTargets.Clear(); localVotedTarget = -1;
             }
             ResetEndgamePresentation(); ResetVotePresentation();
+            ResetNotebook();
         }
 
         public bool CanRestartMatch => network != null && network.IsServer && network.IsListening &&
@@ -151,6 +154,7 @@ namespace Thuong.Online
             ResetEmotes();
             ResetMinigames();
             ResetTaskBoard();
+            ResetCorpseState();
             game.ResetForOnlineLobby();
             matchEpoch++;
             matchStarted = rolesAssigned = roomLocked = false;
@@ -169,6 +173,7 @@ namespace Thuong.Online
             }
             onlineOutcomeDirty = true;
             ResetVotePresentation(); ResetEndgamePresentation();
+            ResetNotebook();
             status = message;
             BroadcastRoster(); BroadcastSnapshot();
         }

@@ -1,4 +1,4 @@
-﻿using Unity.Netcode;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -350,16 +350,15 @@ public class NetworkGameManager : NetworkBehaviour
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(() =>
         {
-            Debug.Log("[NetworkGameManager] InGameLeaveButton clicked -> LeaveRoomToMainMenu");
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer && NetworkManager.Singleton.IsConnectedClient)
+            Debug.Log("[NetworkGameManager] InGameLeaveButton clicked -> RequestReturnToMenu");
+            if (NetworkReturnToMenuController.Instance != null)
             {
-                ulong localId = NetworkManager.Singleton.LocalClientId;
-                if (Instance != null && Instance.IsSpawned)
-                {
-                    Instance.RequestLeaveRoomServerRpc(localId);
-                }
+                NetworkReturnToMenuController.Instance.RequestReturnToMenu();
             }
-            SceneLoader.Instance?.LeaveRoomToMainMenu();
+            else
+            {
+                SceneLoader.Instance?.LeaveRoomToMainMenu();
+            }
         });
 
         Transform txtChild = btnObj.transform.Find("Text (TMP)");

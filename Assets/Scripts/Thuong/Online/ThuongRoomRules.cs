@@ -4,16 +4,20 @@ using UnityEngine;
 namespace Thuong.Online
 {
     public enum ThuongRolePreset : byte { Basic, Standard, Full }
+    public enum ThuongMatchMode : byte { ClassicQueued, RealtimeProximity }
 
     [Serializable]
     public sealed class ThuongRoomRules
     {
         public ThuongRolePreset preset = ThuongRolePreset.Standard;
+        public ThuongMatchMode mode = ThuongMatchMode.ClassicQueued;
         public bool automaticTimes = true;
         public int day = 120, night = 30, discussion = 60, voting = 30;
 
         public ThuongRoomRules Copy() => (ThuongRoomRules)MemberwiseClone();
         public bool IsValid => Enum.IsDefined(typeof(ThuongRolePreset), preset) &&
+            Enum.IsDefined(typeof(ThuongMatchMode), mode) &&
+            (mode != ThuongMatchMode.RealtimeProximity || preset == ThuongRolePreset.Basic) &&
             day >= 60 && day <= 300 && night >= 15 && night <= 120 &&
             discussion >= 15 && discussion <= 180 && voting >= 15 && voting <= 120;
 
@@ -31,6 +35,9 @@ namespace Thuong.Online
         public static string PresetName(ThuongRolePreset value) => value switch
         { ThuongRolePreset.Basic => "Cơ bản", ThuongRolePreset.Standard => "Tiêu chuẩn", _ => "Đầy đủ" };
 
+        public static string ModeName(ThuongMatchMode value) => value switch
+        { ThuongMatchMode.RealtimeProximity => "Tương tác gần (E)", _ => "Theo phase cổ điển" };
+
         public RoleType[] AllowedRoles => preset == ThuongRolePreset.Full ? RoleCatalog.AllConcreteRoles :
             preset == ThuongRolePreset.Basic
                 ? new[] { RoleType.Villager, RoleType.DogSpirit, RoleType.Seer, RoleType.VillageGuardian }
@@ -40,7 +47,7 @@ namespace Thuong.Online
         public string Summary(int count)
         {
             var rules = Resolve(count);
-            return $"{PresetName(preset)} · Ngày {rules.day}s · Đêm {rules.night}s · Họp {rules.discussion}s · Vote {rules.voting}s";
+            return $"{ModeName(mode)} · {PresetName(preset)} · Ngày {rules.day}s · Đêm {rules.night}s · Họp {rules.discussion}s · Vote {rules.voting}s";
         }
     }
 }

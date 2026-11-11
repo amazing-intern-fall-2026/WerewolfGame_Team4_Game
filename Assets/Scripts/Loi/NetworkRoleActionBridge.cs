@@ -192,12 +192,54 @@ public class NetworkRoleActionBridge : MonoBehaviour
     {
         NetworkPlayerAction.OnNetworkActionAccepted +=
             OnActionAccepted;
+
+        if (GameRoleManager.Instance != null)
+        {
+            GameRoleManager.Instance.PhaseChanged -= OnGameRolePhaseChanged;
+            GameRoleManager.Instance.PhaseChanged += OnGameRolePhaseChanged;
+        }
     }
 
     private void OnDisable()
     {
         NetworkPlayerAction.OnNetworkActionAccepted -=
             OnActionAccepted;
+
+        if (GameRoleManager.Instance != null)
+        {
+            GameRoleManager.Instance.PhaseChanged -= OnGameRolePhaseChanged;
+        }
+    }
+
+    private void Start()
+    {
+        if (GameRoleManager.Instance != null)
+        {
+            GameRoleManager.Instance.PhaseChanged -= OnGameRolePhaseChanged;
+            GameRoleManager.Instance.PhaseChanged += OnGameRolePhaseChanged;
+        }
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            if (NetworkGameRoleSetup.HasSetup() && !lobbyRolesApplied)
+            {
+                TryApplyLobbyRoles();
+            }
+        }
+    }
+
+    private void OnGameRolePhaseChanged(GamePhase prev, GamePhase next)
+    {
+        if (prev == GamePhase.Setup && next == GamePhase.RoleReveal)
+        {
+            if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer)
+            {
+                if (NetworkGameRoleSetup.HasSetup() && !lobbyRolesApplied)
+                {
+                    TryApplyLobbyRoles();
+                }
+            }
+        }
     }
 
     private void Update()
@@ -397,7 +439,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
     // APPLY ROLE SETUP TỪ LOBBY
     // =====================================================
 
-    public void TryApplyLobbyRoles()
+    public void TryApplyLobbyRoles(int? seed = null)
     {
         if (!NetworkGameRoleSetup.HasSetup())
             return;
@@ -437,16 +479,6 @@ public class NetworkRoleActionBridge : MonoBehaviour
             return;
         }
 
-        // RoleManager phải AssignRole trước.
-        // Nếu chưa có role thì chờ frame tiếp theo.
-        if (
-            roleManager.playerRoles == null ||
-            roleManager.playerRoles.Count == 0
-        )
-        {
-            return;
-        }
-
         List<RoleAmountData> roleSetup =
             NetworkGameRoleSetup.GetRoles();
 
@@ -472,16 +504,15 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
         if (totalRoles != playerCount)
         {
-            Debug.LogError(
+            Debug.LogWarning(
                 "ROLE ACTION BRIDGE | "
-                + "Cấu hình Role không hợp lệ: Số Role ("
+                + "Cấu hình Role chưa khớp sĩ số: Số Role ("
                 + totalRoles
                 + ") != Số Player ("
                 + playerCount
-                + "). Không bắt đầu chia role."
+                + "). Đang chờ đủ player..."
             );
 
-            lobbyRolesApplied = true;
             return;
         }
 
@@ -550,13 +581,15 @@ public class NetworkRoleActionBridge : MonoBehaviour
         // ==========================================
 
         ShuffleRoles(
-            selectedRoles
+            selectedRoles,
+            seed
         );
 
         // ==========================================
         // CLEAR ROLE CŨ
         // ==========================================
 
+        roleManager.playerRoles ??= new Dictionary<int, BaseRole>();
         roleManager.playerRoles.Clear();
 
         // ==========================================
@@ -622,6 +655,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
             role.OnGameStart();
 
+            SyncPlayerControllerRole(player.playerID, roleType);
+
             Debug.Log(
                 "ROLE ACTION BRIDGE | "
                 + "Lobby Role Applied | "
@@ -667,15 +702,63 @@ public class NetworkRoleActionBridge : MonoBehaviour
         );
     }
 
+    private void SyncPlayerControllerRole(int playerId, RoleType roleType)
+    {
+        if (Unity.Netcode.NetworkManager.Singleton == null || !Unity.Netcode.NetworkManager.Singleton.IsServer)
+            return;
+
+        PlayerRole mappedRole;
+        switch (roleType)
+        {
+            case RoleType.DogSpirit:
+                mappedRole = PlayerRole.Wolf;
+                break;
+            case RoleType.Seer:
+                mappedRole = PlayerRole.Seer;
+                break;
+            case RoleType.VillageGuardian:
+                mappedRole = PlayerRole.Guardian;
+                break;
+            case RoleType.Shaman:
+                mappedRole = PlayerRole.Witch;
+                break;
+            default:
+                mappedRole = PlayerRole.Villager;
+                break;
+        }
+
+        if (Unity.Netcode.NetworkManager.Singleton.ConnectedClients.TryGetValue((ulong)playerId, out var client) && client.PlayerObject != null)
+        {
+            var pc = client.PlayerObject.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                pc.Role.Value = mappedRole;
+            }
+        }
+        else
+        {
+            PlayerController[] allPcs = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var pc in allPcs)
+            {
+                if (pc != null && (int)pc.OwnerClientId == playerId)
+                {
+                    pc.Role.Value = mappedRole;
+                    break;
+                }
+            }
+        }
+    }
+
     // =====================================================
     // SHUFFLE ROLE
     // =====================================================
 
     private void ShuffleRoles(
-        List<RoleType> roles)
+        List<RoleType> roles,
+        int? seed = null)
     {
         System.Random random =
-            new System.Random();
+            seed.HasValue ? new System.Random(seed.Value) : new System.Random();
 
         for (
             int i = roles.Count - 1;
@@ -811,14 +894,21 @@ public class NetworkRoleActionBridge : MonoBehaviour
             roleManager.playerRoles.Count == 0
         )
         {
-            Debug.LogWarning(
-                "HUNTER DEBUG | playerRoles đang rỗng. "
-                + "Đang AssignRole()."
-            );
+            if (NetworkGameRoleSetup.HasSetup())
+            {
+                TryApplyLobbyRoles();
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "HUNTER DEBUG | playerRoles đang rỗng. "
+                    + "Đang AssignRole()."
+                );
 
-            roleManager.AssignRole();
+                roleManager.AssignRole();
 
-            TryApplyLobbyRoles();
+                TryApplyLobbyRoles();
+            }
         }
 
         // =====================================================

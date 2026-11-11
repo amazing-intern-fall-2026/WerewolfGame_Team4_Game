@@ -418,7 +418,7 @@ public static class ThuongOnlineChecks
         network.NetworkConfig = new NetworkConfig
         {
             NetworkTransport = transport, ConnectionApproval = true, EnableSceneManagement = false, TickRate = 30,
-            ConnectionData = Encoding.UTF8.GetBytes("THUONG8|J" + Guid.NewGuid().ToString("N") + "Người chơi " + index + "_" + new string('A', 24))
+            ConnectionData = Encoding.UTF8.GetBytes("THUONG10|J" + Guid.NewGuid().ToString("N") + "Người chơi " + index + "_" + new string('A', 24))
         };
         transport.SetConnectionData("127.0.0.1", Port);
         var peer = new Peer { Network = network, Skin = index % 20 }; peers.Add(peer);
@@ -445,7 +445,7 @@ public static class ThuongOnlineChecks
             peer.HasRead = (flags & 2048) != 0;
             peer.HasRole = true;
         });
-        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v6", (_, reader) => ReadSnapshot(peer, reader));
+        network.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.snapshot.v8", (_, reader) => ReadSnapshot(peer, reader));
     }
 
     private static void SendReady(NetworkManager network)
@@ -460,7 +460,7 @@ public static class ThuongOnlineChecks
         using var writer = new FastBufferWriter(32, Allocator.Temp);
         writer.WriteValueSafe(id); writer.WriteValueSafe((uint)typeof(ThuongOnlineSession).GetField("matchEpoch", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(session)); writer.WriteValueSafe(action); writer.WriteValueSafe(target); writer.WriteValueSafe(-1);
         writer.WriteValueSafe(GameRoleManager.Instance.currentDay); writer.WriteValueSafe((byte)GameRoleManager.Instance.currentPhase);
-        network.CustomMessagingManager.SendNamedMessage("thuong.online.action.v3", 0, writer);
+        network.CustomMessagingManager.SendNamedMessage("thuong.online.action.v5", 0, writer);
     }
 
     private static void ReadSnapshot(Peer peer, FastBufferReader reader)
@@ -469,6 +469,7 @@ public static class ThuongOnlineChecks
         Require(revision > peer.Revision, "Snapshot revision always increases across lobby and gameplay"); peer.Revision = revision;
         reader.ReadValueSafe(out peer.Epoch);
         reader.ReadValueSafe(out peer.Started); reader.ReadValueSafe(out peer.RolesAssigned);
+        reader.ReadValueSafe(out byte mode);
         reader.ReadValueSafe(out bool eliminationWin);
         reader.ReadValueSafe(out int parityMinimum); reader.ReadValueSafe(out int villageLimit); reader.ReadValueSafe(out int maxDay);
         reader.ReadValueSafe(out FixedString64Bytes mapId); reader.ReadValueSafe(out int mapRevision);
@@ -499,8 +500,15 @@ public static class ThuongOnlineChecks
             reader.ReadValueSafe(out FixedString64Bytes name); reader.ReadValueSafe(out int skin);
             reader.ReadValueSafe(out bool alive); reader.ReadValueSafe(out float x); reader.ReadValueSafe(out float y);
         }
+        reader.ReadValueSafe(out byte corpseCount);
+        for (int i = 0; i < corpseCount; i++)
+        {
+            reader.ReadValueSafe(out int corpseId); reader.ReadValueSafe(out int victimId);
+            reader.ReadValueSafe(out float corpseX); reader.ReadValueSafe(out float corpseY);
+        }
         reader.ReadValueSafe(out peer.VoteRevision); reader.ReadValueSafe(out int voteDay);
         reader.ReadValueSafe(out int eliminated); reader.ReadValueSafe(out bool tie);
+        reader.ReadValueSafe(out int noEliminationVotes); reader.ReadValueSafe(out bool noEliminationWon);
         reader.ReadValueSafe(out FixedString512Bytes message); peer.Result = message.ToString();
         reader.ReadValueSafe(out ushort tallyCount); peer.VoteTally = 0;
         for (int i = 0; i < tallyCount; i++)
