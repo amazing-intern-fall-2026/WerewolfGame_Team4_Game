@@ -1,0 +1,20 @@
+﻿[GAME BACKGROUND TEST RESULTS - 2026-11-12 11:46:05]
+Success: True
+Pass: 15, Fail: 0
+----------------------------------------------------------
+[PASS] Test01_ArtSpritesExist (sang.png): Sprite sang.png tồn tại và tải thành công.
+[PASS] Test01_ArtSpritesExist (toi.png): Sprite toi.png tồn tại và tải thành công.
+[PASS] Test02_GameSceneHierarchy: Mở thành công scene Game.unity
+[PASS] Test02_GameSceneHierarchy (Canvas): Tìm thấy Canvas chính trong Game.unity
+[PASS] Test02_GameSceneHierarchy (Background_Day): Tìm thấy GameObject Background_Day trong Canvas
+[PASS] Test02_GameSceneHierarchy (Background_Night): Tìm thấy GameObject Background_Night trong Canvas
+[PASS] Test02_GameSceneHierarchy (SiblingIndex): Background_Day ở index 0, Background_Night ở index 1 (nằm dưới cùng Canvas)
+[PASS] Test03_Config (Day raycastTarget): Background_Day raycastTarget = false (không cản tương tác UI)
+[PASS] Test03_Config (Day AspectRatioFitter): Background_Day AspectMode = EnvelopeParent (1.78)
+[PASS] Test03_Config (Night raycastTarget): Background_Night raycastTarget = false (không cản tương tác UI)
+[PASS] Test03_Config (Night AspectRatioFitter): Background_Night AspectMode = EnvelopeParent (1.78)
+[PASS] Test04_NightPhase: Phase = Night: Background_Night BẬT, Background_Day TẮT chuẩn xác.
+[PASS] Test05_AllOtherPhases_ShowDay_HideNight: Đã xác minh toàn bộ 11 Day phases (RoleReveal, ResolveNight, DayStart, Event, Task, Discussion, Voting, ResolveVote, GameOver, Setup, DayResolution): Day luôn BẬT, Night luôn TẮT.
+[PASS] Test06_MultiMatchSimulation: Mô phỏng 2 trận đấu liên tiếp thành công: Không bị lưu vết nền của trận trước, chuyển đổi mượt mà.
+[PASS] Test07_GlobalPhaseSyncEvent: Đăng ký thành công NetworkPhaseSync.OnPhaseChangedGlobal phục vụ đồng bộ tức thì trên Host & Client.
+----------------------------------------------------------
