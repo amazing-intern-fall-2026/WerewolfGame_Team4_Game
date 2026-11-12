@@ -358,7 +358,7 @@ namespace Thuong.Online
             if (reopenVoteResult != null) reopenVoteResult.gameObject.SetActive(voteResultRevision > 0 && !meeting && visibleState != GameState.GameOver);
             // Online has a personal result overlay. The offline result panel stays unchanged.
             if (hud.resultPanel != null) hud.resultPanel.SetActive(false);
-            hud.SetOnlineFeedback(PhaseLabel(visibleState), Feedback);
+            hud.SetOnlineFeedback(visiblePhase == GamePhase.HunterRevenge ? "THỢ SĂN TRẢ THÙ" : PhaseLabel(visibleState), Feedback);
             RefreshSpectatorHud(hud);
         }
 

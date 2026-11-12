@@ -29,6 +29,7 @@ namespace Thuong.Online
         public TMP_FontAsset EmoteFont => sceneHud?.phaseText?.font ?? TMP_Settings.defaultFontAsset;
         public bool IsEmoteSessionActive => !leavingScene && connected && network != null && network.IsListening;
         public bool CanExpressEmote => IsEmoteSessionActive && matchStarted && matchResult == null &&
+            !TutorialIsOpen && !VillagePanelOpen && !NotebookIsOpen &&
             NetworkChatUI.Instance?.IsInputFocused != true &&
             localMapReady && !IsPlayingTask && publicPlayers.Any(p => p.PlayerId == localPlayerId &&
                 PlayerEmoteCatalog.CanExpress(p.Alive, visiblePhase));

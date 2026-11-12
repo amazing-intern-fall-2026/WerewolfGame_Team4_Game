@@ -29,6 +29,8 @@ public class RoleAbilityUI : MonoBehaviour
     private TMP_Text descriptionLabel;
     private TMP_Text skillDescriptionLabel;
     private TMP_Text restrictionsLabel;
+    private bool previousHunterPending;
+    private int shownOnlineInformation;
     private TMP_Text statusLabel;
     private TMP_Text targetFeedbackLabel;
     private TMP_Text targetTitleLabel;
@@ -498,8 +500,11 @@ public class RoleAbilityUI : MonoBehaviour
 
         RefreshReveal(player);
 
-        RoleInfoData info = RoleInfoDatabase.GetRoleInfo(shownRole);
-        if (shownRole == RoleType.WhiteHound && shownAwakened)
+        var onlineSession = Thuong.Online.ThuongOnlineSession.Active;
+        shownOnlineInformation = onlineSession != null ? onlineSession.RoleInformationVersion : 0;
+        RoleInfoData info = onlineSession != null && onlineSession.HasLocalRole
+            ? onlineSession.LocalRoleInformation() : RoleInfoDatabase.GetRoleInfo(shownRole);
+        if (onlineSession == null && shownRole == RoleType.WhiteHound && shownAwakened)
         {
             info.DisplayName = "Bạch khuyển (Phe DogSpirit)";
             info.FactionName = "Phe Quái vật (DogSpirit)";
@@ -572,7 +577,7 @@ public class RoleAbilityUI : MonoBehaviour
         TMP_Text useLabel = useButton.GetComponentInChildren<TMP_Text>();
         if (useLabel != null)
             useLabel.text = shownRole == RoleType.Brat ? "NHÌN TRỘM" : "CHỌN MỤC TIÊU";
-        if (configured)
+        if (configured && onlineSession == null)
         {
             if (skillLabel != null)
                 skillLabel.text = !string.IsNullOrWhiteSpace(shownDefinition.abilityName)
@@ -666,7 +671,7 @@ public class RoleAbilityUI : MonoBehaviour
         {
             if (!hasShownRole || shownRole != player.roleType || shownPlayerID != player.playerID ||
                 shownDefinition != player.roleDefinition || shownAwakened != player.isWhiteHoundAwakened ||
-                online != null && shownFaction != player.faction) RefreshRole(player);
+                online != null && (shownFaction != player.faction || shownOnlineInformation != online.RoleInformationVersion)) RefreshRole(player);
         }
 
         bool revealing = online != null ? online.ShowRoleCard : state == GameState.RoleReveal;
@@ -709,6 +714,14 @@ public class RoleAbilityUI : MonoBehaviour
                 ShowWindow(false);
             previousState = state;
         }
+
+        bool hunterPending = online != null && online.CanSetHunterTrap;
+        if (hunterPending && !previousHunterPending)
+        {
+            CancelTargets();
+            ShowWindow(true);
+        }
+        previousHunterPending = hunterPending;
 
         bool ended = state == GameState.GameOver;
         openButton.gameObject.SetActive(!ended);

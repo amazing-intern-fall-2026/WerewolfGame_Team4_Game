@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text;
 using TMPro;
 using Unity.Collections;
@@ -12,7 +13,7 @@ namespace Thuong.Online
 {
     public sealed partial class ThuongOnlineSession
     {
-        private const string JournalMessage = "thuong.online.match-journal.v1";
+        private const string JournalMessage = "thuong.online.match-journal.v2";
         private const int JournalMaxEntries = 512;
         private const int JournalChunkSize = 16;
 
@@ -33,6 +34,9 @@ namespace Thuong.Online
         private bool journalPublished, journalReady, journalTruncated, journalFinishedRecorded, showJournal;
         private TMP_Text journalText, journalStatus;
         private GameObject journalPanel;
+        private string journalExportStatus;
+        private Button journalTextExportButton, journalJsonExportButton, journalFolderButton;
+        private string JournalExportDirectory => Path.Combine(Application.persistentDataPath, "MatchJournals");
 
         private void RegisterJournalMessages() => network.CustomMessagingManager.RegisterNamedMessageHandler(JournalMessage, ReceiveJournal);
         private void UnregisterJournalMessages() => network?.CustomMessagingManager?.UnregisterNamedMessageHandler(JournalMessage);
@@ -40,6 +44,7 @@ namespace Thuong.Online
         private void ResetJournal()
         {
             matchJournal.Clear();
+            journalExportStatus = string.Empty;
             incomingJournalChunks = null;
             incomingJournalReceived = null;
             incomingJournalEpoch = matchEpoch;
@@ -171,6 +176,7 @@ namespace Thuong.Online
                 writer.WriteValueSafe((ushort)chunk);
                 writer.WriteValueSafe((ushort)chunkCount);
                 writer.WriteValueSafe((ushort)matchJournal.Count);
+                writer.WriteValueSafe(journalTruncated);
                 writer.WriteValueSafe((byte)count);
                 for (int i = 0; i < count; i++)
                 {
@@ -193,6 +199,7 @@ namespace Thuong.Online
                 reader.ReadValueSafe(out ushort chunkIndex);
                 reader.ReadValueSafe(out ushort chunkCount);
                 reader.ReadValueSafe(out ushort totalEntries);
+                reader.ReadValueSafe(out bool truncated);
                 reader.ReadValueSafe(out byte entryCount);
                 if (epoch != matchEpoch || totalEntries > JournalMaxEntries || chunkCount == 0 || chunkCount > 32 ||
                     chunkIndex >= chunkCount || chunkCount != Mathf.Max(1, Mathf.CeilToInt((float)totalEntries / JournalChunkSize))) return;
@@ -203,10 +210,11 @@ namespace Thuong.Online
                 {
                     incomingJournalEpoch = epoch;
                     incomingJournalCount = totalEntries;
+                    journalTruncated = truncated;
                     incomingJournalChunks = new List<MatchJournalEntry>[chunkCount];
                     incomingJournalReceived = new bool[chunkCount];
                 }
-                if (incomingJournalChunks.Length != chunkCount) return;
+                if (incomingJournalChunks.Length != chunkCount || truncated != journalTruncated) return;
                 var entries = new List<MatchJournalEntry>(entryCount);
                 for (int i = 0; i < entryCount; i++)
                 {
@@ -234,9 +242,13 @@ namespace Thuong.Online
             var shade = LobbyPanel("Match journal shade", parent, Vector2.zero, Vector2.one, false);
             shade.GetComponent<Image>().color = new Color(0, 0, 0, .86f);
             journalPanel = shade.gameObject;
+            var modalCanvas = shade.gameObject.AddComponent<Canvas>(); modalCanvas.overrideSorting = true; modalCanvas.sortingOrder = 1900;
+            shade.gameObject.AddComponent<GraphicRaycaster>();
             var card = LobbyPanel("Match journal card", shade, new Vector2(.10f, .08f), new Vector2(.90f, .92f));
             LobbyText("Match journal title", card, "DIỄN BIẾN TRẬN ĐẤU", new Vector2(.04f, .91f), new Vector2(.75f, .99f), 30, TextAlignmentOptions.Center);
             journalStatus = LobbyText("Match journal status", card, "", new Vector2(.06f, .84f), new Vector2(.94f, .91f), 17, TextAlignmentOptions.Center);
+            journalStatus.richText = false; journalStatus.textWrappingMode = TextWrappingModes.Normal;
+            journalStatus.enableAutoSizing = true; journalStatus.fontSizeMin = 12;
             var viewport = LobbyPanel("Match journal viewport", card, new Vector2(.045f, .12f), new Vector2(.955f, .82f), false);
             viewport.GetComponent<Image>().color = new Color(.08f, .12f, .12f, .8f);
             viewport.gameObject.AddComponent<RectMask2D>();
@@ -253,7 +265,11 @@ namespace Thuong.Online
             var scroll = viewport.gameObject.AddComponent<ScrollRect>();
             scroll.viewport = viewport; scroll.content = contentRect; scroll.horizontal = false;
             scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 45;
-            LobbyButton("Close match journal", card, "ĐÓNG", new Vector2(.40f, .025f), new Vector2(.60f, .105f), () => showJournal = false);
+            journalTextExportButton = LobbyButton("Export journal text", card, "LƯU TXT", new Vector2(.04f, .025f), new Vector2(.255f, .105f), () => ExportMatchJournal(false));
+            journalJsonExportButton = LobbyButton("Export journal json", card, "LƯU JSON", new Vector2(.275f, .025f), new Vector2(.49f, .105f), () => ExportMatchJournal(true));
+            journalFolderButton = LobbyButton("Open journal folder", card, "MỞ THƯ MỤC", new Vector2(.51f, .025f), new Vector2(.745f, .105f),
+                () => { if (Directory.Exists(JournalExportDirectory)) Application.OpenURL(new Uri(JournalExportDirectory).AbsoluteUri); });
+            LobbyButton("Close match journal", card, "ĐÓNG", new Vector2(.765f, .025f), new Vector2(.96f, .105f), () => showJournal = false);
             journalPanel.SetActive(false);
         }
 
@@ -262,8 +278,10 @@ namespace Thuong.Online
             if (journalPanel == null) return;
             bool visible = matchResult != null && visibleState == GameState.GameOver;
             journalPanel.SetActive(visible && showJournal);
+            journalTextExportButton.interactable = journalJsonExportButton.interactable = visible && journalReady;
+            journalFolderButton.interactable = visible && Directory.Exists(JournalExportDirectory);
             if (journalStatus != null)
-                journalStatus.text = journalReady ? $"{matchJournal.Count} sự kiện · Nhật ký chỉ được công bố sau khi ván kết thúc."
+                journalStatus.text = !string.IsNullOrEmpty(journalExportStatus) ? journalExportStatus : journalReady ? $"{matchJournal.Count} sự kiện · Nhật ký chỉ được công bố sau khi ván kết thúc."
                     : "Đang nhận các mốc diễn biến từ chủ phòng…";
             if (journalText == null || displayedJournalRevision == journalRevision) return;
             var text = new StringBuilder();
@@ -278,12 +296,45 @@ namespace Thuong.Online
             displayedJournalRevision = journalRevision;
         }
 
+        private bool ExportMatchJournal(bool json)
+        {
+            // A loading or unfinished match can never export roles or votes.
+            if (matchResult == null || visibleState != GameState.GameOver || !journalReady) return false;
+            try
+            {
+                var document = new ThuongJournalDocument
+                {
+                    matchEpoch = matchEpoch, exportedAtUtc = DateTime.UtcNow.ToString("O"),
+                    mode = ThuongRoomRules.ModeName(roomRules.mode), winner = WinnerLabel(matchResult.WinnerId),
+                    reason = WinReasonLabel(matchResult.Reason), truncated = journalTruncated,
+                    villageRules = roomRules.village.Copy(),
+                    players = matchResult.Players.Select(player => new ThuongJournalPlayer
+                    {
+                        id = player.Id, name = player.Name, role = FinalRoleLabel(player), faction = FinalFactionLabel(player),
+                        alive = player.Alive, won = player.Won
+                    }).ToArray(),
+                    events = matchJournal.Select((entry, index) => new ThuongJournalEvent
+                    { order = index + 1, day = entry.Day, phase = JournalPhaseName(entry.Phase), text = entry.Text }).ToArray()
+                };
+                string path = ThuongJournalExport.WriteNew(JournalExportDirectory, document, json);
+                journalExportStatus = "Đã lưu " + Path.GetFileName(path) + ". Chọn MỞ THƯ MỤC để xem.";
+                return true;
+            }
+            catch (Exception error) when (error is IOException || error is UnauthorizedAccessException || error is ArgumentException)
+            {
+                journalExportStatus = "Chưa lưu được nhật ký. Hãy kiểm tra quyền ghi hoặc dung lượng trống rồi thử lại.";
+                Debug.LogWarning("Không lưu được nhật ký: " + error.Message);
+                return false;
+            }
+        }
+
         private static string JournalPhaseName(GamePhase phase) => phase switch
         {
             GamePhase.RoleReveal or GamePhase.Setup => "CHUẨN BỊ",
             GamePhase.DayStart or GamePhase.Task or GamePhase.Event => "BAN NGÀY",
             GamePhase.Night or GamePhase.ResolveNight => "BAN ĐÊM",
             GamePhase.Discussion => "THẢO LUẬN",
+            GamePhase.HunterRevenge => "THỢ SĂN TRẢ THÙ",
             GamePhase.Voting or GamePhase.ResolveVote or GamePhase.DayResolution => "BỎ PHIẾU",
             GamePhase.GameOver => "KẾT THÚC",
             _ => phase.ToString().ToUpperInvariant()

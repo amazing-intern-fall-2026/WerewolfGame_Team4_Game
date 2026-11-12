@@ -93,7 +93,7 @@ namespace Thuong.Online
             if (hasSelectedInteraction && (selectedInteractionDay != visibleDay || selectedInteractionPhase != visiblePhase))
                 hasSelectedInteraction = false;
             if (keyboard == null || !Application.isFocused || !matchStarted || !LocalPlayerAlive ||
-                NotebookIsOpen || TutorialIsOpen || IsPlayingTask || PlayerEmoteWheelUI.IsOpenFor(this))
+                NotebookIsOpen || TutorialIsOpen || VillagePanelOpen || IsPlayingTask || PlayerEmoteWheelUI.IsOpenFor(this))
             { ResetInteractionInput(); return; }
 
             if (roomRules.mode != ThuongMatchMode.RealtimeProximity)

@@ -12,7 +12,7 @@ namespace Thuong.Online
 {
     public sealed partial class ThuongOnlineSession
     {
-        internal const string BuildPrefix = "THUONG12|";
+        internal const string BuildPrefix = "THUONG13|";
         private const string MapReadyMessage = "thuong.online.map-ready.v1";
         private ThuongMapCatalog mapCatalog;
         private ThuongMapRuntime mapRuntime;

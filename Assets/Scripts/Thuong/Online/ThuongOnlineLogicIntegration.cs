@@ -140,7 +140,7 @@ namespace Thuong.Online
                 localEffects.Clear(); localAllowedTargets.Clear(); localVotedTarget = -1;
             }
             ResetEndgamePresentation(); ResetVotePresentation();
-            ResetNotebook();
+            BindNotebookToRound(epoch);
             ResetVillageView(); ResetJournal();
         }
 

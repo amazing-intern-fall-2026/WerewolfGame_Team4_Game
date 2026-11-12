@@ -14,6 +14,12 @@ namespace Thuong.Online
         public const int MeetingLimit = 3;
         public const double MeetingCooldown = 45, SabotageCooldown = 45;
         public const double ChannelSeconds = 3, LanternSeconds = 20, WardSeconds = 30;
+        private ThuongVillageSettings settings = new();
+        public void Configure(ThuongVillageSettings candidate)
+        {
+            if (candidate == null || !candidate.IsValid) throw new ArgumentException("Luật làng không hợp lệ.", nameof(candidate));
+            settings = candidate.Copy();
+        }
         private sealed class Personal
         {
             public readonly List<ThuongItemKind> Items = new();
@@ -62,7 +68,7 @@ namespace Thuong.Online
             reason = "Chỉ người sống, còn kết nối mới gọi được họp ban ngày.";
             if (id < 0 || !ValidTime(now) || !aliveConnected || !daytime) return false;
             if (Sabotage != ThuongSabotageKind.None) { reason = "Hãy khắc phục phá hoại trước khi gọi họp."; return false; }
-            if (meetingsUsed >= MeetingLimit) { reason = "Phòng đã dùng hết số lần họp khẩn trong ván."; return false; }
+            if (meetingsUsed >= settings.meetingLimit) { reason = "Phòng đã dùng hết số lần họp khẩn trong ván."; return false; }
             if (now < NextMeetingAt) { reason = $"Chờ {Math.Ceiling(NextMeetingAt - now):0} giây nữa để gọi họp."; return false; }
             var person = Person(id);
             if (person.RangBell) { reason = "Bạn đã gọi họp khẩn trong ván này."; return false; }
@@ -76,7 +82,7 @@ namespace Thuong.Online
             if (alarm) person.Items.Remove(ThuongItemKind.Alarm);
             person.RangBell = true;
             meetingsUsed++;
-            NextMeetingAt = now + MeetingCooldown;
+            NextMeetingAt = now + settings.meetingCooldown;
             ClearPair();
         }
         public bool TrySabotage(int id, int day, double now, bool aliveConnectedWolf, bool daytime,
@@ -90,8 +96,9 @@ namespace Thuong.Online
             if (sabotageDay == day) { reason = "Bầy Sói đã dùng lượt phá hoại hôm nay."; return false; }
             if (now < NextSabotageAt) { reason = "Phá hoại chưa hồi lại."; return false; }
             Sabotage = kind; SabotageTarget = target; sabotageDay = day;
-            SabotageUntil = now + (kind == ThuongSabotageKind.Barricade ? 8 : 20);
-            NextSabotageAt = now + SabotageCooldown;
+            SabotageUntil = now + (kind == ThuongSabotageKind.Barricade ? settings.barricadeSeconds :
+                kind == ThuongSabotageKind.StationJam ? settings.jamSeconds : settings.blackoutSeconds);
+            NextSabotageAt = now + settings.sabotageCooldown;
             ClearPair(); reason = null; return true;
         }
         public bool TryRepair(int id, double now, bool eligibleAtRepairPoint, out string reason)
@@ -153,8 +160,8 @@ namespace Thuong.Online
             if (item == ThuongItemKind.Lantern && person.LanternUntil > now || item == ThuongItemKind.Ward && person.WardUntil > now)
             { reason = "Vật phẩm cùng loại vẫn đang có hiệu lực."; return false; }
             person.Items.Remove(item);
-            if (item == ThuongItemKind.Lantern) person.LanternUntil = now + LanternSeconds;
-            else person.WardUntil = now + WardSeconds;
+            if (item == ThuongItemKind.Lantern) person.LanternUntil = now + settings.lanternSeconds;
+            else person.WardUntil = now + settings.wardSeconds;
             reason = null; return true;
         }
         public bool ConsumeWard(int id, double now)

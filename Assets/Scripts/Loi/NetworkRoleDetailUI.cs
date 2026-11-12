@@ -431,6 +431,14 @@ public class NetworkRoleDetailUI : NetworkBehaviour
 
     public Sprite GetRoleSprite(RoleType role)
     {
+        Sprite assigned = GetAssignedRoleSprite(role);
+        return assigned != null ? assigned : RoleInfoDatabase.GetRoleSprite(role);
+    }
+
+    // Database fallback must only inspect assigned images; calling GetRoleSprite
+    // here would recurse back into the database when an image is missing.
+    public Sprite GetAssignedRoleSprite(RoleType role)
+    {
         if (roleImages != null)
         {
             foreach (RoleImageEntry entry in roleImages)
@@ -440,7 +448,7 @@ public class NetworkRoleDetailUI : NetworkBehaviour
             }
         }
 
-        return RoleInfoDatabase.GetRoleSprite(role);
+        return null;
     }
 
     private Color GetFactionColor(FactionType faction, bool isSecret)

@@ -16,7 +16,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-public static class ThuongRoomUpgradeOnlineChecks
+public static partial class ThuongRoomUpgradeOnlineChecks
 {
     private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private const ushort Port = 17993;
@@ -68,7 +68,8 @@ public static class ThuongRoomUpgradeOnlineChecks
         previousOptions = (EnterPlayModeOptions)SessionState.GetInt(RunKey + ".Options", 0);
         previousStart = AssetDatabase.LoadAssetAtPath<SceneAsset>(SessionState.GetString(RunKey + ".Start", ""));
         if (!EditorApplication.isPlaying) WarmPlayModeScenario();
-        scenario = Exercise(); deadline = EditorApplication.timeSinceStartup + 210; resumeAt = 0;
+        scenario = SessionState.GetBool(RunKey + ".ReviewSmoke", false) ? ExerciseReviewSmoke() : Exercise();
+        deadline = EditorApplication.timeSinceStartup + 210; resumeAt = 0;
         Application.logMessageReceived -= ObserveLog; Application.logMessageReceived += ObserveLog;
         EditorApplication.update -= Tick; EditorApplication.update += Tick;
     }
@@ -346,7 +347,8 @@ public static class ThuongRoomUpgradeOnlineChecks
         var networkRoot = new GameObject("Upgrade LAN " + index);
         var transport = networkRoot.AddComponent<UnityTransport>(); var net = networkRoot.AddComponent<NetworkManager>();
         var token = resumeToken ?? Guid.NewGuid();
-        string payload = resumeToken.HasValue ? "THUONG10|R" + token.ToString("N") : "THUONG10|J" + token.ToString("N") + "QA " + index;
+        string build = (string)typeof(ThuongOnlineSession).GetField("BuildPrefix", BindingFlags.Static | BindingFlags.NonPublic).GetRawConstantValue();
+        string payload = build + (resumeToken.HasValue ? "R" + token.ToString("N") : "J" + token.ToString("N") + "QA " + index);
         net.NetworkConfig = new NetworkConfig { NetworkTransport = transport, ConnectionApproval = true, EnableSceneManagement = false,
             TickRate = 30, ConnectionData = Encoding.UTF8.GetBytes(payload) };
         transport.SetConnectionData("127.0.0.1", Port);
@@ -367,9 +369,10 @@ public static class ThuongRoomUpgradeOnlineChecks
         if (!net.StartClient()) throw new Exception("LAN start failed");
         void Register(string name, string method) => net.CustomMessagingManager.RegisterNamedMessageHandler(name,
             (sender, reader) => { try { Call(proxy, method, sender, reader); } catch (Exception error) { failure = error; } });
-        Register("thuong.online.roster.v4", "ReceiveRoster"); Register("thuong.online.snapshot.v8", "ReceiveSnapshot");
+        Register("thuong.online.roster.v4", "ReceiveRoster"); Register("thuong.online.snapshot.v9", "ReceiveSnapshot");
         Register("thuong.online.private.v4", "ReceivePrivateState");
-        net.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.room-state.v2", (sender, reader) =>
+        Call(proxy, "RegisterVillageMessages");
+        net.CustomMessagingManager.RegisterNamedMessageHandler("thuong.online.room-state.v3", (sender, reader) =>
         {
             roomPackets++;
             roomPayloadBytes += reader.Length;
@@ -430,6 +433,8 @@ public static class ThuongRoomUpgradeOnlineChecks
     {
         EditorApplication.update -= Tick; Application.logMessageReceived -= ObserveLog;
         SessionState.SetBool(RunKey, false);
+        bool reviewSmoke = SessionState.GetBool(RunKey + ".ReviewSmoke", false);
+        SessionState.SetBool(RunKey + ".ReviewSmoke", false);
         foreach (var client in clients) if (client != null && Net(client).IsListening) Net(client).Shutdown();
         if (host != null && Net(host).IsListening) Net(host).Shutdown();
         EditorSceneManager.playModeStartScene = previousStart;
@@ -437,6 +442,11 @@ public static class ThuongRoomUpgradeOnlineChecks
         string result = exception == null ? "THUONG_ROOM_UPGRADE_ONLINE_PASSED: " + checks : "THUONG_ROOM_UPGRADE_ONLINE_FAILED: " + exception;
         File.WriteAllText("Logs/RoomUpgrades/online-result.txt", result); Debug.Log(result);
         File.WriteAllLines("Logs/RoomUpgrades/online-metrics.txt", metrics);
+        if (reviewSmoke)
+        {
+            Directory.CreateDirectory("Logs/ThuongReviewImprovements20261112");
+            File.WriteAllText("Logs/ThuongReviewImprovements20261112/online-smoke.txt", result);
+        }
         EditorApplication.isPlaying = false;
         if (Application.isBatchMode) EditorApplication.delayCall += () => EditorApplication.Exit(exception == null ? 0 : 1);
     }

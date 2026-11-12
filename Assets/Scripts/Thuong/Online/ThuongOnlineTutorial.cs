@@ -17,7 +17,7 @@ namespace Thuong.Online
         private TutorialView lobbyTutorial, matchTutorial;
         private int tutorialPage;
 
-        private bool TutorialIsOpen => lobbyTutorial?.Root.activeSelf == true || matchTutorial?.Root.activeSelf == true;
+        private bool TutorialIsOpen => PracticeIsOpen || lobbyTutorial?.Root.activeSelf == true || matchTutorial?.Root.activeSelf == true;
 
         private void OpenLobbyTutorial() => OpenTutorial(true);
         private void OpenMatchTutorial() => OpenTutorial(false);
@@ -57,7 +57,8 @@ namespace Thuong.Online
             ThuongMedievalTheme.Active?.StylePanel(panel.GetComponent<Image>(), "Beginner tutorial");
 
             var view = new TutorialView { Root = shade };
-            view.Title = TutorialText("Title", panelRect, new Vector2(.05f, .85f), new Vector2(.95f, .97f), 28, TextAlignmentOptions.Center);
+            view.Title = TutorialText("Title", panelRect, new Vector2(.05f, .85f), new Vector2(.58f, .97f), 28, TextAlignmentOptions.Center);
+            LobbyButton("Practice village", panelRect, "THỰC HÀNH LÀNG", new Vector2(.60f, .87f), new Vector2(.95f, .97f), OpenVillagePractice);
             view.Body = TutorialText("Lesson", panelRect, new Vector2(.08f, .22f), new Vector2(.92f, .82f), 22, TextAlignmentOptions.TopLeft);
             view.Body.textWrappingMode = TextWrappingModes.Normal;
             view.Body.richText = false;
@@ -133,12 +134,14 @@ namespace Thuong.Online
 
         private void CloseTutorial()
         {
+            CloseVillagePractice();
             lobbyTutorial?.Root.SetActive(false);
             matchTutorial?.Root.SetActive(false);
         }
 
         private void UpdateTutorialInput()
         {
+            if (PracticeIsOpen) { UpdateVillagePractice(); return; }
             if (!TutorialIsOpen) return;
             if (Keyboard.current?.escapeKey.wasPressedThisFrame == true ||
                 Gamepad.current?.buttonEast.wasPressedThisFrame == true)

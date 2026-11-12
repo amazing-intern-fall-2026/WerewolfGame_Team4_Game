@@ -56,7 +56,7 @@ public static class RoleInfoDatabase
         // 2. Lấy từ NetworkRoleDetailUI nếu đã khởi tạo trên Scene
         if (NetworkRoleDetailUI.Instance != null)
         {
-            Sprite s = NetworkRoleDetailUI.Instance.GetRoleSprite(role);
+            Sprite s = NetworkRoleDetailUI.Instance.GetAssignedRoleSprite(role);
             if (s != null)
             {
                 roleSpriteCache[role] = s;

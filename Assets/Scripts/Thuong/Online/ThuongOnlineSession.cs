@@ -201,7 +201,7 @@ namespace Thuong.Online
         {
             bool movablePhase = visibleState == GameState.Day ||
                 roomRules.mode == ThuongMatchMode.RealtimeProximity && visibleState == GameState.Night && visiblePhase == GamePhase.Night;
-            if (Keyboard.current == null || !movablePhase || !LocalPlayerAlive || IsPlayingTask || NotebookIsOpen || TutorialIsOpen || InteractionMenuOpen || !localMapReady ||
+            if (Keyboard.current == null || !movablePhase || !LocalPlayerAlive || IsPlayingTask || NotebookIsOpen || TutorialIsOpen || VillagePanelOpen || InteractionMenuOpen || !localMapReady ||
                 PlayerEmoteWheelUI.IsOpenFor(this) || NetworkChatUI.Instance?.IsInputFocused == true) return Vector2.zero;
             float x = 0f;
             float y = 0f;
@@ -414,7 +414,7 @@ namespace Thuong.Online
             roomLocked = false;
             matchStarted = false;
             sessionCode = string.Empty;
-            ClearClientState();
+            ClearClientState(reconnectOfferUntil > Time.realtimeSinceStartupAsDouble && !hostSessionTerminated);
         }
 
         private void RegisterMessageHandlers()
@@ -605,6 +605,7 @@ namespace Thuong.Online
             if (sequence == member.LastInputSequence && member.LastInputTime > 0f) return;
             member.LastInputSequence = sequence;
             member.Input = Vector2.ClampMagnitude(input, 1f);
+            if (member.Input.sqrMagnitude > .0001f) village.Release(member.PlayerId);
             member.LastInputTime = Time.unscaledTime;
         }
 
@@ -1241,6 +1242,8 @@ namespace Thuong.Online
 
         private static bool TrySetHunterTrap(PlayerData actor, int targetId, out string feedback)
         {
+            if (GameRoleManager.Instance != null && GameRoleManager.Instance.EnableHunterRevengeWindow)
+                return GameRoleManager.Instance.TryShootHunter(actor.playerID, targetId, out feedback);
             if (GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Discussion ||
                 RoleManager.Instance == null ||
                 !RoleManager.Instance.playerRoles.TryGetValue(actor.playerID, out BaseRole baseRole) ||
@@ -1507,11 +1510,12 @@ namespace Thuong.Online
             finally { busy = explicitLeave = false; }
         }
 
-        private void ClearClientState()
+        private void ClearClientState(bool preserveNotebook = false)
         {
             ResetCommunications();
             ResetEmotes();
-            ResetNotebook();
+            if (preserveNotebook) SuspendNotebook();
+            else ResetNotebook();
             ResetVillageView(); ResetJournal();
             ResetCorpseState();
             CloseTutorial();

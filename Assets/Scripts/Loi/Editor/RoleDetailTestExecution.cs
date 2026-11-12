@@ -11,7 +11,9 @@ public static class RoleDetailTestExecution
     {
         EditorApplication.delayCall += () =>
         {
-            if (!Application.isPlaying)
+            // These UI checks open the Loi scene. Do not interrupt a batch
+            // verification or a transition into another scene's Play Mode.
+            if (!Application.isBatchMode && !Application.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 RunTestsOnly();
             }

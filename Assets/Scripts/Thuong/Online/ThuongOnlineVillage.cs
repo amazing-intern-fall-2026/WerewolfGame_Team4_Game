@@ -58,6 +58,7 @@ namespace Thuong.Online
         }
         private void ResetVillageRound()
         {
+            village.Configure(roomRules.village);
             village.Reset(VillageNow);
             ResetVillageView(); ResetJournal();
             BuildVillageLandmarks();
@@ -174,7 +175,8 @@ namespace Thuong.Online
                     if (!village.TryUseItem(member.PlayerId, item, VillageNow,
                         VillageDay || game.currentState == GameState.Night && game.currentPhase == GamePhase.Night, out reason)) return false;
                     AddJournal($"{VillageName(member.PlayerId)} dùng {ItemLabel(item)}.");
-                    reason = item == ThuongItemKind.Lantern ? "Đèn lồng sáng trong 20 giây, mở rộng tầm nhìn khi mất điện." : "Bùa chặn một đòn Sói / Sát nhân / kỹ năng trong 30 giây.";
+                    reason = item == ThuongItemKind.Lantern ? $"Đèn lồng sáng trong {roomRules.village.lanternSeconds} giây, mở rộng tầm nhìn khi mất điện."
+                        : $"Bùa chặn một đòn Sói / Sát nhân / kỹ năng trong {roomRules.village.wardSeconds} giây.";
                     nextVillageSend = 0; return true;
             }
             return false;

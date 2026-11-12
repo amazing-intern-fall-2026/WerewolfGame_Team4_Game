@@ -38,6 +38,8 @@ namespace Thuong.Online
                 new Vector2(.78f, .15f), new Vector2(.98f, .205f), ToggleVillagePanel);
             var shade = LobbyPanel("Village modal shade", root.transform, Vector2.zero, Vector2.one, false);
             villagePanel = shade.gameObject; shade.GetComponent<Image>().color = new Color(0, 0, 0, .65f);
+            var modalCanvas = shade.gameObject.AddComponent<Canvas>(); modalCanvas.overrideSorting = true; modalCanvas.sortingOrder = 1900;
+            shade.gameObject.AddComponent<GraphicRaycaster>();
             var panel = LobbyPanel("Village action parchment", shade, new Vector2(.23f, .15f), new Vector2(.77f, .85f));
             LobbyText("Village title", panel, "CHUÔNG LÀNG VÀ VẬT PHẨM", new Vector2(.04f, .89f), new Vector2(.96f, .98f), 28, TextAlignmentOptions.Center);
             villageHelp = LobbyText("Village rules", panel, "", new Vector2(.05f, .72f), new Vector2(.95f, .89f), 18);
@@ -79,7 +81,7 @@ namespace Thuong.Online
         {
             if (!LocalPlayerAlive || !matchStarted || matchResult != null || IsPlayingTask || TutorialIsOpen || NotebookIsOpen) return;
             villagePanel.SetActive(!villagePanel.activeSelf);
-            if (villagePanel.activeSelf) { SendMovementInput(Vector2.zero); ResetInteractionInput(); }
+            if (villagePanel.activeSelf) { NetworkChatUI.Instance?.SetChatOpen(false); SendMovementInput(Vector2.zero); ResetInteractionInput(); }
         }
         private void CloseVillagePanel() { if (villagePanel != null) villagePanel.SetActive(false); }
         private void SendVillageUiAction(ThuongOnlineAction action, int value = 0, int second = -1)
@@ -107,15 +109,15 @@ namespace Thuong.Online
                 ? $"{SabotageLabel(visibleSabotage)} · {SabotageTargetLabel(visibleSabotage, visibleSabotageTarget)} · {Math.Ceiling(visibleSabotageUntil - VillageNow):0}s · Tới điểm đỏ để sửa"
                 : visiblePairDoneDay == visibleDay ? "Nhiệm vụ đôi hôm nay đã hoàn tất (+5%)."
                 : visiblePairFirst >= 0 || visiblePairSecond >= 0 ? $"Bảng A: {(visiblePairFirst >= 0 ? "có người" : "trống")} · Bảng B: {(visiblePairSecond >= 0 ? "có người" : "trống")} · {visiblePairProgress:P0}"
-                : $"Họp khẩn {visibleMeetingsUsed}/{ThuongVillageAuthority.MeetingLimit} · Bảng A + B: hai người cùng kích hoạt";
+                : $"Họp khẩn {visibleMeetingsUsed}/{roomRules.village.meetingLimit} · Bảng A + B: hai người cùng kích hoạt";
             if (visibleRepairOwner >= 0) villageStatus.text += $" · Đang sửa {visibleRepairProgress:P0}";
             if (villageWorld != null) villageWorld.SetActive(visibleState == GameState.Day);
             RefreshSabotageMarkers(sabotage);
             if (!VillagePanelOpen) return;
-            villageHelp.text = $"Chuông: tối đa 1 lần/người, {ThuongVillageAuthority.MeetingLimit} lần/phòng và cách nhau 45s. Còi gọi từ xa.\n" +
+            villageHelp.text = $"Chuông: tối đa 1 lần/người, {roomRules.village.meetingLimit} lần/phòng và cách nhau {roomRules.village.meetingCooldown}s. Còi gọi từ xa.\n" +
                 "Bảng A + B: hai người khác nhau đứng gần hai bảng trong 3 giây, thưởng 5% mỗi ngày. Di chuyển để hủy.\n" +
                 (sabotage ? "Cần khắc phục phá hoại trước khi gọi họp." : $"{(localBellUsed ? "Bạn đã gọi họp trong ván này." : "Bạn còn lượt gọi họp.")} Chờ họp: {Math.Max(0, Math.Ceiling(visibleMeetingAt - VillageNow)):0}s.");
-            bellButton.interactable = LocalVillageDay && !localBellUsed && visibleMeetingsUsed < ThuongVillageAuthority.MeetingLimit &&
+            bellButton.interactable = LocalVillageDay && !localBellUsed && visibleMeetingsUsed < roomRules.village.meetingLimit &&
                 !sabotage && VillageNow >= visibleMeetingAt && LocalAtVillagePoint(bellPoint);
             pairAButton.interactable = LocalVillageDay && visiblePairDoneDay != visibleDay && LocalAtVillagePoint(pairPoints[0], 1.1f);
             pairBButton.interactable = LocalVillageDay && visiblePairDoneDay != visibleDay && LocalAtVillagePoint(pairPoints[1], 1.1f);
@@ -123,12 +125,12 @@ namespace Thuong.Online
             repairButton.interactable = LocalVillageDay && privateFaction == FactionType.Villager && sabotage &&
                 LocalAtVillagePoint(SabotagePoint(visibleSabotage, visibleSabotageTarget));
             villagePocket.text = $"TÚI ĐỒ {villageInventory.Count}/2 · Tối đa 2 phần thưởng/người/ngày\n" +
-                "Đèn: nhìn rõ khu tối 20s. Còi: gọi họp từ xa. Bùa: chặn một đòn trong 30s, không chặn vote.\n" +
+                $"Đèn: nhìn rõ khu tối {roomRules.village.lanternSeconds}s. Còi: gọi họp từ xa. Bùa: chặn một đòn trong {roomRules.village.wardSeconds}s, không chặn vote.\n" +
                 $"Đèn còn {Math.Max(0, Math.Ceiling(localLanternUntil - VillageNow)):0}s · Bùa còn {Math.Max(0, Math.Ceiling(localWardUntil - VillageNow)):0}s";
             for (int slot = 0; slot < 2; slot++)
             {
                 bool canUseAlarm = slot >= villageInventory.Count || villageInventory[slot] != ThuongItemKind.Alarm ||
-                    LocalVillageDay && !localBellUsed && visibleMeetingsUsed < ThuongVillageAuthority.MeetingLimit && VillageNow >= visibleMeetingAt;
+                    LocalVillageDay && !sabotage && !localBellUsed && visibleMeetingsUsed < roomRules.village.meetingLimit && VillageNow >= visibleMeetingAt;
                 bool canUseLantern = slot >= villageInventory.Count || villageInventory[slot] != ThuongItemKind.Lantern ||
                     privateFaction == FactionType.Villager && sabotage && visibleSabotage == ThuongSabotageKind.Blackout && LocalAtBlackoutArea();
                 itemButtons[slot].interactable = free && slot < villageInventory.Count && canUseAlarm && canUseLantern;
@@ -184,6 +186,7 @@ namespace Thuong.Online
         }
         private void DisposeVillageUi()
         {
+            if (practiceCanvas != null) Destroy(practiceCanvas.gameObject);
             if (villageCanvas != null) Destroy(villageCanvas.gameObject);
             if (villageWorld != null) Destroy(villageWorld);
             if (villageMarkerSprite != null) Destroy(villageMarkerSprite);

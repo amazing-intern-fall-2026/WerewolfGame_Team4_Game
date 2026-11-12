@@ -140,10 +140,10 @@ public static class ThuongVillageMergeChecks
     {
         var approve = typeof(ThuongMainFlow).GetMethod("ApproveLobby", BindingFlags.Static | BindingFlags.NonPublic);
         var response = new NetworkManager.ConnectionApprovalResponse();
-        var request = new NetworkManager.ConnectionApprovalRequest { Payload = Encoding.UTF8.GetBytes("THUONG12|lobby") };
+        var request = new NetworkManager.ConnectionApprovalRequest { Payload = Encoding.UTF8.GetBytes("THUONG13|lobby") };
         approve.Invoke(null, new object[] { request, response });
         Require(response.Approved, "Current lobby protocol is approved");
-        request.Payload = Encoding.UTF8.GetBytes("THUONG11|lobby"); response = new NetworkManager.ConnectionApprovalResponse();
+        request.Payload = Encoding.UTF8.GetBytes("THUONG12|lobby"); response = new NetworkManager.ConnectionApprovalResponse();
         approve.Invoke(null, new object[] { request, response });
         Require(!response.Approved, "Old lobby protocol is rejected before loading incompatible gameplay");
     }
