@@ -429,22 +429,18 @@ public class NetworkRoleDetailUI : NetworkBehaviour
         }
     }
 
-    private Sprite GetRoleSprite(RoleType role)
+    public Sprite GetRoleSprite(RoleType role)
     {
-        Sprite dbSprite = RoleInfoDatabase.GetRoleSprite(role);
-        if (dbSprite != null)
-            return dbSprite;
-
         if (roleImages != null)
         {
             foreach (RoleImageEntry entry in roleImages)
             {
-                if (entry != null && entry.role == role)
+                if (entry != null && entry.role == role && entry.image != null)
                     return entry.image;
             }
         }
 
-        return null;
+        return RoleInfoDatabase.GetRoleSprite(role);
     }
 
     private Color GetFactionColor(FactionType faction, bool isSecret)

@@ -58,6 +58,10 @@ public static class RoleDetailSystemTests
         Test_CloseButton_And_CardSwitching();
         Test_ClickInteraction_SimulatePointerClick();
 
+        // Test Category 7: Role Ability UI & Art Sprite Integration
+        Test_RoleAbilityUI_ArtSpriteMapping();
+        Test_RoleAbilityUI_HierarchyAndPreserveAspect();
+
         AddLog("=================================================");
         AddLog($"KẾT QUẢ KIỂM THỬ: PASS = {passCount} | FAIL = {failCount}");
         AddLog("=================================================");
@@ -495,6 +499,138 @@ public static class RoleDetailSystemTests
                 detailUI.Close();
                 Assert(!detailUI.IsOpen, "Test_ClickSim_RolePanelClosed", "Đóng bảng thông tin sau khi click RolePanel.");
             }
+        }
+    }
+
+    // =========================================================================
+    // CATEGORY 7: ROLE ABILITY UI & ART SPRITE INTEGRATION
+    // =========================================================================
+    private static void Test_RoleAbilityUI_ArtSpriteMapping()
+    {
+        RoleType[] rolesToCheck = new RoleType[]
+        {
+            RoleType.DogSpirit, RoleType.WhiteHound, RoleType.SerpentSpirit, RoleType.Ogre,
+            RoleType.Villager, RoleType.Mayor, RoleType.Seer, RoleType.VillageGuardian,
+            RoleType.Hunter, RoleType.Shaman, RoleType.WeaverOfFate, RoleType.Idiot,
+            RoleType.Cursed, RoleType.Brat, RoleType.Madman, RoleType.FoxSpirit, RoleType.Killer
+        };
+
+        int spriteFoundCount = 0;
+        foreach (RoleType role in rolesToCheck)
+        {
+            Sprite s = RoleInfoDatabase.GetRoleSprite(role);
+            if (s != null)
+            {
+                spriteFoundCount++;
+            }
+            else
+            {
+                Debug.LogWarning($"[RoleDetailSystemTests] Chưa tìm thấy Sprite cho role: {role}");
+            }
+        }
+
+        Assert(spriteFoundCount == rolesToCheck.Length,
+            "Test_RoleAbilityUI_AllRolesHaveArtSprites",
+            $"Tất cả {rolesToCheck.Length} roles đều nạp thành công Sprite Art từ dự án ({spriteFoundCount}/{rolesToCheck.Length}).");
+    }
+
+    private static void Test_RoleAbilityUI_HierarchyAndPreserveAspect()
+    {
+        GameObject go = new GameObject("TestRoleAbilityUIHost");
+        try
+        {
+            var ui = go.AddComponent<RoleAbilityUI>();
+            ui.Initialize(null, 0);
+
+            Canvas canvas = go.GetComponentInChildren<Canvas>(true);
+            Assert(canvas != null, "Test_RoleAbilityUI_CanvasCreated", "Canvas UI Role Ability được khởi tạo.");
+
+            Transform windowTrans = canvas != null ? canvas.transform.Find("Role Ability Window") : null;
+            Assert(windowTrans != null, "Test_RoleAbilityUI_WindowExists", "Window 'Role Ability Window' tồn tại.");
+
+            if (windowTrans != null)
+            {
+                Transform card = windowTrans.Find("Card");
+                Assert(card != null, "Test_RoleAbilityUI_CardExists", "Card chính của Role Ability tồn tại.");
+
+                if (card != null)
+                {
+                    Transform closeBtn = card.Find("Close");
+                    Assert(closeBtn != null, "Test_RoleAbilityUI_CloseButtonExists", "Nút ĐÓNG tồn tại.");
+
+                    Transform left = card.Find("Character");
+                    Assert(left != null, "Test_RoleAbilityUI_LeftPanelExists", "Khung bên trái (Character) tồn tại.");
+
+                    if (left != null)
+                    {
+                        Transform iconFrame = left.Find("Icon frame");
+                        Assert(iconFrame != null, "Test_RoleAbilityUI_IconFrameExists", "Khung Icon frame tồn tại.");
+
+                        Transform roleIcon = iconFrame != null ? iconFrame.Find("Role icon") : null;
+                        Assert(roleIcon != null, "Test_RoleAbilityUI_RoleIconExists", "GameObject 'Role icon' tồn tại.");
+
+                        if (roleIcon != null)
+                        {
+                            Image img = roleIcon.GetComponent<Image>();
+                            Assert(img != null && img.preserveAspect, "Test_RoleAbilityUI_PreserveAspect", "Image 'Role icon' có preserveAspect = true (không bị méo ảnh).");
+                        }
+                    }
+
+                    Transform right = card.Find("Ability");
+                    Assert(right != null, "Test_RoleAbilityUI_RightPanelExists", "Khung bên phải (Ability) tồn tại.");
+
+                    if (right != null)
+                    {
+                        Transform details = right.Find("Ability details");
+                        Assert(details != null, "Test_RoleAbilityUI_AbilityDetailsExists", "Panel chi tiết kỹ năng tồn tại.");
+
+                        if (details != null)
+                        {
+                            Transform roleLbl = details.Find("Role");
+                            Transform factionLbl = details.Find("Faction");
+                            Transform infoBox = details.Find("Info box");
+
+                            Assert(roleLbl != null, "Test_RoleAbilityUI_RoleLabelExists", "Label Tên vai trò tồn tại.");
+                            Assert(factionLbl != null, "Test_RoleAbilityUI_FactionLabelExists", "Label Phe vai trò tồn tại.");
+                            Assert(infoBox != null, "Test_RoleAbilityUI_InfoBoxExists", "Info box thông tin chi tiết tồn tại.");
+
+                            if (infoBox != null)
+                            {
+                                Transform descLbl = infoBox.Find("Description");
+                                Transform skillLbl = infoBox.Find("Skill");
+                                Transform skillDescLbl = infoBox.Find("Skill description");
+                                Transform restrLbl = infoBox.Find("Restrictions");
+
+                                Assert(descLbl != null, "Test_RoleAbilityUI_DescriptionLabelExists", "Mô tả vai trò tồn tại.");
+                                Assert(skillLbl != null, "Test_RoleAbilityUI_SkillLabelExists", "Kỹ năng đặc biệt tồn tại.");
+                                Assert(skillDescLbl != null, "Test_RoleAbilityUI_SkillDescLabelExists", "Chi tiết & Thời điểm tồn tại.");
+                                Assert(restrLbl != null, "Test_RoleAbilityUI_RestrictionsLabelExists", "Điều kiện & Giới hạn tồn tại.");
+                            }
+                        }
+                    }
+                }
+            }
+
+            Transform revealTrans = canvas != null ? canvas.transform.Find("Role Reveal") : null;
+            Assert(revealTrans != null, "Test_RoleAbilityUI_RevealWindowExists", "Role Reveal window tồn tại.");
+            if (revealTrans != null)
+            {
+                Transform card = revealTrans.Find("Role Card");
+                if (card != null)
+                {
+                    Transform portraitFrame = card.Find("Role portrait and name/Portrait frame/Role portrait PNG");
+                    Assert(portraitFrame != null, "Test_RoleAbilityUI_RevealPortraitExists", "Ảnh chân dung trong Role Reveal tồn tại.");
+                    if (portraitFrame != null)
+                    {
+                        Image img = portraitFrame.GetComponent<Image>();
+                        Assert(img != null && img.preserveAspect, "Test_RoleAbilityUI_RevealPreserveAspect", "Ảnh trong Role Reveal có preserveAspect = true.");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
         }
     }
 }
