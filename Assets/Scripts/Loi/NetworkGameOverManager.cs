@@ -641,25 +641,24 @@ public class NetworkGameOverManager : MonoBehaviour
             // 1. Đã được đánh dấu thức tỉnh (isWhiteHoundAwakened)
             // 2. Thuộc phe Monster
             // 3. Đã bị DogSpirit cắn trong đêm
-            // 4. Hoặc DogSpirit đã chết (aliveDogSpirits == 0): Bạch Khuyển tự động thức tỉnh thành Quái vật duy trì ván game!
             bool isAwakenedWhiteHound = isWhiteHound && (
                 player.isWhiteHoundAwakened ||
                 roleIsMonster ||
                 player.faction == FactionType.Monster ||
-                (NetworkRoleActionBridge.Instance != null && NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(player.playerID)) ||
-                aliveDogSpirits == 0
+                (NetworkRoleActionBridge.Instance != null && NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(player.playerID))
             );
 
             if (isWhiteHound && isAwakenedWhiteHound)
             {
                 player.isWhiteHoundAwakened = true;
                 player.faction = FactionType.Monster;
-                player.roleType = RoleType.DogSpirit;
+                // Giữ nguyên roleType là RoleType.WhiteHound (không đổi sang DogSpirit)
                 if (RoleManager.Instance?.playerRoles != null &&
                     RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole whiteHoundRole) &&
                     whiteHoundRole is WhiteHound wh)
                 {
                     wh.BecomeMonster();
+                    wh.faction = FactionType.Monster;
                 }
             }
 
@@ -693,12 +692,12 @@ public class NetworkGameOverManager : MonoBehaviour
             }
             else if (isWhiteHound && !isAwakenedWhiteHound)
             {
-                // Bạch Khuyển chưa thức tỉnh (vẫn còn khả năng chuyển phe)
+                // Bạch Khuyển chưa thức tỉnh (thuộc phe Dân Làng theo luật chuẩn)
                 unawakenedWhiteHounds++;
+                aliveVillagers++;
             }
             else
             {
-                // Bạch Khuyển tuyệt đối KHÔNG BAO GIỜ được cộng vào aliveVillagers!
                 aliveVillagers++;
             }
         }
@@ -738,7 +737,7 @@ public class NetworkGameOverManager : MonoBehaviour
         // Lưu ý:
         // - unawakenedWhiteHounds còn khả năng chuyển phe -> được tính vào phía đối kháng (nonMonsters)
         // - Nếu còn Killer (aliveKillers > 0) -> Killer có thể giết Sói vào ban đêm nên Sói không thể thắng parity
-        int nonMonsters = aliveVillagers + aliveThirdParty + unawakenedWhiteHounds;
+        int nonMonsters = aliveVillagers + aliveThirdParty;
         if (aliveMonsters > 0 && aliveKillers == 0 && aliveMonsters >= nonMonsters)
         {
             Debug.Log($"[NetworkWinCondition] Phe DogSpirit/Monster ({aliveMonsters}) >= Dân làng & phe khác ({nonMonsters}) -> Ma Sói thắng!");
@@ -757,10 +756,10 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
-        // 7. Dân Làng chỉ thắng khi đã diệt sạch cả Quái vật, Bạch Khuyển (WhiteHound) LẪN toàn bộ Phe thứ 3
-        if (aliveMonsters == 0 && unawakenedWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
+        // 7. Dân Làng chỉ thắng khi đã diệt sạch cả Quái vật (kể cả Bạch Khuyển thức tỉnh) LẪN toàn bộ Phe thứ 3
+        if (aliveMonsters == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
         {
-            Debug.Log("[NetworkWinCondition] Quái vật, Bạch Khuyển và Phe thứ 3 đã bị tiêu diệt hết -> Dân làng thắng!");
+            Debug.Log("[NetworkWinCondition] Quái vật và Phe thứ 3 đã bị tiêu diệt hết -> Dân làng thắng!");
             if (GameRoleManager.Instance != null) GameRoleManager.Instance.VillagerWin();
             TriggerGameOver("Villagers");
             return;
@@ -1320,6 +1319,7 @@ public class NetworkGameOverManager : MonoBehaviour
             NetworkPlayerStateSync.ResetAllPlayersAlive();
 
             // BƯỚC 4: Reset trạng thái kỹ năng và dữ liệu Role theo API hiện có
+            ThuongOnlineWinAdapter.ResetForNewMatch();
             NetworkRoleActionBridge.Instance?.ResetForNewMatch();
             NetworkSkillUI.Instance?.ResetForNewMatch();
             NetworkHunterDeathUI.Instance?.ResetForNewMatch();
@@ -1527,29 +1527,18 @@ public class NetworkGameOverManager : MonoBehaviour
                     }
                 }
 
-                // Nếu bị cắn hoặc DogSpirit gốc đã chết, WhiteHound thức tỉnh và chính thức mang role DogSpirit:
-                if (wasBitten || !anyDogSpiritAlive || p.isWhiteHoundAwakened || p.faction == FactionType.Monster)
+                // Nếu bị cắn hoặc đã thức tỉnh, WhiteHound thức tỉnh và mang phe Monster (giữ nguyên RoleType.WhiteHound):
+                if (wasBitten || p.isWhiteHoundAwakened || p.faction == FactionType.Monster)
                 {
                     p.isWhiteHoundAwakened = true;
                     p.faction = FactionType.Monster;
-                    p.roleType = RoleType.DogSpirit;
 
-                    if (RoleManager.Instance?.playerRoles != null)
+                    if (RoleManager.Instance?.playerRoles != null &&
+                        RoleManager.Instance.playerRoles.TryGetValue(p.playerID, out BaseRole role) &&
+                        role is WhiteHound wh)
                     {
-                        if (!RoleManager.Instance.playerRoles.TryGetValue(p.playerID, out BaseRole role) ||
-                            role == null || role.roleType != RoleType.DogSpirit)
-                        {
-                            RoleManager.Instance.playerRoles[p.playerID] = RoleCatalog.Create(RoleType.DogSpirit, p);
-                        }
-                        else
-                        {
-                            role.faction = FactionType.Monster;
-                        }
-                    }
-
-                    if (RoleManager.Instance?.roleDefinitions != null)
-                    {
-                        p.roleDefinition = RoleManager.Instance.roleDefinitions.Find(RoleType.DogSpirit);
+                        wh.BecomeMonster();
+                        wh.faction = FactionType.Monster;
                     }
 
                     p.NotifyChanged();
@@ -1599,36 +1588,17 @@ public class NetworkGameOverManager : MonoBehaviour
         string gameplayScenePath = game.gameObject.scene.path;
         if (string.IsNullOrEmpty(gameplayScenePath) || !gameplayScenePath.StartsWith("Assets/Scenes/Loi/", StringComparison.Ordinal)) return;
 
-        // Luôn đảm bảo useEliminationWin = false để tránh fallback lỗi của Thuong
-        try
-        {
-            var elimField = typeof(WinConditionManager).GetField("useEliminationWin", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            elimField?.SetValue(wcm, false);
-        }
-        catch { }
-
         if (wcm.HasMatchEvaluator(game)) return;
         if (Thuong.Online.ThuongOnlineSession.Active != null) return;
         if (game.gameObject != null && game.gameObject.scene.name == Thuong.Online.ThuongOnlineBootstrap.SceneName) return;
 
-        try
+        if (game.gameObject.scene == wcm.gameObject.scene)
         {
-            if (game.gameObject.scene == wcm.gameObject.scene)
-            {
-                wcm.InstallMatchEvaluator(game, EvaluateLoiMatchWinCondition);
-            }
-            else
-            {
-                var wcmType = typeof(WinConditionManager);
-                var ownerField = wcmType.GetField("matchEvaluatorOwner", BindingFlags.Instance | BindingFlags.NonPublic);
-                var evalField = wcmType.GetField("matchEvaluator", BindingFlags.Instance | BindingFlags.NonPublic);
-                ownerField?.SetValue(wcm, game);
-                evalField?.SetValue(wcm, (System.Action<bool>)EvaluateLoiMatchWinCondition);
-            }
+            wcm.InstallMatchEvaluator(game, EvaluateLoiMatchWinCondition);
         }
-        catch (System.Exception ex)
+        else
         {
-            Debug.LogWarning($"[NetworkGameOverManager] Không thể đăng ký MatchEvaluator: {ex.Message}");
+            ThuongOnlineWinAdapter.EnsureWinEvaluatorInstalled();
         }
     }
 
@@ -1742,25 +1712,24 @@ public class NetworkGameOverManager : MonoBehaviour
             // 1. Đã được đánh dấu thức tỉnh (isWhiteHoundAwakened)
             // 2. Thuộc phe Monster
             // 3. Đã bị DogSpirit cắn trong đêm
-            // 4. Hoặc DogSpirit đã chết (aliveDogSpirits == 0): Bạch Khuyển tự động thức tỉnh thành Quái vật duy trì ván game!
             bool isAwakenedWhiteHound = isWhiteHound && (
                 player.isWhiteHoundAwakened ||
                 roleIsMonster ||
                 player.faction == FactionType.Monster ||
-                (NetworkRoleActionBridge.Instance != null && NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(player.playerID)) ||
-                aliveDogSpirits == 0
+                (NetworkRoleActionBridge.Instance != null && NetworkRoleActionBridge.Instance.HasWhiteHoundBeenBittenTonight(player.playerID))
             );
 
             if (isWhiteHound && isAwakenedWhiteHound)
             {
                 player.isWhiteHoundAwakened = true;
                 player.faction = FactionType.Monster;
-                player.roleType = RoleType.DogSpirit;
+                // Giữ nguyên roleType là RoleType.WhiteHound (không đổi sang DogSpirit)
                 if (RoleManager.Instance?.playerRoles != null &&
                     RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole whiteHoundRole) &&
                     whiteHoundRole is WhiteHound wh)
                 {
                     wh.BecomeMonster();
+                    wh.faction = FactionType.Monster;
                 }
             }
 
@@ -1794,12 +1763,12 @@ public class NetworkGameOverManager : MonoBehaviour
             }
             else if (isWhiteHound && !isAwakenedWhiteHound)
             {
-                // Bạch Khuyển chưa thức tỉnh (vẫn còn khả năng chuyển phe)
+                // Bạch Khuyển chưa thức tỉnh (thuộc phe Dân Làng theo luật chuẩn)
                 unawakenedWhiteHounds++;
+                aliveVillagers++;
             }
             else
             {
-                // Bạch Khuyển tuyệt đối KHÔNG BAO GIỜ được cộng vào aliveVillagers!
                 aliveVillagers++;
             }
         }
@@ -1829,9 +1798,9 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
         }
 
-        int nonMonstersFallback = aliveVillagers + aliveThirdParty + unawakenedWhiteHounds;
-        // Dân làng chỉ chiến thắng khi đã loại hết cả Quái vật, Bạch Khuyển (WhiteHound) LẪN toàn bộ Phe thứ 3
-        if (aliveMonsters == 0 && unawakenedWhiteHounds == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
+        int nonMonstersFallback = aliveVillagers + aliveThirdParty;
+        // Dân làng chỉ chiến thắng khi đã loại hết cả Quái vật (kể cả Bạch Khuyển thức tỉnh) LẪN toàn bộ Phe thứ 3
+        if (aliveMonsters == 0 && aliveVillagers > 0 && aliveThirdParty == 0)
         {
             SetDev2GameOver("Villagers");
         }

@@ -1128,8 +1128,7 @@ public static class NetworkGameOverTests
     }
 
     // =========================================================
-    // 31. CÒN WHITEHOUND THÌ DÂN LÀNG KHÔNG THỂ CHIẾN THẮNG
-    //     (Dù WhiteHound chưa bị cắn, DogSpirit bị giết trước đó -> WhiteHound thức tỉnh quái vật, ván game tiếp tục)
+    // 31. BẠCH KHUYỂN CHƯA THỨC TỈNH, CÒN SỐNG -> THEO LUẬT DÂN LÀNG HIỆN TẠI (DÂN LÀNG THẮNG KHI HẾT QUÁI VẬT)
     // =========================================================
 
     private static void Test_WhiteHoundAlive_DogSpiritKilledWithoutBite_VillagersCannotWin()
@@ -1146,8 +1145,7 @@ public static class NetworkGameOverTests
         wcGO.hideFlags = HideFlags.HideAndDontSave;
         var wc = wcGO.AddComponent<WinConditionManager>();
         WinConditionManager.Instance = wc;
-        var field = typeof(WinConditionManager).GetField("useEliminationWin", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(wc, true);
+        NetworkGameOverManager.EnsureLoiMatchEvaluatorInstalled();
 
         try
         {
@@ -1162,27 +1160,20 @@ public static class NetworkGameOverTests
             pm.players.Add(seer);
             pm.players.Add(villager);
 
-            // Bước 1: DogSpirit bị giết (bị treo cổ ngày 1 hoặc Tiên tri phát hiện và vote chết) mà CHƯA cắn WhiteHound
+            // Bước 1: DogSpirit bị tiêu diệt khi chưa cắn WhiteHound
             dogSpirit.isAlive = false;
             dogSpirit.lastDeathCause = DeathCause.Vote;
             dogSpirit.wasVotedOut = true;
 
-            // Bước 2: Kiểm tra điều kiện thắng
-            // VÌ CÒN WHITEHOUND NÊN DÂN LÀNG TUYỆT ĐỐI KHÔNG ĐƯỢC THẮNG!
+            // Bước 2: Kiểm tra điều kiện thắng: WhiteHound chưa thức tỉnh vẫn thuộc phe Dân Làng
+            // Quái vật đã hết -> Dân Làng chiến thắng theo luật chuẩn!
             wc.CheckWinCondition(false);
 
-            bool villagersDidNotWin = gm.currentState != GameState.GameOver && string.IsNullOrEmpty(gm.Winner);
+            bool villagersWon = gm.currentState == GameState.GameOver && gm.Winner == "Villagers";
+            bool whiteHoundRemainsUnawakened = !whiteHound.isWhiteHoundAwakened && whiteHound.faction == FactionType.Villager;
 
-            // WhiteHound tự động thức tỉnh thành Monster kế thừa DogSpirit
-            bool whiteHoundAwakened = whiteHound.isWhiteHoundAwakened && whiteHound.faction == FactionType.Monster;
-
-            // Bước 3: WhiteHound (quái vật) tiêu diệt 1 dân làng -> Còn 1 WhiteHound vs 1 Dân làng
-            seer.isAlive = false;
-            wc.CheckWinCondition(false);
-            bool monsterWinsAtParity = gm.currentState == GameState.GameOver && gm.Winner == "Werewolves";
-
-            Assert(villagersDidNotWin && whiteHoundAwakened && monsterWinsAtParity,
-                "TC31: Còn WhiteHound thì Dân làng không thể chiến thắng; WhiteHound thức tỉnh kế thừa quái vật duy trì ván đấu!");
+            Assert(villagersWon && whiteHoundRemainsUnawakened,
+                "TC31: Bạch Khuyển chưa thức tỉnh, còn sống -> Theo luật Dân Làng hiện tại (Dân Làng thắng khi diệt hết quái vật).");
         }
         finally
         {

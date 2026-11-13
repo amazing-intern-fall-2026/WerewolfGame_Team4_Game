@@ -138,17 +138,18 @@ public class NetworkRoleSync : NetworkBehaviour
             if (awakened)
             {
                 r.faction = FactionType.Monster;
+                if (r is WhiteHound wh)
+                {
+                    wh.BecomeMonster();
+                    wh.faction = FactionType.Monster;
+                }
             }
         }
 
         if (awakened && pData != null)
         {
             pData.faction = FactionType.Monster;
-            if (pData.roleType == RoleType.WhiteHound || pData.roleType == RoleType.WhiteWolf)
-            {
-                pData.roleType = RoleType.DogSpirit;
-                roleType = RoleType.DogSpirit;
-            }
+            pData.isWhiteHoundAwakened = true;
         }
 
         LocalRole = roleType;
@@ -334,15 +335,13 @@ public class NetworkRoleSync : NetworkBehaviour
             if (awakened)
             {
                 pData.faction = FactionType.Monster;
-                pData.roleType = RoleType.DogSpirit;
-                LocalRole = RoleType.DogSpirit;
             }
         }
 
         Debug.Log(
             "NETWORK ROLE SYNC | WHITEHOUND AWAKENED = "
             + awakened
-            + " -> Đổi qua phe DogSpirit và mở khóa chức năng tấn công!"
+            + " -> Gia nhập phe Monster và mở khóa chức năng tấn công!"
         );
 
         OnLocalWhiteHoundAwakenedChanged?.Invoke(awakened);

@@ -48,6 +48,8 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         Instance = this;
         if (Application.isPlaying) DontDestroyOnLoad(gameObject);
         SceneManager.sceneLoaded += OnSceneLoaded;
+        ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
+        ThuongOnlineWinAdapter.EnsureInstance();
         InitializeDefaults(GetCurrentPlayerCount());
     }
 
@@ -61,6 +63,8 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         injectedLobbyButton = null;
+        ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
+        ThuongOnlineWinAdapter.EnsureInstance();
         if (scene.name.IndexOf("MainMenu", StringComparison.OrdinalIgnoreCase) >= 0 ||
             scene.name.IndexOf("Offline", StringComparison.OrdinalIgnoreCase) >= 0)
         { ResetCaches(); return; }
@@ -319,9 +323,14 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         var manager = RoleManager.Instance;
         if (!RolePoolBuilder.TryBuildConfigured(PlayerManager.Instance.players.Count, NetworkGameRoleSetup.GetRoles(),
             RoleCatalog.AllConcreteRoles, out var pool, out _)) return false;
+        ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
         var previous = manager.exactRolePoolOverride;
         try { manager.exactRolePoolOverride = pool; manager.AssignRole(seed ?? UnityEngine.Random.Range(0, int.MaxValue)); }
-        finally { manager.exactRolePoolOverride = previous; }
+        finally
+        {
+            manager.exactRolePoolOverride = previous;
+            ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
+        }
         return manager.playerRoles.Count == pool.Count;
     }
 
