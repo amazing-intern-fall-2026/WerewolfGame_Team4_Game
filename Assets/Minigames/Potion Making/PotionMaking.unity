@@ -1041,7 +1041,7 @@ MonoBehaviour:
     potionColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   dropPoint: {fileID: 880257521}
   fallingIngredientPrefab: {fileID: 6206025655697953327, guid: 849d9fea1f4419543a551a583afdd8ca, type: 3}
-  finishedBottlePrefab: {fileID: 0}
+  finishedBottlePrefab: {fileID: 4684735545318964980, guid: c7ba7805e5de5404f884ed6d8164a328, type: 3}
   fallingItemScale: {x: 0.4, y: 0.4, z: 1}
   potionScale: {x: 1.5, y: 1.5, z: 1}
   liquidRenderer: {fileID: 0}
