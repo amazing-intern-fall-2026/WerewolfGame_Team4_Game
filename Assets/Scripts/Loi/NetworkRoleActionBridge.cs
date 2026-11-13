@@ -645,6 +645,11 @@ public class NetworkRoleActionBridge : MonoBehaviour
             player.effects ??= new List<StatusEffectInstance>();
             player.effects.Clear();
 
+            if (roleType == RoleType.VillageGuardian)
+            {
+                ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
+            }
+
             if (roleManager.roleDefinitions != null)
             {
                 player.roleDefinition = roleManager.roleDefinitions.Find(roleType);
