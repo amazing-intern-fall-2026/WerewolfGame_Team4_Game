@@ -25,6 +25,8 @@ public static class DisconnectTestExecution
         NetworkDisconnectSyncTests.RunAllTests();
         Debug.Log("[DisconnectTestExecution] Starting batch execution of NetworkGameOverTests...");
         NetworkGameOverTests.RunAllTests();
+        Debug.Log("[DisconnectTestExecution] Starting batch execution of ThuongOnlineWinConditionTests...");
+        ThuongOnlineWinConditionTests.RunAllTests();
         Debug.Log("[DisconnectTestExecution] Completed batch execution.");
     }
 }
