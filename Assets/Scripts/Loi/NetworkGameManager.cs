@@ -129,6 +129,7 @@ public class NetworkGameManager : NetworkBehaviour
 
     private void OnClientDisconnected(ulong clientId)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active?.OwnsNetwork(NetworkManager.Singleton) == true) return;
         if (IsServer)
         {
             HandleServerPlayerDisconnect(clientId);
@@ -154,6 +155,7 @@ public class NetworkGameManager : NetworkBehaviour
 
     public void HandleServerPlayerDisconnect(ulong clientId)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active?.OwnsNetwork(NetworkManager.Singleton) == true) return;
         if (processedDisconnectClientIds.Contains(clientId))
         {
             Debug.Log($"[NetworkGameManager] Client {clientId} da duoc xu ly disconnect truoc do (idempotent deduplication).");

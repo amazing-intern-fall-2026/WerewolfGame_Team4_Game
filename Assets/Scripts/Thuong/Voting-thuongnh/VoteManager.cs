@@ -8,6 +8,8 @@ public class VoteManager : MonoBehaviour
     private bool resolved;
     public event System.Action<VoteResolution> VoteResolved;
     public VoteResolution LastResolution { get; private set; }
+    public bool AllowVoteChanges { get; set; }
+    public bool AllowSelfVote { get; set; } = true;
     public int GetVotedTarget(int voterID) => choices.TryGetValue(voterID, out var choice) &&
         choice.Kind == VoteChoiceKind.Player ? choice.TargetPlayerId : -1;
     public bool VotedNoElimination(int voterID) => choices.TryGetValue(voterID, out var choice) &&
@@ -23,7 +25,7 @@ public class VoteManager : MonoBehaviour
         if (voter == null) return ActionValidationResult.Fail(ActionFailureReason.ActorMissing, "Không tìm thấy người bỏ phiếu.");
         if (!voter.isAlive) return ActionValidationResult.Fail(ActionFailureReason.ActorDead, "Người đã chết không được bỏ phiếu.");
         if (!voter.CanVote) return ActionValidationResult.Fail(ActionFailureReason.CannotVote, "Cannot Vote: bạn đang bị khóa quyền bỏ phiếu.");
-        if (voter.hasVoted) return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Bạn đã bỏ phiếu trong lượt này.");
+        if (voter.hasVoted && !AllowVoteChanges) return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Bạn đã bỏ phiếu trong lượt này.");
         return ActionValidationResult.Success();
     }
 
@@ -36,6 +38,8 @@ public class VoteManager : MonoBehaviour
         var target = PlayerManager.Instance?.GetplayerByID(targetID);
         if (target == null) return ActionValidationResult.Fail(ActionFailureReason.TargetMissing, "Hãy chọn mục tiêu bỏ phiếu.");
         if (!target.isAlive) return ActionValidationResult.Fail(ActionFailureReason.TargetDead, "Mục tiêu đã bị loại.");
+        if (!AllowSelfVote && voterID == targetID)
+            return ActionValidationResult.Fail(ActionFailureReason.SelfTargetForbidden, "Không thể bỏ phiếu cho chính mình.");
         return ActionValidationResult.Success();
     }
 
@@ -71,11 +75,12 @@ public class VoteManager : MonoBehaviour
         if (resolved || GameRoleManager.Instance == null || GameRoleManager.Instance.currentState != GameState.Voting ||
             PlayerManager.Instance == null) return false;
         var voter = PlayerManager.Instance.GetplayerByID(voterID);
-        if (voter == null || !PlayerManager.Instance.IsAlive(voterID) || !voter.CanVote || voter.hasVoted) return false;
+        if (voter == null || !PlayerManager.Instance.IsAlive(voterID) || !voter.CanVote || voter.hasVoted && !AllowVoteChanges) return false;
         if (choice.Kind == VoteChoiceKind.Player)
         {
             var target = PlayerManager.Instance.GetplayerByID(choice.TargetPlayerId);
             if (target == null || !PlayerManager.Instance.IsAlive(choice.TargetPlayerId)) return false;
+            if (!AllowSelfVote && voterID == choice.TargetPlayerId) return false;
         }
         voter.hasVoted = true;
         choices[voterID] = choice;

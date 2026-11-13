@@ -41,6 +41,20 @@ public class NetworkChatUI : MonoBehaviour
     private int unreadMessagesCount = 0;
     private bool isOpen = false;
     public bool IsOpen => isOpen;
+    public bool IsInputFocused => chatInputField != null && chatInputField.isFocused;
+
+    public void SetCommunicationAvailability(bool allowed, string description)
+    {
+        if (chatInputField != null)
+        {
+            chatInputField.interactable = allowed;
+            if (!allowed && chatInputField.isFocused) chatInputField.DeactivateInputField();
+            if (chatInputField.placeholder is TMP_Text hint) hint.text = allowed ? "Nhập tin nhắn…" : description;
+        }
+        if (sendButton != null) sendButton.interactable = allowed;
+        var title = chatPanelRoot != null ? chatPanelRoot.transform.Find("HeaderBar/TitleText")?.GetComponent<TMP_Text>() : null;
+        if (title != null) title.text = description;
+    }
 
     private RectTransform panelRect;
     private Vector2 basePanelPos;
@@ -121,6 +135,7 @@ public class NetworkChatUI : MonoBehaviour
 
         if (isOpen)
         {
+            Thuong.Online.ThuongOnlineSession.Active?.PauseForChat();
             // Reset số lượng tin nhắn chưa đọc khi mở
             unreadMessagesCount = 0;
             UpdateUnreadBadge();
@@ -147,7 +162,11 @@ public class NetworkChatUI : MonoBehaviour
         string text = chatInputField.text;
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        if (NetworkChatManager.Instance != null)
+        if (Thuong.Online.ThuongOnlineSession.Active != null)
+        {
+            if (!Thuong.Online.ThuongOnlineSession.Active.SendChatText(text)) return;
+        }
+        else if (NetworkChatManager.Instance != null)
         {
             NetworkChatManager.Instance.SendChatMessage(text);
         }
@@ -170,6 +189,12 @@ public class NetworkChatUI : MonoBehaviour
             UpdateUnreadBadge();
         }
 
+        while (messageContent != null && messageContent.childCount > NetworkChatManager.MaxHistoryCount)
+        {
+            var oldest = messageContent.GetChild(0);
+            oldest.SetParent(null);
+            Destroy(oldest.gameObject);
+        }
         StartCoroutine(ScrollToBottomCoroutine());
     }
 

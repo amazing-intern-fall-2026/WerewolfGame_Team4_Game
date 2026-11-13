@@ -15,7 +15,12 @@ namespace Thuong.Online
         MakeLovers,
         NoEliminationVote,
         RealtimeAbility,
-        ReportCorpse
+        ReportCorpse,
+        EmergencyMeeting,
+        Sabotage,
+        RepairSabotage,
+        PairConsole,
+        UseItem
     }
 
     internal sealed class ThuongOnlineLobbyMember
@@ -36,6 +41,7 @@ namespace Thuong.Online
         public string Name;
         public int CharacterIndex;
         public bool Alive;
+        public bool Hidden;
         public Vector2 Position;
     }
 
@@ -53,6 +59,8 @@ namespace Thuong.Online
         public float LastInputTime;
         public ushort LastInputSequence;
         public uint LastRequestId;
+        public double ActionWindow;
+        public int ActionsInWindow;
         public ulong LastRoomStateRevision;
         public Guid ReconnectToken;
         public double ReconnectUntil;
@@ -66,7 +74,7 @@ namespace Thuong.Online
         public const string Input = "thuong.online.input.v1";
         public const string Action = "thuong.online.action.v5";
         public const string Roster = "thuong.online.roster.v4";
-        public const string Snapshot = "thuong.online.snapshot.v8";
+        public const string Snapshot = "thuong.online.snapshot.v9";
         public const string PrivateState = "thuong.online.private.v4";
     }
 

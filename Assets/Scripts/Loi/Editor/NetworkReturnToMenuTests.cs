@@ -71,7 +71,7 @@ public class NetworkReturnToMenuTests
         var controller = NetworkReturnToMenuController.Instance;
         Assert.IsNotNull(controller, "NetworkReturnToMenuController instance phải tồn tại.");
 
-        Assert.AreEqual("loi.online.host_session_terminated.v1", NetworkReturnToMenuController.HostSessionTerminatedMessage);
+        Assert.AreEqual("loi.online.host_session_terminated.v2", NetworkReturnToMenuController.HostSessionTerminatedMessage);
         Assert.AreEqual("loi.online.client_leave.v1", NetworkReturnToMenuController.ClientVoluntaryLeaveMessage);
     }
 

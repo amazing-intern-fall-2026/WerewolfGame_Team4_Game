@@ -11,8 +11,10 @@ public static class GameBackgroundTestExecution
     [InitializeOnLoadMethod]
     private static void OnEditorReload()
     {
+        if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode) return;
         EditorApplication.delayCall += () =>
         {
+            if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode || Application.isPlaying) return;
             RunAndSaveReport();
         };
     }

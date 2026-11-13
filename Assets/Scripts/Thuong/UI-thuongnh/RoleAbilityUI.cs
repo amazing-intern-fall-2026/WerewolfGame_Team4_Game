@@ -24,8 +24,13 @@ public class RoleAbilityUI : MonoBehaviour
     private TMP_Text openLabel;
     private TMP_Text playerLabel;
     private TMP_Text roleLabel;
+    private TMP_Text factionLabel;
     private TMP_Text skillLabel;
     private TMP_Text descriptionLabel;
+    private TMP_Text skillDescriptionLabel;
+    private TMP_Text restrictionsLabel;
+    private bool previousHunterPending;
+    private int shownOnlineInformation;
     private TMP_Text statusLabel;
     private TMP_Text targetFeedbackLabel;
     private TMP_Text targetTitleLabel;
@@ -35,6 +40,7 @@ public class RoleAbilityUI : MonoBehaviour
     private TMP_Text revealDescriptionLabel;
     private TMP_Text revealTimerLabel;
     private Image revealPortrait;
+    private Image characterPortraitImage;
     private Sprite defaultPortrait;
     private RectTransform targetContent;
     private readonly Dictionary<int, Button> targetButtons = new();
@@ -192,50 +198,72 @@ public class RoleAbilityUI : MonoBehaviour
 
         window = Panel("Role Ability Window", root.transform, Vector2.zero,
             Vector2.one, "#07151BD9", true).gameObject;
-        var card = Panel("Card", window.transform, new Vector2(.18f, .16f),
-            new Vector2(.82f, .84f), "#142D38", true);
-        Label("Title", card, "ROLE ABILITY", new Vector2(.04f, .88f),
-            new Vector2(.7f, .98f), 32, "#EBCB83");
-        ActionButton("Close", card, "ĐÓNG", new Vector2(.81f, .88f),
-            new Vector2(.96f, .97f), "#425A63", () => ShowWindow(false));
+        var card = Panel("Card", window.transform, new Vector2(.10f, .07f),
+            new Vector2(.90f, .93f), "#142D38", true);
+        Label("Title", card, "ROLE ABILITY", new Vector2(.04f, .91f),
+            new Vector2(.7f, .98f), 30, "#EBCB83");
+        ActionButton("Close", card, "ĐÓNG", new Vector2(.83f, .90f),
+            new Vector2(.96f, .98f), "#425A63", () => ShowWindow(false));
 
-        var left = Panel("Character", card, new Vector2(.04f, .11f),
-            new Vector2(.35f, .84f), "#1B3B45");
-        Label("Character heading", left, "NHÂN VẬT", new Vector2(.08f, .84f),
-            new Vector2(.92f, .96f), 22, "#79DED1", TextAlignmentOptions.Center);
-        var iconFrame = Panel("Icon frame", left, new Vector2(.17f, .28f),
-            new Vector2(.83f, .79f), "#254B54");
-        AddRoleIcon(iconFrame, "Role icon", new Vector2(.05f, .05f),
-            new Vector2(.95f, .95f), roleIcon);
-        playerLabel = Label("Player ID", left, "Đang chờ người chơi", new Vector2(.08f, .08f),
-            new Vector2(.92f, .26f), 23, "#F4FAF8", TextAlignmentOptions.Center);
+        var left = Panel("Character", card, new Vector2(.04f, .03f),
+            new Vector2(.35f, .89f), "#1B3B45");
+        Label("Character heading", left, "NHÂN VẬT", new Vector2(.05f, .92f),
+            new Vector2(.95f, .98f), 22, "#79DED1", TextAlignmentOptions.Center);
+        var iconFrame = Panel("Icon frame", left, new Vector2(.06f, .14f),
+            new Vector2(.94f, .91f), "#254B54");
 
-        Label("Arrow", card, ">", new Vector2(.365f, .39f),
-            new Vector2(.435f, .61f), 64, "#EBCB83", TextAlignmentOptions.Center);
-        var right = Panel("Ability", card, new Vector2(.45f, .11f),
-            new Vector2(.96f, .84f), "#1B3B45");
+        var iconObj = new GameObject("Role icon", typeof(RectTransform), typeof(Image));
+        var iconRt = iconObj.GetComponent<RectTransform>();
+        iconRt.SetParent(iconFrame, false);
+        iconRt.anchorMin = new Vector2(0.04f, 0.04f);
+        iconRt.anchorMax = new Vector2(0.96f, 0.96f);
+        iconRt.offsetMin = iconRt.offsetMax = Vector2.zero;
+        characterPortraitImage = iconObj.GetComponent<Image>();
+        characterPortraitImage.sprite = defaultPortrait;
+        characterPortraitImage.preserveAspect = true;
+        characterPortraitImage.raycastTarget = false;
+
+        playerLabel = Label("Player ID", left, "Đang chờ người chơi", new Vector2(.04f, .02f),
+            new Vector2(.96f, .13f), 20, "#F4FAF8", TextAlignmentOptions.Center);
+
+        Label("Arrow", card, ">", new Vector2(.352f, .42f),
+            new Vector2(.372f, .58f), 36, "#EBCB83", TextAlignmentOptions.Center);
+        var right = Panel("Ability", card, new Vector2(.375f, .03f),
+            new Vector2(.96f, .89f), "#1B3B45");
         abilityView = Panel("Ability details", right, Vector2.zero, Vector2.one,
             "#00000000").gameObject;
-        roleLabel = Label("Role", abilityView.transform, "ROLE", new Vector2(.06f, .80f),
-            new Vector2(.95f, .96f), 31, "#79DED1");
-        skillLabel = Label("Skill", abilityView.transform, "KỸ NĂNG", new Vector2(.06f, .65f),
-            new Vector2(.95f, .79f), 23, "#EBCB83");
-        descriptionLabel = Label("Description", abilityView.transform, "", new Vector2(.06f, .40f),
-            new Vector2(.95f, .65f), 20, "#D7E7E7");
-        statusLabel = Label("Status", abilityView.transform, "", new Vector2(.06f, .19f),
-            new Vector2(.95f, .39f), 19, "#B8D0D1");
+
+        roleLabel = Label("Role", abilityView.transform, "ROLE", new Vector2(.04f, .90f),
+            new Vector2(.96f, .98f), 28, "#79DED1");
+        factionLabel = Label("Faction", abilityView.transform, "PHE", new Vector2(.04f, .83f),
+            new Vector2(.96f, .90f), 20, "#EBCB83");
+
+        var infoBox = Panel("Info box", abilityView.transform, new Vector2(.04f, .21f),
+            new Vector2(.96f, .82f), "#14303A", true);
+        descriptionLabel = Label("Description", infoBox, "", new Vector2(.03f, .70f),
+            new Vector2(.97f, .98f), 18, "#D7E7E7");
+        skillLabel = Label("Skill", infoBox, "KỸ NĂNG", new Vector2(.03f, .50f),
+            new Vector2(.97f, .69f), 19, "#EBCB83");
+        skillDescriptionLabel = Label("Skill description", infoBox, "", new Vector2(.03f, .26f),
+            new Vector2(.97f, .49f), 17, "#F4FAF8");
+        restrictionsLabel = Label("Restrictions", infoBox, "", new Vector2(.03f, .02f),
+            new Vector2(.97f, .25f), 16, "#FFAA44");
+
+        statusLabel = Label("Status", abilityView.transform, "", new Vector2(.04f, .14f),
+            new Vector2(.96f, .20f), 16, "#B8D0D1");
+
         useButton = ActionButton("Use skill", abilityView.transform, "CHỌN MỤC TIÊU",
-            new Vector2(.06f, .04f), new Vector2(.95f, .17f), "#28716F", OpenTargets);
+            new Vector2(.04f, .03f), new Vector2(.96f, .13f), "#28716F", OpenTargets);
         shamanGoodCharmButton = ActionButton("Shaman good charm", abilityView.transform,
-            "BÙA LỢI", new Vector2(.06f, .04f), new Vector2(.49f, .17f),
+            "BÙA LỢI", new Vector2(.04f, .03f), new Vector2(.48f, .13f),
             "#28716F", () => OpenShamanTargets(true));
         shamanBadCharmButton = ActionButton("Shaman bad charm", abilityView.transform,
-            "BÙA HẠI", new Vector2(.52f, .04f), new Vector2(.95f, .17f),
+            "BÙA HẠI", new Vector2(.52f, .03f), new Vector2(.96f, .13f),
             "#7D4548", () => OpenShamanTargets(false));
         shamanGoodCharmButton.gameObject.SetActive(false);
         shamanBadCharmButton.gameObject.SetActive(false);
         hunterTrapButton = ActionButton("Hunter trap", abilityView.transform,
-            "ĐẶT BẪY", new Vector2(.06f, .04f), new Vector2(.95f, .17f),
+            "ĐẶT BẪY", new Vector2(.04f, .03f), new Vector2(.96f, .13f),
             "#7D4548", OpenHunterTrapTargets);
         hunterTrapButton.gameObject.SetActive(false);
 
@@ -444,12 +472,14 @@ public class RoleAbilityUI : MonoBehaviour
         }
         // Unity's missing/destroyed asset references use Unity-null, not CLR-null.
         // Do not use ?? for an optional serialized Sprite or it can suppress the fallback.
-        Sprite portrait = definition != null ? definition.portrait : null;
+        Sprite portrait = RoleInfoDatabase.GetRoleSprite(player.roleType);
+        if (portrait == null && definition != null) portrait = definition.portrait;
         if (portrait == null) portrait = Resources.Load<Sprite>("RolePortraits/" + player.roleType);
         if (portrait == null) portrait = defaultPortrait;
         if (portrait == null) portrait = Resources.Load<Sprite>("RoleAbilityIcon");
         revealPortrait.sprite = portrait;
         revealPortrait.color = revealPortrait.sprite != null ? Color.white : Hex("#79DED1");
+        revealPortrait.preserveAspect = true;
     }
 
     private static string PlayerName(PlayerData player)
@@ -467,90 +497,95 @@ public class RoleAbilityUI : MonoBehaviour
         shownPlayerID = player.playerID;
         shownAwakened = player.isWhiteHoundAwakened;
         shownFaction = player.faction;
-        roleLabel.text = DisplayRoleName(player);
-        openLabel.text = "ROLE / " + DisplayRoleName(player);
+
         RefreshReveal(player);
 
-        switch (shownRole)
+        var onlineSession = Thuong.Online.ThuongOnlineSession.Active;
+        shownOnlineInformation = onlineSession != null ? onlineSession.RoleInformationVersion : 0;
+        RoleInfoData info = onlineSession != null && onlineSession.HasLocalRole
+            ? onlineSession.LocalRoleInformation() : RoleInfoDatabase.GetRoleInfo(shownRole);
+        if (onlineSession == null && shownRole == RoleType.WhiteHound && shownAwakened)
         {
-            case RoleType.DogSpirit:
-                skillLabel.text = "TẤN CÔNG";
-                descriptionLabel.text = "Chọn một người chơi còn sống để tấn công trong đêm.";
-                break;
-            case RoleType.SerpentSpirit:
-                skillLabel.text = "TẤN CÔNG";
-                descriptionLabel.text = "Có thể tấn công từ đêm thứ ba.";
-                break;
-            case RoleType.Ogre:
-                skillLabel.text = "TẤN CÔNG";
-                descriptionLabel.text = "Chọn một người chơi còn sống để tấn công trong đêm.";
-                break;
-            case RoleType.Seer:
-                skillLabel.text = "SOI DOGSPIRIT";
-                descriptionLabel.text = "Chọn một người chơi để biết họ có phải Dogspirit hay không. Không hiển thị Role cụ thể.";
-                break;
-            case RoleType.VillageGuardian:
-                skillLabel.text = "BẢO VỆ";
-                descriptionLabel.text = "Chọn một người chơi để bảo vệ trong đêm. Không chọn cùng mục tiêu hai đêm liên tiếp.";
-                break;
-            case RoleType.Shaman:
-                skillLabel.text = "BÙA LỢI / BÙA HẠI";
-                descriptionLabel.text = "Mỗi loại bùa dùng một lần. Chọn bùa rồi chọn mục tiêu trong đêm.";
-                break;
-            case RoleType.WhiteHound:
-                skillLabel.text = "TẤN CÔNG";
-                descriptionLabel.text = player.isWhiteHoundAwakened
-                    ? "Bạch Khuyển đã thức tỉnh. Chọn một người chơi để tấn công trong đêm."
-                    : "Chỉ có thể tấn công sau khi bị Dog Spirit tấn công và thức tỉnh.";
-                break;
-            case RoleType.Cursed:
-                skillLabel.text = "NGUYỀN";
-                descriptionLabel.text = "Đánh dấu một người chơi còn sống bằng lời nguyền.";
-                break;
-            case RoleType.Brat:
-                skillLabel.text = "NHÌN TRỘM";
-                descriptionLabel.text = $"Xem các hành động đã đăng ký trong đêm. Có {BratRole.CaughtChance:P0} khả năng bị Sói phát hiện.";
-                break;
-            case RoleType.FoxSpirit:
-                skillLabel.text = "MÊ HOẶC";
-                descriptionLabel.text = "Mỗi đêm chọn tối đa hai người còn sống để mê hoặc.";
-                break;
-            case RoleType.WeaverOfFate:
-                skillLabel.text = "DỆT DUYÊN";
-                descriptionLabel.text = "Chọn hai người chơi còn sống trong đêm. Kỹ năng dùng một lần mỗi ván.";
-                break;
-            case RoleType.Killer:
-                skillLabel.text = "TẤN CÔNG";
-                descriptionLabel.text = "Chọn một mục tiêu vào các đêm chẵn.";
-                break;
-            default:
-                skillLabel.text = "KỸ NĂNG NỘI TẠI";
-                descriptionLabel.text = "Role này không có kỹ năng chủ động trên giao diện. Hãy tham gia thảo luận và bỏ phiếu.";
-                break;
+            info.DisplayName = "Bạch khuyển (Phe DogSpirit)";
+            info.FactionName = "Phe Quái vật (DogSpirit)";
+            info.Faction = FactionType.Monster;
+            info.SkillName = "Tấn công ban đêm";
+            info.SkillDescription = "Đã bị DogSpirit cắn và thức tỉnh! Mỗi đêm có thể cùng bầy sói tấn công 1 người chơi.";
+            info.Restrictions = "Sử dụng chức năng tấn công vào ban đêm cùng phe DogSpirit.";
         }
+
+        if (roleLabel != null) roleLabel.text = info.DisplayName.ToUpper();
+        if (factionLabel != null)
+        {
+            factionLabel.text = "PHE: " + info.FactionName.ToUpper();
+            factionLabel.color = info.Faction == FactionType.Monster ? Hex("#FF5555")
+                                : info.Faction == FactionType.Neutral ? Hex("#FFDD44")
+                                : Hex("#79DED1");
+        }
+        if (descriptionLabel != null)
+        {
+            descriptionLabel.text = "<b>Mô tả vai trò:</b> " + info.Description;
+        }
+        if (skillLabel != null)
+        {
+            skillLabel.text = "<b>Kỹ năng đặc biệt:</b> " + info.SkillName;
+        }
+        if (skillDescriptionLabel != null)
+        {
+            skillDescriptionLabel.text = "<b>Chi tiết & Thời điểm:</b> " + info.SkillDescription;
+        }
+        if (restrictionsLabel != null)
+        {
+            restrictionsLabel.text = "<b>Điều kiện & Giới hạn:</b> " + info.Restrictions;
+        }
+        if (playerLabel != null)
+        {
+            playerLabel.text = $"<b>{PlayerName(player)}</b>\n<size=85%>{info.DisplayName}</size>";
+        }
+        if (openLabel != null) openLabel.text = "ROLE / " + info.DisplayName.ToUpper();
+
+        // Cập nhật Sprite hình ảnh vai trò thực tế
+        Sprite roleSprite = RoleInfoDatabase.GetRoleSprite(shownRole);
+        if (roleSprite == null && shownDefinition != null) roleSprite = shownDefinition.portrait;
+        if (roleSprite == null) roleSprite = defaultPortrait;
+
+        if (characterPortraitImage != null)
+        {
+            characterPortraitImage.sprite = roleSprite;
+            characterPortraitImage.color = Color.white;
+            characterPortraitImage.preserveAspect = true;
+        }
+
+        foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
+        {
+            if (image.gameObject.name == "Role icon")
+            {
+                image.sprite = roleSprite;
+                image.color = Color.white;
+                image.preserveAspect = true;
+            }
+            else if (image.gameObject.name == "Role icon on button")
+            {
+                image.sprite = shownDefinition != null && shownDefinition.abilityIcon != null
+                    ? shownDefinition.abilityIcon : roleSprite;
+                image.color = Color.white;
+                image.preserveAspect = true;
+            }
+        }
+
         bool configured = RoleManager.UsesConfiguredAbility(player);
         TMP_Text useLabel = useButton.GetComponentInChildren<TMP_Text>();
         if (useLabel != null)
             useLabel.text = shownRole == RoleType.Brat ? "NHÌN TRỘM" : "CHỌN MỤC TIÊU";
-        if (configured)
+        if (configured && onlineSession == null)
         {
-            skillLabel.text = !string.IsNullOrWhiteSpace(shownDefinition.abilityName)
-                ? shownDefinition.abilityName : shownDefinition.abilityType.ToString();
-            if (!string.IsNullOrWhiteSpace(shownDefinition.description)) descriptionLabel.text = shownDefinition.description;
+            if (skillLabel != null)
+                skillLabel.text = !string.IsNullOrWhiteSpace(shownDefinition.abilityName)
+                    ? "<b>Kỹ năng:</b> " + shownDefinition.abilityName : "<b>Kỹ năng:</b> " + shownDefinition.abilityType.ToString();
+            if (skillDescriptionLabel != null && !string.IsNullOrWhiteSpace(shownDefinition.description))
+                skillDescriptionLabel.text = "<b>Chi tiết:</b> " + shownDefinition.description;
         }
-        if (shownDefinition != null && shownDefinition.abilityIcon != null)
-        {
-            foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
-                if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
-                    image.sprite = shownDefinition.abilityIcon;
-        }
-        else
-        {
-            foreach (var image in abilityCanvas.GetComponentsInChildren<Image>(true))
-                if (image.gameObject.name == "Role icon" || image.gameObject.name == "Role icon on button")
-                    image.sprite = ThuongMedievalTheme.Active != null
-                        ? ThuongMedievalTheme.Active.defaultPortrait : Resources.Load<Sprite>("RoleAbilityIcon");
-        }
+
         bool isShaman = !configured && shownRole == RoleType.Shaman;
         useButton.gameObject.SetActive(HasActiveAbility(player) && !isShaman);
         shamanGoodCharmButton.gameObject.SetActive(isShaman);
@@ -634,10 +669,9 @@ public class RoleAbilityUI : MonoBehaviour
         PlayerData player = PlayerManager.Instance?.GetplayerByID(localPlayerID);
         if (player != null)
         {
-            playerLabel.text = $"PLAYER {player.playerID + 1}  /  ID {player.playerID}";
             if (!hasShownRole || shownRole != player.roleType || shownPlayerID != player.playerID ||
                 shownDefinition != player.roleDefinition || shownAwakened != player.isWhiteHoundAwakened ||
-                online != null && shownFaction != player.faction) RefreshRole(player);
+                online != null && (shownFaction != player.faction || shownOnlineInformation != online.RoleInformationVersion)) RefreshRole(player);
         }
 
         bool revealing = online != null ? online.ShowRoleCard : state == GameState.RoleReveal;
@@ -680,6 +714,14 @@ public class RoleAbilityUI : MonoBehaviour
                 ShowWindow(false);
             previousState = state;
         }
+
+        bool hunterPending = online != null && online.CanSetHunterTrap;
+        if (hunterPending && !previousHunterPending)
+        {
+            CancelTargets();
+            ShowWindow(true);
+        }
+        previousHunterPending = hunterPending;
 
         bool ended = state == GameState.GameOver;
         openButton.gameObject.SetActive(!ended);

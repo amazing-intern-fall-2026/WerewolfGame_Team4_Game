@@ -10,7 +10,7 @@ namespace Thuong.Online
 {
     public sealed partial class ThuongOnlineSession
     {
-        private const string RoomStateMessage = "thuong.online.room-state.v2";
+        private const string RoomStateMessage = "thuong.online.room-state.v3";
         private ThuongRoomRules roomRules = new();
         private uint rulesRevision = 1, receivedRulesRevision;
         private ulong roomStateRevision;
@@ -28,6 +28,8 @@ namespace Thuong.Online
         private ushort personalTaskMask;
         private int taskBoardDay;
         public ThuongRoomRules RoomRules => roomRules.Copy();
+        public RoleType[] ConfigurableRoleTypes => roomRules.mode == ThuongMatchMode.RealtimeProximity
+            ? new ThuongRoomRules { preset = ThuongRolePreset.Basic }.AllowedRoles : RoleCatalog.AllConcreteRoles;
 
         private bool CanConfigureRules => network != null && (!network.IsListening || network.IsServer) &&
             !busy && !roomLocked && !rolesAssigned && !matchStarted;
@@ -35,6 +37,10 @@ namespace Thuong.Online
         private bool SetRoomRules(ThuongRoomRules candidate)
         {
             if (!CanConfigureRules || candidate == null || !candidate.IsValid) return false;
+            if (candidate.mode == ThuongMatchMode.RealtimeProximity && NetworkGameRoleSetup.HasSetup() &&
+                !RolePoolBuilder.TryBuildConfigured(ConnectedPlayerCount, NetworkGameRoleSetup.GetRoles(),
+                    new ThuongRoomRules { preset = ThuongRolePreset.Basic }.AllowedRoles, out _, out string error))
+            { status = error + " Hãy chỉnh vai trò trước khi đổi chế độ."; return false; }
             roomRules = candidate.Copy(); rulesRevision++;
             foreach (var member in serverPlayers.Values) member.Ready = false;
             rosterDirty = true;
@@ -108,6 +114,7 @@ namespace Thuong.Online
             writer.WriteValueSafe(roomRules.automaticTimes);
             writer.WriteValueSafe(roomRules.day); writer.WriteValueSafe(roomRules.night);
             writer.WriteValueSafe(roomRules.discussion); writer.WriteValueSafe(roomRules.voting);
+            roomRules.village.WriteTo(writer);
             writer.WriteValueSafe(personal);
             writer.WriteValueSafe((byte)count);
             for (int slot = 0; slot < count; slot++)
@@ -131,6 +138,7 @@ namespace Thuong.Online
                 var rules = new ThuongRoomRules { preset = (ThuongRolePreset)preset, mode = (ThuongMatchMode)mode, automaticTimes = automatic };
                 reader.ReadValueSafe(out rules.day); reader.ReadValueSafe(out rules.night);
                 reader.ReadValueSafe(out rules.discussion); reader.ReadValueSafe(out rules.voting);
+                rules.village = ThuongVillageSettings.ReadFrom(reader);
                 reader.ReadValueSafe(out ushort personal); reader.ReadValueSafe(out byte count);
                 if (!rules.IsValid || count > 16 || reader.Length - reader.Position != count * 4) return;
                 var target = new int[16]; var done = new int[16]; var occupancy = new int[16]; var capacity = new int[16];
@@ -172,6 +180,8 @@ namespace Thuong.Online
         {
             if (!CanConfigureRules || lobbyCanvas == null) return;
             CloseMapSettings();
+            NetworkChatUI.Instance?.SetChatOpen(false);
+            if (villageRulesPanel != null) villageRulesPanel.SetActive(false);
             draftRules = roomRules.Resolve(Mathf.Max(2, lobby.Count));
             if (rulesSettingsRoot == null) BuildRulesSettings();
             rulesSettingsRoot.SetActive(true); rulesSettingsRoot.transform.SetAsLastSibling(); RefreshDraftRules();
@@ -213,6 +223,8 @@ namespace Thuong.Online
         {
             var shade = LobbyPanel("Room rules shade", lobbyCanvas.transform, Vector2.zero, Vector2.one, false);
             shade.GetComponent<Image>().color = new Color(0, 0, 0, .85f); rulesSettingsRoot = shade.gameObject;
+            var modalCanvas = shade.gameObject.AddComponent<Canvas>(); modalCanvas.overrideSorting = true; modalCanvas.sortingOrder = 1900;
+            shade.gameObject.AddComponent<GraphicRaycaster>();
             var panel = LobbyPanel("Room rules", shade, new Vector2(.16f, .06f), new Vector2(.84f, .94f));
             LobbyText("Title", panel, "THIẾT LẬP VÁN CHƠI", new Vector2(.05f, .91f), new Vector2(.95f, .98f), 28, TextAlignmentOptions.Center);
             for (int i = 0; i < 3; i++)
@@ -248,7 +260,7 @@ namespace Thuong.Online
                 durationLabels[i] = LobbyText("Duration " + i, panel, "", new Vector2(.55f, y), new Vector2(.78f, y + .075f), 21, TextAlignmentOptions.Center);
                 LobbyButton("More " + i, panel, "+", new Vector2(.80f, y), new Vector2(.90f, y + .075f), () => ChangeDuration(index, index == 0 ? 15 : 5));
             }
-            LobbyText("Task balance hint", panel, "Nhiệm vụ tự cân bằng theo số người · Tối đa +40% tổng tiến độ mỗi ngày", new Vector2(.05f, .08f), new Vector2(.95f, .145f), 16, TextAlignmentOptions.Center);
+            LobbyButton("Village rules settings", panel, "LUẬT LÀNG / VẬT PHẨM", new Vector2(.08f, .115f), new Vector2(.92f, .165f), OpenVillageRulesSettings);
             LobbyButton("Cancel rules", panel, "HỦY", new Vector2(.08f, .035f), new Vector2(.45f, .115f), () => rulesSettingsRoot.SetActive(false));
             LobbyButton("Apply rules", panel, "ÁP DỤNG", new Vector2(.55f, .035f), new Vector2(.92f, .115f),
                 () => { if (SetRoomRules(draftRules)) rulesSettingsRoot.SetActive(false); });

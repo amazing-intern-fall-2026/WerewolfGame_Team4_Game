@@ -18,6 +18,7 @@ namespace Thuong.Online
         private TMP_Text outcomeTitle, outcomeWinner, outcomeReason, outcomeLocal, outcomeVote, outcomeColumn, outcomeVoteButtonLabel;
         private RectTransform outcomeContent;
         private Button outcomeVoteButton;
+        private Button outcomeJournalButton;
         private Button outcomeRestartButton;
         private TMP_Text outcomeRestartHelp;
         private readonly Dictionary<int, ResultRow> outcomeRows = new();
@@ -25,7 +26,7 @@ namespace Thuong.Online
 
         private void ResetEndgamePresentation()
         {
-            showFinalVote = false;
+            showFinalVote = showJournal = false;
             if (endgameCanvas != null) endgameCanvas.gameObject.SetActive(false);
         }
 
@@ -56,6 +57,8 @@ namespace Thuong.Online
                 : "Không tìm thấy bạn trong danh sách cuối ván.";
             outcomeLocal.richText = false;
             outcomeVoteButton.gameObject.SetActive(voteResultRevision > 0);
+            outcomeJournalButton.interactable = journalReady;
+            outcomeJournalButton.GetComponentInChildren<TMP_Text>().text = journalReady ? "DIỄN BIẾN VÁN" : "ĐANG TẢI NHẬT KÝ…";
             outcomeRestartButton.gameObject.SetActive(CanRestartMatch);
             outcomeRestartHelp.gameObject.SetActive(!CanRestartMatch);
             outcomeRestartHelp.text = connected ? "Chờ chủ phòng bấm CHƠI LẠI.\nHoặc rời phòng để tham gia phòng khác."
@@ -91,6 +94,7 @@ namespace Thuong.Online
             }
             foreach (var pair in outcomeRows)
                 if (!ids.Contains(pair.Key)) pair.Value.Player.transform.parent.gameObject.SetActive(false);
+            RefreshJournalPresentation();
         }
 
         private void BuildEndgamePresentation()
@@ -143,14 +147,17 @@ namespace Thuong.Online
             scrollbar.handleRect = handle; scrollbar.targetGraphic = handle.GetComponent<Image>();
             scrollbar.direction = Scrollbar.Direction.BottomToTop; scroll.verticalScrollbar = scrollbar;
 
-            outcomeVoteButton = LobbyButton("View final vote", card, "XEM VOTE CUỐI", new Vector2(.40f, .035f), new Vector2(.66f, .115f),
+            outcomeRestartButton = LobbyButton("Restart finished match", card, IsMainFlowSession ? "VỀ LOBBY" : "CHƠI LẠI", new Vector2(.025f, .035f), new Vector2(.225f, .115f),
+                () => RestartMatchInRoom());
+            outcomeRestartHelp = LobbyText("Result help", card, "", new Vector2(.025f, .025f), new Vector2(.225f, .125f), 15, TextAlignmentOptions.Center);
+            outcomeRestartHelp.textWrappingMode = TextWrappingModes.Normal;
+            outcomeJournalButton = LobbyButton("View match timeline", card, "DIỄN BIẾN VÁN", new Vector2(.245f, .035f), new Vector2(.455f, .115f),
+                () => showJournal = true);
+            outcomeVoteButton = LobbyButton("View final vote", card, "XEM VOTE CUỐI", new Vector2(.475f, .035f), new Vector2(.665f, .115f),
                 () => showFinalVote = !showFinalVote);
             outcomeVoteButtonLabel = outcomeVoteButton.GetComponentInChildren<TMP_Text>();
             LobbyButton("Leave finished match", card, "RỜI PHÒNG", new Vector2(.69f, .035f), new Vector2(.95f, .115f), LeaveSession);
-            outcomeRestartButton = LobbyButton("Restart finished match", card, "CHƠI LẠI", new Vector2(.035f, .035f), new Vector2(.36f, .115f),
-                () => RestartMatchInRoom());
-            outcomeRestartHelp = LobbyText("Result help", card, "", new Vector2(.035f, .025f), new Vector2(.38f, .125f), 17);
-            outcomeRestartHelp.textWrappingMode = TextWrappingModes.Normal;
+            BuildJournalPanel(root.transform);
         }
 
         private ResultRow CreateResultRow(int id)

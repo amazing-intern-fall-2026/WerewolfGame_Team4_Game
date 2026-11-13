@@ -74,6 +74,8 @@ public class SceneLoader : MonoBehaviour
     /// </summary>
     public static void CleanupNetworkSession()
     {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            Thuong.Online.ThuongMainFlow.Clear();
         Debug.Log("[SceneLoader] Bắt đầu CleanupNetworkSession...");
 
         // 1. Cho phép Leave lần tiếp theo
@@ -234,6 +236,7 @@ public class SceneLoader : MonoBehaviour
 
     private void OnClientDisconnected(ulong clientId)
     {
+        if (Thuong.Online.ThuongOnlineSession.Active?.OwnsNetwork(NetworkManager.Singleton) == true) return;
         if (isLeaving)
             return;
 

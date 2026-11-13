@@ -16,6 +16,8 @@ namespace Thuong.Online
         private NetworkGameOverManager suspendedGameOverManager;
         private bool restoreGameOverManager;
         private bool onlineOutcomeDirty = true;
+        public int RoleInformationVersion => HashCode.Combine(roomRules.mode, winSettings.specialWinVillageLimit,
+            winSettings.eliminationWin, winSettings.minimumPlayersForParity, matchMaxDay, lobby.Count);
 
         public string LocalWinObjective
         {
@@ -37,6 +39,33 @@ namespace Thuong.Online
                 return team + $" Ván giới hạn {matchMaxDay} ngày. Đồng đội đã bị loại vẫn thắng cùng phe.\n" +
                     "Nếu là một trong hai người yêu nhau cuối cùng còn sống, cặp đôi thắng riêng.";
             }
+        }
+
+        public RoleInfoData LocalRoleInformation()
+        {
+            var info = RoleInfoDatabase.GetRoleInfo(privateRole);
+            if (!HasLocalRole) return info;
+            if ((privateRole == RoleType.WhiteHound || privateRole == RoleType.WhiteWolf) && (privateFlags & 128) != 0)
+            {
+                info.DisplayName = "Bạch Khuyển thức tỉnh";
+                info.FactionName = "Phe riêng · Bạch Khuyển thức tỉnh";
+                info.Faction = FactionType.Neutral;
+                info.SkillName = "Tấn công ban đêm";
+                info.SkillDescription = "Đã thức tỉnh: chọn một người còn sống để tấn công trong đêm. Ma Sói là phe đối địch.";
+            }
+            if (privateRole == RoleType.Killer)
+                info.Restrictions = "Chỉ tấn công vào các đêm chẵn. " + LocalWinObjective;
+            else if (privateRole == RoleType.FoxSpirit || privateRole is RoleType.WhiteHound or RoleType.WhiteWolf or RoleType.Madman)
+                info.Restrictions = LocalWinObjective;
+            if (privateRole == RoleType.Hunter)
+            {
+                info.SkillName = "Phát bắn trả thù";
+                info.SkillDescription = $"Khi bị loại, có {GameRoleManager.HunterRevengeSeconds:0} giây để chọn người còn sống và bắn trả thù. Trận chờ lượt bắn này trước khi chuyển tiếp.";
+                info.Restrictions = "Một phát mỗi ván. Hết giờ mà không chọn sẽ mất lượt. Phát bắn có hiệu lực ngay sau khi host xác nhận.";
+            }
+            if (roomRules.mode == ThuongMatchMode.RealtimeProximity && privateRole != RoleType.Villager)
+                info.SkillDescription = "Trong ban đêm, đứng gần mục tiêu, bảo đảm không có tường chắn rồi nhấn E để dùng kỹ năng. Có hiệu lực ngay sau khi host xác nhận.";
+            return info;
         }
 
         private void WriteWinSettings(FastBufferWriter writer)
@@ -61,6 +90,7 @@ namespace Thuong.Online
             // NetworkManager moves this runtime root to DontDestroyOnLoad.
             // Scope by the gameplay manager's scene, not the runtime root's scene.
             if (game == null || game.gameObject.scene.name != ThuongOnlineBootstrap.SceneName) return;
+            game.EnableHunterRevengeWindow = true;
             winSettings ??= new ThuongOnlineWinSettings();
             winSettings.minimumPlayersForParity = Mathf.Max(3, winSettings.minimumPlayersForParity);
             winSettings.specialWinVillageLimit = Mathf.Max(0, winSettings.specialWinVillageLimit);
@@ -104,6 +134,7 @@ namespace Thuong.Online
 
         private void RemoveOnlineWinRules()
         {
+            if (game != null) game.EnableHunterRevengeWindow = false;
             if (scopedWinManager == null) return;
             scopedWinManager.MatchStateChanged -= MarkOnlineOutcomeDirty;
             scopedWinManager.RemoveMatchEvaluator(game, EvaluateOnlineWin);
@@ -114,6 +145,7 @@ namespace Thuong.Online
             if (network == null || !network.IsServer || !matchStarted || matchResult != null ||
                 game == null || game.currentState == GameState.GameOver || players == null ||
                 scopedWinManager == null || !scopedWinManager.HasMatchEvaluator(game)) return;
+            if (game.MustWaitForHunterRevenge) return;
             onlineOutcomeDirty = false;
             var state = new List<ThuongWinPlayer>();
             foreach (var player in players.players)
@@ -142,6 +174,7 @@ namespace Thuong.Online
             privateFeedback.Clear();
             SendAllPrivateStates();
             BroadcastSnapshot();
+            PublishJournalAfterMatch();
         }
 
         private void BalanceOnlineOpeningRoles()

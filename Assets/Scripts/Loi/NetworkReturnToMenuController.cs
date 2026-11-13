@@ -28,18 +28,20 @@ using UnityEngine.UI;
 ///    - Khi thoát, dọn dẹp sạch sẽ và trở về MainMenu.
 /// 5. Dọn dẹp và reset toàn diện dữ liệu Networking của Lợi (Section 7).
 /// 
-/// TUYỆT ĐỐI KHÔNG sửa code Thương. Tích hợp 100% từ phía Lợi.
+/// Session sở hữu trận chịu trách nhiệm reconnect và dọn kết nối của chính nó.
 /// </summary>
 public class NetworkReturnToMenuController : MonoBehaviour
 {
     private static NetworkReturnToMenuController instance;
     public static NetworkReturnToMenuController Instance => instance;
 
-    public const string HostSessionTerminatedMessage = "loi.online.host_session_terminated.v1";
+    public const string HostSessionTerminatedMessage = "loi.online.host_session_terminated.v2";
     public const string ClientVoluntaryLeaveMessage = "loi.online.client_leave.v1";
 
     private readonly HashSet<Button> hookedButtons = new HashSet<Button>();
     private bool isNetworkRegistered = false;
+    private NetworkManager registeredNetwork;
+    private CustomMessagingManager registeredMessaging;
     private bool isReturning = false;
     private float nextScanTime = 0f;
 
@@ -63,7 +65,7 @@ public class NetworkReturnToMenuController : MonoBehaviour
         }
 
         var go = new GameObject("[NetworkReturnToMenuController]");
-        DontDestroyOnLoad(go);
+        if (Application.isPlaying) DontDestroyOnLoad(go);
         instance = go.AddComponent<NetworkReturnToMenuController>();
     }
 
@@ -91,7 +93,7 @@ public class NetworkReturnToMenuController : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-        DontDestroyOnLoad(gameObject);
+        if (Application.isPlaying) DontDestroyOnLoad(gameObject);
     }
 
     private void Start()
@@ -121,9 +123,10 @@ public class NetworkReturnToMenuController : MonoBehaviour
 
     private void EnsureNetworkHandlers()
     {
-        if (isNetworkRegistered) return;
-
         var net = NetworkManager.Singleton;
+        var messaging = net != null && net.IsListening ? net.CustomMessagingManager : null;
+        if (isNetworkRegistered && registeredNetwork == net && registeredMessaging == messaging) return;
+        UnregisterNetworkHandlers();
         if (net != null && net.IsListening && net.CustomMessagingManager != null)
         {
             try
@@ -133,7 +136,8 @@ public class NetworkReturnToMenuController : MonoBehaviour
 
                 net.OnClientDisconnectCallback -= HandleClientDisconnected;
                 net.OnClientDisconnectCallback += HandleClientDisconnected;
-
+                registeredNetwork = net;
+                registeredMessaging = net.CustomMessagingManager;
                 isNetworkRegistered = true;
                 Debug.Log("[NetworkReturnToMenuController] Đã đăng ký Network Message Handlers thành công.");
             }
@@ -148,15 +152,15 @@ public class NetworkReturnToMenuController : MonoBehaviour
     {
         if (!isNetworkRegistered) return;
 
-        var net = NetworkManager.Singleton;
+        var net = registeredNetwork;
         if (net != null)
         {
             try
             {
-                if (net.CustomMessagingManager != null)
+                if (registeredMessaging != null)
                 {
-                    net.CustomMessagingManager.UnregisterNamedMessageHandler(HostSessionTerminatedMessage);
-                    net.CustomMessagingManager.UnregisterNamedMessageHandler(ClientVoluntaryLeaveMessage);
+                    registeredMessaging.UnregisterNamedMessageHandler(HostSessionTerminatedMessage);
+                    registeredMessaging.UnregisterNamedMessageHandler(ClientVoluntaryLeaveMessage);
                 }
                 net.OnClientDisconnectCallback -= HandleClientDisconnected;
             }
@@ -164,6 +168,18 @@ public class NetworkReturnToMenuController : MonoBehaviour
         }
 
         isNetworkRegistered = false;
+        registeredNetwork = null;
+        registeredMessaging = null;
+    }
+
+    public static void BroadcastHostSessionTerminated(NetworkManager network, uint epoch)
+    {
+        if (network == null || !network.IsServer || !network.IsListening || network.CustomMessagingManager == null) return;
+        using var writer = new FastBufferWriter(sizeof(byte) + sizeof(uint), Allocator.Temp);
+        writer.WriteValueSafe((byte)1); writer.WriteValueSafe(epoch);
+        foreach (ulong clientId in network.ConnectedClientsIds)
+            if (clientId != network.LocalClientId)
+                network.CustomMessagingManager.SendNamedMessage(HostSessionTerminatedMessage, clientId, writer);
     }
 
     // =========================================================
@@ -272,6 +288,13 @@ public class NetworkReturnToMenuController : MonoBehaviour
 
     private IEnumerator ReturnToMenuRoutine()
     {
+        var ownedSession = ThuongOnlineSession.Active;
+        if (ownedSession != null && ownedSession.OwnsNetwork(NetworkManager.Singleton))
+        {
+            ownedSession.LeaveToMainMenu();
+            isReturning = false;
+            yield break;
+        }
         Debug.Log("[NetworkReturnToMenuController] Bắt đầu ReturnToMenuRoutine...");
 
         var net = NetworkManager.Singleton;
@@ -289,9 +312,7 @@ public class NetworkReturnToMenuController : MonoBehaviour
             {
                 try
                 {
-                    using var writer = new FastBufferWriter(sizeof(byte), Allocator.Temp);
-                    writer.WriteValueSafe((byte)1);
-                    net.CustomMessagingManager.SendNamedMessageToAll(HostSessionTerminatedMessage, writer);
+                    BroadcastHostSessionTerminated(net, 0);
                     Debug.Log("[NetworkReturnToMenuController] Đã gửi HostSessionTerminatedMessage tới tất cả clients.");
                 }
                 catch (Exception ex)
@@ -395,6 +416,15 @@ public class NetworkReturnToMenuController : MonoBehaviour
 
     private void ReceiveHostSessionTerminated(ulong senderId, FastBufferReader reader)
     {
+        var net = registeredNetwork;
+        if (net == null || net != NetworkManager.Singleton || net.IsServer || !net.IsConnectedClient ||
+            senderId != NetworkManager.ServerClientId || !reader.TryBeginRead(sizeof(byte) + sizeof(uint))) return;
+        reader.ReadValueSafe(out byte terminated); reader.ReadValueSafe(out uint epoch);
+        if (terminated != 1) return;
+        var session = ThuongOnlineSession.Active;
+        if (session != null && session.OwnsNetwork(net))
+        { session.HandleHostSessionTerminated(epoch); return; }
+        if (epoch != 0) return;
         Debug.Log("[NetworkReturnToMenuController] CLIENT: Nhận HostSessionTerminatedMessage từ Server! Đang về MainMenu...");
 
         SceneLoader.DisconnectNoticeMessage = "Chủ phòng đã thoát trận. Trận đấu đã kết thúc.";
@@ -411,6 +441,7 @@ public class NetworkReturnToMenuController : MonoBehaviour
     {
         var net = NetworkManager.Singleton;
         if (net == null || !net.IsServer) return;
+        if (ThuongOnlineSession.Active?.OwnsNetwork(net) == true) return;
 
         Debug.Log($"[NetworkReturnToMenuController] SERVER: Nhận ClientVoluntaryLeaveMessage từ Client {senderId}.");
 
@@ -430,8 +461,9 @@ public class NetworkReturnToMenuController : MonoBehaviour
     {
         if (isReturning) return;
 
-        var net = NetworkManager.Singleton;
+        var net = registeredNetwork;
         if (net == null || net.IsServer) return;
+        if (ThuongOnlineSession.Active?.OwnsNetwork(net) == true) return;
 
         // Nếu Host (Server) ngắt kết nối hoặc chính client mình bị ngắt kết nối
         if (clientId == NetworkManager.ServerClientId || clientId == net.LocalClientId)

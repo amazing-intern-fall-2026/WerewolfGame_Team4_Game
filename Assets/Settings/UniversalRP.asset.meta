@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 681886c5eb7344803b6206f758bf0b1c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData:
+  assetBundleName:
+  assetBundleVariant:
+AssetOrigin:
+  serializedVersion: 1
+  productId: 179529
+  packageName: Minesweeping - Game Template
+  packageVersion: 1.3
+  assetPath: Assets/Settings/UniversalRP.asset
+  uploadId: 752810

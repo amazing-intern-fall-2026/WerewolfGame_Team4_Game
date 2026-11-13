@@ -16,6 +16,23 @@ namespace Thuong.Online
         private TMP_Text notebookHistory;
         private TMP_InputField notebookInput;
         private bool notebookOpen;
+        private uint notebookEpoch;
+        private System.Guid notebookRoomToken;
+
+        private void BindNotebookToRound(uint epoch)
+        {
+            if (notebookEpoch != epoch || notebookRoomToken != reconnectToken) ResetNotebook();
+            notebookEpoch = epoch;
+            notebookRoomToken = reconnectToken;
+        }
+
+        private void SuspendNotebook()
+        {
+            // Keep both saved entries and an unfinished draft for this match.
+            notebookOpen = false;
+            if (notebookInput != null) notebookInput.DeactivateInputField();
+            if (notebookPanel != null) notebookPanel.gameObject.SetActive(false);
+        }
 
         private bool NotebookIsOpen => notebookOpen && notebookPanel != null && notebookPanel.gameObject.activeSelf;
 
@@ -123,6 +140,7 @@ namespace Thuong.Online
 
         private void ToggleNotebook()
         {
+            BindNotebookToRound(matchEpoch);
             notebookOpen = !notebookOpen;
             if (notebookPanel != null) notebookPanel.gameObject.SetActive(notebookOpen);
             if (notebookOpen) RefreshNotebookHistory();
@@ -132,6 +150,7 @@ namespace Thuong.Online
         private void SaveNotebookEntry()
         {
             if (!NotebookIsOpen || notebookInput == null) return;
+            BindNotebookToRound(matchEpoch);
             string value = (notebookInput.text ?? string.Empty).Trim();
             if (value.Length == 0) return;
             if (value.Length > MaxNotebookCharacters) value = value.Substring(0, MaxNotebookCharacters);
@@ -171,6 +190,8 @@ namespace Thuong.Online
 
         private void ResetNotebook()
         {
+            notebookEpoch = 0;
+            notebookRoomToken = System.Guid.Empty;
             notebookEntries.Clear();
             notebookOpen = false;
             if (notebookPanel != null) notebookPanel.gameObject.SetActive(false);

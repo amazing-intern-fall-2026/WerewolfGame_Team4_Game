@@ -1597,7 +1597,7 @@ public class NetworkGameOverManager : MonoBehaviour
         // is also used by Thương prototypes, so do not claim their shared
         // WinConditionManager or change its elimination settings.
         string gameplayScenePath = game.gameObject.scene.path;
-        if (!gameplayScenePath.StartsWith("Assets/Scenes/Loi/", StringComparison.Ordinal)) return;
+        if (string.IsNullOrEmpty(gameplayScenePath) || !gameplayScenePath.StartsWith("Assets/Scenes/Loi/", StringComparison.Ordinal)) return;
 
         // Luôn đảm bảo useEliminationWin = false để tránh fallback lỗi của Thuong
         try

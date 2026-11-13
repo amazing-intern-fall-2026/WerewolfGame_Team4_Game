@@ -42,7 +42,7 @@ public class NetworkReturnToMenuConfirmationDialog : MonoBehaviour
         }
 
         var go = new GameObject("[NetworkReturnToMenuConfirmationDialog]");
-        DontDestroyOnLoad(go);
+        if (Application.isPlaying) DontDestroyOnLoad(go);
         instance = go.AddComponent<NetworkReturnToMenuConfirmationDialog>();
     }
 
@@ -68,7 +68,7 @@ public class NetworkReturnToMenuConfirmationDialog : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-        DontDestroyOnLoad(gameObject);
+        if (Application.isPlaying) DontDestroyOnLoad(gameObject);
     }
 
     private void Update()

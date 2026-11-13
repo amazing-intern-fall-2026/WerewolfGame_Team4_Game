@@ -13,13 +13,19 @@ namespace Thuong.Online
         public ThuongMatchMode mode = ThuongMatchMode.ClassicQueued;
         public bool automaticTimes = true;
         public int day = 120, night = 30, discussion = 60, voting = 30;
+        public ThuongVillageSettings village = new();
 
-        public ThuongRoomRules Copy() => (ThuongRoomRules)MemberwiseClone();
+        public ThuongRoomRules Copy()
+        {
+            var copy = (ThuongRoomRules)MemberwiseClone();
+            copy.village = village?.Copy();
+            return copy;
+        }
         public bool IsValid => Enum.IsDefined(typeof(ThuongRolePreset), preset) &&
             Enum.IsDefined(typeof(ThuongMatchMode), mode) &&
             (mode != ThuongMatchMode.RealtimeProximity || preset == ThuongRolePreset.Basic) &&
             day >= 60 && day <= 300 && night >= 15 && night <= 120 &&
-            discussion >= 15 && discussion <= 180 && voting >= 15 && voting <= 120;
+            discussion >= 15 && discussion <= 180 && voting >= 15 && voting <= 120 && village != null && village.IsValid;
 
         public ThuongRoomRules Resolve(int count)
         {
@@ -47,7 +53,7 @@ namespace Thuong.Online
         public string Summary(int count)
         {
             var rules = Resolve(count);
-            return $"{ModeName(mode)} · {PresetName(preset)} · Ngày {rules.day}s · Đêm {rules.night}s · Họp {rules.discussion}s · Vote {rules.voting}s";
+            return $"{ModeName(mode)} · {PresetName(preset)} · Ngày {rules.day}s · Đêm {rules.night}s · Họp {rules.discussion}s · Vote {rules.voting}s · Chuông {village.meetingLimit} lượt";
         }
     }
 }

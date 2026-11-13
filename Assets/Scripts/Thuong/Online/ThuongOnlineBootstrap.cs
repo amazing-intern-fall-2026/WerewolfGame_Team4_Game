@@ -30,10 +30,12 @@ namespace Thuong.Online
 
         public static string EnsureInstalled(Scene scene)
         {
+            if (!scene.isLoaded && ThuongMainFlow.CanAdopt(NetworkManager.Singleton)) return null;
             if (Object.FindAnyObjectByType<ThuongOnlineSession>() != null)
                 return null;
 
-            if (NetworkManager.Singleton != null)
+            bool adoptLobby = ThuongMainFlow.CanAdopt(NetworkManager.Singleton);
+            if (NetworkManager.Singleton != null && !adoptLobby)
             {
                 const string message =
                     "Không thể khởi động Thuong Online vì đang có NetworkManager khác hoạt động. " +
@@ -46,16 +48,19 @@ namespace Thuong.Online
             if (scene.IsValid() && scene.isLoaded)
                 SceneManager.MoveGameObjectToScene(root, scene);
 
-            var transport = root.AddComponent<UnityTransport>();
-            var network = root.AddComponent<NetworkManager>();
-            network.NetworkConfig = new NetworkConfig
+            if (!adoptLobby)
             {
-                NetworkTransport = transport,
-                ConnectionApproval = true,
-                EnableSceneManagement = false,
-                TickRate = 30,
-                ClientConnectionBufferTimeout = 15
-            };
+                var transport = root.AddComponent<UnityTransport>();
+                var network = root.AddComponent<NetworkManager>();
+                network.NetworkConfig = new NetworkConfig
+                {
+                    NetworkTransport = transport,
+                    ConnectionApproval = true,
+                    EnableSceneManagement = false,
+                    TickRate = 30,
+                    ClientConnectionBufferTimeout = 15
+                };
+            }
             root.AddComponent<ThuongOnlineSession>();
             Debug.Log("[Thuong Online] Đã khởi động giao diện online cho OnlineSceneGamePlay.");
             return null;

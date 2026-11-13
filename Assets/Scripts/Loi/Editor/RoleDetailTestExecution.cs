@@ -6,6 +6,59 @@ using UnityEngine;
 
 public static class RoleDetailTestExecution
 {
+    [InitializeOnLoadMethod]
+    private static void OnEditorReload()
+    {
+        EditorApplication.delayCall += () =>
+        {
+            // These UI checks open the Loi scene. Do not interrupt a batch
+            // verification or a transition into another scene's Play Mode.
+            if (!Application.isBatchMode && !Application.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                RunTestsOnly();
+            }
+        };
+    }
+
+    [MenuItem("Tools/Tests/Run Role Detail Tests and Save Report")]
+    public static void RunTestsOnly()
+    {
+        StringBuilder sb = new StringBuilder();
+        void Log(string s)
+        {
+            Debug.Log(s);
+            sb.AppendLine(s);
+        }
+
+        Log("=================================================================");
+        Log("BẮT ĐẦU KIỂM THỬ: ROLE DETAIL & ROLE ABILITY SYSTEM");
+        Log("Thời gian: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+        Log("=================================================================");
+
+        try
+        {
+            RoleDetailSystemTests.RunAllTests();
+
+            foreach (var l in RoleDetailSystemTests.TestLogs)
+            {
+                sb.AppendLine(l);
+            }
+
+            Log($"[KẾT QUẢ TỔNG HỢP]: PASS = {RoleDetailSystemTests.PassCount} | FAIL = {RoleDetailSystemTests.FailCount}");
+        }
+        catch (Exception ex)
+        {
+            Log("[LỖI NGOẠI LỆ]: " + ex.ToString());
+            Debug.LogException(ex);
+        }
+        finally
+        {
+            File.WriteAllText("ui_test_report.txt", sb.ToString(), Encoding.UTF8);
+            Debug.Log(">>> ĐÃ GHI BÁO CÁO VÀO: ui_test_report.txt");
+        }
+    }
+
+    [MenuItem("Tools/Loi/Install and Run Full Role Detail Tests")]
     public static void Run()
     {
         StringBuilder sb = new StringBuilder();

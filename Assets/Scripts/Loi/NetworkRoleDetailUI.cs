@@ -429,17 +429,21 @@ public class NetworkRoleDetailUI : NetworkBehaviour
         }
     }
 
-    private Sprite GetRoleSprite(RoleType role)
+    public Sprite GetRoleSprite(RoleType role)
     {
-        Sprite dbSprite = RoleInfoDatabase.GetRoleSprite(role);
-        if (dbSprite != null)
-            return dbSprite;
+        Sprite assigned = GetAssignedRoleSprite(role);
+        return assigned != null ? assigned : RoleInfoDatabase.GetRoleSprite(role);
+    }
 
+    // Database fallback must only inspect assigned images; calling GetRoleSprite
+    // here would recurse back into the database when an image is missing.
+    public Sprite GetAssignedRoleSprite(RoleType role)
+    {
         if (roleImages != null)
         {
             foreach (RoleImageEntry entry in roleImages)
             {
-                if (entry != null && entry.role == role)
+                if (entry != null && entry.role == role && entry.image != null)
                     return entry.image;
             }
         }

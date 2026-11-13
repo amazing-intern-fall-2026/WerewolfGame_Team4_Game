@@ -23,6 +23,11 @@ public class GameRoleManager : MonoBehaviour
     public AbilitySystem abilities;
     public bool HasIntegratedLogic => !manualLogicPrototype && statusEffects != null && abilities != null;
     private bool resolving;
+    public bool EnableHunterRevengeWindow { get; set; }
+    public bool IsHunterRevengeWindow => currentPhase == GamePhase.HunterRevenge;
+    public bool MustWaitForHunterRevenge => HasPendingHunterRevenge || IsHunterRevengeWindow && !resolving;
+    public const float HunterRevengeSeconds = 20;
+    private bool resumeDayAfterHunter;
     private DeathResolver observedDeathSystem;
     public event System.Action<GamePhase, GamePhase> PhaseChanged;
     private void Awake()
@@ -107,6 +112,12 @@ public class GameRoleManager : MonoBehaviour
     {
         if (manualLogicPrototype || !started || currentState == GameState.GameOver || currentState == GameState.Day) return;
         PhaseTimeRemaining = Mathf.Max(0, PhaseTimeRemaining - Time.deltaTime);
+        if (IsHunterRevengeWindow)
+        {
+            if (PhaseTimeRemaining <= 0) ExpireHunterRevenge();
+            if (!HasPendingHunterRevenge) CompleteHunterRevenge();
+            return;
+        }
         if (PhaseTimeRemaining > 0) return;
         if (currentState == GameState.RoleReveal)
         {
@@ -129,7 +140,7 @@ public class GameRoleManager : MonoBehaviour
             case GamePhase.RoleReveal: currentState = GameState.RoleReveal; break;
             case GamePhase.DayStart: case GamePhase.Task: currentState = GameState.Day; break;
             case GamePhase.Night: case GamePhase.ResolveNight: currentState = GameState.Night; break;
-            case GamePhase.Discussion: currentState = GameState.Discussion; break;
+            case GamePhase.Discussion: case GamePhase.HunterRevenge: currentState = GameState.Discussion; break;
             case GamePhase.Voting: currentState = GameState.Voting; break;
             case GamePhase.ResolveVote: currentState = GameState.VotingResult; break;
             case GamePhase.GameOver: currentState = GameState.GameOver; break;
@@ -187,7 +198,7 @@ public class GameRoleManager : MonoBehaviour
     }
     public void StartVoting()
     {
-        if (currentState != GameState.Discussion) return;
+        if (currentState != GameState.Discussion || IsHunterRevengeWindow) return;
         SetPhase(GamePhase.Voting);
         RoleManager.Instance?.NotifyVoteStart();
         VoteManager.Instance.StartVote();
@@ -220,10 +231,7 @@ public class GameRoleManager : MonoBehaviour
             VoteManager.Instance.ResolveVote();
             ResolveHunterTraps();
             if (HasIntegratedLogic && currentState != GameState.GameOver) SetPhase(GamePhase.DayResolution);
-            WinConditionManager.Instance.CheckWinCondition(true);
-            if (currentState == GameState.GameOver) return;
-            currentDay++;
-            StartDay();
+            if (!TryBeginHunterRevenge(true)) CompleteVoteResolution();
         }
         finally { resolving = false; }
     }
@@ -235,6 +243,7 @@ public class GameRoleManager : MonoBehaviour
         {
             if (HasIntegratedLogic) SetPhase(GamePhase.ResolveNight);
             NightManager.Instance.ResolveNight();
+            if (TryBeginHunterRevenge(false)) return;
             WinConditionManager.Instance.CheckWinCondition();
             if (currentState == GameState.GameOver) return;
             SetPhase(GamePhase.Discussion);
@@ -260,6 +269,91 @@ public class GameRoleManager : MonoBehaviour
             if (role is HunterRole hunter)
                 hunter.ResolveTrap();
     }
+
+    public bool HasPendingHunterRevenge
+    {
+        get
+        {
+            if (!EnableHunterRevengeWindow || PlayerManager.Instance?.players == null) return false;
+            var roster = PlayerManager.Instance.players;
+            foreach (var player in roster)
+                if (player != null && player.roleType == RoleType.Hunter && !player.isAlive &&
+                    !player.isDisconnected && player.hasHunterTrap && !player.hasUsedHunterShot &&
+                    roster.Exists(target => target != null && target.playerID != player.playerID && target.isAlive && !target.isDisconnected))
+                    return true;
+            return false;
+        }
+    }
+
+    private bool TryBeginHunterRevenge(bool nextDay)
+    {
+        if (currentState == GameState.GameOver || !HasPendingHunterRevenge) return false;
+        resumeDayAfterHunter = nextDay;
+        SetPhase(GamePhase.HunterRevenge);
+        PhaseTimeRemaining = HunterRevengeSeconds;
+        WinConditionManager.Instance?.NotifyMatchStateChanged();
+        return true;
+    }
+
+    public bool TryShootHunter(int playerId, int targetId, out string feedback)
+    {
+        feedback = "Chưa tới lượt trả thù của Thợ săn.";
+        if (!IsHunterRevengeWindow || PhaseTimeRemaining <= 0 || resolving || RoleManager.Instance == null ||
+            !RoleManager.Instance.playerRoles.TryGetValue(playerId, out var role) || role is not HunterRole hunter)
+            return false;
+        resolving = true;
+        try
+        {
+            if (!hunter.TrySetTrap(targetId, out feedback)) return false;
+            hunter.ResolveTrap();
+            hunter.owner.NotifyChanged();
+            WinConditionManager.Instance?.NotifyMatchStateChanged();
+        }
+        finally { resolving = false; }
+        // Chained deaths can grant another Hunter a shot in this same window.
+        return true;
+    }
+
+    private void ExpireHunterRevenge()
+    {
+        if (PlayerManager.Instance?.players == null) return;
+        foreach (var player in PlayerManager.Instance.players)
+            if (player != null && player.roleType == RoleType.Hunter && !player.isAlive && !player.hasUsedHunterShot)
+            {
+                player.hasHunterTrap = false;
+                player.hasUsedHunterShot = true;
+                player.hunterTargetID = -1;
+                player.NotifyChanged();
+            }
+    }
+
+    private void CompleteHunterRevenge()
+    {
+        if (!IsHunterRevengeWindow || resolving) return;
+        resolving = true;
+        try
+        {
+            if (resumeDayAfterHunter) CompleteVoteResolution();
+            else
+            {
+                WinConditionManager.Instance?.CheckWinCondition();
+                if (currentState != GameState.GameOver)
+                {
+                    SetPhase(GamePhase.Discussion);
+                    PhaseTimeRemaining = discussionDuration;
+                }
+            }
+        }
+        finally { resolving = false; }
+    }
+
+    private void CompleteVoteResolution()
+    {
+        WinConditionManager.Instance.CheckWinCondition(true);
+        if (currentState == GameState.GameOver) return;
+        currentDay++;
+        StartDay();
+    }
     public void VillagerWin() { EndGame("Villagers"); }
     public void WerewolfWin() { EndGame("Werewolves"); }
     public void LoversWin() { EndGame("Lovers"); }
@@ -275,6 +369,7 @@ public class GameRoleManager : MonoBehaviour
         Winner = null;
         Result = null;
         PhaseTimeRemaining = 0;
+        resumeDayAfterHunter = false;
         currentState = GameState.RoleReveal;
         currentPhase = GamePhase.Setup;
         currentDay = 1;

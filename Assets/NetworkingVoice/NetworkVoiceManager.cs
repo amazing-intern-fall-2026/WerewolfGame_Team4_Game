@@ -10,6 +10,7 @@ using UnityEngine;
 public class NetworkVoiceManager : MonoBehaviour
 {
     private static NetworkVoiceManager _instance;
+    public static NetworkVoiceManager Existing => _instance;
     public static NetworkVoiceManager Instance
     {
         get
@@ -47,6 +48,15 @@ public class NetworkVoiceManager : MonoBehaviour
     }
 
     private bool _isOutputMuted = false;
+    private bool _requestedOutputMuted;
+    private UnityEngine.Object _gameplayOwner;
+    private bool _gameplayPolicyActive;
+    private bool _channelCleanupFailed;
+    private bool _gameplayCanTransmit = true, _gameplayCanReceive = true;
+    private readonly SemaphoreSlim _channelSwitchLock = new SemaphoreSlim(1, 1);
+    private long _channelRevision;
+    public bool GameplayCanTransmit => (!_gameplayPolicyActive || _gameplayCanTransmit) && !_channelCleanupFailed;
+    public bool GameplayCanReceive => (!_gameplayPolicyActive || _gameplayCanReceive) && !_channelCleanupFailed;
     public bool IsOutputMuted
     {
         get
@@ -220,6 +230,21 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public async Task JoinVoiceChannelAsync(string channelName)
     {
+        if (string.IsNullOrEmpty(channelName) || _isApplicationQuitting) return;
+        if (IsInLobbyVoice && CurrentChannelName == channelName) return;
+        long revision = ++_channelRevision;
+        SetMicrophoneMuted(true);
+        await _channelSwitchLock.WaitAsync();
+        try
+        {
+            if (revision != _channelRevision || _isApplicationQuitting) return;
+            await JoinVoiceChannelCoreAsync(channelName, revision);
+        }
+        finally { _channelSwitchLock.Release(); }
+    }
+
+    private async Task JoinVoiceChannelCoreAsync(string channelName, long revision)
+    {
         if (_isApplicationQuitting)
         {
             return;
@@ -229,13 +254,6 @@ public class NetworkVoiceManager : MonoBehaviour
         {
             Debug.LogError("VOICE | JoinVoiceChannel: channelName rỗng. Không thể join.");
             return;
-        }
-
-        // Chờ tiến trình rời kênh trước đó (nếu đang chạy dở) hoàn tất
-        if (_ongoingLeaveTask != null && !_ongoingLeaveTask.IsCompleted)
-        {
-            Debug.Log("[VOICE] Đang chờ tiến trình rời kênh cũ hoàn tất trước khi vào kênh mới...");
-            await _ongoingLeaveTask;
         }
 
         // Đảm bảo Vivox đã được khởi tạo và đăng nhập
@@ -249,6 +267,7 @@ public class NetworkVoiceManager : MonoBehaviour
                 return;
             }
         }
+        if (revision != _channelRevision || _isApplicationQuitting) return;
 
         if (IsInLobbyVoice && CurrentChannelName == channelName)
         {
@@ -262,11 +281,12 @@ public class NetworkVoiceManager : MonoBehaviour
         }
 
         // Nếu đang ở kênh khác, rời kênh cũ trước theo đúng quy định của Vivox
-        if (IsInLobbyVoice && !string.IsNullOrEmpty(CurrentChannelName) && CurrentChannelName != channelName)
+        if (VivoxService.Instance.ActiveChannels.Count > 0)
         {
             Debug.Log($"VOICE | Đang rời kênh cũ '{CurrentChannelName}' trước khi vào kênh mới '{channelName}'...");
-            await LeaveVoiceChannelAsync();
+            await LeaveVoiceChannelInternalAsync();
         }
+        if (_channelCleanupFailed) return;
 
         _isJoiningChannel = true;
         _targetJoiningChannelName = channelName;
@@ -279,13 +299,19 @@ public class NetworkVoiceManager : MonoBehaviour
                 ChatCapability.AudioOnly
             );
 
+            if (revision != _channelRevision || _isApplicationQuitting)
+            {
+                await LeaveVoiceChannelInternalAsync();
+                return;
+            }
+
             CurrentChannelName = channelName;
             IsInLobbyVoice = true;
 
             // QUY TẮC BẢO MẬT VOICE: Tuyệt đối KHÔNG tự bật micro khi vào kênh thoại!
             // Áp dụng trạng thái người chơi đã chọn (_isMicrophoneMuted mặc định = true)
             SetMicrophoneMuted(_isMicrophoneMuted);
-            SetOutputMuted(_isOutputMuted);
+            ApplyOutputMute();
 
             Debug.Log($"VOICE | Đã tham gia thành công kênh thoại: {channelName}. MicMuted={IsMicrophoneMuted}, OutputMuted={IsOutputMuted}");
         }
@@ -320,6 +346,8 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public Task LeaveVoiceChannelAsync()
     {
+        ++_channelRevision;
+        SetMicrophoneMuted(true);
         // Chống race condition: nếu đã có một tác vụ leave đang thực thi, dùng chung tác vụ đó
         if (_ongoingLeaveTask != null && !_ongoingLeaveTask.IsCompleted)
         {
@@ -327,8 +355,15 @@ public class NetworkVoiceManager : MonoBehaviour
             return _ongoingLeaveTask;
         }
 
-        _ongoingLeaveTask = LeaveVoiceChannelInternalAsync();
+        _ongoingLeaveTask = LeaveVoiceChannelSerializedAsync();
         return _ongoingLeaveTask;
+    }
+
+    private async Task LeaveVoiceChannelSerializedAsync()
+    {
+        await _channelSwitchLock.WaitAsync();
+        try { await LeaveVoiceChannelInternalAsync(); }
+        finally { _channelSwitchLock.Release(); }
     }
 
     private async Task LeaveVoiceChannelInternalAsync()
@@ -338,6 +373,7 @@ public class NetworkVoiceManager : MonoBehaviour
             Debug.Log("[VOICE] Ứng dụng đang đóng, bỏ qua gọi LeaveAllChannelsAsync.");
             CurrentChannelName = null;
             IsInLobbyVoice = false;
+            _channelCleanupFailed = false;
             return;
         }
 
@@ -347,6 +383,7 @@ public class NetworkVoiceManager : MonoBehaviour
             Debug.Log("[VOICE] Vivox SDK chưa khởi tạo hoặc đã uninitialized, bỏ qua gọi API LeaveAllChannelsAsync.");
             CurrentChannelName = null;
             IsInLobbyVoice = false;
+            _channelCleanupFailed = false;
             return;
         }
 
@@ -355,19 +392,23 @@ public class NetworkVoiceManager : MonoBehaviour
             Debug.Log("[VOICE] Vivox chưa đăng nhập, bỏ qua LeaveAllChannelsAsync.");
             CurrentChannelName = null;
             IsInLobbyVoice = false;
+            _channelCleanupFailed = false;
             return;
         }
 
         if (string.IsNullOrEmpty(CurrentChannelName) && !IsInLobbyVoice && VivoxService.Instance.ActiveChannels.Count == 0)
         {
+            _channelCleanupFailed = false;
             Debug.Log("[VOICE] Hiện không ở trong kênh thoại nào, không cần gọi LeaveAllChannelsAsync.");
             return;
         }
 
+        _channelCleanupFailed = true;
         try
         {
             Debug.Log($"[VOICE] [1/3] Đang rời kênh thoại Vivox ({CurrentChannelName ?? "Tất cả kênh"})...");
             await VivoxService.Instance.LeaveAllChannelsAsync();
+            _channelCleanupFailed = VivoxService.Instance.ActiveChannels.Count > 0;
             Debug.Log("[VOICE] [1/3] Đã rời kênh thoại Vivox thành công.");
         }
         catch (OperationCanceledException oce)
@@ -513,6 +554,7 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public void SetMicrophoneMuted(bool muted)
     {
+        muted |= !GameplayCanTransmit;
         _isMicrophoneMuted = muted;
 
         if (IsInitialized && VivoxService.Instance != null && VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized)
@@ -556,6 +598,13 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public void SetOutputMuted(bool muted)
     {
+        _requestedOutputMuted = muted;
+        ApplyOutputMute();
+    }
+
+    private void ApplyOutputMute()
+    {
+        bool muted = _requestedOutputMuted || !GameplayCanReceive;
         _isOutputMuted = muted;
 
         if (IsInitialized && VivoxService.Instance != null && VivoxService.Instance.InitializationState == VivoxInitializationState.Initialized)
@@ -578,6 +627,28 @@ public class NetworkVoiceManager : MonoBehaviour
     public void SetOutputActive(bool active)
     {
         SetOutputMuted(!active);
+    }
+
+    public void SetGameplayPermissions(UnityEngine.Object owner, bool canTransmit, bool canReceive)
+    {
+        if (owner == null) throw new ArgumentNullException(nameof(owner));
+        bool ownerChanged = _gameplayOwner != owner;
+        _gameplayOwner = owner;
+        _gameplayPolicyActive = true;
+        _gameplayCanTransmit = canTransmit;
+        _gameplayCanReceive = canReceive;
+        if (ownerChanged || !canTransmit) SetMicrophoneMuted(true);
+        ApplyOutputMute();
+    }
+
+    public void ReleaseGameplayPermissions(UnityEngine.Object owner)
+    {
+        if (_gameplayOwner != owner) return;
+        _gameplayOwner = null;
+        _gameplayPolicyActive = false;
+        _gameplayCanTransmit = _gameplayCanReceive = true;
+        SetMicrophoneMuted(true);
+        ApplyOutputMute();
     }
 
     // =========================================================

@@ -16,5 +16,6 @@ public enum GamePhase
 
     GameOver,
     Setup,
-    DayResolution
+    DayResolution,
+    HunterRevenge
 }

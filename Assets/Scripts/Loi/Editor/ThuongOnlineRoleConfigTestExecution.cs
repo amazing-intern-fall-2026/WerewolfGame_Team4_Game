@@ -2,381 +2,152 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using Thuong.Online;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
-/// <summary>
-/// Trình thực thi kiểm thử tự động cho hệ thống Chỉnh vai trò & Phân vai trong Thương Online.
-/// Thực thi đầy đủ Test 1 đến Test 5 theo yêu cầu khẩn cấp của hệ thống.
-/// </summary>
-[InitializeOnLoad]
+// Run explicitly in a preview scene: opening the project must not reset live
+// singletons, save a test role pool, or create persistent gameplay objects.
 public static class ThuongOnlineRoleConfigTestExecution
 {
-    static ThuongOnlineRoleConfigTestExecution()
-    {
-        EditorApplication.delayCall += () =>
-        {
-            Run();
-        };
-    }
-
     public static int PassCount { get; private set; }
     public static int FailCount { get; private set; }
-    public static List<string> Results { get; private set; } = new List<string>();
+    public static List<string> Results { get; } = new();
 
     [MenuItem("Tools/Loi/Run Thuong Online Role Config Tests")]
     public static void Run()
     {
-        PassCount = 0;
-        FailCount = 0;
+        if (Application.isPlaying || ThuongOnlineSession.Active != null ||
+            (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening))
+            throw new InvalidOperationException("Run role configuration checks outside an active game.");
+
+        PassCount = FailCount = 0;
         Results.Clear();
-
-        StringBuilder sb = new StringBuilder();
-        void Log(string msg)
-        {
-            Debug.Log(msg);
-            sb.AppendLine(msg);
-            Results.Add(msg);
-        }
-
-        Log("================================================================================");
-        Log("BÁO CÁO KIỂM THỬ THỰC TẾ: HỆ THỐNG PHÂN VAI THEO CẤU HÌNH HOST (THƯƠNG ONLINE)");
-        Log("Thời gian: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-        Log("Quy định: 0 Diff Assets/Scripts/Thuong/ | Không dùng Reflection | Single Source of Truth");
-        Log("================================================================================");
-
+        var previousPlayers = PlayerManager.Instance;
+        var previousRoles = RoleManager.Instance;
+        var previousGame = GameRoleManager.Instance;
+        var previousWins = WinConditionManager.Instance;
+        var previousDeath = DeathResolver.Instance;
+        var previousMatch = NetworkGamePlayerSetup.GetActiveMatchClientIds();
+        var previousLeft = NetworkGameManager.LeftPlayerClientIds.ToArray();
+        var savedSetup = NetworkGameRoleSetup.GetRoles();
+        var previousAdapter = ThuongOnlineRoleConfigAdapter.Instance;
+        var savedConfig = previousAdapter?.GetCurrentConfig();
+        bool wasCustomized = previousAdapter != null && previousAdapter.IsCustomized;
+        var scene = EditorSceneManager.NewPreviewScene();
         try
         {
-            ThuongOnlineRoleConfigAdapter.EnsureInstance();
-            var adapter = ThuongOnlineRoleConfigAdapter.Instance;
-            adapter.ResetCaches();
-
-            // ----------------------------------------------------
-            // TEST 1: HOST CHỌN 2 DOGSPIRIT, 1 SEER, 1 GUARDIAN, 1 HUNTER, 3 VILLAGER
-            // Kiểm tra Role thực tế của tất cả 8 Player
-            // ----------------------------------------------------
-            Log("\n>>> [TEST 1] PHÒNG 8 NGƯỜI: 2 SÓI, 1 TIÊN TRI, 1 BẢO VỆ, 1 THỢ SĂN, 3 DÂN <<<");
-            var config1 = new Dictionary<RoleType, int>
+            PlayerManager.Instance = null; RoleManager.Instance = null;
+            GameRoleManager.Instance = null; WinConditionManager.Instance = null; DeathResolver.Instance = null;
+            NetworkGamePlayerSetup.Clear(); NetworkGameManager.LeftPlayerClientIds.Clear(); NetworkGameRoleSetup.Clear();
+            T Add<T>() where T : Component
             {
-                { RoleType.DogSpirit, 2 },
-                { RoleType.Seer, 1 },
-                { RoleType.VillageGuardian, 1 },
-                { RoleType.Hunter, 1 },
-                { RoleType.Villager, 3 },
-                { RoleType.Shaman, 0 }
+                var root = new GameObject(typeof(T).Name);
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root, scene);
+                return root.AddComponent<T>();
+            }
+            var players = Add<PlayerManager>();
+            var roles = Add<RoleManager>();
+            PlayerManager.Instance = players; RoleManager.Instance = roles;
+            players.players = Enumerable.Range(0, 8).Select(index => new PlayerData
+                { playerID = 10 + index * 7, playerName = "Role QA " + index, isAlive = true }).ToList();
+            var adapter = previousAdapter != null ? previousAdapter : Add<ThuongOnlineRoleConfigAdapter>();
+            var selected = new Dictionary<RoleType, int>
+            {
+                [RoleType.DogSpirit] = 2, [RoleType.Seer] = 1, [RoleType.VillageGuardian] = 1,
+                [RoleType.Hunter] = 1, [RoleType.Villager] = 3, [RoleType.Shaman] = 0
             };
-            adapter.HostSaveConfig(config1);
+            adapter.HostSaveConfig(selected);
+            Require(ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42) &&
+                ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig(), "Exact host-selected quantities are assigned");
+            Require(players.players.All(player => player.roleType != RoleType.Shaman && player.roleType != RoleType.Cursed),
+                "Unselected Shaman and Cursed roles are absent");
 
-            GameObject pmGo = new GameObject("TestPM");
-            PlayerManager pm = pmGo.AddComponent<PlayerManager>();
-            GameObject rmGo = new GameObject("TestRM");
-            RoleManager rm = rmGo.AddComponent<RoleManager>();
+            var changed = new Dictionary<RoleType, int>(selected) { [RoleType.DogSpirit] = 1, [RoleType.Villager] = 4 };
+            adapter.HostSaveConfig(changed);
+            Require(ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(84) &&
+                players.players.Count(player => player.roleType == RoleType.DogSpirit) == 1 &&
+                players.players.Count(player => player.roleType == RoleType.Villager) == 4 &&
+                ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig(), "Next round uses the changed host configuration");
 
-            try
+            adapter.HostSaveConfig(selected);
+            var assignments = new HashSet<string>();
+            bool exactEveryRound = true;
+            foreach (int seed in new[] { 1001, 2002, 3003 })
             {
-                pm.players = new List<PlayerData>();
-                for (int i = 0; i < 8; i++)
-                {
-                    pm.players.Add(new PlayerData { playerID = i, playerName = $"Player_{i}", isAlive = true });
-                }
-
-                bool assignSuccess = ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42);
-                int actualWolves = pm.players.Count(p => p.roleType == RoleType.DogSpirit);
-                int actualSeer = pm.players.Count(p => p.roleType == RoleType.Seer);
-                int actualGuardian = pm.players.Count(p => p.roleType == RoleType.VillageGuardian);
-                int actualHunter = pm.players.Count(p => p.roleType == RoleType.Hunter);
-                int actualVillagers = pm.players.Count(p => p.roleType == RoleType.Villager);
-                int actualShaman = pm.players.Count(p => p.roleType == RoleType.Shaman);
-
-                bool matchRolesAll = (actualWolves == 2 && actualSeer == 1 && actualGuardian == 1 &&
-                                      actualHunter == 1 && actualVillagers == 3 && actualShaman == 0);
-
-                // Kiểm tra đồng bộ BaseRole trong RoleManager
-                bool roleManagerMatched = pm.players.All(p => rm.playerRoles.ContainsKey(p.playerID) && rm.playerRoles[p.playerID].roleType == p.roleType);
-
-                if (assignSuccess && matchRolesAll && roleManagerMatched)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 1: Toàn bộ 8 Player nhận vai trò chính xác 100%: 2 DogSpirit, 1 Seer, 1 VillageGuardian, 1 Hunter, 3 Villager.");
-                    foreach (var p in pm.players)
-                    {
-                        Log($"    * {p.playerName} (ID {p.playerID}) -> {p.roleType} ({p.faction})");
-                    }
-                }
-                else
-                {
-                    FailCount++;
-                    Log($"  [FAIL] Test 1 thất bại: Wolves={actualWolves}, Seer={actualSeer}, Guard={actualGuardian}, Hunter={actualHunter}, Villager={actualVillagers}");
-                }
-
-                // ----------------------------------------------------
-                // TEST 2: HOST BỎ CHỌN SHAMAN (SHAMAN = 0)
-                // Kiểm tra không có Player nào nhận Shaman
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 2] HOST BỎ CHỌN SHAMAN (SHAMAN = 0) <<<");
-                bool hasAnyShaman = pm.players.Any(p => p.roleType == RoleType.Shaman) ||
-                                    rm.playerRoles.Values.Any(r => r.roleType == RoleType.Shaman);
-
-                if (!hasAnyShaman)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 2: Tuyệt đối KHÔNG có bất kỳ Player nào nhận vai trò Pháp sư (Shaman = 0).");
-                }
-                else
-                {
-                    FailCount++;
-                    Log("  [FAIL] Test 2 thất bại: Vẫn xuất hiện Shaman trong trận!");
-                }
-
-                // ----------------------------------------------------
-                // TEST 3: HOST THAY ĐỔI DOGSPIRIT TỪ 2 XUỐNG 1 VÀ TĂNG VILLAGER TỪ 3 LÊN 4
-                // Vào trận mới và kiểm tra số lượng chính xác
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 3] THAY ĐỔI CẤU HÌNH: 1 SÓI, 1 TIÊN TRI, 1 BẢO VỆ, 1 THỢ SĂN, 4 DÂN <<<");
-                var config3 = new Dictionary<RoleType, int>
-                {
-                    { RoleType.DogSpirit, 1 },
-                    { RoleType.Seer, 1 },
-                    { RoleType.VillageGuardian, 1 },
-                    { RoleType.Hunter, 1 },
-                    { RoleType.Villager, 4 }
-                };
-                adapter.HostSaveConfig(config3);
-
-                bool assign3 = ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(84);
-                int wolves3 = pm.players.Count(p => p.roleType == RoleType.DogSpirit);
-                int villagers3 = pm.players.Count(p => p.roleType == RoleType.Villager);
-                int seer3 = pm.players.Count(p => p.roleType == RoleType.Seer);
-
-                if (assign3 && wolves3 == 1 && villagers3 == 4 && seer3 == 1)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 3: Trận mới áp dụng đúng cấu hình thay đổi: Sói giảm xuống 1, Dân tăng lên 4, Tiên tri = 1.");
-                }
-                else
-                {
-                    FailCount++;
-                    Log($"  [FAIL] Test 3 thất bại: Wolves={wolves3}, Villagers={villagers3}, Seer={seer3}");
-                }
-
-                // ----------------------------------------------------
-                // TEST 4: CHẠY 3 TRẬN LIÊN TIẾP VỚI CÙNG CẤU HÌNH
-                // Kiểm tra tính ngẫu nhiên người nhận nhưng giữ nguyên số lượng từng Role
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 4] CHẠY 3 TRẬN LIÊN TIẾP VỚI CÙNG CẤU HÌNH (8 NGƯỜI) <<<");
-                adapter.HostSaveConfig(config1); // Cấu hình chuẩn 8 người
-
-                // Ván 1 (Seed 1001)
-                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(1001);
-                var match1 = pm.players.ToDictionary(p => p.playerID, p => p.roleType);
-
-                // Ván 2 (Seed 2002)
-                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(2002);
-                var match2 = pm.players.ToDictionary(p => p.playerID, p => p.roleType);
-
-                // Ván 3 (Seed 3003)
-                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(3003);
-                var match3 = pm.players.ToDictionary(p => p.playerID, p => p.roleType);
-
-                bool count1 = (match1.Values.Count(v => v == RoleType.DogSpirit) == 2 && match1.Values.Count(v => v == RoleType.Villager) == 3);
-                bool count2 = (match2.Values.Count(v => v == RoleType.DogSpirit) == 2 && match2.Values.Count(v => v == RoleType.Villager) == 3);
-                bool count3 = (match3.Values.Count(v => v == RoleType.DogSpirit) == 2 && match3.Values.Count(v => v == RoleType.Villager) == 3);
-
-                bool distinctAssignments = !match1.SequenceEqual(match2) && !match2.SequenceEqual(match3);
-
-                if (count1 && count2 && count3 && distinctAssignments)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 4: Cả 3 ván đều giữ nguyên số lượng vai trò Host chọn, người nhận vai trò được xáo trộn ngẫu nhiên.");
-                }
-                else
-                {
-                    FailCount++;
-                    Log($"  [FAIL] Test 4 thất bại: count1={count1}, count2={count2}, count3={count3}, distinct={distinctAssignments}");
-                }
-
-                // ----------------------------------------------------
-                // TEST 5: KIỂM TRA RIÊNG HOST VÀ CLIENT (MULTIPLAYER & PRIVATE STATE)
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 5] XÁC NHẬN ROLE THỰC TẾ TRÊN TỪNG CLIENT & HOST <<<");
-                // Giả lập Host là Player 0, Client 1 là Player 1
-                PlayerData hostPlayer = pm.players.First(p => p.playerID == 0);
-                PlayerData clientPlayer = pm.players.First(p => p.playerID == 1);
-
-                bool hostHasRole = rm.playerRoles.ContainsKey(0);
-                bool clientHasRole = rm.playerRoles.ContainsKey(1);
-
-                // Kiểm tra mỗi người nhận đúng một vai trò hợp lệ
-                bool validRoleTypes = (hostHasRole && clientHasRole &&
-                                       config1.ContainsKey(hostPlayer.roleType) &&
-                                       config1.ContainsKey(clientPlayer.roleType));
-
-                if (validRoleTypes)
-                {
-                    PassCount++;
-                    Log($"  [PASS] Test 5: Host nhận vai trò [{hostPlayer.roleType}], Client nhận vai trò [{clientPlayer.roleType}]. Đồng bộ bảo mật độc lập.");
-                }
-                else
-                {
-                    FailCount++;
-                    Log("  [FAIL] Test 5 thất bại: Role trên Host hoặc Client không hợp lệ.");
-                }
-
-                // ----------------------------------------------------
-                // TEST 6: BẢO VỆ CHỐNG GHI ĐÈ (ANTI-OVERWRITE / BALANCEOPENINGROLES INTERCEPTION)
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 6] KIỂM TRA BẢO VỆ TOÀN VẸN VAI TRÒ CHỐNG GHI ĐÈ NGOẠI VI <<<");
-                PlayerData wolfPlayer = pm.players.FirstOrDefault(p => p.roleType == RoleType.DogSpirit);
-                if (wolfPlayer != null)
-                {
-                    // Giả lập cơ chế ngoài (như BalanceOnlineOpeningRoles) cố ép Sói thành Dân làng
-                    wolfPlayer.roleType = RoleType.Villager;
-                    wolfPlayer.NotifyChanged(); // Kích hoạt sự kiện công khai
-
-                    // Kiểm tra cơ chế tự phục hồi ngay lập tức
-                    if (wolfPlayer.roleType == RoleType.DogSpirit &&
-                        rm.playerRoles.ContainsKey(wolfPlayer.playerID) &&
-                        rm.playerRoles[wolfPlayer.playerID].roleType == RoleType.DogSpirit)
-                    {
-                        PassCount++;
-                        Log($"  [PASS] Test 6: Ngăn chặn ghi đè thành công! Khi hệ thống ngoài cố tình đổi Player {wolfPlayer.playerID} thành Villager, cơ chế đã lập tức phục hồi về DogSpirit.");
-                    }
-                    else
-                    {
-                        FailCount++;
-                        Log($"  [FAIL] Test 6 thất bại: Vai trò bị ghi đè thành {wolfPlayer.roleType}!");
-                    }
-                }
-                else
-                {
-                    FailCount++;
-                    Log("  [FAIL] Test 6 thất bại: Không tìm thấy người chơi DogSpirit để thử nghiệm.");
-                }
-                // ----------------------------------------------------
-                // TEST 7: KIỂM TRA NETWORK ROLE SYNC KHÔNG LOG BÁO THÀNH CÔNG VỚI 0 OBJECT
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 7] KIỂM TRA NETWORK ROLE SYNC BẢO VỆ CONSOLE (0 SYNC LOG GUARD) <<<");
-                bool logZeroDetected = false;
-                Application.LogCallback testLogHandler = (logString, stackTrace, type) =>
-                {
-                    if (logString.Contains("Đã đồng bộ role mới cho 0 NetworkRoleSync"))
-                    {
-                        logZeroDetected = true;
-                    }
-                };
-                Application.logMessageReceived += testLogHandler;
-                try
-                {
-                    NetworkRoleSync.SyncAllRoleSyncs();
-                }
-                finally
-                {
-                    Application.logMessageReceived -= testLogHandler;
-                }
-
-                if (!logZeroDetected)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 7: NetworkRoleSync.SyncAllRoleSyncs() hoạt động chuẩn xác, tuyệt đối không xuất hiện log rác '0 NetworkRoleSync'.");
-                }
-                else
-                {
-                    FailCount++;
-                    Log("  [FAIL] Test 7 thất bại: Vẫn xuất hiện log báo đồng bộ cho 0 NetworkRoleSync!");
-                }
-
-                // ----------------------------------------------------
-                // TEST 8: CƠ CHẾ CHỐNG LẶP CẢNH BÁO (ANTI-DUPLICATE LOGGING)
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 8] CƠ CHẾ CHỐNG LẶP CẢNH BÁO KHI ROLE BỊ THAY ĐỔI NHIỀU LẦN <<<");
-                int warnCount = 0;
-                Application.LogCallback warnHandler = (logString, stackTrace, type) =>
-                {
-                    if (type == LogType.Warning && logString.Contains("[ThuongRoleConfig] Ngăn chặn ghi đè vai trò"))
-                    {
-                        warnCount++;
-                    }
-                };
-                Application.logMessageReceived += warnHandler;
-                try
-                {
-                    if (wolfPlayer != null)
-                    {
-                        // Thử thay đổi vai trò thêm 3 lần liên tiếp
-                        for (int k = 0; k < 3; k++)
-                        {
-                            wolfPlayer.roleType = RoleType.Villager;
-                            wolfPlayer.NotifyChanged();
-                        }
-                    }
-                }
-                finally
-                {
-                    Application.logMessageReceived -= warnHandler;
-                }
-
-                // Vì wolfPlayer đã được log ở Test 6, các lần sau không được spam thêm log cảnh báo
-                if (warnCount == 0)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 8: Anti-Duplicate Logging hoạt động hoàn hảo. Dù hệ thống ngoài cố tình đổi role nhiều lần, log cảnh báo chỉ xuất hiện tối đa 1 lần duy nhất cho mỗi Player, không gây spam console.");
-                }
-                else
-                {
-                    FailCount++;
-                    Log($"  [FAIL] Test 8 thất bại: Vẫn bị lặp cảnh báo {warnCount} lần!");
-                }
-
-                // ----------------------------------------------------
-                // TEST 9: KIỂM TRA DoesCurrentPlayersMatchHostConfig CHẶN SHAMAN / CURSED
-                // ----------------------------------------------------
-                Log("\n>>> [TEST 9] KIỂM TRA DoesCurrentPlayersMatchHostConfig NGĂN CHẶN SHAMAN / CURSED <<<");
-                adapter.HostSaveConfig(config1); // 2 DogSpirit, 1 Seer, 1 Guardian, 1 Hunter, 3 Villager, 0 Shaman, 0 Cursed
-                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42);
-
-                bool initialMatches = ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
-                
-                // Giả lập hệ thống mặc định gán Shaman cho Player 0 và Cursed cho Player 3
-                pm.players[0].roleType = RoleType.Shaman;
-                pm.players[3].roleType = RoleType.Cursed;
-                bool corruptedDetected = !ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
-
-                // Khôi phục chuẩn theo cấu hình Host
-                ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42);
-                bool restoredMatches = ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
-                bool zeroShamanCursed = !pm.players.Any(p => p.roleType == RoleType.Shaman || p.roleType == RoleType.Cursed);
-
-                if (initialMatches && corruptedDetected && restoredMatches && zeroShamanCursed)
-                {
-                    PassCount++;
-                    Log("  [PASS] Test 9: DoesCurrentPlayersMatchHostConfig nhận diện chính xác 100% khi có vai trò ngoài cấu hình (Shaman/Cursed). Sau khi áp dụng cấu hình Host, hoàn toàn không còn Shaman hoặc Cursed.");
-                }
-                else
-                {
-                    FailCount++;
-                    Log($"  [FAIL] Test 9 thất bại: initial={initialMatches}, detected={corruptedDetected}, restored={restoredMatches}, zeroRoles={zeroShamanCursed}");
-                }
+                exactEveryRound &= ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(seed) &&
+                    ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
+                assignments.Add(string.Join(",", players.players.OrderBy(player => player.playerID).Select(player => player.roleType)));
             }
-            finally
+            Require(exactEveryRound && assignments.Count == 3, "Replay preserves quantities and randomizes recipients");
+            Require(players.players.All(player => roles.playerRoles.TryGetValue(player.playerID, out var role) &&
+                role.owner == player && role.roleType == player.roleType && role.faction == player.faction),
+                "Role objects, player IDs, owners and factions agree");
+
+            var bridge = NetworkRoleActionBridge.Instance != null ? NetworkRoleActionBridge.Instance : Add<NetworkRoleActionBridge>();
+            string Before() => string.Join(",", players.players.Select(player => player.roleType));
+            string before = Before();
+            bridge.EnsureDefaultRolesAssigned();
+            Require(Before() == before && ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig(),
+                "Legacy default assignment cannot overwrite the saved host configuration");
+
+            bool zeroSyncLog = false;
+            Application.LogCallback syncLog = (message, stack, type) =>
+            { if (message.Contains("Đã đồng bộ role mới cho 0 NetworkRoleSync")) zeroSyncLog = true; };
+            Application.logMessageReceived += syncLog;
+            try { NetworkRoleSync.SyncAllRoleSyncs(); }
+            finally { Application.logMessageReceived -= syncLog; }
+            Require(!zeroSyncLog, "An empty legacy role-sync set is not reported as a successful synchronization");
+
+            var originalObjects = new Dictionary<int, BaseRole>(roles.playerRoles);
+            for (int attempt = 0; attempt < 3; attempt++)
             {
-                if (pmGo != null) UnityEngine.Object.DestroyImmediate(pmGo);
-                if (rmGo != null) UnityEngine.Object.DestroyImmediate(rmGo);
+                bridge.EnsureDefaultRolesAssigned();
+                foreach (var player in players.players) player.NotifyChanged();
             }
+            Require(Before() == before && originalObjects.All(entry => ReferenceEquals(entry.Value, roles.playerRoles[entry.Key])),
+                "Repeated default-assignment attempts and notifications do not recreate roles");
 
-            Log("\n================================================================================");
-            Log($"TỔNG KẾT: ĐẠT {PassCount}/9 TEST BẮT BUỘC (100% PASS) | FAIL = {FailCount}");
-            Log("================================================================================");
+            players.players[0].roleType = RoleType.Shaman;
+            players.players[3].roleType = RoleType.Cursed;
+            bool mismatchDetected = !ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig();
+            Require(mismatchDetected && ThuongOnlineRoleConfigAdapter.ApplyCustomRolesIfConfigured(42) &&
+                ThuongOnlineRoleConfigAdapter.DoesCurrentPlayersMatchHostConfig() &&
+                players.players.All(player => player.roleType != RoleType.Shaman && player.roleType != RoleType.Cursed),
+                "Configuration audit detects mismatches and explicit setup restores the selected pool");
         }
-        catch (Exception ex)
+        catch (Exception error)
         {
             FailCount++;
-            Log("[NGOẠI LỆ]: " + ex);
+            Results.Add("FAIL " + error);
+            throw;
         }
         finally
         {
-            File.WriteAllText("thuong_role_test_report.txt", sb.ToString(), Encoding.UTF8);
-            Debug.Log(">>> Báo cáo đã lưu vào: thuong_role_test_report.txt");
+            EditorSceneManager.ClosePreviewScene(scene);
+            PlayerManager.Instance = previousPlayers; RoleManager.Instance = previousRoles;
+            GameRoleManager.Instance = previousGame; WinConditionManager.Instance = previousWins; DeathResolver.Instance = previousDeath;
+            NetworkGamePlayerSetup.SetActiveMatchClientIds(previousMatch);
+            NetworkGameManager.LeftPlayerClientIds.Clear();
+            foreach (var id in previousLeft) NetworkGameManager.LeftPlayerClientIds.Add(id);
+            if (previousAdapter != null)
+            {
+                if (wasCustomized) previousAdapter.HostSaveConfig(savedConfig);
+                else previousAdapter.HostRestoreDefaultConfig();
+            }
+            NetworkGameRoleSetup.Clear();
+            if (savedSetup.Count > 0) NetworkGameRoleSetup.Save(savedSetup);
+            Directory.CreateDirectory("Logs/MergeMain20261111");
+            File.WriteAllLines("Logs/MergeMain20261111/role-config-results.txt",
+                new[] { $"passed={PassCount} failed={FailCount}" }.Concat(Results));
         }
+        Debug.Log($"THUONG_ROLE_CONFIG_CHECKS_PASSED checks={PassCount}");
+    }
+
+    private static void Require(bool condition, string description)
+    {
+        if (!condition) throw new InvalidOperationException(description);
+        PassCount++; Results.Add("PASS " + description);
     }
 }

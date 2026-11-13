@@ -43,6 +43,8 @@ namespace Thuong.Online
             if (statusSystem.deathSystem == null || abilitySystem.nightSystem == null)
                 throw new InvalidOperationException("Scene Thương Online thiếu hệ thống chết hoặc giải quyết đêm.");
             game.statusEffects = statusSystem; game.abilities = abilitySystem;
+            var voting = SceneComponent<VoteManager>();
+            if (voting != null) { voting.AllowVoteChanges = true; voting.AllowSelfVote = false; }
             ObserveRealtimeDeaths();
             abilitySystem.SetMatchRunning(false);
             game.PhaseChanged += HandleOnlineLogicPhaseChanged;
@@ -128,6 +130,7 @@ namespace Thuong.Online
             ResetTaskBoard();
             ResetCorpseState();
             matchEpoch = epoch;
+            if (IsMainFlowSession) ThuongMainFlow.RecordMatchEpoch(epoch);
             matchResult = null;
             localRoleCardOpen = localRoleConfirmed = false;
             localActionFeedback = string.Empty;
@@ -137,7 +140,8 @@ namespace Thuong.Online
                 localEffects.Clear(); localAllowedTargets.Clear(); localVotedTarget = -1;
             }
             ResetEndgamePresentation(); ResetVotePresentation();
-            ResetNotebook();
+            BindNotebookToRound(epoch);
+            ResetVillageView(); ResetJournal();
         }
 
         public bool CanRestartMatch => network != null && network.IsServer && network.IsListening &&
@@ -145,18 +149,21 @@ namespace Thuong.Online
         public bool RestartMatchInRoom()
         {
             if (!CanRestartMatch) return false;
+            if (IsMainFlowSession) return ReturnToMainLobby();
             ResetToRoomLobby("Ván mới đã sẵn sàng. Chủ phòng phân vai lại, mọi người đọc vai và Ready.");
             return true;
         }
 
         private void ResetToRoomLobby(string message)
         {
+            ResetCommunications();
             ResetEmotes();
             ResetMinigames();
             ResetTaskBoard();
             ResetCorpseState();
             game.ResetForOnlineLobby();
             matchEpoch++;
+            ResetVillageRound();
             matchStarted = rolesAssigned = roomLocked = false;
             matchResult = null; privateStateReceived = false; privateFlags = 0;
             localRoleCardOpen = localRoleConfirmed = false;

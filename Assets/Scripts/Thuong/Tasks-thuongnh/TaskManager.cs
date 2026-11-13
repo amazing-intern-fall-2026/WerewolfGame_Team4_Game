@@ -12,6 +12,7 @@ public class TaskManager : MonoBehaviour
     private readonly Dictionary<int, HashSet<TaskData>> personal = new();
     private int cooperativePlayers, dailyTarget, dailyContributions;
     private float dayStartingProgress;
+    private int pairedTaskDay = -1;
     public bool Cooperative => cooperativePlayers > 0;
     public int DailyTarget => Cooperative ? dailyTarget : currentTasks.Count;
     public int CompletedToday => Cooperative ? dailyContributions : completed.Count;
@@ -32,6 +33,7 @@ public class TaskManager : MonoBehaviour
         completed.Clear();
         targets.Clear(); contributions.Clear(); personal.Clear();
         dailyTarget = dailyContributions = 0; dayStartingProgress = 0;
+        pairedTaskDay = -1;
     }
     public void StartNewDay()
     {
@@ -65,6 +67,19 @@ public class TaskManager : MonoBehaviour
     {
         var hud = FindAnyObjectByType<GameHUD>();
         TryCompleteTask(hud != null ? hud.localVoterID : 0, task);
+    }
+    public bool TryCompletePairedTask(int first, int second)
+    {
+        var game = GameRoleManager.Instance;
+        if (!Cooperative || game == null || game.currentState != GameState.Day || pairedTaskDay == game.currentDay ||
+            first == second || PlayerManager.Instance?.IsAlive(first) != true || !PlayerManager.Instance.IsAlive(second)) return false;
+        pairedTaskDay = game.currentDay;
+        // Preserve the bonus when later regular contributions recompute progress.
+        dayStartingProgress += 5;
+        progress = Mathf.Min(100, progress + 5);
+        WinConditionManager.Instance?.NotifyMatchStateChanged();
+        if (progress >= 100) game.VillagerWin();
+        return true;
     }
     public bool TryCompleteTask(int playerID, TaskData task)
     {
