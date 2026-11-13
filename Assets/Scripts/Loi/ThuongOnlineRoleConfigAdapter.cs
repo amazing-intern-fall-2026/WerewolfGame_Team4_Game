@@ -49,6 +49,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
         if (Application.isPlaying) DontDestroyOnLoad(gameObject);
         SceneManager.sceneLoaded += OnSceneLoaded;
         ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
+        ThuongOnlineWinAdapter.EnsureInstance();
         InitializeDefaults(GetCurrentPlayerCount());
     }
 
@@ -63,6 +64,7 @@ public class ThuongOnlineRoleConfigAdapter : MonoBehaviour
     {
         injectedLobbyButton = null;
         ThuongOnlineGuardianAdapter.EnsureGuardianSelfTargetConfigured();
+        ThuongOnlineWinAdapter.EnsureInstance();
         if (scene.name.IndexOf("MainMenu", StringComparison.OrdinalIgnoreCase) >= 0 ||
             scene.name.IndexOf("Offline", StringComparison.OrdinalIgnoreCase) >= 0)
         { ResetCaches(); return; }

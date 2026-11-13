@@ -357,41 +357,30 @@ public class NetworkRoleActionBridge : MonoBehaviour
 
             bool isBittenOrAwakened = player.isWhiteHoundAwakened ||
                                       player.faction == FactionType.Monster ||
-                                      wasBitten ||
-                                      !anyDogSpiritAlive;
+                                      wasBitten;
 
             if (!isBittenOrAwakened)
                 continue;
 
-            if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf || player.roleType == RoleType.DogSpirit)
+            if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
             {
                 player.isWhiteHoundAwakened = true;
                 player.faction = FactionType.Monster;
                 bittenWhiteHoundPlayerIds.Add(player.playerID);
 
-                // Sang ngày hôm sau, WhiteHound chính thức gia nhập phe DogSpirit
-                if (player.roleType != RoleType.DogSpirit)
-                {
-                    player.roleType = RoleType.DogSpirit;
-                    Debug.Log($"ROLE ACTION BRIDGE | Player {player.playerID + 1} (Bạch Khuyển) chính thức gia nhập DogSpirit sang ngày hôm sau!");
-                }
-
+                // Giữ nguyên roleType là RoleType.WhiteHound, chuyển phe Monster
                 if (RoleManager.Instance?.playerRoles != null)
                 {
-                    if (!RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role) ||
-                        role == null || role.roleType != RoleType.DogSpirit)
+                    if (RoleManager.Instance.playerRoles.TryGetValue(player.playerID, out BaseRole role) &&
+                        role is WhiteHound wh)
                     {
-                        RoleManager.Instance.playerRoles[player.playerID] = RoleCatalog.Create(RoleType.DogSpirit, player);
+                        wh.BecomeMonster();
+                        wh.faction = FactionType.Monster;
                     }
-                    else
+                    else if (role != null)
                     {
                         role.faction = FactionType.Monster;
                     }
-                }
-
-                if (RoleManager.Instance?.roleDefinitions != null)
-                {
-                    player.roleDefinition = RoleManager.Instance.roleDefinitions.Find(RoleType.DogSpirit);
                 }
 
                 player.NotifyChanged();
