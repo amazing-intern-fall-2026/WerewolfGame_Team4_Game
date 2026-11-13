@@ -1021,23 +1021,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SimplePotionCauldron
   minorHeal:
     potionName: Minor Healing Potion
-    potionSprite: {fileID: 0}
+    potionSprite: {fileID: -855298285791758126, guid: 490830fffca949e4f88f7c7657dbebb6, type: 3}
     potionColor: {r: 0, g: 1, b: 0, a: 1}
   strongHeal:
     potionName: Greater Healing Potion
-    potionSprite: {fileID: 0}
+    potionSprite: {fileID: 7028616704906629411, guid: 121d6daf1e8cbe84daf3f83f4d867010, type: 3}
     potionColor: {r: 0, g: 1, b: 1, a: 1}
   minorPoison:
     potionName: Weak Poison
-    potionSprite: {fileID: 0}
+    potionSprite: {fileID: 6937817954938267909, guid: 716977bd27d5d6c4cbfa0a6f2a2d9e53, type: 3}
     potionColor: {r: 0.6, g: 0.1, b: 0.8, a: 1}
   lethalPoison:
     potionName: Lethal Poison
-    potionSprite: {fileID: 0}
+    potionSprite: {fileID: -4178046375966092550, guid: cd74553561d555444a0b08586e04bfa0, type: 3}
     potionColor: {r: 1, g: 0, b: 1, a: 1}
   ruinedSludge:
     potionName: Ruined Sludge
-    potionSprite: {fileID: 0}
+    potionSprite: {fileID: 4113829005332862926, guid: c044c5cd3978ad04388a69b943951cde, type: 3}
     potionColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   dropPoint: {fileID: 880257521}
   fallingIngredientPrefab: {fileID: 6206025655697953327, guid: 849d9fea1f4419543a551a583afdd8ca, type: 3}
