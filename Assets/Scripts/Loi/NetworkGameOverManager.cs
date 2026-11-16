@@ -80,13 +80,22 @@ public class NetworkGameOverManager : MonoBehaviour
         shamanKillDelayTimer = 0f;
         if (gameOverPanel != null)
         {
-            Destroy(gameOverPanel);
+            if (Application.isPlaying) Destroy(gameOverPanel);
+            else DestroyImmediate(gameOverPanel);
             gameOverPanel = null;
         }
         if (dedicatedCanvasGO != null)
         {
-            Destroy(dedicatedCanvasGO);
+            if (Application.isPlaying) Destroy(dedicatedCanvasGO);
+            else DestroyImmediate(dedicatedCanvasGO);
             dedicatedCanvasGO = null;
+        }
+
+        var leftoverCanvas = GameObject.Find("GameOverDedicatedCanvas");
+        if (leftoverCanvas != null)
+        {
+            if (Application.isPlaying) Destroy(leftoverCanvas);
+            else DestroyImmediate(leftoverCanvas);
         }
     }
 
@@ -279,6 +288,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void Update()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu")
+        {
+            if (uiShown || isGameOver || gameOverPanel != null || dedicatedCanvasGO != null)
+            {
+                ResetUIState();
+            }
+            return;
+        }
+
         EnsureLoiMatchEvaluatorInstalled();
 
         if (shamanKillDelayTimer > 0f)
@@ -492,6 +511,9 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void CheckServerWinCondition(bool forceCheck = false)
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu") return;
+
         EnsureLoiMatchEvaluatorInstalled();
 
         if (isGameOver || GameEnded) return;
@@ -933,6 +955,14 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void ShowGameOverUI(string winner)
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu")
+        {
+            Debug.LogWarning("[NetworkGameOverManager] Đang ở MainMenu, hủy bỏ hiển thị GameOver UI.");
+            ResetUIState();
+            return;
+        }
+
         if (string.IsNullOrEmpty(winner))
         {
             Debug.Log("GAME OVER MANAGER | ShowGameOverUI được gọi với winner rỗng, đang đợi đồng bộ từ Server...");
@@ -987,6 +1017,7 @@ public class NetworkGameOverManager : MonoBehaviour
         if (dedicatedCanvasGO == null)
         {
             dedicatedCanvasGO = new GameObject("GameOverDedicatedCanvas");
+            dedicatedCanvasGO.hideFlags = HideFlags.DontSave;
             Canvas canvas = dedicatedCanvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.overrideSorting = true;

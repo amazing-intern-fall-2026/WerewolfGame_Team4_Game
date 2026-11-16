@@ -69,6 +69,15 @@ public static class ThuongOnlineWinConditionTests
         if (pmGO != null) UnityEngine.Object.DestroyImmediate(pmGO);
         if (gmGO != null) UnityEngine.Object.DestroyImmediate(gmGO);
         if (wcGO != null) UnityEngine.Object.DestroyImmediate(wcGO);
+        if (NetworkGameOverManager.Instance != null)
+        {
+            NetworkGameOverManager.Instance.ResetUIState();
+        }
+        var leftover = GameObject.Find("GameOverDedicatedCanvas");
+        if (leftover != null)
+        {
+            UnityEngine.Object.DestroyImmediate(leftover);
+        }
     }
 
     // =========================================================================
