@@ -55,6 +55,7 @@ public class NetworkSkillUI : MonoBehaviour
     private NetworkPhaseSync phaseSync;
 
     private bool isDogSpirit;
+    private bool isSerpentSpirit;
     private bool isWhiteHound;
     private bool isWhiteHoundAwakened;
     private bool isSeer;
@@ -70,9 +71,14 @@ public class NetworkSkillUI : MonoBehaviour
     private int pendingSubActionId;
     private bool shamanHasUsedSave;
     private bool shamanHasUsedKill;
+    private int simulatedNightNumberForTest = -1;
 
     public bool ShamanHasUsedSave => shamanHasUsedSave;
     public bool ShamanHasUsedKill => shamanHasUsedKill;
+    public bool IsDogSpirit => isDogSpirit;
+    public bool IsSerpentSpirit => isSerpentSpirit;
+    public GameObject AttackButton => attackButton;
+    public GameObject TargetPanel => targetPanel;
     public GameObject SaveButton => saveButton;
     public GameObject KillButton => killButton;
     public GameObject SkillPanel => skillPanel;
@@ -237,7 +243,7 @@ public class NetworkSkillUI : MonoBehaviour
         if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
         {
             RoleType r = NetworkRoleSync.LocalInstance.LocalRole;
-            bool roleRecognized = isDogSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller;
+            bool roleRecognized = isDogSpirit || isSerpentSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller;
             if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.SerpentSpirit || r == RoleType.Ogre || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer))
             {
                 OnRoleReceived(r);
@@ -250,7 +256,10 @@ public class NetworkSkillUI : MonoBehaviour
     private void OnRoleReceived(RoleType role)
     {
         isDogSpirit =
-            role == RoleType.DogSpirit || role == RoleType.SerpentSpirit || role == RoleType.Ogre;
+            role == RoleType.DogSpirit || role == RoleType.Ogre;
+
+        isSerpentSpirit =
+            role == RoleType.SerpentSpirit;
 
         isWhiteHound =
             role == RoleType.WhiteHound || role == RoleType.WhiteWolf;
@@ -292,6 +301,8 @@ public class NetworkSkillUI : MonoBehaviour
             + role
             + " | DogSpirit = "
             + isDogSpirit
+            + " | SerpentSpirit = "
+            + isSerpentSpirit
             + " | WhiteHound = "
             + isWhiteHound
             + " | Awakened = "
@@ -368,8 +379,19 @@ public class NetworkSkillUI : MonoBehaviour
                stateSync.State.Value == NetworkPlayerStateType.Disconnected;
     }
 
+    public void SetNightNumberForTest(int night)
+    {
+        simulatedNightNumberForTest = night;
+        UpdateSkillUI();
+    }
+
     public int GetCurrentNightNumber()
     {
+        if (simulatedNightNumberForTest > 0)
+        {
+            return simulatedNightNumberForTest;
+        }
+
         if (phaseSync != null && phaseSync.CurrentNightCycle.Value > 0)
         {
             return phaseSync.CurrentNightCycle.Value;
@@ -378,6 +400,12 @@ public class NetworkSkillUI : MonoBehaviour
         if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0)
         {
             return NightManager.Instance.CurrentNightNumber;
+        }
+
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.GetVisibleDay() > 0)
+        {
+            return session.GetVisibleDay();
         }
 
         if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentDay > 0)
@@ -439,7 +467,7 @@ public class NetworkSkillUI : MonoBehaviour
         return true;
     }
 
-    private void UpdateSkillUI()
+    public void UpdateSkillUI()
     {
         bool hunterCanUseTrap = CanHunterRevengeNow();
 
@@ -460,9 +488,17 @@ public class NetworkSkillUI : MonoBehaviour
         bool canAttackAsDogSpirit =
             isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened());
 
+        bool serpentCanAct =
+            isSerpentSpirit &&
+            isNight &&
+            currentNight >= 3 &&
+            !hasUsedSkill &&
+            !IsLocalPlayerDead();
+
         bool normalSkillAvailable =
             (
                 (canAttackAsDogSpirit && !hasUsedSkill) ||
+                serpentCanAct ||
                 (isSeer && !hasUsedSkill) ||
                 (isVillageGuardian && !hasUsedSkill) ||
                 shamanCanAct ||
@@ -484,12 +520,9 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (attackButton != null)
         {
-            attackButton.SetActive(
-                (canAttackAsDogSpirit || (isKiller && isEvenNight)) &&
-                isNight &&
-                !hasUsedSkill &&
-                !IsLocalPlayerDead()
-            );
+            bool attackAvailable = ((canAttackAsDogSpirit && !hasUsedSkill) || serpentCanAct || killerCanAct) &&
+                                    isNight && !IsLocalPlayerDead();
+            attackButton.SetActive(attackAvailable);
         }
 
         if (inspectButton != null)
@@ -550,8 +583,24 @@ public class NetworkSkillUI : MonoBehaviour
 
     public void OnAttackClicked()
     {
+        int currentNight = GetCurrentNightNumber();
+        if (isSerpentSpirit)
+        {
+            if (currentNight < 3)
+            {
+                Debug.LogWarning(
+                    "SKILL UI | Xà Tinh chỉ có thể tấn công từ đêm thứ ba (Đêm hiện tại: "
+                    + currentNight
+                    + ")."
+                );
+                return;
+            }
+        }
+
         bool canAttackAsDogSpirit = isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened());
-        if (!canAttackAsDogSpirit && !isKiller)
+        bool canAttackAsSerpent = isSerpentSpirit && currentNight >= 3;
+        bool canAttack = canAttackAsDogSpirit || canAttackAsSerpent || isKiller;
+        if (!canAttack)
             return;
 
         if (!isNight)
@@ -567,7 +616,6 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (isKiller)
         {
-            int currentNight = GetCurrentNightNumber();
             if (currentNight <= 0 || currentNight % 2 != 0)
             {
                 Debug.LogWarning(
@@ -581,7 +629,7 @@ public class NetworkSkillUI : MonoBehaviour
 
         Debug.Log(
             "SKILL UI | "
-            + (isDogSpirit ? "DogSpirit" : (isWhiteHound ? "WhiteHound (Phe DogSpirit)" : "Sát Nhân (Killer)"))
+            + (isSerpentSpirit ? "Xà Tinh" : isDogSpirit ? "DogSpirit" : (isWhiteHound ? "WhiteHound (Phe DogSpirit)" : "Sát Nhân (Killer)"))
             + " mở Target Panel."
         );
 
@@ -761,7 +809,7 @@ public class NetworkSkillUI : MonoBehaviour
     public void NotifyActionDispatched()
     {
         CloseTargetPanel();
-        if (isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened()) || isSeer || isVillageGuardian || isKiller)
+        if (isDogSpirit || (isWhiteHound && IsLocalWhiteHoundAwakened()) || isSerpentSpirit || isSeer || isVillageGuardian || isKiller)
         {
             hasUsedSkill = true;
             UpdateSkillUI();
@@ -1152,11 +1200,15 @@ public class NetworkSkillUI : MonoBehaviour
         bool isNightPhase,
         GameObject testSkillPanel = null,
         GameObject testSaveBtn = null,
-        GameObject testKillBtn = null)
+        GameObject testKillBtn = null,
+        GameObject testAttackBtn = null,
+        GameObject testTargetPanel = null)
     {
         if (testSkillPanel != null) skillPanel = testSkillPanel;
         if (testSaveBtn != null) saveButton = testSaveBtn;
         if (testKillBtn != null) killButton = testKillBtn;
+        if (testAttackBtn != null) attackButton = testAttackBtn;
+        if (testTargetPanel != null) targetPanel = testTargetPanel;
 
         isNight = isNightPhase;
         OnRoleReceived(role);

@@ -155,6 +155,7 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
                     p.isWhiteHoundAwakened = true;
                     p.faction = FactionType.Monster;
                     stateChanged = true;
+                    NetworkWhiteHoundNotificationUI.NotifyPlayerAwakened(p.playerID);
                 }
 
                 if (RoleManager.Instance?.playerRoles != null &&
@@ -277,7 +278,7 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
                 p.loverID, p.isWhiteHoundAwakened, false
             ));
         }
-        var settings = new ThuongOnlineWinSettings { eliminationWin = true, minimumPlayersForParity = 1, specialWinVillageLimit = 2 };
+        var settings = new ThuongOnlineWinSettings { eliminationWin = true, minimumPlayersForParity = 1, specialWinVillageLimit = 1 };
         var outcome = ThuongMatchOutcome.Evaluate(state, settings, day, phase, 0, 7, dayFinished);
         return outcome != null ? outcome.WinnerId : "Ongoing";
     }
@@ -287,6 +288,11 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
     /// </summary>
     public static void EnsureWinEvaluatorInstalled()
     {
+        if (ThuongOnlineSession.Active != null)
+        {
+            ThuongOnlineSession.Active.EnforceWhiteHoundWinVillageLimit(1);
+        }
+
         var game = GameRoleManager.Instance;
         var wcm = WinConditionManager.Instance;
         if (game == null || wcm == null) return;
@@ -416,9 +422,13 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
             return;
         }
 
-        // 5. Phe Bạch Khuyển (WhiteWolf) thắng riêng khi chỉ còn 1 Bạch Khuyển thức tỉnh và <= 2 dân làng
+        // 5. Phe Bạch Khuyển (WhiteWolf) chỉ thắng riêng khi:
+        // - Đúng 1 Bạch Khuyển thức tỉnh còn sống.
+        // - Toàn bộ Ma Sói khác và Sát Nhân đối địch đã chết.
+        // - Số Dân Làng còn sống <= 1 (đạt cân bằng parity 1v1 hoặc toàn bộ Dân Làng đã bị tiêu diệt).
+        // - TUYỆT ĐỐI KHÔNG ĐƯỢC THẮNG KHI CÒN TỪ 2 DÂN LÀNG TRỞ LÊN SỐNG SÓT!
         if (aliveAwakenedWhiteHounds == 1 && (aliveMonsters - aliveAwakenedWhiteHounds) == 0 &&
-            aliveKillers == 0 && aliveVillagers <= 2)
+            aliveKillers == 0 && aliveVillagers <= 1)
         {
             game.WhiteWolfWin();
             NetworkGameOverManager.Instance?.TriggerGameOver("White Wolf");
@@ -539,5 +549,7 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
         {
             NetworkRoleActionBridge.Instance.ClearBittenWhiteHounds();
         }
+
+        NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
     }
 }
