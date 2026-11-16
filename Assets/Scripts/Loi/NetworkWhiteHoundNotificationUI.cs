@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 /// <summary>
@@ -17,7 +19,8 @@ using TMPro;
 /// 4. Tự động ẩn sau 5 giây hoặc người chơi bấm nút "Đóng".
 /// 5. Đồng bộ an toàn cho cả Host và Client qua NetworkManager/CustomMessagingManager.
 /// 6. Không tạo thông báo trùng lặp trong cùng một ván đấu.
-/// 7. Tuyệt đối không can thiệp code trong Assets/Scripts/Thuong/.
+/// 7. Không tạo popup nếu DogSpirit chỉ chọn mục tiêu nhưng Server chưa xác nhận tấn công thành công.
+/// 8. Tuyệt đối không can thiệp code trong Assets/Scripts/Thuong/.
 /// </summary>
 public class NetworkWhiteHoundNotificationUI : MonoBehaviour
 {
@@ -72,24 +75,128 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
             DontDestroyOnLoad(gameObject);
         }
         RegisterNetworkMessageHandler();
+        SubscribeEvents();
     }
 
     private void OnDestroy()
     {
         UnregisterNetworkMessageHandler();
+        UnsubscribeEvents();
         if (Instance == this) Instance = null;
     }
 
     private void OnEnable()
     {
-        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged += HandleLocalWhiteHoundAwakened;
+        SubscribeEvents();
         RegisterNetworkMessageHandler();
     }
 
     private void OnDisable()
     {
-        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= HandleLocalWhiteHoundAwakened;
+        UnsubscribeEvents();
         UnregisterNetworkMessageHandler();
+    }
+
+    private void SubscribeEvents()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= HandleLocalWhiteHoundAwakened;
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged += HandleLocalWhiteHoundAwakened;
+
+        SubscribeDeathResolver();
+        SubscribePlayerDataEvents();
+    }
+
+    private void UnsubscribeEvents()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= HandleLocalWhiteHoundAwakened;
+
+        if (DeathResolver.Instance != null)
+        {
+            DeathResolver.Instance.DeathResolved -= HandleDeathResolved;
+        }
+
+        UnsubscribePlayerDataEvents();
+    }
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        SubscribeDeathResolver();
+        SubscribePlayerDataEvents();
+        RegisterNetworkMessageHandler();
+        CheckLocalPlayerAwakened();
+    }
+
+    private void SubscribeDeathResolver()
+    {
+        if (DeathResolver.Instance != null)
+        {
+            DeathResolver.Instance.DeathResolved -= HandleDeathResolved;
+            DeathResolver.Instance.DeathResolved += HandleDeathResolved;
+        }
+    }
+
+    private readonly List<PlayerData> subscribedPlayers = new();
+
+    private void SubscribePlayerDataEvents()
+    {
+        UnsubscribePlayerDataEvents();
+
+        if (PlayerManager.Instance?.players != null)
+        {
+            foreach (var p in PlayerManager.Instance.players)
+            {
+                if (p != null)
+                {
+                    p.Changed += HandlePlayerDataChanged;
+                    subscribedPlayers.Add(p);
+                }
+            }
+        }
+    }
+
+    private void UnsubscribePlayerDataEvents()
+    {
+        foreach (var p in subscribedPlayers)
+        {
+            if (p != null)
+            {
+                p.Changed -= HandlePlayerDataChanged;
+            }
+        }
+        subscribedPlayers.Clear();
+    }
+
+    private void HandlePlayerDataChanged(PlayerData player)
+    {
+        if (player == null) return;
+        int localId = GetLocalPlayerId();
+        if (localId >= 0 && player.playerID == localId)
+        {
+            bool isWhiteHound = player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf;
+            if (isWhiteHound && player.isWhiteHoundAwakened)
+            {
+                ShowNotification();
+            }
+        }
+    }
+
+    public void HandleDeathResolved(DeathResult result)
+    {
+        if (result.Request.Target == null) return;
+        PlayerData target = result.Request.Target;
+        bool isWhiteHound = target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf;
+        bool bittenByDogSpirit = result.Request.SourceRole == RoleType.DogSpirit;
+
+        // Chỉ khi DogSpirit thực sự cắn trúng Bạch Khuyển và Server đã xác nhận thức tỉnh thành công
+        if (isWhiteHound && bittenByDogSpirit && target.isWhiteHoundAwakened)
+        {
+            Debug.Log($"[NetworkWhiteHoundNotificationUI] DeathResolver xác nhận DogSpirit cắn trúng WhiteHound (Player {target.playerID + 1}) -> Gửi thông báo thức tỉnh!");
+            NotifyPlayerAwakened(target.playerID);
+        }
     }
 
     public static void ResetMatchNotificationState()
@@ -133,8 +240,81 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
 
     private void ReceiveAwakenedNotification(ulong senderClientId, FastBufferReader reader)
     {
-        Debug.Log("[NetworkWhiteHoundNotificationUI] Nhận gói tin thông báo thức tỉnh từ Server!");
+        Debug.Log("[NetworkWhiteHoundNotificationUI] Client nhận được gói tin thức tỉnh riêng từ Server!");
         ShowNotification();
+    }
+
+    /// <summary>
+    /// Tra cứu ClientId theo PlayerId.
+    /// </summary>
+    public static ulong GetClientIdForPlayerId(int playerId)
+    {
+        // 1. Kiểm tra qua ThuongOnlineSession nếu đang trong Thương Online
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.TryGetClientIdForPlayer(playerId, out ulong sessionClientId))
+        {
+            return sessionClientId;
+        }
+
+        // 2. Kiểm tra qua PlayerController
+        var controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        if (controllers != null)
+        {
+            foreach (var pc in controllers)
+            {
+                if (pc != null && (int)pc.OwnerClientId == playerId)
+                {
+                    return pc.OwnerClientId;
+                }
+            }
+        }
+
+        // 3. Fallback: Netcode connected clients
+        var net = NetworkManager.Singleton;
+        if (net != null)
+        {
+            ulong uPlayerId = (ulong)playerId;
+            if (net.ConnectedClients.ContainsKey(uPlayerId))
+            {
+                return uPlayerId;
+            }
+        }
+
+        return ulong.MaxValue;
+    }
+
+    public static int GetLocalPlayerId()
+    {
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.HasLocalRole)
+        {
+            return session.LocalPlayerId;
+        }
+
+        if (NetworkManager.Singleton != null)
+        {
+            return (int)NetworkManager.Singleton.LocalClientId;
+        }
+
+        return -1;
+    }
+
+    private void CheckLocalPlayerAwakened()
+    {
+        if (hasNotifiedThisMatch) return;
+
+        int localId = GetLocalPlayerId();
+        if (localId < 0) return;
+
+        PlayerData localPlayer = PlayerManager.Instance?.GetplayerByID(localId);
+        if (localPlayer != null)
+        {
+            bool isWhiteHound = localPlayer.roleType == RoleType.WhiteHound || localPlayer.roleType == RoleType.WhiteWolf;
+            if (isWhiteHound && localPlayer.isWhiteHoundAwakened)
+            {
+                ShowNotification();
+            }
+        }
     }
 
     /// <summary>
@@ -144,51 +324,55 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
     {
         EnsureInstance();
 
-        // Kiểm tra xem máy hiện tại có phải là người chơi Bạch Khuyển đó không
-        bool isLocal = false;
-        ulong targetClientId = ulong.MaxValue;
-
         var net = NetworkManager.Singleton;
-        if (net != null)
+        if (net == null || !net.IsListening)
         {
-            // Tìm ClientId của playerId
-            if (PlayerManager.Instance?.players != null)
-            {
-                var targetPlayer = PlayerManager.Instance.GetplayerByID(playerId);
-                if (targetPlayer != null)
-                {
-                    targetClientId = (ulong)targetPlayer.playerID;
-                }
-            }
+            // Môi trường offline hoặc unit test
+            Instance?.ShowNotification();
+            return;
+        }
 
-            if (net.IsServer && targetClientId != ulong.MaxValue)
+        if (net.IsServer)
+        {
+            ulong targetClientId = GetClientIdForPlayerId(playerId);
+            Debug.Log($"[NetworkWhiteHoundNotificationUI] Server xác nhận Bạch Khuyển (Player {playerId + 1}) thức tỉnh! Target ClientId = {targetClientId}");
+
+            if (targetClientId == net.LocalClientId)
             {
-                if (targetClientId == net.LocalClientId)
-                {
-                    isLocal = true;
-                }
-                else if (net.ConnectedClients.ContainsKey(targetClientId))
-                {
-                    // Gửi tin nhắn riêng đến client mục tiêu
-                    using var writer = new FastBufferWriter(16, Allocator.Temp);
-                    writer.WriteValueSafe(playerId);
-                    net.CustomMessagingManager.SendNamedMessage(WhiteHoundAwakenedMessageName, targetClientId, writer, NetworkDelivery.ReliableSequenced);
-                    Debug.Log($"[NetworkWhiteHoundNotificationUI] Đã gửi thông báo thức tỉnh riêng tới Client {targetClientId} (Player {playerId + 1}).");
-                }
+                // Host là người chơi Bạch Khuyển
+                Instance?.ShowNotification();
+            }
+            else if (targetClientId != ulong.MaxValue && net.ConnectedClients.ContainsKey(targetClientId))
+            {
+                // Client từ xa là Bạch Khuyển -> gửi tin nhắn riêng qua mạng
+                using var writer = new FastBufferWriter(16, Allocator.Temp);
+                writer.WriteValueSafe(playerId);
+                net.CustomMessagingManager.SendNamedMessage(
+                    WhiteHoundAwakenedMessageName,
+                    targetClientId,
+                    writer,
+                    NetworkDelivery.ReliableSequenced
+                );
+                Debug.Log($"[NetworkWhiteHoundNotificationUI] Đã gửi thông báo thức tỉnh riêng tới Client {targetClientId} (Player {playerId + 1}).");
             }
             else
             {
-                isLocal = true;
+                // Nếu không phân biệt được ClientId (ví dụ standalone mock), chỉ hiển thị nếu local player đúng là player này
+                int localId = GetLocalPlayerId();
+                if (localId == playerId)
+                {
+                    Instance?.ShowNotification();
+                }
             }
         }
         else
         {
-            isLocal = true;
-        }
-
-        if (isLocal)
-        {
-            Instance?.ShowNotification();
+            // Phía Client: nếu được gọi trực tiếp, kiểm tra xem có phải bản thân không
+            int localId = GetLocalPlayerId();
+            if (localId == playerId)
+            {
+                Instance?.ShowNotification();
+            }
         }
     }
 
@@ -346,6 +530,10 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
         tmp.color = color;
         tmp.textWrappingMode = TextWrappingModes.Normal;
         tmp.raycastTarget = false;
+        if (tmp.font == null && TMP_Settings.defaultFontAsset != null)
+        {
+            tmp.font = TMP_Settings.defaultFontAsset;
+        }
     }
 
     private void CreateCloseButton(Transform parent, Vector2 pos, Vector2 size)
@@ -384,45 +572,9 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = Color.white;
         tmp.raycastTarget = false;
-    }
-
-    // =========================================================
-    // DỰ PHÒNG OnGUI
-    // =========================================================
-    private void OnGUI()
-    {
-        if (!isVisible) return;
-        if (notificationPanelGO != null) return;
-
-        GUI.depth = -3000;
-        float w = 620;
-        float h = 220;
-        float x = (Screen.width - w) / 2f;
-        float y = (Screen.height - h) / 2f;
-
-        GUI.Box(new Rect(x, y, w, h), "");
-        GUI.Box(new Rect(x, y, w, h), "=== BẠN ĐÃ BỊ KHUYỂN TINH TẤN CÔNG! ===");
-
-        GUIStyle titleStyle = new GUIStyle(GUI.skin.label)
+        if (tmp.font == null && TMP_Settings.defaultFontAsset != null)
         {
-            fontSize = 18,
-            alignment = TextAnchor.MiddleCenter,
-            fontStyle = FontStyle.Bold
-        };
-        titleStyle.normal.textColor = Color.yellow;
-        GUI.Label(new Rect(x + 10, y + 35, w - 20, 60), NotificationTitle, titleStyle);
-
-        GUIStyle subStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 15,
-            alignment = TextAnchor.MiddleCenter
-        };
-        subStyle.normal.textColor = Color.white;
-        GUI.Label(new Rect(x + 10, y + 105, w - 20, 35), NotificationSubtitle, subStyle);
-
-        if (GUI.Button(new Rect(x + (w - 140) / 2f, y + 155, 140, 45), "ĐÓNG"))
-        {
-            HideNotification();
+            tmp.font = TMP_Settings.defaultFontAsset;
         }
     }
 }

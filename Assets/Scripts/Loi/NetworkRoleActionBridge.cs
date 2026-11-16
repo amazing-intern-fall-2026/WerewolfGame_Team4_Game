@@ -1589,6 +1589,17 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 return;
             }
 
+            if (role.roleType == RoleType.SerpentSpirit)
+            {
+                int currentNight = GetCurrentNightNumber();
+                if (currentNight < 3)
+                {
+                    Debug.LogWarning($"ROLE ACTION BRIDGE | Server từ chối: Xà Tinh (Player {requesterID + 1}) cố gắng tấn công ở Đêm {currentNight} (chỉ được tấn công từ Đêm 3).");
+                    SendResult(requesterClientId, false, "Xà Tinh chỉ có thể tấn công từ đêm thứ ba!");
+                    return;
+                }
+            }
+
             // Ghi nhận mục tiêu tấn công vào NightManager
             RoleType monsterSource = (role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf) ? RoleType.WhiteHound : role.roleType;
             if (NightManager.Instance != null)
@@ -1892,5 +1903,43 @@ public class NetworkRoleActionBridge : MonoBehaviour
                     "Shaman có thể không kịp phản hồi. Cân nhắc tăng nightDuration trong GameRoleManager.");
             }
         }
+    }
+
+    private int simulatedNightNumberForTest = -1;
+
+    public void SetNightNumberForTest(int night)
+    {
+        simulatedNightNumberForTest = night;
+    }
+
+    public int GetCurrentNightNumber()
+    {
+        if (simulatedNightNumberForTest > 0)
+        {
+            return simulatedNightNumberForTest;
+        }
+
+        if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentNightCycle.Value > 0)
+        {
+            return NetworkPhaseSync.Instance.CurrentNightCycle.Value;
+        }
+
+        if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0)
+        {
+            return NightManager.Instance.CurrentNightNumber;
+        }
+
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.GetVisibleDay() > 0)
+        {
+            return session.GetVisibleDay();
+        }
+
+        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentDay > 0)
+        {
+            return GameRoleManager.Instance.currentDay;
+        }
+
+        return 1;
     }
 }

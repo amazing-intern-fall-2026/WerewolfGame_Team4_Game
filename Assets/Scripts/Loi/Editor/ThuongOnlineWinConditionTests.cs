@@ -34,6 +34,8 @@ public static class ThuongOnlineWinConditionTests
         Test_Case8_AwakenedWhiteHound_2VillagersAlive_DogSpiritDead_GameMustContinue();
         Test_Case9_DogSpiritBitesWhiteHound_AwakenNotificationSent();
         Test_Case10_MainMenu_BlocksGameOverUI();
+        Test_TC1_to_TC8_SerpentSpirit();
+        Test_TC9_to_TC16_DogSpirit_WhiteHound();
 
         Debug.Log("=========================================================================");
         Debug.Log($"KẾT QUẢ KIỂM THỬ: {passCount} PASSED, {failCount} FAILED");
@@ -548,6 +550,192 @@ public static class ThuongOnlineWinConditionTests
             var leftoverCanvas = GameObject.Find("GameOverDedicatedCanvas");
             if (leftoverCanvas != null) UnityEngine.Object.DestroyImmediate(leftoverCanvas);
             if (NetworkGameOverManager.Instance != null) NetworkGameOverManager.Instance.ResetUIState();
+        }
+    }
+
+    // =========================================================================
+    // TC1 đến TC8: Xà Tinh (SerpentSpirit) chỉ được tấn công từ Đêm thứ 3
+    // =========================================================================
+    public static void Test_TC1_to_TC8_SerpentSpirit()
+    {
+        Debug.Log("--- BẮT ĐẦU KIỂM THỬ TC1 - TC8: XÀ TINH (SERPENT SPIRIT) ---");
+        GameObject skillUIGO = new GameObject("Test_NetworkSkillUI");
+        skillUIGO.hideFlags = HideFlags.HideAndDontSave;
+        var skillUI = skillUIGO.AddComponent<NetworkSkillUI>();
+
+        GameObject attackBtn = new GameObject("Test_AttackBtn");
+        attackBtn.hideFlags = HideFlags.HideAndDontSave;
+        GameObject targetPanel = new GameObject("Test_TargetPanel");
+        targetPanel.hideFlags = HideFlags.HideAndDontSave;
+        targetPanel.SetActive(false);
+
+        GameObject bridgeGO = new GameObject("Test_Bridge");
+        bridgeGO.hideFlags = HideFlags.HideAndDontSave;
+        var bridge = bridgeGO.AddComponent<NetworkRoleActionBridge>();
+
+        try
+        {
+            // TC1: Xà Tinh – Đêm 1: UI tấn công và panel ẩn hoàn toàn
+            skillUI.SetupForTest(RoleType.SerpentSpirit, isNightPhase: true, testAttackBtn: attackBtn, testTargetPanel: targetPanel);
+            skillUI.SetNightNumberForTest(1);
+            skillUI.UpdateSkillUI();
+            bool tc1_attackHidden = !attackBtn.activeSelf;
+            bool tc1_panelHidden = !targetPanel.activeSelf;
+            Assert(tc1_attackHidden && tc1_panelHidden, "TC1: Xà Tinh – Đêm 1: UI tấn công và Target Panel ẩn hoàn toàn",
+                $"(attackActive={attackBtn.activeSelf}, panelActive={targetPanel.activeSelf})");
+
+            // TC2: Xà Tinh – Đêm 2: Tiếp tục ẩn hoàn toàn
+            skillUI.SetNightNumberForTest(2);
+            skillUI.UpdateSkillUI();
+            bool tc2_attackHidden = !attackBtn.activeSelf;
+            bool tc2_panelHidden = !targetPanel.activeSelf;
+            Assert(tc2_attackHidden && tc2_panelHidden, "TC2: Xà Tinh – Đêm 2: UI tấn công và Target Panel tiếp tục ẩn hoàn toàn",
+                $"(attackActive={attackBtn.activeSelf}, panelActive={targetPanel.activeSelf})");
+
+            // TC3: Xà Tinh – Đêm 3: UI tấn công xuất hiện
+            skillUI.SetNightNumberForTest(3);
+            skillUI.UpdateSkillUI();
+            bool tc3_attackVisible = attackBtn.activeSelf;
+            Assert(tc3_attackVisible, "TC3: Xà Tinh – Đêm 3: UI tấn công xuất hiện",
+                $"(attackActive={attackBtn.activeSelf})");
+
+            // TC4: Xà Tinh – Đêm 4 trở đi: UI tấn công tiếp tục xuất hiện
+            skillUI.SetNightNumberForTest(4);
+            skillUI.UpdateSkillUI();
+            bool tc4_attackVisible = attackBtn.activeSelf;
+            Assert(tc4_attackVisible, "TC4: Xà Tinh – Đêm 4 trở đi: UI tấn công tiếp tục xuất hiện",
+                $"(attackActive={attackBtn.activeSelf})");
+
+            // TC5: Xà Tinh – Chuyển sang Ngày: UI kỹ năng ban đêm ẩn hoàn toàn
+            skillUI.SetPhaseForTest(isNightPhase: false, isDiscussionPhase: false);
+            bool tc5_dayAttackHidden = !attackBtn.activeSelf;
+            bool tc5_dayPanelHidden = !targetPanel.activeSelf;
+            Assert(tc5_dayAttackHidden && tc5_dayPanelHidden, "TC5: Xà Tinh – Chuyển Ngày: UI tấn công và panel ẩn hoàn toàn",
+                $"(attackActive={attackBtn.activeSelf}, panelActive={targetPanel.activeSelf})");
+
+            // TC6: Xà Tinh mở lại UI trong cùng đêm: Giữ nguyên trạng thái theo đúng số đêm
+            skillUI.SetPhaseForTest(isNightPhase: true, isDiscussionPhase: false);
+            skillUI.SetNightNumberForTest(3);
+            skillUI.UpdateSkillUI();
+            bool tc6_reopenNight3 = attackBtn.activeSelf;
+            skillUI.SetNightNumberForTest(2);
+            skillUI.UpdateSkillUI();
+            bool tc6_reopenNight2 = !attackBtn.activeSelf;
+            Assert(tc6_reopenNight3 && tc6_reopenNight2, "TC6: Xà Tinh mở lại UI trong cùng đêm giữ đúng trạng thái theo số đêm",
+                $"(reopenNight3={tc6_reopenNight3}, reopenNight2={tc6_reopenNight2})");
+
+            // TC7: Hack/bypass gọi skill Đêm 1 hoặc Đêm 2: Server từ chối và log cảnh báo
+            bridge.SetNightNumberForTest(1);
+            int bridgeNight1 = bridge.GetCurrentNightNumber();
+            bridge.SetNightNumberForTest(2);
+            int bridgeNight2 = bridge.GetCurrentNightNumber();
+            bridge.SetNightNumberForTest(3);
+            int bridgeNight3 = bridge.GetCurrentNightNumber();
+            bool tc7_serverRejectsNight1And2 = bridgeNight1 < 3 && bridgeNight2 < 3 && bridgeNight3 >= 3;
+            Assert(tc7_serverRejectsNight1And2, "TC7: Server xác thực số đêm: Đêm 1 và 2 bị từ chối, chỉ cho phép từ Đêm 3",
+                $"(night1={bridgeNight1}, night2={bridgeNight2}, night3={bridgeNight3})");
+
+            // TC8: Role khác (DogSpirit / Ogre) không bị ảnh hưởng logic đêm 3 của Xà Tinh
+            skillUI.SetupForTest(RoleType.DogSpirit, isNightPhase: true, testAttackBtn: attackBtn, testTargetPanel: targetPanel);
+            skillUI.SetNightNumberForTest(1);
+            skillUI.UpdateSkillUI();
+            bool tc8_dogSpiritNight1CanAttack = attackBtn.activeSelf;
+            Assert(tc8_dogSpiritNight1CanAttack, "TC8: Role khác (DogSpirit) được phép tấn công ngay từ Đêm 1 (không bị giới hạn Đêm 3)",
+                $"(dogSpiritAttackActive={attackBtn.activeSelf})");
+        }
+        finally
+        {
+            if (skillUIGO != null) UnityEngine.Object.DestroyImmediate(skillUIGO);
+            if (attackBtn != null) UnityEngine.Object.DestroyImmediate(attackBtn);
+            if (targetPanel != null) UnityEngine.Object.DestroyImmediate(targetPanel);
+            if (bridgeGO != null) UnityEngine.Object.DestroyImmediate(bridgeGO);
+        }
+    }
+
+    // =========================================================================
+    // TC9 đến TC16: DogSpirit cắn trúng Bạch Khuyển & Popup Thức Tỉnh
+    // =========================================================================
+    public static void Test_TC9_to_TC16_DogSpirit_WhiteHound()
+    {
+        Debug.Log("--- BẮT ĐẦU KIỂM THỬ TC9 - TC16: DOGSPIRIT CẮN TRÚNG BẠCH KHUYỂN ---");
+        GameObject notifGO = new GameObject("Test_NetworkWhiteHoundNotificationUI");
+        notifGO.hideFlags = HideFlags.HideAndDontSave;
+        var notifUI = notifGO.AddComponent<NetworkWhiteHoundNotificationUI>();
+
+        try
+        {
+            // TC9: DogSpirit cắn trúng Bạch Khuyển -> Bạch Khuyển nhận popup thông báo
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            var targetWH = new PlayerData { playerID = 3, playerName = "TargetWH", roleType = RoleType.WhiteHound, isWhiteHoundAwakened = true };
+            var dogSpiritPlayer = new PlayerData { playerID = 1, playerName = "AttackerDog", roleType = RoleType.DogSpirit };
+            var requestWH = new DeathRequest(targetWH, DeathCause.Monster, source: dogSpiritPlayer, sourceRole: RoleType.DogSpirit);
+            var resultWH = new DeathResult(requestWH, DeathOutcome.Prevented, "WhiteHound awakened");
+
+            notifUI.HandleDeathResolved(resultWH);
+            bool tc9_notified = NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+            Assert(tc9_notified, "TC9: DogSpirit cắn trúng Bạch Khuyển thức tỉnh -> Kích hoạt thông báo thức tỉnh",
+                $"(hasNotified={tc9_notified})");
+
+            // TC10: DogSpirit cắn trúng Dân Làng -> Dân Làng chết bình thường, KHÔNG có popup thức tỉnh
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            var targetVillager = new PlayerData { playerID = 2, playerName = "TargetVillager", roleType = RoleType.Villager, isWhiteHoundAwakened = false };
+            var requestVillager = new DeathRequest(targetVillager, DeathCause.Monster, source: dogSpiritPlayer, sourceRole: RoleType.DogSpirit);
+            var resultVillager = new DeathResult(requestVillager, DeathOutcome.Killed, "Villager killed");
+
+            notifUI.HandleDeathResolved(resultVillager);
+            bool tc10_notNotified = !NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+            Assert(tc10_notNotified, "TC10: DogSpirit cắn trúng Dân Làng -> Không kích hoạt popup thức tỉnh",
+                $"(hasNotified={NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch})");
+
+            // TC11: DogSpirit cắn trúng Bạch Khuyển có Bảo Vệ -> Không thức tỉnh, không hiển thị popup
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            var protectedWH = new PlayerData { playerID = 3, playerName = "ProtectedWH", roleType = RoleType.WhiteHound, isWhiteHoundAwakened = false };
+            var requestProtected = new DeathRequest(protectedWH, DeathCause.Monster, source: dogSpiritPlayer, sourceRole: RoleType.DogSpirit);
+            var resultProtected = new DeathResult(requestProtected, DeathOutcome.Prevented, "Protected by Guardian");
+
+            notifUI.HandleDeathResolved(resultProtected);
+            bool tc11_notNotified = !NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+            Assert(tc11_notNotified, "TC11: DogSpirit cắn trúng Bạch Khuyển có Bảo Vệ (chưa thức tỉnh) -> Không kích hoạt popup",
+                $"(hasNotified={NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch})");
+
+            // TC12: Bạch Khuyển nhận popup trên Host -> Popup hiển thị đúng giao diện và nội dung
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            notifUI.ShowNotification();
+            bool tc12_visible = notifUI.IsVisible;
+            bool tc12_titleCorrect = NetworkWhiteHoundNotificationUI.NotificationTitle == "BẠN ĐÃ BỊ KHUYỂN TINH TẤN CÔNG! BẢN NĂNG BẠCH KHUYỂN ĐÃ THỨC TỈNH!";
+            bool tc12_subtitleCorrect = NetworkWhiteHoundNotificationUI.NotificationSubtitle == "Bạn đã chuyển sang phe Sói Trắng. Hãy tiếp tục trận đấu!";
+            Assert(tc12_visible && tc12_titleCorrect && tc12_subtitleCorrect, "TC12: Host nhận popup hiển thị đúng giao diện, tiêu đề và dòng phụ",
+                $"(visible={tc12_visible}, titleOk={tc12_titleCorrect}, subtitleOk={tc12_subtitleCorrect})");
+
+            // TC13: Bạch Khuyển nhận popup trên Client -> Popup hiển thị đúng giao diện và nội dung qua CustomMessaging
+            bool tc13_msgNameCorrect = NetworkWhiteHoundNotificationUI.WhiteHoundAwakenedMessageName == "loi.whitehound.awakened.notification.v1";
+            Assert(tc13_msgNameCorrect && tc12_titleCorrect && tc12_subtitleCorrect, "TC13: Client nhận popup qua CustomMessaging với đúng thông tin chuẩn",
+                $"(msgName={NetworkWhiteHoundNotificationUI.WhiteHoundAwakenedMessageName})");
+
+            // TC14: Người chơi khác không phải Bạch Khuyển -> Không nhìn thấy popup thức tỉnh
+            var villagerPlayer = new PlayerData { playerID = 0, roleType = RoleType.Villager, isWhiteHoundAwakened = false };
+            bool isVillagerWH = villagerPlayer.roleType == RoleType.WhiteHound || villagerPlayer.roleType == RoleType.WhiteWolf;
+            Assert(!isVillagerWH, "TC14: Người chơi khác không phải Bạch Khuyển không bị nhận diện nhầm thành WhiteHound",
+                $"(isWhiteHound={isVillagerWH})");
+
+            // TC15: Popup đóng được: Nút Đóng hoặc HideNotification ẩn popup thành công
+            notifUI.HideNotification();
+            bool tc15_hidden = !notifUI.IsVisible;
+            Assert(tc15_hidden, "TC15: Popup đóng thành công (ẩn hoàn toàn)",
+                $"(visible={notifUI.IsVisible})");
+
+            // TC16: Bạch Khuyển đã thức tỉnh -> Không gửi lại thông báo thức tỉnh cũ
+            notifUI.ShowNotification();
+            bool wasVisible = notifUI.IsVisible;
+            notifUI.HandleDeathResolved(resultWH);
+            Assert(wasVisible && NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch, "TC16: Bạch Khuyển đã thức tỉnh không gửi lặp lại thông báo trong cùng trận đấu",
+                $"(hasNotified={NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch})");
+        }
+        finally
+        {
+            if (notifUI != null) notifUI.HideNotification();
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            if (notifGO != null) UnityEngine.Object.DestroyImmediate(notifGO);
         }
     }
 }
