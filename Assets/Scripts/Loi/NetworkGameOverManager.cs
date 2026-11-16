@@ -112,17 +112,33 @@ public class NetworkGameOverManager : MonoBehaviour
         }
         _instance = this;
         ResetUIState();
-        EnsureLoiMatchEvaluatorInstalled();
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name != "MainMenu")
+        {
+            EnsureLoiMatchEvaluatorInstalled();
+        }
     }
 
     private void Start()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu")
+        {
+            ResetUIState();
+            return;
+        }
         EnableDev2EliminationWin();
         EnsureLoiMatchEvaluatorInstalled();
     }
 
     private void OnEnable()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu")
+        {
+            ResetUIState();
+            return;
+        }
         SubscribeToEvents();
         EnsureLoiMatchEvaluatorInstalled();
     }
@@ -916,6 +932,15 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void TriggerGameOver(string winner)
     {
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu")
+        {
+            ResetUIState();
+            return;
+        }
+
         if (string.IsNullOrEmpty(winner))
         {
             winner = ResolveAllDeadWinner();
@@ -955,6 +980,8 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void ShowGameOverUI(string winner)
     {
+        if (!Application.isPlaying) return;
+
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         if (activeScene.name == "MainMenu")
         {
@@ -996,6 +1023,11 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void BuildGameOverUIDirect(string winner)
     {
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu") return;
+
         // 1. Đảm bảo có EventSystem để nhận tương tác chuột
         var existingEventSystem = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
         if (existingEventSystem == null)
@@ -1148,6 +1180,10 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnGUI()
     {
         if (!isGameOver) return;
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (activeScene.name == "MainMenu") return;
 
         // Nếu vì bất kỳ lý do gì gameOverPanel chưa hiện trên màn hình, OnGUI sẽ vẽ trực tiếp
         if (gameOverPanel == null)

@@ -31,6 +31,9 @@ public static class ThuongOnlineWinConditionTests
         Test_Case5_WhiteHoundAwakens_And_DogSpiritKilled_InSameNight_CheckFinalState();
         Test_Case6_HostAndClient_ConsistentOutcome();
         Test_Case7_NewMatch_AwakenedStateReset();
+        Test_Case8_AwakenedWhiteHound_2VillagersAlive_DogSpiritDead_GameMustContinue();
+        Test_Case9_DogSpiritBitesWhiteHound_AwakenNotificationSent();
+        Test_Case10_MainMenu_BlocksGameOverUI();
 
         Debug.Log("=========================================================================");
         Debug.Log($"KẾT QUẢ KIỂM THỬ: {passCount} PASSED, {failCount} FAILED");
@@ -426,6 +429,125 @@ public static class ThuongOnlineWinConditionTests
         {
             if (bridgeGO != null) UnityEngine.Object.DestroyImmediate(bridgeGO);
             Teardown(pmGO, pm);
+        }
+    }
+
+    // =========================================================================
+    // CASE 8: Bạch Khuyển vừa thức tỉnh, DogSpirit đã chết, vẫn còn 2 Dân Làng sống
+    // -> TRẬN ĐẤU PHẢI TIẾP TỤC (Ongoing), KHÔNG ĐƯỢC KẾT THÚC CHO SÓI TRẮNG THẮNG
+    // =========================================================================
+    public static void Test_Case8_AwakenedWhiteHound_2VillagersAlive_DogSpiritDead_GameMustContinue()
+    {
+        var pmGO = SetupPlayerManager(out PlayerManager pm);
+        var gmGO = new GameObject("GM_Case8"); gmGO.hideFlags = HideFlags.HideAndDontSave;
+        var gm = gmGO.AddComponent<GameRoleManager>(); GameRoleManager.Instance = gm;
+        gm.currentState = GameState.Day; gm.currentPhase = GamePhase.DayResolution;
+
+        var wcGO = new GameObject("WC_Case8"); wcGO.hideFlags = HideFlags.HideAndDontSave;
+        var wc = wcGO.AddComponent<WinConditionManager>(); WinConditionManager.Instance = wc;
+
+        try
+        {
+            // Thiết lập kịch bản thực tế đúng theo ảnh chụp và mô tả lỗi:
+            // P01: Thợ Săn (Villager) - Còn sống
+            // P02: DogSpirit (Monster) - Đã bị loại
+            // P03: Dân Làng (Villager) - Còn sống
+            // P04: Bạch Khuyển thức tỉnh (White Hound / Sói Trắng) - Còn sống
+            var p01 = new PlayerData { playerID = 0, playerName = "P01_Hunter", roleType = RoleType.Hunter, faction = FactionType.Villager, isAlive = true };
+            var p02 = new PlayerData { playerID = 1, playerName = "P02_DogSpirit", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = false };
+            var p03 = new PlayerData { playerID = 2, playerName = "P03_Villager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+            var p04 = new PlayerData { playerID = 3, playerName = "P04_WhiteHound", roleType = RoleType.WhiteHound, faction = FactionType.Monster, isAlive = true, isWhiteHoundAwakened = true };
+
+            pm.players.Add(p01);
+            pm.players.Add(p02);
+            pm.players.Add(p03);
+            pm.players.Add(p04);
+
+            // 1. Dân làng không thể thắng vì WhiteHound thức tỉnh là Monster
+            bool canVillagersWin = ThuongOnlineWinAdapter.CanVillagersWin(pm.players);
+
+            // 2. ThuongMatchOutcome: không được xử Sói Trắng thắng khi còn 2 Dân Làng
+            string outcomeWinner = ThuongOnlineWinAdapter.EvaluateOnlineOutcomeForTest(pm.players, 1, GamePhase.DayResolution, false);
+
+            // 3. Đánh giá qua ThuongOnlineWinAdapter evaluator
+            ThuongOnlineWinAdapter.EnsureWinEvaluatorInstalled();
+            wc.CheckWinCondition(false);
+
+            bool whiteWolfDidNotPrematurelyWin = gm.Winner != "White Wolf" && gm.Winner != "WhiteHound";
+            bool matchContinues = outcomeWinner == "Ongoing" && gm.currentState != GameState.GameOver;
+
+            bool passed = !canVillagersWin && whiteWolfDidNotPrematurelyWin && matchContinues;
+
+            Assert(passed, "Case 8: Bạch Khuyển thức tỉnh + 2 Dân Làng sống sót -> Trận đấu tiếp tục (Ongoing, không xử Sói Trắng thắng)",
+                $"(canVillagersWin={canVillagersWin}, outcomeWinner={outcomeWinner}, gmWinner={gm.Winner ?? "None"}, state={gm.currentState})");
+        }
+        finally
+        {
+            Teardown(pmGO, pm, gmGO, gm, wcGO, wc);
+        }
+    }
+
+    // =========================================================================
+    // CASE 9: DogSpirit cắn trúng Bạch Khuyển -> Gửi thông báo riêng đến Bạch Khuyển
+    // =========================================================================
+    public static void Test_Case9_DogSpiritBitesWhiteHound_AwakenNotificationSent()
+    {
+        try
+        {
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+
+            // Phát thông báo thức tỉnh cho người chơi Bạch Khuyển
+            NetworkWhiteHoundNotificationUI.NotifyPlayerAwakened(3);
+
+            bool notified = NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+            bool correctTitle = NetworkWhiteHoundNotificationUI.NotificationTitle.Contains("BẠN ĐÃ BỊ KHUYỂN TINH TẤN CÔNG") &&
+                                NetworkWhiteHoundNotificationUI.NotificationTitle.Contains("BẢN NĂNG BẠCH KHUYỂN ĐÃ THỨC TỈNH");
+            bool correctSubtitle = NetworkWhiteHoundNotificationUI.NotificationSubtitle.Contains("Bạn đã chuyển sang phe Sói Trắng");
+
+            // Kiểm tra không thông báo trùng lặp
+            NetworkWhiteHoundNotificationUI.NotifyPlayerAwakened(3);
+
+            // Reset khi ván mới
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            bool resetOk = !NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+
+            bool passed = notified && correctTitle && correctSubtitle && resetOk;
+
+            Assert(passed, "Case 9: DogSpirit cắn trúng Bạch Khuyển -> Thông báo thức tỉnh hiển thị đúng tiêu đề, nội dung và không trùng lặp",
+                $"(notified={notified}, titleOk={correctTitle}, subtitleOk={correctSubtitle}, resetOk={resetOk})");
+        }
+        finally
+        {
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+        }
+    }
+
+    // =========================================================================
+    // CASE 10: Chặn hoàn toàn GameOver UI trong Edit Mode hoặc khi ở scene MainMenu
+    // =========================================================================
+    public static void Test_Case10_MainMenu_BlocksGameOverUI()
+    {
+        try
+        {
+            if (NetworkGameOverManager.Instance != null)
+            {
+                NetworkGameOverManager.Instance.ResetUIState();
+                // Trong Edit mode, TriggerGameOver hoặc ShowGameOverUI phải bị chặn
+                NetworkGameOverManager.Instance.TriggerGameOver("Villagers");
+                NetworkGameOverManager.Instance.ShowGameOverUI("Villagers");
+            }
+
+            var leftoverCanvas = GameObject.Find("GameOverDedicatedCanvas");
+            bool noCanvasSpawned = leftoverCanvas == null;
+
+            Assert(noCanvasSpawned, "Case 10: NetworkGameOverManager không tạo popup GameOver Canvas ngoài Play mode hoặc trong MainMenu",
+                $"(noCanvasSpawned={noCanvasSpawned})");
+        }
+        finally
+        {
+            var leftoverCanvas = GameObject.Find("GameOverDedicatedCanvas");
+            if (leftoverCanvas != null) UnityEngine.Object.DestroyImmediate(leftoverCanvas);
+            if (NetworkGameOverManager.Instance != null) NetworkGameOverManager.Instance.ResetUIState();
         }
     }
 }

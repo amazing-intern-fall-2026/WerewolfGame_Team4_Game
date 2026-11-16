@@ -384,6 +384,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 }
 
                 player.NotifyChanged();
+                NetworkWhiteHoundNotificationUI.NotifyPlayerAwakened(player.playerID);
                 anyAwakened = true;
             }
         }
