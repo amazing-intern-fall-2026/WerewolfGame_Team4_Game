@@ -36,6 +36,8 @@ namespace Thuong.Online
         private int nextCorpseId = 1;
         private int realtimeNight = -1;
         private bool sharedRealtimeAttackUsed;
+        private readonly Dictionary<int, (int Night, int Target)> realtimeGuardianTargets = new();
+        private int RealtimeNightNumber => NightManager.Instance != null ? NightManager.Instance.CurrentNightNumber : game.currentDay;
         private Sprite corpseSprite;
         private readonly List<LocalInteractionOption> interactionOptions = new();
         private LocalInteractionOption selectedInteraction;
@@ -183,7 +185,7 @@ namespace Thuong.Online
                     options.Add(new LocalInteractionOption(LocalInteractionKind.CompleteTask, stationId,
                         "Nhiệm vụ: " + stations[stationId].task.taskName));
             }
-            else if (privateRole is RoleType.DogSpirit or RoleType.VillageGuardian or RoleType.Seer)
+            else if ((privateRole is RoleType.DogSpirit or RoleType.VillageGuardian or RoleType.Seer) && (privateFlags & (4 | 64)) == 0)
             {
                 int targetId = NearestAlivePlayer(position, out _);
                 if (targetId >= 0)
@@ -193,6 +195,8 @@ namespace Thuong.Online
                     string name = publicPlayers.First(player => player.PlayerId == targetId).Name;
                     options.Add(new LocalInteractionOption(LocalInteractionKind.UseAbility, targetId, $"{action}: {name}"));
                 }
+                if (privateRole == RoleType.VillageGuardian && CanTargetLocalAbility(localPlayerId))
+                    options.Add(new LocalInteractionOption(LocalInteractionKind.UseAbility, localPlayerId, "Bảo vệ bản thân"));
             }
             if (visibleState == GameState.Night)
             {
@@ -235,6 +239,7 @@ namespace Thuong.Online
             foreach (ThuongOnlinePublicPlayer candidate in publicPlayers)
             {
                 if (!candidate.Alive || candidate.PlayerId == localPlayerId) continue;
+                if (privateRole == RoleType.VillageGuardian && !CanTargetLocalAbility(candidate.PlayerId)) continue;
                 float candidateDistance = Vector2.Distance(position, candidate.Position);
                 if (candidateDistance >= distance || candidateDistance > RealtimeInteractionRange) continue;
                 if (SelectedMap == null || !Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, position, candidate.Position)) continue;
@@ -252,9 +257,10 @@ namespace Thuong.Online
             if (roomRules.mode != ThuongMatchMode.RealtimeProximity || game.currentState != GameState.Night || game.currentPhase != GamePhase.Night ||
                 !actor.isAlive || actor.HasEffect(StatusEffectType.Silenced))
             { feedback = "Chỉ người sống được dùng E vào ban đêm; kỹ năng có thể bị khóa."; return false; }
-            if (!TryValidateInteraction(member, targetId, out PlayerData target, out feedback)) return false;
+            if (!TryValidateInteraction(member, targetId, out PlayerData target, out feedback,
+                allowSelfTarget: actor.roleType == RoleType.VillageGuardian)) return false;
 
-            int night = NightManager.Instance != null ? NightManager.Instance.CurrentNightNumber : game.currentDay;
+            int night = RealtimeNightNumber;
             if (night != realtimeNight)
             {
                 realtimeNight = night;
@@ -277,11 +283,12 @@ namespace Thuong.Online
                     if (actor.hasUseNightAction) { feedback = "Bạn đã dùng kỹ năng trong đêm này."; return false; }
                     if (!roles.playerRoles.TryGetValue(actor.playerID, out BaseRole baseRole) || baseRole is not GuardianRole guardian)
                     { feedback = "Không tìm thấy vai trò Bảo vệ."; return false; }
-                    if (guardian.lastTarget == target.playerID)
+                    if (!CanProtectRealtimeTarget(actor.playerID, target.playerID))
                     { feedback = "Không thể bảo vệ cùng một người hai đêm liên tiếp."; return false; }
                     target.status ??= new PlayerStatus();
                     target.status.isProtected = true;
                     guardian.lastTarget = target.playerID;
+                    realtimeGuardianTargets[actor.playerID] = (night, target.playerID);
                     actor.hasUseNightAction = true;
                     target.NotifyChanged(); actor.NotifyChanged();
                     feedback = $"Đã bảo vệ {target.DisplayName} cho đến hết đêm.";
@@ -301,14 +308,18 @@ namespace Thuong.Online
             }
         }
 
+        private bool CanProtectRealtimeTarget(int guardianId, int targetId) =>
+            !realtimeGuardianTargets.TryGetValue(guardianId, out var previous) ||
+            previous.Night != RealtimeNightNumber - 1 || previous.Target != targetId;
+
         private bool TryValidateInteraction(ThuongOnlineServerPlayer actorMember, int targetId,
-            out PlayerData target, out string feedback)
+            out PlayerData target, out string feedback, bool allowSelfTarget = false)
         {
             target = null;
             if (!serverPlayers.Values.Any(item => item.PlayerId == targetId && !item.Offline))
             { feedback = "Mục tiêu không còn trong ván."; return false; }
             target = players?.GetplayerByID(targetId);
-            if (target == null || !target.isAlive || target.playerID == actorMember.PlayerId)
+            if (target == null || !target.isAlive || target.playerID == actorMember.PlayerId && !allowSelfTarget)
             { feedback = "Mục tiêu không hợp lệ."; return false; }
             ThuongOnlineServerPlayer targetMember = serverPlayers.Values.First(item => item.PlayerId == targetId);
             float distance = Vector2.Distance(actorMember.Position, targetMember.Position);
@@ -437,6 +448,7 @@ namespace Thuong.Online
                 corpseSprite = null;
             }
             nextCorpseId = 1; realtimeNight = -1; sharedRealtimeAttackUsed = false;
+            realtimeGuardianTargets.Clear();
         }
     }
 }

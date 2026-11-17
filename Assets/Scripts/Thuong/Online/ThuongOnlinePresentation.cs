@@ -45,6 +45,7 @@ namespace Thuong.Online
         private Canvas sceneHudCanvas;
         private GraphicRaycaster sceneHudRaycaster;
         private bool privateStateReceived;
+        private (ThuongMatchMode Mode, int EmoteKey, int Players)? matchHintState;
         private bool localRoleCardOpen;
         private bool localRoleConfirmed;
         private string localActionFeedback = string.Empty;
@@ -132,6 +133,7 @@ namespace Thuong.Online
             { reason = "Dùng E khi đứng gần mục tiêu; kỹ năng chọn toàn map đã tắt."; return false; }
             else if (CanSetHunterTrap) { reason = "Chọn mục tiêu cho bẫy."; return true; }
             else if ((privateFlags & 1) == 0) reason = "Bạn đã bị loại.";
+            else if (privateRole == RoleType.SerpentSpirit && visibleDay < 3) reason = "Xà Tinh chỉ có thể tấn công từ đêm thứ ba.";
             else if ((privateFlags & 8) == 0) reason = "Vai trò này có kỹ năng nội tại.";
             else if (visiblePhase != localAbilityPhase) reason = localAbilityPhase == GamePhase.Night
                 ? "Kỹ năng chỉ dùng được vào ban đêm." : "Hiện không phải giai đoạn dùng kỹ năng này.";
@@ -364,6 +366,7 @@ namespace Thuong.Online
 
         private void EnsureMatchButtons(GameHUD hud)
         {
+            RefreshMatchHints(hud);
             if (reopenVoteResult != null) return;
             reopenVoteResult = MatchButton(hud, "Xem kết quả vote", hud.transform,
                 new Vector2(.60f, .014f), new Vector2(.76f, .071f), () => voteResultUntil = Time.unscaledTime + 10f);
@@ -385,10 +388,19 @@ namespace Thuong.Online
                     hud.meetingTitle.fontSizeMax = 32;
                 }
             }
+            TMP_Text restart = hud.resultPanel != null ? hud.resultPanel.transform.Find("RestartHint")?.GetComponent<TMP_Text>() : null;
+            if (restart != null) restart.text = "Rời phòng để tạo hoặc tham gia ván mới.";
+        }
+
+        private void RefreshMatchHints(GameHUD hud)
+        {
+            var state = (ActiveMatchMode, (int)EmoteKey, publicPlayers.Count);
+            if (matchHintState.HasValue && matchHintState.Value.Equals(state)) return;
+            matchHintState = state;
             TMP_Text instructions = hud.transform.Find("TaskPanel/Instructions")?.GetComponent<TMP_Text>();
             if (instructions != null) instructions.text = ActiveMatchMode == ThuongMatchMode.RealtimeProximity
-                ? "WASD / MŨI TÊN  Di chuyển\nE ban ngày  Nhiệm vụ hoặc báo xác ở gần\nE ban đêm  Kỹ năng gần của Khuyển tinh, Bảo vệ, Tiên tri\n\nBáo xác mở cuộc họp."
-                : "WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / chọn đường đi\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
+                ? $"WASD / MŨI TÊN  Di chuyển\nE ban ngày  Nhiệm vụ / báo xác ở gần\nE ban đêm  Dùng kỹ năng ở gần\nGiữ E  Chọn tương tác\nGiữ [{EmoteKey}]  Chọn biểu cảm\n\nBáo xác mở cuộc họp."
+                : $"WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / dẫn đường\nGiữ [{EmoteKey}]  Chọn biểu cảm\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
             TMP_Text footer = hud.transform.Find("Footer")?.GetComponent<TMP_Text>();
             if (footer != null)
             {
@@ -396,8 +408,6 @@ namespace Thuong.Online
                 footer.rectTransform.anchorMax = new Vector2(.43f, footer.rectTransform.anchorMax.y);
                 footer.text = $"ONLINE • {publicPlayers.Count} NGƯỜI";
             }
-            TMP_Text restart = hud.resultPanel != null ? hud.resultPanel.transform.Find("RestartHint")?.GetComponent<TMP_Text>() : null;
-            if (restart != null) restart.text = "Rời phòng để tạo hoặc tham gia ván mới.";
         }
 
         private static Button MatchButton(GameHUD hud, string label, Transform parent, Vector2 min, Vector2 max, UnityEngine.Events.UnityAction action)

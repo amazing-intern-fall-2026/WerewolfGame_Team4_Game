@@ -240,6 +240,20 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
 
     private void ReceiveAwakenedNotification(ulong senderClientId, FastBufferReader reader)
     {
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsClient || senderClientId != NetworkManager.ServerClientId)
+        {
+            Debug.LogWarning("[NetworkWhiteHoundNotificationUI] Bỏ qua thông báo thức tỉnh không đến từ Server.");
+            return;
+        }
+
+        reader.ReadValueSafe(out int targetPlayerId);
+        if (targetPlayerId < 0 || targetPlayerId != GetLocalPlayerId())
+        {
+            Debug.LogWarning("[NetworkWhiteHoundNotificationUI] Bỏ qua thông báo không dành cho người chơi cục bộ.");
+            return;
+        }
+
         Debug.Log("[NetworkWhiteHoundNotificationUI] Client nhận được gói tin thức tỉnh riêng từ Server!");
         ShowNotification();
     }

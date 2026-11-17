@@ -197,7 +197,7 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         dialogRaycaster = gameObject.AddComponent<GraphicRaycaster>();
 
         // 1. BACKDROP ĐẬM - KHÔNG NHÌN XUYÊN THỦNG GÂY RỐI MẮT
-        shadeRoot = CreatePanel("Shade", transform, Vector2.zero, Vector2.one, new Color(0.02f, 0.02f, 0.02f, 0.94f));
+        shadeRoot = CreatePanel("Shade", transform, Vector2.zero, Vector2.one, new Color(0.02f, 0.02f, 0.02f, 1f));
         var shadeImg = shadeRoot.GetComponent<Image>();
         shadeImg.raycastTarget = true;
 
@@ -206,6 +206,9 @@ public class ThuongOnlineRoleConfigDialog : MonoBehaviour
         var windowImg = windowRoot.GetComponent<Image>();
         windowImg.raycastTarget = true;
         ThuongMedievalTheme.Active?.StylePanel(windowImg, "Window");
+        var windowColor = windowImg.color;
+        windowColor.a = 1f;
+        windowImg.color = windowColor;
 
         // === KHU VỰC A: THANH TIÊU ĐỀ (TOP BAR) ===
         var topBar = CreatePanel("TopBar", windowRoot.transform, new Vector2(0.015f, 0.885f), new Vector2(0.985f, 0.985f), new Color(0.18f, 0.12f, 0.08f, 1f));

@@ -100,7 +100,7 @@ namespace Thuong.Online
         private void BuildMapSettings()
         {
             var shade = LobbyPanel("Map settings shade", lobbyCanvas.transform, Vector2.zero, Vector2.one, false);
-            shade.GetComponent<Image>().color = new Color(0, 0, 0, .85f);
+            shade.GetComponent<Image>().color = new Color(0, 0, 0, 1f);
             mapSettingsRoot = shade.gameObject;
             var panel = LobbyPanel("Map settings", shade, new Vector2(.18f, .13f), new Vector2(.82f, .87f));
             LobbyText("Map settings title", panel, "THIẾT LẬP MAP", new Vector2(.05f, .91f), new Vector2(.95f, .98f), 28, TextAlignmentOptions.Center);

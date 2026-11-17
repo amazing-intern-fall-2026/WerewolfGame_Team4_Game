@@ -15,6 +15,7 @@ namespace Thuong.Online
         private RectTransform notebookPanel;
         private TMP_Text notebookHistory;
         private TMP_InputField notebookInput;
+        private ScrollRect notebookScroll;
         private bool notebookOpen;
         private uint notebookEpoch;
         private System.Guid notebookRoomToken;
@@ -48,6 +49,9 @@ namespace Thuong.Online
             notebookPanel.anchorMin = new Vector2(.62f, .15f);
             notebookPanel.anchorMax = new Vector2(.98f, .76f);
             notebookPanel.offsetMin = notebookPanel.offsetMax = Vector2.zero;
+            var notebookCanvas = root.AddComponent<Canvas>();
+            notebookCanvas.overrideSorting = true; notebookCanvas.sortingOrder = 1900;
+            root.AddComponent<GraphicRaycaster>();
             var background = root.GetComponent<Image>();
             background.color = new Color(.055f, .12f, .15f, .98f);
             ThuongMedievalTheme.Active?.StylePanel(background, "Personal notebook");
@@ -57,18 +61,38 @@ namespace Thuong.Online
             title.fontSize = 21;
             title.alignment = TextAlignmentOptions.Center;
 
-            notebookHistory = CreateNotebookText("Notes", notebookPanel, new Vector2(.06f, .25f), new Vector2(.94f, .85f));
+            var viewport = LobbyPanel("Notebook viewport", notebookPanel, new Vector2(.06f, .34f), new Vector2(.90f, .85f), false);
+            viewport.GetComponent<Image>().color = Color.clear;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            notebookHistory = CreateNotebookText("Notes", viewport, new Vector2(0, 1), Vector2.one);
+            notebookHistory.rectTransform.pivot = new Vector2(.5f, 1);
             notebookHistory.fontSize = 16;
+            notebookHistory.enableAutoSizing = false;
             notebookHistory.alignment = TextAlignmentOptions.TopLeft;
             notebookHistory.textWrappingMode = TextWrappingModes.Normal;
-            notebookHistory.overflowMode = TextOverflowModes.Ellipsis;
+            notebookHistory.overflowMode = TextOverflowModes.Overflow;
             notebookHistory.richText = false;
+            notebookHistory.margin = new Vector4(4, 4, 8, 4);
+            notebookHistory.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            notebookScroll = viewport.gameObject.AddComponent<ScrollRect>();
+            notebookScroll.viewport = viewport; notebookScroll.content = notebookHistory.rectTransform;
+            notebookScroll.horizontal = false; notebookScroll.scrollSensitivity = 35;
+            notebookScroll.movementType = ScrollRect.MovementType.Clamped;
+            var track = LobbyPanel("Notebook scrollbar", notebookPanel, new Vector2(.92f, .34f), new Vector2(.95f, .85f), false);
+            track.GetComponent<Image>().color = new Color32(96, 66, 42, 255);
+            var handle = LobbyPanel("Handle", track, Vector2.zero, Vector2.one, false);
+            handle.GetComponent<Image>().color = new Color32(233, 195, 125, 255);
+            var scrollbar = track.gameObject.AddComponent<Scrollbar>();
+            scrollbar.handleRect = handle; scrollbar.targetGraphic = handle.GetComponent<Image>();
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            notebookScroll.verticalScrollbar = scrollbar;
+            notebookScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
 
             BuildNotebookInput(hud);
             MatchButton(hud, "GHI", notebookPanel,
-                new Vector2(.67f, .08f), new Vector2(.94f, .21f), SaveNotebookEntry);
+                new Vector2(.67f, .04f), new Vector2(.94f, .13f), SaveNotebookEntry);
             MatchButton(hud, "ĐÓNG", notebookPanel,
-                new Vector2(.06f, .08f), new Vector2(.33f, .21f), ToggleNotebook);
+                new Vector2(.06f, .04f), new Vector2(.33f, .13f), ToggleNotebook);
             notebookPanel.gameObject.SetActive(false);
             RefreshNotebookHistory();
         }
@@ -95,7 +119,7 @@ namespace Thuong.Online
             var root = new GameObject("Note entry", typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
             var rect = root.GetComponent<RectTransform>();
             rect.SetParent(notebookPanel, false);
-            rect.anchorMin = new Vector2(.06f, .08f); rect.anchorMax = new Vector2(.63f, .22f);
+            rect.anchorMin = new Vector2(.06f, .17f); rect.anchorMax = new Vector2(.94f, .30f);
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             root.GetComponent<Image>().color = new Color(.9f, .92f, .86f, 1f);
             notebookInput = root.GetComponent<TMP_InputField>();
@@ -167,12 +191,20 @@ namespace Thuong.Online
             if (notebookEntries.Count == 0)
             {
                 notebookHistory.text = "Ghi lại suy luận hoặc thông tin bạn tự quan sát được. Ghi chú này không gửi cho host hay người chơi khác.";
-                return;
             }
-            var text = new StringBuilder();
-            for (int i = Mathf.Max(0, notebookEntries.Count - 12); i < notebookEntries.Count; i++)
-                text.AppendLine("• " + notebookEntries[i]);
-            notebookHistory.text = text.ToString();
+            else
+            {
+                var text = new StringBuilder();
+                foreach (string entry in notebookEntries) text.AppendLine("• " + entry);
+                notebookHistory.text = text.ToString();
+            }
+            if (NotebookIsOpen && notebookScroll != null)
+            {
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(notebookHistory.rectTransform);
+                notebookScroll.StopMovement();
+                notebookScroll.verticalNormalizedPosition = 0;
+            }
         }
 
         private void RefreshNotebookHud()

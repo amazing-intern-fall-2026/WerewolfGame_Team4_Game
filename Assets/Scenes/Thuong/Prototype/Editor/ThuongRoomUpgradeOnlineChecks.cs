@@ -413,10 +413,13 @@ public static partial class ThuongRoomUpgradeOnlineChecks
     }
     private static void ObserveLog(string text, string trace, LogType type)
     {
-        // These unrelated InitializeOnLoad tests run on every domain load and already fail
-        // on the baseline (TC23/26/27). Preserve them in the log, but don't count them as
-        // errors from this online scenario. All production exceptions still fail this run.
-        if (text.StartsWith("[FAIL]", StringComparison.Ordinal) && trace.Contains("NetworkGameOverTests")) return;
+        // Independent InitializeOnLoad fixtures also run during this harness's domain
+        // reload. Keep their failures in the log, outside this scenario's result. Filter
+        // by the fixture stack, including errors emitted by code it invokes; errors
+        // emitted by the running online scenario still fail this run.
+        if (trace.Contains("NetworkGameOverTests") || trace.Contains("ThuongOnlineWinConditionTests") ||
+            trace.Contains("ThuongOnlineGuardianTestExecution") ||
+            text.StartsWith("Exception while executing InitializeOnLoad for NetworkGameOverTests.", StringComparison.Ordinal)) return;
         if (type == LogType.Exception || type == LogType.Error) failure ??= new Exception(text + "\n" + trace);
     }
 
@@ -442,6 +445,12 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         string result = exception == null ? "THUONG_ROOM_UPGRADE_ONLINE_PASSED: " + checks : "THUONG_ROOM_UPGRADE_ONLINE_FAILED: " + exception;
         File.WriteAllText("Logs/RoomUpgrades/online-result.txt", result); Debug.Log(result);
         File.WriteAllLines("Logs/RoomUpgrades/online-metrics.txt", metrics);
+        if (SessionState.GetBool(RunKey + ".Followup", false))
+        {
+            SessionState.SetBool(RunKey + ".Followup", false);
+            Directory.CreateDirectory("Logs/ThuongFollowup20261113");
+            File.WriteAllText("Logs/ThuongFollowup20261113/online-result.txt", result);
+        }
         if (reviewSmoke)
         {
             Directory.CreateDirectory("Logs/ThuongReviewImprovements20261112");

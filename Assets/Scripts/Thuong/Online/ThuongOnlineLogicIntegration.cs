@@ -55,6 +55,8 @@ namespace Thuong.Online
         {
             if (actor == null || players?.players == null) return Array.Empty<int>();
             return players.players.Where(target => target != null &&
+                (roomRules.mode != ThuongMatchMode.RealtimeProximity || actor.roleType != RoleType.VillageGuardian ||
+                    CanProtectRealtimeTarget(actor.playerID, target.playerID)) &&
                 (RoleManager.UsesConfiguredAbility(actor)
                     ? TargetValidator.Validate(actor, target, actor.roleDefinition).IsValid &&
                       game.abilities.Validate(actor, target).FailureReason != ActionFailureReason.RepeatedTarget
