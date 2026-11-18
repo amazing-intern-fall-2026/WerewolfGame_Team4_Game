@@ -551,5 +551,7 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
         }
 
         NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+        NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+        NetworkChatManager.Instance?.ClearHistory();
     }
 }

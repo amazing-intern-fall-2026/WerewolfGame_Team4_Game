@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -5,15 +6,22 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Giao diện Chat Multiplayer nhỏ gọn cho game Ma Sói màn hình ngang (Landscape).
-/// - Khung chat nằm tại góc dưới bên trái, kích thước ~30–35% chiều rộng và ~35–40% chiều cao màn hình khi mở.
-/// - Khi thu gọn, hiển thị nút Chat nổi nhỏ 52 dp với huy hiệu tin nhắn chưa đọc.
-/// - Hỗ trợ kéo cuộn tin nhắn, ô nhập văn bản và nút gửi tối ưu cho thao tác chạm trên điện thoại.
-/// - Tự động nâng khung chat khi mở bàn phím ảo trên Android/iOS để không bị che khuất.
+/// Giao diện Chat Multiplayer 2 kênh (Chat Làng và Chat Monster) nhỏ gọn cho game Ma Sói màn hình ngang (Landscape).
+/// - 2 Tab hoạt động độc lập: CHAT LÀNG và CHAT MONSTER.
+/// - Tab CHAT MONSTER chỉ xuất hiện và cho phép sử dụng khi người chơi thuộc phe Monster hoặc Bạch Khuyển đã thức tỉnh.
+/// - Lịch sử và vùng cuộn tin nhắn tách biệt hoàn toàn giữa 2 kênh.
+/// - Nút Chat nổi 52 dp tại góc dưới bên trái khi thu gọn, tích hợp huy hiệu tin nhắn chưa đọc.
+/// - Tự động nâng khung chat khi mở bàn phím ảo trên Android/iOS.
 /// </summary>
 public class NetworkChatUI : MonoBehaviour
 {
     public static NetworkChatUI Instance { get; private set; }
+
+    public enum ChatTab : byte
+    {
+        Village = 0,
+        Monster = 1
+    }
 
     [Header("Panel Root & Toggle Button")]
     [SerializeField] private GameObject chatPanelRoot;
@@ -22,7 +30,24 @@ public class NetworkChatUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI unreadBadgeText;
     [SerializeField] private GameObject unreadBadgeObj;
 
-    [Header("Messages & Scroll")]
+    [Header("Tab Controls")]
+    [SerializeField] private GameObject tabBarObj;
+    [SerializeField] private Button villageTabButton;
+    [SerializeField] private Button monsterTabButton;
+    [SerializeField] private Image villageTabImage;
+    [SerializeField] private Image monsterTabImage;
+    [SerializeField] private TextMeshProUGUI villageTabText;
+    [SerializeField] private TextMeshProUGUI monsterTabText;
+    [SerializeField] private GameObject monsterTabObj;
+    [SerializeField] private GameObject monsterTabUnreadDot;
+
+    [Header("Dual Scroll Views")]
+    [SerializeField] private ScrollRect villageScrollRect;
+    [SerializeField] private RectTransform villageContent;
+    [SerializeField] private ScrollRect monsterScrollRect;
+    [SerializeField] private RectTransform monsterContent;
+
+    [Header("Messages & Scroll (Backwards Compatibility)")]
     [SerializeField] private ScrollRect scrollRect;
     [SerializeField] private RectTransform messageContent;
     [SerializeField] private GameObject messageItemPrefab;
@@ -38,10 +63,17 @@ public class NetworkChatUI : MonoBehaviour
     [Range(0.30f, 0.45f)]
     [SerializeField] private float heightScreenRatio = 0.40f;
 
+    private int unreadVillageCount = 0;
+    private int unreadMonsterCount = 0;
     private int unreadMessagesCount = 0;
     private bool isOpen = false;
     public bool IsOpen => isOpen;
     public bool IsInputFocused => chatInputField != null && chatInputField.isFocused;
+
+    private ChatTab activeTab = ChatTab.Village;
+    public ChatTab ActiveTab => activeTab;
+
+    private float lastPermissionCheckTime = 0f;
 
     public void SetCommunicationAvailability(bool allowed, string description)
     {
@@ -49,7 +81,17 @@ public class NetworkChatUI : MonoBehaviour
         {
             chatInputField.interactable = allowed;
             if (!allowed && chatInputField.isFocused) chatInputField.DeactivateInputField();
-            if (chatInputField.placeholder is TMP_Text hint) hint.text = allowed ? "Nhập tin nhắn…" : description;
+            if (chatInputField.placeholder is TMP_Text hint)
+            {
+                if (allowed)
+                {
+                    hint.text = activeTab == ChatTab.Monster ? "Nhập tin nhắn Monster..." : "Nhập tin nhắn làng...";
+                }
+                else
+                {
+                    hint.text = description;
+                }
+            }
         }
         if (sendButton != null) sendButton.interactable = allowed;
         var title = chatPanelRoot != null ? chatPanelRoot.transform.Find("HeaderBar/TitleText")?.GetComponent<TMP_Text>() : null;
@@ -79,10 +121,16 @@ public class NetworkChatUI : MonoBehaviour
     {
         SetupEvents();
 
-        // Mặc định khởi đầu ở trạng thái thu gọn (chỉ hiện nút nổi góc dưới bên trái)
+        // Mặc định khởi đầu ở trạng thái thu gọn
         SetChatOpen(false);
 
-        // Hiển thị lại các tin nhắn đã có từ trước (nếu có)
+        // Khởi tạo tab mặc định là Chat Làng
+        SwitchToTab(ChatTab.Village);
+
+        // Cập nhật hiển thị Tab Monster theo quyền thực tế của người chơi
+        RefreshMonsterTabVisibility();
+
+        // Nạp lại toàn bộ lịch sử tin nhắn
         ReloadHistory();
     }
 
@@ -90,12 +138,16 @@ public class NetworkChatUI : MonoBehaviour
     {
         NetworkChatManager.OnChatMessageReceived += HandleMessageReceived;
         NetworkChatManager.OnChatHistoryCleared += HandleHistoryCleared;
+        NetworkChatManager.OnMonsterChatPermissionChanged += HandleMonsterPermissionChanged;
+
+        RefreshMonsterTabVisibility();
     }
 
     private void OnDisable()
     {
         NetworkChatManager.OnChatMessageReceived -= HandleMessageReceived;
         NetworkChatManager.OnChatHistoryCleared -= HandleHistoryCleared;
+        NetworkChatManager.OnMonsterChatPermissionChanged -= HandleMonsterPermissionChanged;
     }
 
     private void OnDestroy()
@@ -107,10 +159,17 @@ public class NetworkChatUI : MonoBehaviour
     private void Update()
     {
         HandleVirtualKeyboardOffset();
+
+        // Kiểm tra định kỳ (0.6s) để phát hiện ngay khi Bạch Khuyển thức tỉnh hoặc đổi quyền trong trận
+        if (Time.unscaledTime - lastPermissionCheckTime > 0.6f)
+        {
+            lastPermissionCheckTime = Time.unscaledTime;
+            RefreshMonsterTabVisibility();
+        }
     }
 
     // =========================================================
-    // 1. QUẢN LÝ TRẠNG THÁI MỞ / THU GỌN
+    // 1. QUẢN LÝ TRẠNG THÁI MỞ / THU GỌN & CHUYỂN TAB
     // =========================================================
 
     public void ToggleChat()
@@ -129,21 +188,24 @@ public class NetworkChatUI : MonoBehaviour
 
         if (floatingChatButton != null)
         {
-            // Khi mở khung chat, ẩn nút nổi để tiết kiệm diện tích; khi đóng, hiện nút nổi
             floatingChatButton.gameObject.SetActive(!isOpen);
         }
 
         if (isOpen)
         {
             Thuong.Online.ThuongOnlineSession.Active?.PauseForChat();
-            // Reset số lượng tin nhắn chưa đọc khi mở
-            unreadMessagesCount = 0;
+
+            // Cập nhật quyền hiển thị tab Monster khi mở chat
+            RefreshMonsterTabVisibility();
+
+            // Xóa unread badge của tab đang mở
+            if (activeTab == ChatTab.Village) unreadVillageCount = 0;
+            else if (activeTab == ChatTab.Monster) unreadMonsterCount = 0;
+            unreadMessagesCount = unreadVillageCount + unreadMonsterCount;
             UpdateUnreadBadge();
 
-            // Cuộn xuống cuối
             StartCoroutine(ScrollToBottomCoroutine());
 
-            // Tự động kích hoạt bàn phím trên mobile nếu cần hoặc focus ô nhập
             if (chatInputField != null)
             {
                 chatInputField.ActivateInputField();
@@ -151,8 +213,178 @@ public class NetworkChatUI : MonoBehaviour
         }
     }
 
+    public void SwitchToTab(ChatTab tab)
+    {
+        if (tab == ChatTab.Monster && !HasMonsterChatPermission())
+        {
+            Debug.LogWarning("[CHAT UI] Bạn không thuộc phe Monster hoặc chưa thức tỉnh, không thể mở Tab Monster!");
+            return;
+        }
+
+        activeTab = tab;
+
+        // Bật/tắt ScrollView tương ứng
+        if (villageScrollRect != null)
+        {
+            villageScrollRect.gameObject.SetActive(activeTab == ChatTab.Village);
+        }
+        if (monsterScrollRect != null)
+        {
+            monsterScrollRect.gameObject.SetActive(activeTab == ChatTab.Monster);
+        }
+
+        // Cập nhật con trỏ ScrollRect và Content hoạt động
+        scrollRect = activeTab == ChatTab.Village ? villageScrollRect : monsterScrollRect;
+        messageContent = activeTab == ChatTab.Village ? villageContent : monsterContent;
+
+        // Xóa unread của tab vừa chuyển tới
+        if (activeTab == ChatTab.Village) unreadVillageCount = 0;
+        else if (activeTab == ChatTab.Monster)
+        {
+            unreadMonsterCount = 0;
+            if (monsterTabUnreadDot != null) monsterTabUnreadDot.SetActive(false);
+        }
+        unreadMessagesCount = unreadVillageCount + unreadMonsterCount;
+        UpdateUnreadBadge();
+
+        // Cập nhật giao diện Tab và Input
+        UpdateTabStyles();
+        UpdateInputControlsForActiveTab();
+
+        StartCoroutine(ScrollToBottomCoroutine());
+    }
+
+    private void UpdateTabStyles()
+    {
+        bool isVillage = activeTab == ChatTab.Village;
+
+        // Style Tab Làng
+        if (villageTabImage != null)
+        {
+            villageTabImage.color = isVillage
+                ? new Color(0.18f, 0.45f, 0.75f, 1f)   // Xanh dương nổi bật khi active
+                : new Color(0.10f, 0.14f, 0.22f, 0.85f); // Tối màu khi inactive
+        }
+        if (villageTabText != null)
+        {
+            villageTabText.color = isVillage ? Color.white : new Color(0.6f, 0.7f, 0.85f, 0.9f);
+            villageTabText.fontStyle = isVillage ? FontStyles.Bold : FontStyles.Normal;
+        }
+
+        // Style Tab Monster
+        if (monsterTabImage != null)
+        {
+            monsterTabImage.color = !isVillage
+                ? new Color(0.70f, 0.15f, 0.20f, 1f)   // Đỏ quái vật nổi bật khi active
+                : new Color(0.22f, 0.08f, 0.10f, 0.85f); // Tím đỏ sẫm khi inactive
+        }
+        if (monsterTabText != null)
+        {
+            monsterTabText.color = !isVillage ? new Color(1f, 0.9f, 0.4f, 1f) : new Color(0.85f, 0.55f, 0.55f, 0.9f);
+            monsterTabText.fontStyle = !isVillage ? FontStyles.Bold : FontStyles.Normal;
+        }
+    }
+
+    private void UpdateInputControlsForActiveTab()
+    {
+        if (chatInputField != null && chatInputField.placeholder is TMP_Text hint)
+        {
+            hint.text = activeTab == ChatTab.Monster
+                ? "Nhập tin nhắn Monster (chỉ phe sói)..."
+                : "Nhập tin nhắn làng...";
+        }
+
+        if (sendButton != null)
+        {
+            var sImg = sendButton.GetComponent<Image>();
+            if (sImg != null)
+            {
+                sImg.color = activeTab == ChatTab.Monster
+                    ? new Color(0.75f, 0.15f, 0.20f, 0.95f) // Đỏ Monster
+                    : new Color(0.15f, 0.55f, 0.95f, 0.95f); // Xanh Làng
+            }
+        }
+    }
+
+    public void RefreshMonsterTabVisibility()
+    {
+        bool hasPermission = HasMonsterChatPermission();
+
+        if (monsterTabObj != null)
+        {
+            monsterTabObj.SetActive(hasPermission);
+        }
+        else if (monsterTabButton != null)
+        {
+            monsterTabButton.gameObject.SetActive(hasPermission);
+        }
+
+        // Nếu mất quyền mà đang đứng ở Tab Monster -> tự động chuyển về Tab Làng
+        if (!hasPermission && activeTab == ChatTab.Monster)
+        {
+            SwitchToTab(ChatTab.Village);
+        }
+    }
+
+    public static bool HasMonsterChatPermission()
+    {
+        // 1. Bạch Khuyển không nằm trong kênh chat của Monster theo yêu cầu
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.HasLocalRole)
+        {
+            var role = session.GetPrivateRole();
+            if (role == RoleType.WhiteHound || role == RoleType.WhiteWolf) return false;
+        }
+
+        if (NetworkRoleSync.LocalInstance != null)
+        {
+            var role = NetworkRoleSync.LocalInstance.LocalRole;
+            if (role == RoleType.WhiteHound || role == RoleType.WhiteWolf) return false;
+        }
+
+        if (NetworkChatManager.HasLocalMonsterChatPermission())
+        {
+            return true;
+        }
+
+        var net = Unity.Netcode.NetworkManager.Singleton;
+        if (net != null)
+        {
+            ulong localClientId = net.LocalClientId;
+
+            if (session != null && session.IsServerPlayerMonster(localClientId))
+            {
+                return true;
+            }
+
+            if (PlayerManager.Instance?.players != null)
+            {
+                foreach (var p in PlayerManager.Instance.players)
+                {
+                    if (p != null && (ulong)p.playerID == localClientId)
+                    {
+                        if (p.roleType == RoleType.WhiteHound || p.roleType == RoleType.WhiteWolf) return false;
+                        if (p.roleType == RoleType.DogSpirit || p.roleType == RoleType.SerpentSpirit || p.roleType == RoleType.Ogre) return true;
+                        if (p.faction == FactionType.Monster) return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void HandleMonsterPermissionChanged(bool hasPermission)
+    {
+        RefreshMonsterTabVisibility();
+        if (hasPermission && !isOpen && monsterTabUnreadDot != null)
+        {
+            monsterTabUnreadDot.SetActive(true);
+        }
+    }
+
     // =========================================================
-    // 2. GỬI & NHẬN TIN NHẮN
+    // 2. GỬI & NHẬN TIN NHẮN THEO TAB
     // =========================================================
 
     public void OnSendClicked()
@@ -162,17 +394,33 @@ public class NetworkChatUI : MonoBehaviour
         string text = chatInputField.text;
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        if (Thuong.Online.ThuongOnlineSession.Active != null)
+        if (activeTab == ChatTab.Monster)
         {
-            if (!Thuong.Online.ThuongOnlineSession.Active.SendChatText(text)) return;
-        }
-        else if (NetworkChatManager.Instance != null)
-        {
-            NetworkChatManager.Instance.SendChatMessage(text);
+            // Gửi qua kênh Monster Chat riêng biệt
+            if (NetworkChatManager.Instance != null)
+            {
+                NetworkChatManager.Instance.SendMonsterChatMessage(text);
+            }
+            else
+            {
+                Debug.LogWarning("[CHAT UI] Chưa có NetworkChatManager trong scene!");
+            }
         }
         else
         {
-            Debug.LogWarning("[CHAT UI] Chưa có NetworkChatManager trong scene!");
+            // Gửi qua kênh Chat Làng
+            if (Thuong.Online.ThuongOnlineSession.Active != null)
+            {
+                if (!Thuong.Online.ThuongOnlineSession.Active.SendChatText(text)) return;
+            }
+            else if (NetworkChatManager.Instance != null)
+            {
+                NetworkChatManager.Instance.SendChatMessage(text, ChatChannel.Village);
+            }
+            else
+            {
+                Debug.LogWarning("[CHAT UI] Chưa có NetworkChatManager trong scene!");
+            }
         }
 
         chatInputField.text = string.Empty;
@@ -181,61 +429,125 @@ public class NetworkChatUI : MonoBehaviour
 
     private void HandleMessageReceived(NetworkChatManager.ChatMessageEntry entry)
     {
-        AddMessageItem(entry);
+        bool isMonsterMsg = entry.Channel == (byte)ChatChannel.Monster;
 
-        if (!isOpen)
+        if (isMonsterMsg)
         {
-            unreadMessagesCount++;
-            UpdateUnreadBadge();
+            // Nếu là tin nhắn Monster nhưng máy cục bộ không có quyền Monster, tuyệt đối bỏ qua
+            if (!HasMonsterChatPermission()) return;
+
+            AddMessageItem(entry, monsterContent);
+
+            // Giới hạn lịch sử
+            while (monsterContent != null && monsterContent.childCount > NetworkChatManager.MaxHistoryCount)
+            {
+                var oldest = monsterContent.GetChild(0);
+                oldest.SetParent(null);
+                Destroy(oldest.gameObject);
+            }
+
+            if (!isOpen || activeTab != ChatTab.Monster)
+            {
+                unreadMonsterCount++;
+                if (monsterTabUnreadDot != null) monsterTabUnreadDot.SetActive(true);
+            }
+        }
+        else
+        {
+            AddMessageItem(entry, villageContent);
+
+            // Giới hạn lịch sử
+            while (villageContent != null && villageContent.childCount > NetworkChatManager.MaxHistoryCount)
+            {
+                var oldest = villageContent.GetChild(0);
+                oldest.SetParent(null);
+                Destroy(oldest.gameObject);
+            }
+
+            if (!isOpen || activeTab != ChatTab.Village)
+            {
+                unreadVillageCount++;
+            }
         }
 
-        while (messageContent != null && messageContent.childCount > NetworkChatManager.MaxHistoryCount)
+        unreadMessagesCount = unreadVillageCount + unreadMonsterCount;
+        UpdateUnreadBadge();
+
+        if ((isMonsterMsg && activeTab == ChatTab.Monster) || (!isMonsterMsg && activeTab == ChatTab.Village))
         {
-            var oldest = messageContent.GetChild(0);
-            oldest.SetParent(null);
-            Destroy(oldest.gameObject);
+            StartCoroutine(ScrollToBottomCoroutine());
         }
-        StartCoroutine(ScrollToBottomCoroutine());
     }
 
     private void HandleHistoryCleared()
     {
-        if (messageContent != null)
+        if (villageContent != null)
         {
-            for (int i = messageContent.childCount - 1; i >= 0; i--)
+            for (int i = villageContent.childCount - 1; i >= 0; i--)
             {
-                Destroy(messageContent.GetChild(i).gameObject);
+                Destroy(villageContent.GetChild(i).gameObject);
             }
         }
+
+        if (monsterContent != null)
+        {
+            for (int i = monsterContent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(monsterContent.GetChild(i).gameObject);
+            }
+        }
+
+        unreadVillageCount = 0;
+        unreadMonsterCount = 0;
         unreadMessagesCount = 0;
+        if (monsterTabUnreadDot != null) monsterTabUnreadDot.SetActive(false);
         UpdateUnreadBadge();
     }
 
     private void ReloadHistory()
     {
-        if (NetworkChatManager.Instance == null || messageContent == null) return;
+        if (NetworkChatManager.Instance == null) return;
 
-        foreach (var msg in NetworkChatManager.Instance.MessageHistory)
+        // 1. Tải lịch sử Chat Làng
+        if (villageContent != null)
         {
-            AddMessageItem(msg);
+            for (int i = villageContent.childCount - 1; i >= 0; i--)
+                Destroy(villageContent.GetChild(i).gameObject);
+
+            foreach (var msg in NetworkChatManager.Instance.VillageHistory)
+            {
+                AddMessageItem(msg, villageContent);
+            }
         }
+
+        // 2. Tải lịch sử Chat Monster (nếu có quyền)
+        if (monsterContent != null && HasMonsterChatPermission())
+        {
+            for (int i = monsterContent.childCount - 1; i >= 0; i--)
+                Destroy(monsterContent.GetChild(i).gameObject);
+
+            foreach (var msg in NetworkChatManager.Instance.MonsterHistory)
+            {
+                AddMessageItem(msg, monsterContent);
+            }
+        }
+
         StartCoroutine(ScrollToBottomCoroutine());
     }
 
-    private void AddMessageItem(NetworkChatManager.ChatMessageEntry entry)
+    private void AddMessageItem(NetworkChatManager.ChatMessageEntry entry, RectTransform targetContent)
     {
-        if (messageContent == null) return;
+        if (targetContent == null) return;
 
         GameObject itemObj = null;
         if (messageItemPrefab != null)
         {
-            itemObj = Instantiate(messageItemPrefab, messageContent);
+            itemObj = Instantiate(messageItemPrefab, targetContent);
         }
         else
         {
-            // Fallback tạo nhanh GameObject Text nếu không có prefab
             itemObj = new GameObject("ChatMessageItem", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            itemObj.transform.SetParent(messageContent, false);
+            itemObj.transform.SetParent(targetContent, false);
             var tmp = itemObj.GetComponent<TextMeshProUGUI>();
             if (cachedFont != null) tmp.font = cachedFont;
             tmp.fontSize = 14;
@@ -251,23 +563,28 @@ public class NetworkChatUI : MonoBehaviour
                 textComp.font = cachedFont;
             }
 
+            ulong localClientId = Unity.Netcode.NetworkManager.Singleton != null ? Unity.Netcode.NetworkManager.Singleton.LocalClientId : 0;
+            bool isMe = entry.SenderClientId == localClientId;
+
             if (entry.IsSystem)
             {
                 textComp.text = $"<color=#FFD700><i>[Hệ thống] {entry.MessageText}</i></color>";
             }
+            else if (entry.Channel == (byte)ChatChannel.Monster)
+            {
+                string nameColor = isMe ? "#FF8888" : "#FF5555";
+                string prefix = isMe ? "Bạn" : entry.SenderName.ToString();
+                textComp.text = $"<color=#FF2222><b>[Sói]</b></color> <color={nameColor}><b>{prefix}:</b></color> <color=#FFE5E5>{entry.MessageText}</color>";
+            }
             else
             {
-                ulong localClientId = Unity.Netcode.NetworkManager.Singleton != null ? Unity.Netcode.NetworkManager.Singleton.LocalClientId : 0;
-                bool isMe = entry.SenderClientId == localClientId;
-
                 string nameColor = isMe ? "#55DDFF" : "#FFCC44";
                 string prefix = isMe ? "Bạn" : entry.SenderName.ToString();
-
                 textComp.text = $"<color={nameColor}><b>{prefix}:</b></color> <color=#FFFFFF>{entry.MessageText}</color>";
             }
         }
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(messageContent);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(targetContent);
     }
 
     private IEnumerator ScrollToBottomCoroutine()
@@ -313,7 +630,6 @@ public class NetworkChatUI : MonoBehaviour
                 float scale = canvas != null ? canvas.scaleFactor : 1f;
                 if (scale <= 0.001f) scale = 1f;
 
-                // Nâng khung chat lên trên bàn phím ảo
                 targetOffset = area.height / scale;
             }
         }
@@ -339,6 +655,18 @@ public class NetworkChatUI : MonoBehaviour
         {
             minimizeButton.onClick.RemoveAllListeners();
             minimizeButton.onClick.AddListener(() => SetChatOpen(false));
+        }
+
+        if (villageTabButton != null)
+        {
+            villageTabButton.onClick.RemoveAllListeners();
+            villageTabButton.onClick.AddListener(() => SwitchToTab(ChatTab.Village));
+        }
+
+        if (monsterTabButton != null)
+        {
+            monsterTabButton.onClick.RemoveAllListeners();
+            monsterTabButton.onClick.AddListener(() => SwitchToTab(ChatTab.Monster));
         }
 
         if (sendButton != null)
@@ -380,7 +708,7 @@ public class NetworkChatUI : MonoBehaviour
 
         Transform canvasTrans = parentCanvas != null ? parentCanvas.transform : transform;
 
-        // Tìm FloatingChatButton nếu chưa gán
+        // Tìm FloatingChatButton
         if (floatingChatButton == null)
         {
             Transform fbTrans = canvasTrans.Find("FloatingChatButton");
@@ -390,7 +718,7 @@ public class NetworkChatUI : MonoBehaviour
             }
         }
 
-        // Tìm ChatPanelRoot nếu chưa gán
+        // Tìm ChatPanelRoot
         if (chatPanelRoot == null)
         {
             Transform pTrans = canvasTrans.Find("CompactChatPanel");
@@ -400,10 +728,15 @@ public class NetworkChatUI : MonoBehaviour
             }
         }
 
-        // Nếu cả hai đều chưa có, tự động tạo cấu trúc UI hoàn chỉnh tại runtime
+        // Nếu cả hai đều chưa có, tạo mới hoàn chỉnh tại runtime
         if (floatingChatButton == null || chatPanelRoot == null)
         {
             BuildRuntimeChatUI(canvasTrans);
+        }
+        else
+        {
+            // Nếu đã có chatPanelRoot (từ scene hoặc prefab), đảm bảo cấu trúc 2 Tab và 2 ScrollView đã được cài đặt
+            EnsureTabsAndDualScrollViews(chatPanelRoot.transform);
         }
 
         if (chatPanelRoot != null)
@@ -417,7 +750,177 @@ public class NetworkChatUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Xây dựng tự động hệ thống Chat UI chuẩn nếu scene chưa được setup trước qua Editor.
+    /// Đảm bảo cấu trúc 2 Tab và 2 ScrollRect (Làng + Monster) tồn tại bên trong ChatPanelRoot.
+    /// </summary>
+    private void EnsureTabsAndDualScrollViews(Transform panelTrans)
+    {
+        // 1. Kiểm tra / tạo TabBar
+        Transform tbTrans = panelTrans.Find("TabBar");
+        if (tbTrans == null)
+        {
+            GameObject tbObj = new GameObject("TabBar", typeof(RectTransform));
+            tbObj.transform.SetParent(panelTrans, false);
+            RectTransform tbRt = tbObj.GetComponent<RectTransform>();
+            tbRt.anchorMin = new Vector2(0, 1);
+            tbRt.anchorMax = new Vector2(1, 1);
+            tbRt.pivot = new Vector2(0.5f, 1);
+            tbRt.anchoredPosition = new Vector2(0, -32);
+            tbRt.sizeDelta = new Vector2(-16, 28);
+            tabBarObj = tbObj;
+
+            // Tab Làng
+            GameObject vTab = new GameObject("VillageTab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            vTab.transform.SetParent(tbObj.transform, false);
+            RectTransform vRt = vTab.GetComponent<RectTransform>();
+            vRt.anchorMin = new Vector2(0, 0);
+            vRt.anchorMax = new Vector2(0.5f, 1);
+            vRt.offsetMin = new Vector2(0, 0);
+            vRt.offsetMax = new Vector2(-3, 0);
+
+            villageTabImage = vTab.GetComponent<Image>();
+            villageTabImage.color = new Color(0.18f, 0.45f, 0.75f, 1f);
+            villageTabButton = vTab.GetComponent<Button>();
+            villageTabButton.targetGraphic = villageTabImage;
+
+            GameObject vTxt = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            vTxt.transform.SetParent(vTab.transform, false);
+            RectTransform vtRt = vTxt.GetComponent<RectTransform>();
+            vtRt.anchorMin = Vector2.zero;
+            vtRt.anchorMax = Vector2.one;
+            vtRt.sizeDelta = Vector2.zero;
+
+            villageTabText = vTxt.GetComponent<TextMeshProUGUI>();
+            if (cachedFont != null) villageTabText.font = cachedFont;
+            villageTabText.text = "CHAT LÀNG";
+            villageTabText.fontSize = 12;
+            villageTabText.fontStyle = FontStyles.Bold;
+            villageTabText.color = Color.white;
+            villageTabText.alignment = TextAlignmentOptions.Center;
+            villageTabText.raycastTarget = false;
+
+            // Tab Monster
+            GameObject mTab = new GameObject("MonsterTab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            mTab.transform.SetParent(tbObj.transform, false);
+            RectTransform mRt = mTab.GetComponent<RectTransform>();
+            mRt.anchorMin = new Vector2(0.5f, 0);
+            mRt.anchorMax = new Vector2(1, 1);
+            mRt.offsetMin = new Vector2(3, 0);
+            mRt.offsetMax = new Vector2(0, 0);
+
+            monsterTabImage = mTab.GetComponent<Image>();
+            monsterTabImage.color = new Color(0.22f, 0.08f, 0.10f, 0.85f);
+            monsterTabButton = mTab.GetComponent<Button>();
+            monsterTabButton.targetGraphic = monsterTabImage;
+            monsterTabObj = mTab;
+
+            GameObject mTxt = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            mTxt.transform.SetParent(mTab.transform, false);
+            RectTransform mtRt = mTxt.GetComponent<RectTransform>();
+            mtRt.anchorMin = Vector2.zero;
+            mtRt.anchorMax = Vector2.one;
+            mtRt.sizeDelta = Vector2.zero;
+
+            monsterTabText = mTxt.GetComponent<TextMeshProUGUI>();
+            if (cachedFont != null) monsterTabText.font = cachedFont;
+            monsterTabText.text = "CHAT MONSTER";
+            monsterTabText.fontSize = 12;
+            monsterTabText.fontStyle = FontStyles.Bold;
+            monsterTabText.color = new Color(0.85f, 0.55f, 0.55f, 0.9f);
+            monsterTabText.alignment = TextAlignmentOptions.Center;
+            monsterTabText.raycastTarget = false;
+
+            // Monster Tab Unread Dot
+            GameObject dotObj = new GameObject("UnreadDot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dotObj.transform.SetParent(mTab.transform, false);
+            RectTransform dotRt = dotObj.GetComponent<RectTransform>();
+            dotRt.anchorMin = new Vector2(1, 1);
+            dotRt.anchorMax = new Vector2(1, 1);
+            dotRt.pivot = new Vector2(0.5f, 0.5f);
+            dotRt.anchoredPosition = new Vector2(-4, -4);
+            dotRt.sizeDelta = new Vector2(10, 10);
+            Image dotImg = dotObj.GetComponent<Image>();
+            dotImg.color = new Color(1f, 0.2f, 0.2f, 1f);
+            monsterTabUnreadDot = dotObj;
+            monsterTabUnreadDot.SetActive(false);
+        }
+        else
+        {
+            tabBarObj = tbTrans.gameObject;
+            Transform vt = tbTrans.Find("VillageTab");
+            if (vt != null)
+            {
+                villageTabButton = vt.GetComponent<Button>();
+                villageTabImage = vt.GetComponent<Image>();
+                villageTabText = vt.GetComponentInChildren<TextMeshProUGUI>();
+            }
+            Transform mt = tbTrans.Find("MonsterTab");
+            if (mt != null)
+            {
+                monsterTabObj = mt.gameObject;
+                monsterTabButton = mt.GetComponent<Button>();
+                monsterTabImage = mt.GetComponent<Image>();
+                monsterTabText = mt.GetComponentInChildren<TextMeshProUGUI>();
+                Transform dot = mt.Find("UnreadDot");
+                if (dot != null) monsterTabUnreadDot = dot.gameObject;
+            }
+        }
+
+        // 2. Tìm hoặc liên kết VillageScrollView
+        Transform svTrans = panelTrans.Find("MessageScrollView");
+        if (svTrans != null)
+        {
+            villageScrollRect = svTrans.GetComponent<ScrollRect>();
+            RectTransform svRt = svTrans.GetComponent<RectTransform>();
+            svRt.offsetMax = new Vector2(-8, -64); // Chừa chỗ cho Header (32) + TabBar (28) + margin (4)
+
+            Transform vp = svTrans.Find("Viewport");
+            if (vp != null)
+            {
+                Transform cnt = vp.Find("Content");
+                if (cnt != null) villageContent = cnt.GetComponent<RectTransform>();
+            }
+        }
+
+        // 3. Tìm hoặc tạo MonsterScrollView
+        Transform msvTrans = panelTrans.Find("MonsterScrollView");
+        if (msvTrans == null && villageScrollRect != null)
+        {
+            GameObject msvObj = Instantiate(villageScrollRect.gameObject, panelTrans, false);
+            msvObj.name = "MonsterScrollView";
+            msvObj.SetActive(false);
+
+            monsterScrollRect = msvObj.GetComponent<ScrollRect>();
+            Transform mvp = msvObj.transform.Find("Viewport");
+            if (mvp != null)
+            {
+                Transform mcnt = mvp.Find("Content");
+                if (mcnt != null)
+                {
+                    monsterContent = mcnt.GetComponent<RectTransform>();
+                    // Xóa tin nhắn rác nếu sao chép từ Village
+                    for (int i = monsterContent.childCount - 1; i >= 0; i--)
+                        Destroy(monsterContent.GetChild(i).gameObject);
+                }
+            }
+        }
+        else if (msvTrans != null)
+        {
+            monsterScrollRect = msvTrans.GetComponent<ScrollRect>();
+            Transform mvp = msvTrans.Find("Viewport");
+            if (mvp != null)
+            {
+                Transform mcnt = mvp.Find("Content");
+                if (mcnt != null) monsterContent = mcnt.GetComponent<RectTransform>();
+            }
+        }
+
+        // Đồng bộ con trỏ mặc định
+        scrollRect = villageScrollRect;
+        messageContent = villageContent;
+    }
+
+    /// <summary>
+    /// Xây dựng tự động hệ thống Chat UI 2 kênh chuẩn nếu scene chưa được setup trước qua Editor.
     /// </summary>
     public void BuildRuntimeChatUI(Transform canvasTrans)
     {
@@ -432,14 +935,14 @@ public class NetworkChatUI : MonoBehaviour
             fbRt.anchorMax = new Vector2(0f, 0f);
             fbRt.pivot = new Vector2(0f, 0f);
             fbRt.anchoredPosition = new Vector2(16, 16);
-            fbRt.sizeDelta = new Vector2(52, 52); // Chuẩn 52 dp
+            fbRt.sizeDelta = new Vector2(56, 56);
 
             Image fbImg = fbObj.GetComponent<Image>();
             fbImg.color = new Color(0.12f, 0.18f, 0.28f, 0.95f);
             floatingChatButton = fbObj.GetComponent<Button>();
             floatingChatButton.targetGraphic = fbImg;
 
-            // Icon văn bản '💬' hoặc 'CHAT'
+            // Icon văn bản 'CHAT'
             GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             iconObj.transform.SetParent(fbObj.transform, false);
             RectTransform iconRt = iconObj.GetComponent<RectTransform>();
@@ -504,7 +1007,7 @@ public class NetworkChatUI : MonoBehaviour
             basePanelPos = panelRect.anchoredPosition;
 
             Image pImg = pObj.GetComponent<Image>();
-            pImg.color = new Color(0.06f, 0.09f, 0.14f, 0.88f); // Nền tối bán trong suốt, không làm mờ cả màn hình
+            pImg.color = new Color(0.06f, 0.09f, 0.14f, 0.88f);
             pImg.raycastTarget = true;
 
             // --- Header Bar ---
@@ -537,7 +1040,7 @@ public class NetworkChatUI : MonoBehaviour
             titleTmp.alignment = TextAlignmentOptions.Left;
             titleTmp.raycastTarget = false;
 
-            // Minimize / Close Button
+            // Minimize Button
             GameObject minBtnObj = new GameObject("MinimizeButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             minBtnObj.transform.SetParent(headerObj.transform, false);
             RectTransform mbRt = minBtnObj.GetComponent<RectTransform>();
@@ -568,23 +1071,22 @@ public class NetworkChatUI : MonoBehaviour
             mbTmp.alignment = TextAlignmentOptions.Center;
             mbTmp.raycastTarget = false;
 
-            // --- Message Scroll View ---
+            // --- ScrollView Chat Làng ---
             GameObject scrollObj = new GameObject("MessageScrollView", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
             scrollObj.transform.SetParent(pObj.transform, false);
             RectTransform svRt = scrollObj.GetComponent<RectTransform>();
             svRt.anchorMin = new Vector2(0, 0);
             svRt.anchorMax = new Vector2(1, 1);
-            svRt.offsetMin = new Vector2(8, 46); // Chừa chỗ cho hàng nhập ở dưới
-            svRt.offsetMax = new Vector2(-8, -36); // Chừa chỗ cho header
+            svRt.offsetMin = new Vector2(8, 46);
+            svRt.offsetMax = new Vector2(-8, -64);
 
             Image svImg = scrollObj.GetComponent<Image>();
             svImg.color = new Color(0, 0, 0, 0.25f);
-            scrollRect = scrollObj.GetComponent<ScrollRect>();
-            scrollRect.horizontal = false;
-            scrollRect.vertical = true;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            villageScrollRect = scrollObj.GetComponent<ScrollRect>();
+            villageScrollRect.horizontal = false;
+            villageScrollRect.vertical = true;
+            villageScrollRect.movementType = ScrollRect.MovementType.Clamped;
 
-            // Viewport
             GameObject viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
             viewportObj.transform.SetParent(scrollObj.transform, false);
             RectTransform vpRt = viewportObj.GetComponent<RectTransform>();
@@ -597,15 +1099,14 @@ public class NetworkChatUI : MonoBehaviour
             Mask mask = viewportObj.GetComponent<Mask>();
             mask.showMaskGraphic = false;
 
-            // Content
             GameObject contentObj = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             contentObj.transform.SetParent(viewportObj.transform, false);
-            messageContent = contentObj.GetComponent<RectTransform>();
-            messageContent.anchorMin = new Vector2(0, 1);
-            messageContent.anchorMax = new Vector2(1, 1);
-            messageContent.pivot = new Vector2(0.5f, 1);
-            messageContent.offsetMin = Vector2.zero;
-            messageContent.offsetMax = Vector2.zero;
+            villageContent = contentObj.GetComponent<RectTransform>();
+            villageContent.anchorMin = new Vector2(0, 1);
+            villageContent.anchorMax = new Vector2(1, 1);
+            villageContent.pivot = new Vector2(0.5f, 1);
+            villageContent.offsetMin = Vector2.zero;
+            villageContent.offsetMax = Vector2.zero;
 
             var vlg = contentObj.GetComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(6, 6, 6, 6);
@@ -617,8 +1118,8 @@ public class NetworkChatUI : MonoBehaviour
             var csf = contentObj.GetComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            scrollRect.viewport = vpRt;
-            scrollRect.content = messageContent;
+            villageScrollRect.viewport = vpRt;
+            villageScrollRect.content = villageContent;
 
             // --- Input Row (Bottom Bar) ---
             GameObject inputRow = new GameObject("InputRow", typeof(RectTransform));
@@ -674,7 +1175,6 @@ public class NetworkChatUI : MonoBehaviour
             inpImg.color = new Color(0.12f, 0.16f, 0.24f, 0.95f);
             chatInputField = inputObj.GetComponent<TMP_InputField>();
 
-            // Text Area
             GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
             textArea.transform.SetParent(inputObj.transform, false);
             RectTransform taRt = textArea.GetComponent<RectTransform>();
@@ -683,7 +1183,6 @@ public class NetworkChatUI : MonoBehaviour
             taRt.offsetMin = new Vector2(8, 2);
             taRt.offsetMax = new Vector2(-8, -2);
 
-            // Placeholder Text
             GameObject phObj = new GameObject("Placeholder", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             phObj.transform.SetParent(textArea.transform, false);
             RectTransform phRt = phObj.GetComponent<RectTransform>();
@@ -693,13 +1192,12 @@ public class NetworkChatUI : MonoBehaviour
 
             TextMeshProUGUI phTmp = phObj.GetComponent<TextMeshProUGUI>();
             if (cachedFont != null) phTmp.font = cachedFont;
-            phTmp.text = "Nhập tin nhắn...";
+            phTmp.text = "Nhập tin nhắn làng...";
             phTmp.fontSize = 14;
             phTmp.fontStyle = FontStyles.Italic;
             phTmp.color = new Color(0.6f, 0.65f, 0.75f, 0.75f);
             phTmp.alignment = TextAlignmentOptions.Left;
 
-            // Text Component
             GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObj.transform.SetParent(textArea.transform, false);
             RectTransform tCompRt = textObj.GetComponent<RectTransform>();
@@ -717,9 +1215,12 @@ public class NetworkChatUI : MonoBehaviour
             chatInputField.placeholder = phTmp;
             chatInputField.textComponent = mainTmp;
             chatInputField.characterLimit = NetworkChatManager.MaxMessageLength;
+
+            // Thêm TabBar và MonsterScrollView
+            EnsureTabsAndDualScrollViews(pObj.transform);
         }
 
         SetupEvents();
-        Debug.Log("[CHAT UI] Đã khởi tạo hoàn chỉnh hệ thống Chat UI đa tỷ lệ màn hình tại góc dưới bên trái.");
+        Debug.Log("[CHAT UI] Đã khởi tạo hoàn chỉnh hệ thống Chat UI 2 kênh (Làng & Monster) tại góc dưới bên trái.");
     }
 }

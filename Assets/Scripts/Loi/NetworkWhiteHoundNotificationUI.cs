@@ -189,7 +189,8 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
         if (result.Request.Target == null) return;
         PlayerData target = result.Request.Target;
         bool isWhiteHound = target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf;
-        bool bittenByDogSpirit = result.Request.SourceRole == RoleType.DogSpirit;
+        bool bittenByDogSpirit = result.Request.SourceRole == RoleType.DogSpirit ||
+                                 (result.Request.Source != null && result.Request.Source.roleType == RoleType.DogSpirit);
 
         // Chỉ khi DogSpirit thực sự cắn trúng Bạch Khuyển và Server đã xác nhận thức tỉnh thành công
         if (isWhiteHound && bittenByDogSpirit && target.isWhiteHoundAwakened)
