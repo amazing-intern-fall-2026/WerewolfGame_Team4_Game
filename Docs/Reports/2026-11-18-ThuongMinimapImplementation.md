@@ -14,13 +14,13 @@ Phạm vi: giao diện định hướng trong trải nghiệm trực tuyến.
 
 ## Tệp thay đổi
 
-- `Assets/Scripts/Thuong/Online/ThuongOnlineMinimap.cs` — dựng HUD, nền map, marker và trạng thái thu gọn.
-- `Assets/Scripts/Thuong/Online/ThuongOnlineMinimap.cs.meta` — metadata Unity cho script.
-- `Assets/Scripts/Thuong/Online/ThuongOnlineSession.cs` — gọi cập nhật minimap theo vòng đời session và dọn khi hủy.
-- `Assets/Scripts/Thuong/Online/ThuongOnlineMaps.cs` — reset minimap khi xóa trạng thái map.
+- `Assets/Scripts/Thuong/Online/ThuongOnlineMinimap.cs` — tạo bảng bản đồ nhỏ, hình nền và các dấu vị trí.
+- `Assets/Scripts/Thuong/Online/ThuongOnlineMinimap.cs.meta` — thông tin nhận dạng để phần mềm quản lý tệp.
+- `Assets/Scripts/Thuong/Online/ThuongOnlineSession.cs` — điều phối cập nhật bảng trong phiên làm việc và dọn khi rời.
+- `Assets/Scripts/Thuong/Online/ThuongOnlineMaps.cs` — làm mới bảng khi thay đổi bản đồ.
 
 ## Kiểm tra và giới hạn
 
 - Kiểm tra tính nhất quán định dạng: đạt, không phát hiện lỗi khoảng trắng.
 - Chưa mở dự án bằng công cụ xây dựng hoặc chạy phiên bản cài đặt để kiểm tra trực quan; bố cục và hoạt động trên thiết bị thực cần được xác nhận.
-- Phiên bản hiện tại tập trung vào nền bản đồ, các điểm cần chú ý và vị trí được phép quan sát. Chưa có dấu đánh dấu các vị trí cần xử lý hoặc chức năng điều khiển góc nhìn trực tiếp từ bảng.
+- Phiên bản hiện tại tập trung vào nền bản đồ, các điểm cần chú ý và vị trí được phép quan sát. Chưa có ký hiệu cho những vị trí phát sinh sự kiện hoặc chức năng điều khiển góc nhìn trực tiếp từ bảng.
