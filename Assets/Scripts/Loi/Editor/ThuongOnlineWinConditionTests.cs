@@ -36,6 +36,7 @@ public static class ThuongOnlineWinConditionTests
         Test_Case10_MainMenu_BlocksGameOverUI();
         Test_TC1_to_TC8_SerpentSpirit();
         Test_TC9_to_TC16_DogSpirit_WhiteHound();
+        Test_TC1_to_TC11_DogSpirit_Bite_Notification();
 
         Debug.Log("=========================================================================");
         Debug.Log($"KẾT QUẢ KIỂM THỬ: {passCount} PASSED, {failCount} FAILED");
@@ -736,6 +737,145 @@ public static class ThuongOnlineWinConditionTests
             if (notifUI != null) notifUI.HideNotification();
             NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
             if (notifGO != null) UnityEngine.Object.DestroyImmediate(notifGO);
+        }
+    }
+
+    // =========================================================================
+    // FEATURE: THÔNG BÁO CHO DOGSPIRIT KHI CẮN TRÚNG BẠCH KHUYỂN (TC1 - TC11)
+    // =========================================================================
+    public static void Test_TC1_to_TC11_DogSpirit_Bite_Notification()
+    {
+        Debug.Log("--- BẮT ĐẦU KIỂM THỬ TC1 - TC11: THÔNG BÁO CHO DOGSPIRIT KHI CẮN TRÚNG BẠCH KHUYỂN ---");
+        GameObject dsUIGO = new GameObject("Test_NetworkDogSpiritNotificationUI");
+        dsUIGO.hideFlags = HideFlags.HideAndDontSave;
+        var dsUI = dsUIGO.AddComponent<NetworkDogSpiritNotificationUI>();
+
+        GameObject whUIGO = new GameObject("Test_NetworkWhiteHoundNotificationUI_ForDogTest");
+        whUIGO.hideFlags = HideFlags.HideAndDontSave;
+        var whUI = whUIGO.AddComponent<NetworkWhiteHoundNotificationUI>();
+
+        var pmGO = SetupPlayerManager(out PlayerManager pm);
+
+        try
+        {
+            var dogSpiritPlayer = new PlayerData { playerID = 1, playerName = "DogSpirit_P1", roleType = RoleType.DogSpirit, isAlive = true };
+            var targetWH = new PlayerData { playerID = 3, playerName = "WhiteHound_P3", roleType = RoleType.WhiteHound, isAlive = true, isWhiteHoundAwakened = true };
+            var villagerPlayer = new PlayerData { playerID = 2, playerName = "Villager_P2", roleType = RoleType.Villager, isAlive = true, isWhiteHoundAwakened = false };
+            var otherPlayer = new PlayerData { playerID = 0, playerName = "Other_P0", roleType = RoleType.Seer, isAlive = true, isWhiteHoundAwakened = false };
+
+            pm.players.Add(otherPlayer);
+            pm.players.Add(dogSpiritPlayer);
+            pm.players.Add(villagerPlayer);
+            pm.players.Add(targetWH);
+
+            // TC1: DogSpirit cắn trúng Bạch Khuyển -> DogSpirit nhận popup
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            var reqBiteWH = new DeathRequest(targetWH, DeathCause.Monster, source: dogSpiritPlayer, sourceRole: RoleType.DogSpirit);
+            var resBiteWH = new DeathResult(reqBiteWH, DeathOutcome.Prevented, "WhiteHound awakened");
+
+            dsUI.HandleDeathResolved(resBiteWH);
+            bool tc1_dsNotified = NetworkDogSpiritNotificationUI.HasNotifiedThisMatch && dsUI.IsVisible;
+            bool tc1_titleMatch = NetworkDogSpiritNotificationUI.NotificationTitle == "BẠN ĐÃ CẮN TRÚNG BẠCH KHUYỂN!";
+            bool tc1_subtitleMatch = NetworkDogSpiritNotificationUI.NotificationSubtitle.Contains("đánh thức bản năng Bạch Khuyển");
+            bool tc1_labelMatch = NetworkDogSpiritNotificationUI.TargetRoleLabel == "MỤC TIÊU: WHITE HOUND";
+            Assert(tc1_dsNotified && tc1_titleMatch && tc1_subtitleMatch && tc1_labelMatch,
+                "TC1: DogSpirit cắn trúng Bạch Khuyển -> DogSpirit nhận popup với đúng tiêu đề, phụ đề và nhãn mục tiêu",
+                $"(dsVisible={dsUI.IsVisible}, titleOk={tc1_titleMatch}, labelOk={tc1_labelMatch})");
+
+            // TC2: Bạch Khuyển bị cắn và thức tỉnh -> Bạch Khuyển nhận popup riêng
+            whUI.HandleDeathResolved(resBiteWH);
+            bool tc2_whNotified = NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch && whUI.IsVisible;
+            bool tc2_whTitleMatch = NetworkWhiteHoundNotificationUI.NotificationTitle == "BẠN ĐÃ BỊ KHUYỂN TINH TẤN CÔNG! BẢN NĂNG BẠCH KHUYỂN ĐÃ THỨC TỈNH!";
+            bool tc2_independentPopups = dsUI.IsVisible && whUI.IsVisible && (NetworkDogSpiritNotificationUI.NotificationTitle != NetworkWhiteHoundNotificationUI.NotificationTitle);
+            Assert(tc2_whNotified && tc2_whTitleMatch && tc2_independentPopups,
+                "TC2: Bạch Khuyển nhận popup riêng, hai popup hoạt động độc lập và có nội dung phân biệt",
+                $"(whVisible={whUI.IsVisible}, independent={tc2_independentPopups})");
+
+            // TC3: Bạch Khuyển được Bảo Vệ bảo vệ -> Không có popup cắn trúng
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            var protectedWH = new PlayerData { playerID = 3, playerName = "WhiteHound_P3", roleType = RoleType.WhiteHound, isAlive = true, isWhiteHoundAwakened = false };
+            var reqProtected = new DeathRequest(protectedWH, DeathCause.Monster, source: dogSpiritPlayer, sourceRole: RoleType.DogSpirit);
+            var resProtected = new DeathResult(reqProtected, DeathOutcome.Prevented, "Protected by Guardian");
+
+            dsUI.HandleDeathResolved(resProtected);
+            whUI.HandleDeathResolved(resProtected);
+            bool tc3_noDS = !NetworkDogSpiritNotificationUI.HasNotifiedThisMatch && !dsUI.IsVisible;
+            bool tc3_noWH = !NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch && !whUI.IsVisible;
+            Assert(tc3_noDS && tc3_noWH, "TC3: Bạch Khuyển được Bảo Vệ bảo vệ (chưa thức tỉnh) -> Không có popup cắn trúng",
+                $"(noDS={tc3_noDS}, noWH={tc3_noWH})");
+
+            // TC4: DogSpirit cắn Dân Làng -> Không có popup Bạch Khuyển
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            var reqVillager = new DeathRequest(villagerPlayer, DeathCause.Monster, source: dogSpiritPlayer, sourceRole: RoleType.DogSpirit);
+            var resVillager = new DeathResult(reqVillager, DeathOutcome.Killed, "Villager killed");
+
+            dsUI.HandleDeathResolved(resVillager);
+            whUI.HandleDeathResolved(resVillager);
+            bool tc4_noPopup = !NetworkDogSpiritNotificationUI.HasNotifiedThisMatch && !dsUI.IsVisible;
+            Assert(tc4_noPopup, "TC4: DogSpirit cắn Dân Làng -> Không kích hoạt popup Bạch Khuyển",
+                $"(dsVisible={dsUI.IsVisible})");
+
+            // TC5: Host là DogSpirit -> Host nhận popup
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            NetworkDogSpiritNotificationUI.NotifyDogSpiritBitten(dogSpiritPlayerId: 1, whiteHoundPlayerId: 3);
+            bool tc5_hostReceived = dsUI.IsVisible && NetworkDogSpiritNotificationUI.HasNotifiedThisMatch;
+            Assert(tc5_hostReceived, "TC5: Host là DogSpirit -> Host nhận popup hiển thị đầy đủ",
+                $"(hostVisible={dsUI.IsVisible})");
+
+            // TC6: Client là DogSpirit -> Client nhận popup qua CustomMessaging
+            bool tc6_msgRegistered = NetworkDogSpiritNotificationUI.DogSpiritBiteWhiteHoundMessageName == "loi.dogspirit.bitten.whitehound.notification.v1";
+            Assert(tc6_msgRegistered, "TC6: Client là DogSpirit -> Đăng ký tin nhắn mạng riêng biệt loi.dogspirit.bitten.whitehound.notification.v1",
+                $"(msgName={NetworkDogSpiritNotificationUI.DogSpiritBiteWhiteHoundMessageName})");
+
+            // TC7: Host là Bạch Khuyển -> Host nhận popup riêng
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            NetworkWhiteHoundNotificationUI.NotifyPlayerAwakened(playerId: 3);
+            bool tc7_hostWHReceived = whUI.IsVisible && NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+            Assert(tc7_hostWHReceived, "TC7: Host là Bạch Khuyển -> Host nhận popup thức tỉnh riêng",
+                $"(whHostVisible={whUI.IsVisible})");
+
+            // TC8: Client là Bạch Khuyển -> Client nhận popup riêng
+            bool tc8_whMsgRegistered = NetworkWhiteHoundNotificationUI.WhiteHoundAwakenedMessageName == "loi.whitehound.awakened.notification.v1";
+            Assert(tc8_whMsgRegistered, "TC8: Client là Bạch Khuyển -> Nhận gói tin thức tỉnh riêng loi.whitehound.awakened.notification.v1",
+                $"(whMsgName={NetworkWhiteHoundNotificationUI.WhiteHoundAwakenedMessageName})");
+
+            // TC9: Người chơi khác (Seer, Villager) -> Không nhận thông báo riêng
+            bool p0IsDog = otherPlayer.roleType == RoleType.DogSpirit;
+            bool p0IsWH = otherPlayer.roleType == RoleType.WhiteHound || otherPlayer.roleType == RoleType.WhiteWolf;
+            Assert(!p0IsDog && !p0IsWH, "TC9: Người chơi khác (Seer, Villager) không nhận nhầm bất kỳ thông báo riêng nào",
+                $"(isDog={p0IsDog}, isWH={p0IsWH})");
+
+            // TC10: Một lần thức tỉnh -> Không xuất hiện popup trùng lặp
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            dsUI.HandleDeathResolved(resBiteWH);
+            bool firstShow = dsUI.IsVisible && NetworkDogSpiritNotificationUI.HasNotifiedThisMatch;
+            // Gọi lần thứ 2 trong cùng trận đấu
+            dsUI.HandleDeathResolved(resBiteWH);
+            bool stillOnlyOne = dsUI.IsVisible && NetworkDogSpiritNotificationUI.HasNotifiedThisMatch;
+            Assert(firstShow && stillOnlyOne, "TC10: Một lần thức tỉnh -> Không xuất hiện popup trùng lặp (chỉ 1 lần hiển thị duy nhất)",
+                $"(firstShow={firstShow}, stillOne={stillOnlyOne})");
+
+            // TC11: Bắt đầu ván mới -> Có thể gửi thông báo cho sự kiện mới
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            bool resetOk = !NetworkDogSpiritNotificationUI.HasNotifiedThisMatch && !NetworkWhiteHoundNotificationUI.HasNotifiedThisMatch;
+            dsUI.HandleDeathResolved(resBiteWH);
+            bool newMatchNotified = NetworkDogSpiritNotificationUI.HasNotifiedThisMatch && dsUI.IsVisible;
+            Assert(resetOk && newMatchNotified, "TC11: Bắt đầu ván mới -> Reset thành công và có thể kích hoạt thông báo cho ván mới",
+                $"(resetOk={resetOk}, newMatchNotified={newMatchNotified})");
+        }
+        finally
+        {
+            if (dsUI != null) dsUI.HideNotification();
+            if (whUI != null) whUI.HideNotification();
+            NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
+            NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
+            if (dsUIGO != null) UnityEngine.Object.DestroyImmediate(dsUIGO);
+            if (whUIGO != null) UnityEngine.Object.DestroyImmediate(whUIGO);
+            if (pmGO != null) UnityEngine.Object.DestroyImmediate(pmGO);
         }
     }
 }

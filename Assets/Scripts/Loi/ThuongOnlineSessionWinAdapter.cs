@@ -38,6 +38,42 @@ namespace Thuong.Online
             return false;
         }
 
+        /// <summary>
+        /// Tra cứu PlayerId của vai trò chỉ định trên Server.
+        /// </summary>
+        public bool TryGetPlayerIdForRole(RoleType roleType, out int playerId)
+        {
+            if (serverPlayers != null)
+            {
+                foreach (var pair in serverPlayers)
+                {
+                    if (pair.Value != null && !pair.Value.Offline)
+                    {
+                        var player = players?.GetplayerByID(pair.Value.PlayerId);
+                        if (player != null && player.roleType == roleType && player.isAlive)
+                        {
+                            playerId = pair.Value.PlayerId;
+                            return true;
+                        }
+                    }
+                }
+                foreach (var pair in serverPlayers)
+                {
+                    if (pair.Value != null && !pair.Value.Offline)
+                    {
+                        var player = players?.GetplayerByID(pair.Value.PlayerId);
+                        if (player != null && player.roleType == roleType)
+                        {
+                            playerId = pair.Value.PlayerId;
+                            return true;
+                        }
+                    }
+                }
+            }
+            playerId = -1;
+            return false;
+        }
+
         public int GetVisibleDay() => visibleDay;
         public RoleType GetPrivateRole() => privateRole;
         public ushort GetPrivateFlags() => privateFlags;
