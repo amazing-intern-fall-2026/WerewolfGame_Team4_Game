@@ -1,16 +1,16 @@
-# Báo cáo triển khai minimap Thương Online
+# Báo cáo hoàn thành bảng bản đồ thu nhỏ
 
 Ngày: 18/11/2026
-Phạm vi: HUD trong phiên Thương Online.
+Phạm vi: giao diện định hướng trong trải nghiệm trực tuyến.
 
 ## Công việc hoàn thành
 
-- Thêm minimap có thể thu gọn ở góc trên bên phải HUD. Bảng dùng thumbnail và bounds của map đang chọn, giữ đúng tỉ lệ giữa các layout.
-- Đặt marker cho sáu trạm theo tọa độ trong `ThuongMapDefinition`; marker đổi màu/kích thước theo trạng thái nhiệm vụ đang mở hoặc đã hoàn thành.
-- Hiển thị người chơi còn sống có vị trí được phép quan sát. Marker của người chơi local là mũi tên theo hướng nhân vật; các người chơi khác dùng chấm màu riêng.
-- Lọc các vị trí có cờ `Hidden` trước khi vẽ. Snapshot ẩn tọa độ được host đặt về `(0,0)`, nên minimap không tạo marker giả ở gốc map hoặc để lộ vị trí bị che.
-- Cập nhật marker theo trạng thái avatar đang được nội suy, dựng lại nền/điểm trạm khi đổi map và dọn UI khi session hoặc scene kết thúc.
-- Giữ nguyên thao tác `Tab` để xem toàn bản đồ.
+- Bổ sung một bảng bản đồ nhỏ ở góc trên bên phải màn hình. Người dùng có thể thu gọn bảng để có thêm không gian, hoặc mở rộng khi cần xem vị trí rõ hơn. Hình nền tự thay đổi theo khu vực đang sử dụng và giữ đúng tỷ lệ để các điểm trên bản đồ không bị kéo lệch.
+- Đánh dấu sáu địa điểm quan trọng bằng biểu tượng riêng. Màu sắc và kích thước giúp phân biệt điểm đang cần chú ý, điểm đã hoàn tất và các điểm còn lại dùng để định hướng.
+- Hiển thị vị trí hiện tại bằng mũi tên có hướng, giúp người dùng nhận biết mình đang ở đâu và đang quay về phía nào. Vị trí của những người khác chỉ xuất hiện khi được phép quan sát.
+- Ẩn hoàn toàn những vị trí không được phép hiển thị. Dữ liệu thay thế do hệ thống gửi về không bị coi nhầm là một vị trí thật trên bản đồ.
+- Tự cập nhật dấu vị trí khi người dùng di chuyển, làm mới nền và các điểm đánh dấu khi đổi khu vực, đồng thời dọn bảng khi rời màn hình để không giữ lại thông tin cũ.
+- Giữ nguyên thao tác xem toàn bản đồ bằng phím `Tab`. Bảng bản đồ nhỏ bổ sung cách quan sát nhanh mà không đổi cách điều khiển hiện tại.
 
 ## Tệp thay đổi
 
@@ -21,6 +21,6 @@ Phạm vi: HUD trong phiên Thương Online.
 
 ## Kiểm tra và giới hạn
 
-- `git diff --check`: đạt, không có lỗi khoảng trắng.
-- Chưa chạy Unity Editor, build hoặc kiểm tra trực quan trong game; phần compile/layout cần được xác nhận trong Unity.
-- Phiên bản này hiển thị map, trạm và người chơi nhìn thấy được; chưa thêm marker xác hoặc điều khiển camera từ minimap.
+- Kiểm tra tính nhất quán định dạng: đạt, không phát hiện lỗi khoảng trắng.
+- Chưa mở dự án bằng công cụ xây dựng hoặc chạy phiên bản cài đặt để kiểm tra trực quan; bố cục và hoạt động trên thiết bị thực cần được xác nhận.
+- Phiên bản hiện tại tập trung vào nền bản đồ, các điểm cần chú ý và vị trí được phép quan sát. Chưa có dấu đánh dấu các vị trí cần xử lý hoặc chức năng điều khiển góc nhìn trực tiếp từ bảng.
