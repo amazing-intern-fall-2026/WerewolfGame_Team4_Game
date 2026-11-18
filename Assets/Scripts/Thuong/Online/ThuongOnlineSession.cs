@@ -165,6 +165,7 @@ namespace Thuong.Online
             UpdateMinigames();
             UpdateVillage();
             RefreshMapPresentation();
+            RefreshMinimap();
             RefreshTaskGuidance();
             UpdateTutorialInput();
             if (!connected || network == null || !network.IsListening) return;
@@ -1734,6 +1735,7 @@ namespace Thuong.Online
             PlayerEmoteWheelUI.DisposeFor(this);
             leavingScene = true;
             DisposeMapUi();
+            DisposeMinimap();
             DisposeTaskGuidance();
             ClearMapPresentation();
             ResetMinigames();
