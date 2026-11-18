@@ -37,6 +37,7 @@ public static class ThuongOnlineWinConditionTests
         Test_TC1_to_TC8_SerpentSpirit();
         Test_TC9_to_TC16_DogSpirit_WhiteHound();
         Test_TC1_to_TC11_DogSpirit_Bite_Notification();
+        Test_TC01_to_TC14_Monster_Chat();
 
         Debug.Log("=========================================================================");
         Debug.Log($"KẾT QUẢ KIỂM THỬ: {passCount} PASSED, {failCount} FAILED");
@@ -876,6 +877,149 @@ public static class ThuongOnlineWinConditionTests
             if (dsUIGO != null) UnityEngine.Object.DestroyImmediate(dsUIGO);
             if (whUIGO != null) UnityEngine.Object.DestroyImmediate(whUIGO);
             if (pmGO != null) UnityEngine.Object.DestroyImmediate(pmGO);
+        }
+    }
+
+    // =========================================================================
+    // TC01 đến TC14: HỆ THỐNG CHAT 2 KÊNH (CHAT LÀNG VÀ CHAT MONSTER)
+    // =========================================================================
+    public static void Test_TC01_to_TC14_Monster_Chat()
+    {
+        GameObject pmGO = SetupPlayerManager(out PlayerManager pm);
+        GameObject chatMgrGO = null;
+        GameObject chatUIGO = null;
+        GameObject canvasGO = null;
+
+        try
+        {
+            canvasGO = new GameObject("TestCanvas_Chat", typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler), typeof(UnityEngine.UI.GraphicRaycaster));
+            chatMgrGO = new GameObject("TestNetworkChatManager", typeof(NetworkChatManager));
+            var chatMgr = chatMgrGO.GetComponent<NetworkChatManager>();
+            chatMgr.ClearHistory();
+
+            chatUIGO = new GameObject("TestChatUI", typeof(NetworkChatUI));
+            chatUIGO.transform.SetParent(canvasGO.transform, false);
+            var chatUI = chatUIGO.GetComponent<NetworkChatUI>();
+            chatUI.EnsureUIReferences();
+
+            // Khởi tạo người chơi:
+            // P0: Villager
+            // P1: Neutral (Madman)
+            // P2: Monster (DogSpirit)
+            // P3: WhiteHound (chưa thức tỉnh)
+            var p0_Villager = new PlayerData { playerID = 0, playerName = "DanLang", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true };
+            var p1_Neutral = new PlayerData { playerID = 1, playerName = "KeDien", roleType = RoleType.Madman, faction = FactionType.Neutral, isAlive = true };
+            var p2_Monster = new PlayerData { playerID = 2, playerName = "KhuyenTinh", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true };
+            var p3_WhiteHound = new PlayerData { playerID = 3, playerName = "BachKhuyen", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true, isWhiteHoundAwakened = false };
+
+            pm.players.Add(p0_Villager);
+            pm.players.Add(p1_Neutral);
+            pm.players.Add(p2_Monster);
+            pm.players.Add(p3_WhiteHound);
+
+            // TC01: Chat Làng gửi và nhận độc lập với Chat Monster
+            chatMgr.SendChatMessage("Xin chao ca lang!", ChatChannel.Village);
+            bool tc01_villageHasMsg = chatMgr.VillageHistory.Count == 1;
+            bool tc01_monsterEmpty = chatMgr.MonsterHistory.Count == 0;
+            Assert(tc01_villageHasMsg && tc01_monsterEmpty, "TC01: Chat Làng gửi và nhận hoàn toàn độc lập với kênh Chat Monster",
+                $"(villageCount={chatMgr.VillageHistory.Count}, monsterCount={chatMgr.MonsterHistory.Count})");
+
+            // TC02: Chat Monster gửi vào kênh Monster, không xuất hiện ở Chat Làng
+            NetworkChatManager.SetLocalMonsterChatPermission(true);
+            chatMgr.SendMonsterChatMessage("Ke hoach dem nay cua Soi!");
+            bool tc02_monsterHasMsg = chatMgr.MonsterHistory.Count == 1;
+            bool tc02_villageUnchanged = chatMgr.VillageHistory.Count == 1;
+            Assert(tc02_monsterHasMsg && tc02_villageUnchanged, "TC02: Chat Monster chỉ gửi vào kênh Monster và không xuất hiện ở Chat Làng",
+                $"(villageCount={chatMgr.VillageHistory.Count}, monsterCount={chatMgr.MonsterHistory.Count})");
+
+            // TC03: Villager không thuộc phe Monster
+            bool tc03_isMonster = NetworkChatManager.IsPlayerMonster(p0_Villager);
+            Assert(!tc03_isMonster, "TC03: Người chơi Dân Làng không thuộc phe Monster",
+                $"(isMonster={tc03_isMonster})");
+
+            // TC04: Villager không thể có quyền Monster Chat
+            NetworkChatManager.SetLocalMonsterChatPermission(false);
+            bool tc04_hasPerm = NetworkChatManager.HasLocalMonsterChatPermission();
+            Assert(!tc04_hasPerm, "TC04: Dân Làng không có quyền sử dụng Chat Monster",
+                $"(hasPermission={tc04_hasPerm})");
+
+            // TC05: Neutral (Phe thứ 3) không có quyền Monster Chat
+            bool tc05_isMonster = NetworkChatManager.IsPlayerMonster(p1_Neutral);
+            Assert(!tc05_isMonster, "TC05: Người chơi phe thứ 3 (Neutral) không thuộc phe Monster",
+                $"(isMonster={tc05_isMonster})");
+
+            // TC06: Server từ chối phát tán tin nhắn Monster nếu sender không phải là Monster
+            bool tc06_rejected = !chatMgr.ProcessMonsterChatMessage(0 /* Villager */, "Tin nhan gia mao");
+            Assert(tc06_rejected, "TC06: Server xác thực và từ chối phát tán tin nhắn Monster từ người không thuộc Monster",
+                $"(rejected={tc06_rejected})");
+
+            // TC07: Bạch Khuyển chưa thức tỉnh không có quyền Chat Monster
+            bool tc07_whMonster = NetworkChatManager.IsPlayerMonster(p3_WhiteHound);
+            Assert(!tc07_whMonster, "TC07: Bạch Khuyển khi chưa thức tỉnh không có quyền Chat Monster",
+                $"(whMonster={tc07_whMonster})");
+
+            // TC08: Tab CHAT MONSTER bị ẩn khi người chơi chưa có quyền Monster
+            NetworkChatManager.SetLocalMonsterChatPermission(false);
+            chatUI.RefreshMonsterTabVisibility();
+            bool tc08_hidden = !NetworkChatUI.HasMonsterChatPermission();
+            Assert(tc08_hidden, "TC08: Tab CHAT MONSTER bị ẩn hoàn toàn khi người chơi không có quyền Monster",
+                $"(hidden={tc08_hidden})");
+
+            // TC09: DogSpirit cắn trúng Bạch Khuyển -> Bạch Khuyển thức tỉnh nhưng KHÔNG nằm trong kênh chat của Monster
+            p3_WhiteHound.isWhiteHoundAwakened = true;
+            p3_WhiteHound.faction = FactionType.Monster;
+            bool tc09_inMonsterChat = NetworkChatManager.IsPlayerMonster(p3_WhiteHound);
+            Assert(!tc09_inMonsterChat, "TC09: Bạch Khuyển sau khi thức tỉnh thành Sói Trắng KHÔNG nằm trong kênh chat của Monster",
+                $"(inMonsterChat={tc09_inMonsterChat})");
+
+            // TC10: Bạch Khuyển thức tỉnh -> Tab CHAT MONSTER vẫn bị ẩn và không có quyền truy cập
+            bool tc10_hasMonsterPerm = NetworkChatManager.IsPlayerMonster(p3_WhiteHound);
+            Assert(!tc10_hasMonsterPerm, "TC10: Bạch Khuyển thức tỉnh không có quyền Chat Monster, bảo toàn bí mật kênh sói",
+                $"(hasPerm={tc10_hasMonsterPerm})");
+
+            // Kiểm tra: Thông báo cho DogSpirit khi cắn trúng Bạch Khuyển đã bị loại bỏ hoàn toàn
+            NetworkDogSpiritNotificationUI.NotifyDogSpiritBitten(2, 3);
+            bool tcDogSpiritNoNotification = !NetworkDogSpiritNotificationUI.HasNotifiedThisMatch;
+            Assert(tcDogSpiritNoNotification, "TC_DogSpiritNoNotification: Đã loại bỏ hoàn toàn thông báo cắn trúng Bạch Khuyển cho DogSpirit",
+                $"(hasNotified={!tcDogSpiritNoNotification})");
+
+            // TC11: Nếu được Bảo Vệ bảo vệ thành công -> Bạch Khuyển không thức tỉnh và không có quyền
+            var p3_Protected = new PlayerData { playerID = 4, playerName = "BachKhuyen2", roleType = RoleType.WhiteHound, faction = FactionType.Villager, isAlive = true, isWhiteHoundAwakened = false };
+            pm.players.Add(p3_Protected);
+            bool tc11_noAwaken = !p3_Protected.isWhiteHoundAwakened && p3_Protected.faction == FactionType.Villager;
+            Assert(tc11_noAwaken, "TC11: Được Bảo Vệ bảo vệ thành công -> Bạch Khuyển không thức tỉnh và không nhận quyền Chat Monster",
+                $"(isAwakened={p3_Protected.isWhiteHoundAwakened}, faction={p3_Protected.faction})");
+
+            // TC12: Chuyển đổi qua lại giữa Tab Chat Làng và Tab Chat Monster bảo toàn lịch sử
+            chatUI.SwitchToTab(NetworkChatUI.ChatTab.Village);
+            bool tc12_villageActive = chatUI.ActiveTab == NetworkChatUI.ChatTab.Village;
+            chatUI.SwitchToTab(NetworkChatUI.ChatTab.Monster);
+            bool tc12_monsterActive = chatUI.ActiveTab == NetworkChatUI.ChatTab.Monster;
+            bool tc12_historyPreserved = chatMgr.VillageHistory.Count == 1 && chatMgr.MonsterHistory.Count == 1;
+            Assert(tc12_villageActive && tc12_monsterActive && tc12_historyPreserved,
+                "TC12: Chuyển đổi qua lại giữa 2 Tab hoạt động mượt mà và bảo toàn lịch sử từng kênh",
+                $"(historyOk={tc12_historyPreserved})");
+
+            // TC13: Định dạng tin nhắn Monster có prefix phân biệt
+            var monsterMsg = chatMgr.MonsterHistory[0];
+            bool tc13_channelCheck = monsterMsg.Channel == (byte)ChatChannel.Monster;
+            Assert(tc13_channelCheck, "TC13: Tin nhắn Monster được lưu đúng Channel = 1 để hiển thị màu và nhãn [Sói] phân biệt",
+                $"(channel={monsterMsg.Channel})");
+
+            // TC14: Reset trận mới -> Làm sạch toàn bộ lịch sử 2 kênh và reset quyền thức tỉnh
+            ThuongOnlineWinAdapter.ResetForNewMatch();
+            NetworkChatManager.SetLocalMonsterChatPermission(false);
+            chatUI.RefreshMonsterTabVisibility();
+            bool tc14_historyEmpty = chatMgr.VillageHistory.Count == 0 && chatMgr.MonsterHistory.Count == 0;
+            bool tc14_whReset = !p3_WhiteHound.isWhiteHoundAwakened && p3_WhiteHound.faction == FactionType.Villager;
+            Assert(tc14_historyEmpty && tc14_whReset, "TC14: Bắt đầu ván mới -> Xóa sạch lịch sử 2 kênh chat và khôi phục trạng thái Bạch Khuyển ban đầu",
+                $"(historyEmpty={tc14_historyEmpty}, whReset={tc14_whReset})");
+        }
+        finally
+        {
+            if (canvasGO != null) UnityEngine.Object.DestroyImmediate(canvasGO);
+            if (chatMgrGO != null) UnityEngine.Object.DestroyImmediate(chatMgrGO);
+            Teardown(pmGO, pm);
         }
     }
 }

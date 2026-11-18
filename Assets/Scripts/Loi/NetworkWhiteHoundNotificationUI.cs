@@ -197,12 +197,6 @@ public class NetworkWhiteHoundNotificationUI : MonoBehaviour
         {
             Debug.Log($"[NetworkWhiteHoundNotificationUI] DeathResolver xác nhận DogSpirit cắn trúng WhiteHound (Player {target.playerID + 1}) -> Gửi thông báo thức tỉnh!");
             NotifyPlayerAwakened(target.playerID);
-
-            int dogSpiritPlayerId = NetworkDogSpiritNotificationUI.ResolveDogSpiritPlayerId(result);
-            if (dogSpiritPlayerId >= 0)
-            {
-                NetworkDogSpiritNotificationUI.NotifyDogSpiritBitten(dogSpiritPlayerId, target.playerID);
-            }
         }
     }
 

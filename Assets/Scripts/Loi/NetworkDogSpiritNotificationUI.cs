@@ -147,26 +147,8 @@ public class NetworkDogSpiritNotificationUI : MonoBehaviour
     /// </summary>
     public void HandleDeathResolved(DeathResult result)
     {
-        if (result.Request.Target == null) return;
-        PlayerData target = result.Request.Target;
-        bool isWhiteHound = target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf;
-        bool bittenByDogSpirit = result.Request.SourceRole == RoleType.DogSpirit ||
-                                 (result.Request.Source != null && result.Request.Source.roleType == RoleType.DogSpirit);
-
-        // Điều kiện nghiêm ngặt:
-        // 1. Mục tiêu là WhiteHound.
-        // 2. Nguồn tấn công là DogSpirit.
-        // 3. Bạch Khuyển thực sự thức tỉnh (target.isWhiteHoundAwakened == true).
-        // 4. Nếu bị Guardian bảo vệ thành công, target.isWhiteHoundAwakened không bao giờ chuyển thành true tại thời điểm giải quyết.
-        if (isWhiteHound && bittenByDogSpirit && target.isWhiteHoundAwakened)
-        {
-            int dogSpiritPlayerId = ResolveDogSpiritPlayerId(result);
-            Debug.Log($"[NetworkDogSpiritNotificationUI] DeathResolver xác nhận DogSpirit (Player {dogSpiritPlayerId + 1}) cắn trúng WhiteHound (Player {target.playerID + 1}) và đã thức tỉnh -> Gửi thông báo cho DogSpirit!");
-            if (dogSpiritPlayerId >= 0)
-            {
-                NotifyDogSpiritBitten(dogSpiritPlayerId, target.playerID);
-            }
-        }
+        // Yêu cầu: Loại bỏ thông báo cho DogSpirit biết đã cắn trúng Bạch Khuyển
+        return;
     }
 
     /// <summary>
@@ -328,89 +310,17 @@ public class NetworkDogSpiritNotificationUI : MonoBehaviour
     /// </summary>
     public static void NotifyDogSpiritBitten(int dogSpiritPlayerId, int whiteHoundPlayerId)
     {
-        EnsureInstance();
-
-        var net = NetworkManager.Singleton;
-        if (net == null || !net.IsListening)
-        {
-            // Môi trường offline hoặc unit test
-            int localId = GetLocalPlayerId();
-            if (localId < 0 || localId == dogSpiritPlayerId)
-            {
-                Instance?.ShowNotification();
-            }
-            return;
-        }
-
-        if (net.IsServer)
-        {
-            ulong targetClientId = NetworkWhiteHoundNotificationUI.GetClientIdForPlayerId(dogSpiritPlayerId);
-            Debug.Log($"[NetworkDogSpiritNotificationUI] Server xác nhận DogSpirit (Player {dogSpiritPlayerId + 1}) cắn trúng Bạch Khuyển! Target ClientId = {targetClientId}");
-
-            if (targetClientId == net.LocalClientId)
-            {
-                // Host là người chơi DogSpirit
-                Instance?.ShowNotification();
-            }
-            else if (targetClientId != ulong.MaxValue && net.ConnectedClients.ContainsKey(targetClientId))
-            {
-                // Client từ xa là DogSpirit -> gửi tin nhắn riêng qua mạng
-                using var writer = new FastBufferWriter(16, Allocator.Temp);
-                writer.WriteValueSafe(dogSpiritPlayerId);
-                net.CustomMessagingManager.SendNamedMessage(
-                    DogSpiritBiteWhiteHoundMessageName,
-                    targetClientId,
-                    writer,
-                    NetworkDelivery.ReliableSequenced
-                );
-                Debug.Log($"[NetworkDogSpiritNotificationUI] Đã gửi thông báo cắn trúng riêng tới Client {targetClientId} (Player {dogSpiritPlayerId + 1}).");
-            }
-            else
-            {
-                int localId = GetLocalPlayerId();
-                if (localId == dogSpiritPlayerId)
-                {
-                    Instance?.ShowNotification();
-                }
-            }
-        }
-        else
-        {
-            // Phía Client: nếu được gọi trực tiếp, kiểm tra xem có phải bản thân không
-            int localId = GetLocalPlayerId();
-            if (localId == dogSpiritPlayerId)
-            {
-                Instance?.ShowNotification();
-            }
-        }
+        // Yêu cầu: Loại bỏ thông báo cho DogSpirit biết đã cắn trúng Bạch Khuyển
+        return;
     }
 
     /// <summary>
-    /// Hiển thị popup thông báo cho DogSpirit cục bộ.
+    /// Hiển thị popup thông báo cho DogSpirit cục bộ (đã bị vô hiệu hóa theo yêu cầu).
     /// </summary>
     public void ShowNotification()
     {
-        if (hasNotifiedThisMatch)
-        {
-            Debug.Log("[NetworkDogSpiritNotificationUI] Đã phát thông báo trong ván này, bỏ qua để tránh trùng lặp.");
-            return;
-        }
-
-        hasNotifiedThisMatch = true;
-        isVisible = true;
-
-        Debug.Log($"[NetworkDogSpiritNotificationUI] HIỂN THỊ THÔNG BÁO CHO DOGSPIRIT:\n- Tiêu đề: {NotificationTitle}\n- Nhãn: {TargetRoleLabel}\n- Phụ: {NotificationSubtitle}");
-
-        BuildUI();
-
-        if (autoHideCoroutine != null)
-        {
-            StopCoroutine(autoHideCoroutine);
-        }
-        if (autoHideDuration > 0f)
-        {
-            autoHideCoroutine = StartCoroutine(AutoHideRoutine(autoHideDuration));
-        }
+        // Yêu cầu: Loại bỏ thông báo cho DogSpirit biết đã cắn trúng Bạch Khuyển
+        return;
     }
 
     public void HideNotification()

@@ -79,6 +79,69 @@ namespace Thuong.Online
         public ushort GetPrivateFlags() => privateFlags;
 
         /// <summary>
+        /// Tra cứu PlayerId của người chơi tương ứng với ClientId từ serverPlayers.
+        /// </summary>
+        public bool TryGetPlayerIdForClientId(ulong clientId, out int playerId)
+        {
+            if (serverPlayers != null && serverPlayers.TryGetValue(clientId, out var member) && member != null)
+            {
+                playerId = member.PlayerId;
+                return true;
+            }
+            playerId = -1;
+            return false;
+        }
+
+        /// <summary>
+        /// Kiểm tra xem ClientId trên Server có thuộc phe Monster không.
+        /// </summary>
+        public bool IsServerPlayerMonster(ulong clientId)
+        {
+            if (serverPlayers != null && serverPlayers.TryGetValue(clientId, out var member) && member != null)
+            {
+                var player = players?.GetplayerByID(member.PlayerId);
+                if (player != null)
+                {
+                    // Bạch Khuyển không nằm trong kênh chat của Monster theo yêu cầu
+                    if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) return false;
+                    if (player.roleType == RoleType.DogSpirit || player.roleType == RoleType.SerpentSpirit || player.roleType == RoleType.Ogre) return true;
+                    if (player.faction == FactionType.Monster) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Lấy danh sách ClientId của tất cả người chơi thuộc phe Monster đang trực tuyến.
+        /// </summary>
+        public System.Collections.Generic.List<ulong> GetMonsterClientIds()
+        {
+            var list = new System.Collections.Generic.List<ulong>();
+            if (serverPlayers != null)
+            {
+                foreach (var pair in serverPlayers)
+                {
+                    if (pair.Value != null && !pair.Value.Offline)
+                    {
+                        var player = players?.GetplayerByID(pair.Value.PlayerId);
+                        if (player != null)
+                        {
+                            // Bạch Khuyển không nằm trong kênh chat của Monster theo yêu cầu
+                            if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf) continue;
+                            bool isMonster = (player.roleType == RoleType.DogSpirit || player.roleType == RoleType.SerpentSpirit || player.roleType == RoleType.Ogre) ||
+                                             (player.faction == FactionType.Monster);
+                            if (isMonster)
+                            {
+                                list.Add(pair.Key);
+                            }
+                        }
+                    }
+                }
+            }
+            return list;
+        }
+
+        /// <summary>
         /// Áp dụng giới hạn kỹ năng Xà Tinh trong Thương Online:
         /// Ở Đêm 1 và Đêm 2, xóa cờ HasActiveLocalAbility (bit 8) để RoleAbilityUI ẩn nút CHỌN MỤC TIÊU.
         /// Từ Đêm 3 trở đi, cho phép hiển thị và sử dụng bình thường.
