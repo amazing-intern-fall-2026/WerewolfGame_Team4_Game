@@ -70,6 +70,13 @@ public class NetworkGameOverManager : MonoBehaviour
         }
     }
 
+    public static bool IsNonGameplayScene(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName)) return false;
+        return sceneName.IndexOf("MainMenu", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               sceneName.IndexOf("Lobby", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     public void ResetUIState()
     {
         isGameOver = false;
@@ -80,13 +87,26 @@ public class NetworkGameOverManager : MonoBehaviour
         shamanKillDelayTimer = 0f;
         if (gameOverPanel != null)
         {
-            Destroy(gameOverPanel);
+            if (Application.isPlaying) Destroy(gameOverPanel);
+            else DestroyImmediate(gameOverPanel);
             gameOverPanel = null;
         }
         if (dedicatedCanvasGO != null)
         {
-            Destroy(dedicatedCanvasGO);
+            if (Application.isPlaying) Destroy(dedicatedCanvasGO);
+            else DestroyImmediate(dedicatedCanvasGO);
             dedicatedCanvasGO = null;
+        }
+
+        // Dọn dẹp triệt để mọi Canvas kết thúc ván còn sót lại kể cả inactive
+        var allCanvases = Resources.FindObjectsOfTypeAll<Canvas>();
+        foreach (var c in allCanvases)
+        {
+            if (c != null && c.gameObject != null && c.gameObject.name == "GameOverDedicatedCanvas")
+            {
+                if (Application.isPlaying) Destroy(c.gameObject);
+                else DestroyImmediate(c.gameObject);
+            }
         }
     }
 
@@ -103,17 +123,33 @@ public class NetworkGameOverManager : MonoBehaviour
         }
         _instance = this;
         ResetUIState();
-        EnsureLoiMatchEvaluatorInstalled();
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (!IsNonGameplayScene(activeScene.name))
+        {
+            EnsureLoiMatchEvaluatorInstalled();
+        }
     }
 
     private void Start()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name))
+        {
+            ResetUIState();
+            return;
+        }
         EnableDev2EliminationWin();
         EnsureLoiMatchEvaluatorInstalled();
     }
 
     private void OnEnable()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name))
+        {
+            ResetUIState();
+            return;
+        }
         SubscribeToEvents();
         EnsureLoiMatchEvaluatorInstalled();
     }
@@ -279,6 +315,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void Update()
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name))
+        {
+            if (uiShown || isGameOver || gameOverPanel != null || dedicatedCanvasGO != null)
+            {
+                ResetUIState();
+            }
+            return;
+        }
+
         EnsureLoiMatchEvaluatorInstalled();
 
         if (shamanKillDelayTimer > 0f)
@@ -492,6 +538,9 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void CheckServerWinCondition(bool forceCheck = false)
     {
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name)) return;
+
         EnsureLoiMatchEvaluatorInstalled();
 
         if (isGameOver || GameEnded) return;
@@ -894,6 +943,15 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void TriggerGameOver(string winner)
     {
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name))
+        {
+            ResetUIState();
+            return;
+        }
+
         if (string.IsNullOrEmpty(winner))
         {
             winner = ResolveAllDeadWinner();
@@ -933,6 +991,16 @@ public class NetworkGameOverManager : MonoBehaviour
 
     public void ShowGameOverUI(string winner)
     {
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name))
+        {
+            Debug.LogWarning("[NetworkGameOverManager] Đang ở scene ngoài trận, hủy bỏ hiển thị GameOver UI.");
+            ResetUIState();
+            return;
+        }
+
         if (string.IsNullOrEmpty(winner))
         {
             Debug.Log("GAME OVER MANAGER | ShowGameOverUI được gọi với winner rỗng, đang đợi đồng bộ từ Server...");
@@ -966,6 +1034,11 @@ public class NetworkGameOverManager : MonoBehaviour
 
     private void BuildGameOverUIDirect(string winner)
     {
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name)) return;
+
         // 1. Đảm bảo có EventSystem để nhận tương tác chuột
         var existingEventSystem = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
         if (existingEventSystem == null)
@@ -1117,6 +1190,10 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnGUI()
     {
         if (!isGameOver) return;
+        if (!Application.isPlaying) return;
+
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (IsNonGameplayScene(activeScene.name)) return;
 
         // Nếu vì bất kỳ lý do gì gameOverPanel chưa hiện trên màn hình, OnGUI sẽ vẽ trực tiếp
         if (gameOverPanel == null)
@@ -1891,6 +1968,8 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnLeaveRoomClicked()
     {
         Debug.Log("GAME OVER | Người chơi bấm Rời phòng về MainMenu.");
+        ResetUIState();
+
         if (NetworkReturnToMenuController.Instance != null)
         {
             NetworkReturnToMenuController.Instance.RequestReturnToMenu();

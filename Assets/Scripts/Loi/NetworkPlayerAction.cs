@@ -318,6 +318,34 @@ public class NetworkPlayerAction : NetworkBehaviour
             }
         }
 
+        bool isSerpentSpiritRole = false;
+        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null)
+        {
+            if (RoleManager.Instance.playerRoles.TryGetValue((int)requesterClientId, out BaseRole ssCheck) && ssCheck != null)
+            {
+                isSerpentSpiritRole = ssCheck.roleType == RoleType.SerpentSpirit;
+            }
+        }
+        if (!isSerpentSpiritRole && PlayerManager.Instance != null)
+        {
+            PlayerData pCheck = PlayerManager.Instance.GetplayerByID((int)requesterClientId);
+            if (pCheck != null && pCheck.roleType == RoleType.SerpentSpirit)
+            {
+                isSerpentSpiritRole = true;
+            }
+        }
+
+        if (isSerpentSpiritRole && currentNightCycle < 3)
+        {
+            SendActionResultToClient(
+                false,
+                "Xà Tinh chỉ có thể tấn công từ đêm thứ ba!",
+                requesterClientId
+            );
+            Debug.LogWarning($"SERVER ACTION BLOCKED | Xà Tinh (Player {requesterClientId + 1}) cố gắng tấn công ở Đêm {currentNightCycle} (chỉ được phép từ Đêm 3).");
+            return;
+        }
+
         // Shaman kiểm tra giới hạn bùa theo toàn trận đấu (Save dùng tối đa 1 lần, Kill dùng tối đa 1 lần)
         if (isShamanRole)
         {

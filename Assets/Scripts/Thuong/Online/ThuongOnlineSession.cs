@@ -165,6 +165,7 @@ namespace Thuong.Online
             UpdateMinigames();
             UpdateVillage();
             RefreshMapPresentation();
+            RefreshMinimap();
             RefreshTaskGuidance();
             UpdateTutorialInput();
             if (!connected || network == null || !network.IsListening) return;
@@ -999,7 +1000,9 @@ namespace Thuong.Online
             if (player.isAlive) flags |= 1;
             if (player.hasVoted) flags |= 2;
             bool configured = RoleManager.UsesConfiguredAbility(player);
-            if (configured ? game.abilities.ValidateActor(player).FailureReason == ActionFailureReason.AlreadyUsed : player.hasUseNightAction) flags |= 4;
+            bool abilityUsed = roomRules.mode == ThuongMatchMode.RealtimeProximity ? player.hasUseNightAction
+                : configured ? game.abilities.ValidateActor(player).FailureReason == ActionFailureReason.AlreadyUsed : player.hasUseNightAction;
+            if (abilityUsed) flags |= 4;
             if (player.CanVote) flags |= 32;
             if (player.HasEffect(StatusEffectType.Silenced)) flags |= 64;
             if (player.isWhiteHoundAwakened) flags |= 128;
@@ -1016,6 +1019,9 @@ namespace Thuong.Online
                 }
                 if (role is WeaverOfFateRole weaver && weaver.HasUsedAbility) flags |= 1024;
             }
+            int abilityNight = game != null && game.currentDay > 0 ? game.currentDay : visibleDay;
+            if (player.roleType == RoleType.SerpentSpirit && abilityNight < 3)
+                flags = (ushort)(flags & ~8);
             int votedTarget = VoteManager.Instance != null ? VoteManager.Instance.GetVotedTarget(player.playerID) : -1;
             int[] allowedTargets = AllowedTargets(player);
 
@@ -1149,6 +1155,14 @@ namespace Thuong.Online
             { Reply(member, "Giai đoạn đã thay đổi. Hãy chọn lại thao tác."); return; }
             PlayerData actor = players?.GetplayerByID(member.PlayerId);
             if (actor == null) { Reply(member, "Không tìm thấy người chơi."); return; }
+
+            bool serpentAbilityRequest = action == ThuongOnlineAction.NightAbility ||
+                action == ThuongOnlineAction.RealtimeAbility;
+            if (actor.roleType == RoleType.SerpentSpirit && serpentAbilityRequest && game.currentDay < 3)
+            {
+                Reply(member, "Xà Tinh chỉ có thể tấn công từ đêm thứ ba!");
+                return;
+            }
 
             if (roomRules.mode == ThuongMatchMode.RealtimeProximity &&
                 action is ThuongOnlineAction.MakeLovers or ThuongOnlineAction.NightAbility or
@@ -1721,6 +1735,7 @@ namespace Thuong.Online
             PlayerEmoteWheelUI.DisposeFor(this);
             leavingScene = true;
             DisposeMapUi();
+            DisposeMinimap();
             DisposeTaskGuidance();
             ClearMapPresentation();
             ResetMinigames();

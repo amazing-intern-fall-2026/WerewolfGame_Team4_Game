@@ -188,6 +188,7 @@ namespace Thuong.Online
 
         private void ClearMapPresentation()
         {
+            ResetMinimap();
             CloseMapSettings();
             eventPresentation?.Clear(); publicEvent = GameEventType.None; publicEventDay = 0;
             mapDrawComplete = false; selectedMapEvent = GameEventType.None;

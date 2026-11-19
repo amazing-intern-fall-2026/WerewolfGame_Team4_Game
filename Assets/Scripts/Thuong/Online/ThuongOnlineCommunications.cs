@@ -6,6 +6,7 @@ using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Thuong.Online
@@ -30,6 +31,9 @@ namespace Thuong.Online
         private NetworkChatManager communicationChat;
         private TMP_Text communicationLabel, microphoneLabel, speakerLabel;
         private Button microphoneButton, speakerButton;
+        private RectTransform communicationSafeArea;
+        private GameObject communicationHint;
+        private bool communicationHintHovered;
         private NetworkVoiceManager communicationVoice;
         private int voiceRequestVersion;
         private bool communicationDisposed;
@@ -59,18 +63,72 @@ namespace Thuong.Online
             }
             communicationChat.ClearHistory();
             communicationUi = communicationRoot.AddComponent<NetworkChatUI>();
-            var bar = LobbyPanel("Communication controls", (RectTransform)communicationRoot.transform,
-                new Vector2(.745f, .705f), new Vector2(.99f, .785f), false);
-            bar.GetComponent<Image>().color = new Color32(32, 31, 46, 245);
-            microphoneButton = LobbyButton("Microphone", bar, "MIC: TẮT", new Vector2(0, .36f), new Vector2(.48f, 1), () => communicationVoice?.ToggleMicrophone());
+            communicationSafeArea = new GameObject("Voice safe area", typeof(RectTransform)).GetComponent<RectTransform>();
+            communicationSafeArea.SetParent(communicationRoot.transform, false);
+            var bar = new GameObject("Communication controls", typeof(RectTransform)).GetComponent<RectTransform>();
+            bar.SetParent(communicationSafeArea, false);
+            bar.anchorMin = bar.anchorMax = bar.pivot = Vector2.zero;
+            // The chat launcher occupies x=16..68. This dock fits below the lobby card
+            // and the gameplay task panel, away from the footer's match actions.
+            bar.anchoredPosition = new Vector2(76, 4);
+            bar.sizeDelta = new Vector2(94, 36);
+            microphoneButton = LobbyButton("Microphone", bar, "MIC\nTẮT", Vector2.zero, new Vector2(44f / 94f, 1), () => communicationVoice?.ToggleMicrophone());
             microphoneLabel = microphoneButton.GetComponentInChildren<TMP_Text>();
-            speakerButton = LobbyButton("Speaker", bar, "LOA: BẬT", new Vector2(.51f, .36f), Vector2.one,
+            speakerButton = LobbyButton("Speaker", bar, "LOA\nBẬT", new Vector2(50f / 94f, 0), Vector2.one,
                 () => communicationVoice?.ToggleOutputAudio());
             speakerLabel = speakerButton.GetComponentInChildren<TMP_Text>();
-            communicationLabel = LobbyText("Communication permission", bar, "", Vector2.zero, new Vector2(1, .36f), 13);
+            ConfigureVoiceButton(microphoneButton, microphoneLabel);
+            ConfigureVoiceButton(speakerButton, speakerLabel);
+            var hint = LobbyPanel("Voice status hint", bar, Vector2.zero, Vector2.zero, false);
+            hint.pivot = Vector2.zero; hint.anchoredPosition = new Vector2(0, 42);
+            hint.sizeDelta = new Vector2(272, 52);
+            hint.GetComponent<Image>().color = new Color32(26, 30, 37, 245);
+            hint.GetComponent<Image>().raycastTarget = false;
+            communicationHint = hint.gameObject;
+            communicationLabel = LobbyText("Communication permission", hint, "", new Vector2(.04f, .08f), new Vector2(.96f, .92f), 13);
             communicationLabel.color = new Color32(247, 232, 193, 255);
             communicationLabel.fontSizeMin = 11;
+            communicationLabel.textWrappingMode = TextWrappingModes.Normal;
+            communicationHint.SetActive(false);
+            RefreshCommunicationSafeArea();
             communicationRoot.SetActive(false);
+        }
+
+        private void ConfigureVoiceButton(Button button, TMP_Text label)
+        {
+            var image = button.GetComponent<Image>();
+            image.sprite = null; image.type = Image.Type.Simple;
+            label.fontSize = label.fontSizeMin = label.fontSizeMax = 11;
+            label.enableAutoSizing = false;
+            label.color = ThuongMedievalTheme.Cream;
+            // Hover still explains unavailable voice when the Button is disabled.
+            var events = button.gameObject.AddComponent<EventTrigger>();
+            var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            enter.callback.AddListener(_ => communicationHintHovered = true);
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => communicationHintHovered = false);
+            events.triggers.Add(enter); events.triggers.Add(exit);
+            var colors = button.colors;
+            colors.highlightedColor = new Color(1.2f, 1.2f, 1.2f, 1);
+            colors.pressedColor = new Color(.75f, .75f, .75f, 1);
+            colors.disabledColor = new Color(.6f, .6f, .6f, .85f);
+            button.colors = colors;
+        }
+
+        private void RefreshCommunicationSafeArea()
+        {
+            Rect safe = Screen.safeArea;
+            communicationSafeArea.anchorMin = new Vector2(safe.xMin / Mathf.Max(1, Screen.width), safe.yMin / Mathf.Max(1, Screen.height));
+            communicationSafeArea.anchorMax = new Vector2(safe.xMax / Mathf.Max(1, Screen.width), safe.yMax / Mathf.Max(1, Screen.height));
+            communicationSafeArea.offsetMin = communicationSafeArea.offsetMax = Vector2.zero;
+        }
+
+        private static void RefreshVoiceButton(Button button, TMP_Text label, string name, bool ready, bool muted)
+        {
+            button.interactable = ready;
+            label.text = name + "\n" + (!ready ? "CHỜ" : muted ? "TẮT" : "BẬT");
+            button.GetComponent<Image>().color = !ready ? new Color32(49, 54, 63, 245)
+                : muted ? new Color32(103, 55, 49, 245) : new Color32(43, 85, 67, 245);
         }
 
         private void RegisterCommunicationMessages()
@@ -121,6 +179,8 @@ namespace Thuong.Online
             communicationRoot.SetActive(active);
             if (!active)
             {
+                communicationHintHovered = false;
+                communicationHint.SetActive(false);
                 if (!string.IsNullOrEmpty(localVoiceGroup) || communicationAudience != ThuongCommunicationAudience.None)
                     ApplyCommunicationPolicy(matchEpoch, 0, ThuongCommunicationAudience.None, string.Empty);
                 return;
@@ -156,11 +216,11 @@ namespace Thuong.Online
             communicationUi.SetCommunicationAvailability(permitted, ChatPermissionReason);
             bool voiceReady = communicationVoice != null && communicationVoice.IsInLobbyVoice &&
                 communicationVoice.CurrentChannelName == localVoiceGroup && permitted;
-            microphoneButton.interactable = voiceReady;
-            speakerButton.interactable = voiceReady;
-            microphoneLabel.text = communicationVoice != null && !communicationVoice.IsMicrophoneMuted ? "MIC: BẬT" : "MIC: TẮT";
-            speakerLabel.text = communicationVoice == null || !communicationVoice.IsOutputMuted ? "LOA: BẬT" : "LOA: TẮT";
+            RefreshCommunicationSafeArea();
+            RefreshVoiceButton(microphoneButton, microphoneLabel, "MIC", voiceReady, communicationVoice == null || communicationVoice.IsMicrophoneMuted);
+            RefreshVoiceButton(speakerButton, speakerLabel, "LOA", voiceReady, communicationVoice != null && communicationVoice.IsOutputMuted);
             communicationLabel.text = !permitted ? ChatPermissionReason : voiceReady ? ChatPermissionReason : "Chat sẵn sàng · Thoại chưa kết nối";
+            communicationHint.SetActive(communicationHintHovered && !communicationUi.IsOpen);
             if (permitted && !voiceReady && AuthManager.Instance.IsSignedIn && Time.unscaledTimeAsDouble >= nextVoiceAttempt)
             {
                 nextVoiceAttempt = Time.unscaledTimeAsDouble + 10;

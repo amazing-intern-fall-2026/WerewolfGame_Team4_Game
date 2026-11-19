@@ -19,6 +19,7 @@ public static partial class ThuongRoomUpgradeOnlineChecks
 
     private static IEnumerator ExerciseReviewSmoke()
     {
+        ThuongCompactVoiceChecks.RemoveFixtureOverlays();
         lastStep = "review: starting production host";
         Set(host, "portText", Port.ToString()); Call(host, "HostLan");
         while (!Get<bool>(host, "connected")) yield return null;
@@ -33,6 +34,7 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         Check(clients.All(client => JsonUtility.ToJson(client.RoomRules.village) == JsonUtility.ToJson(rules.village)),
             "Review: two actual transports decode all village settings identically");
         Check(!(bool)Call(clients[0], "SetRoomRules", new ThuongRoomRules()), "Review: client cannot alter host village rules");
+        ThuongCompactVoiceChecks.Capture(host, "lobby");
 
         Call(host, "OpenRulesSettings"); Call(host, "OpenVillageRulesSettings");
         yield return null; Capture("review-village-rules");
@@ -55,6 +57,8 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         }
         Call(host, "StartMatchOnServer");
         while (clients.Any(client => !client.MatchStarted)) yield return null;
+        yield return null;
+        ThuongCompactVoiceChecks.Capture(host, "gameplay");
         Check(!(bool)Call(host, "SetRoomRules", new ThuongRoomRules()), "Review: village rules lock after match starts");
         Check(clients.All(client => !Get<bool>(client, "journalReady")), "Review: live clients receive no post-match journal");
 
@@ -88,5 +92,10 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         Check(Get<Button>(host, "journalTextExportButton").interactable && Get<Button>(host, "journalJsonExportButton").interactable,
             "Review: completed and received journal enables both export formats");
         NetworkGameRoleSetup.Clear();
+        if (SessionState.GetBool(RunKey + ".Followup", false))
+        {
+            var followup = ExerciseFollowupFixes();
+            while (followup.MoveNext()) yield return followup.Current;
+        }
     }
 }
