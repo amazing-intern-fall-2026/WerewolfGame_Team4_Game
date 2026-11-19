@@ -27,6 +27,15 @@ public class NetworkPlayerAction : NetworkBehaviour
         pendingActionNightCycle =
         new Dictionary<ulong, int>();
 
+    private static readonly HashSet<ulong> weaverUsedPlayers = new HashSet<ulong>();
+
+    public static bool HasWeaverUsedAbility(ulong clientId) => weaverUsedPlayers.Contains(clientId);
+    public static void SetWeaverUsedAbility(ulong clientId, bool used)
+    {
+        if (used) weaverUsedPlayers.Add(clientId);
+        else weaverUsedPlayers.Remove(clientId);
+    }
+
     // =========================================================
     // EVENTS
     // =========================================================
@@ -56,6 +65,7 @@ public class NetworkPlayerAction : NetworkBehaviour
     {
         playersActionNightCycle.Clear();
         pendingActionNightCycle.Clear();
+        weaverUsedPlayers.Clear();
         // Không null hóa các static event (OnNetworkActionResult, OnNetworkActionAccepted, ...)
         // vì các UI MonoBehaviour (NetworkSkillUI) subscribe khi khởi tạo.
         // Null hóa khi spawn/despawn làm mất kết nối nhận kết quả RPC của Client/Host.
@@ -102,6 +112,15 @@ public class NetworkPlayerAction : NetworkBehaviour
     // =========================================================
     // REQUEST ACTION
     // =========================================================
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestPairActionServerRpc(
+        ulong firstTargetId,
+        ulong secondTargetId,
+        ServerRpcParams rpcParams = default)
+    {
+        RequestActionServerRpc(firstTargetId, (int)secondTargetId, rpcParams);
+    }
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestActionServerRpc(
@@ -250,19 +269,7 @@ public class NetworkPlayerAction : NetworkBehaviour
         // Night 3 -> 3
         // =====================================================
 
-        int currentNightCycle = 1;
-        if (NetworkPhaseSync.Instance != null && NetworkPhaseSync.Instance.CurrentNightCycle.Value > 0)
-        {
-            currentNightCycle = NetworkPhaseSync.Instance.CurrentNightCycle.Value;
-        }
-        else if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0)
-        {
-            currentNightCycle = NightManager.Instance.CurrentNightNumber;
-        }
-        else if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentDay > 0)
-        {
-            currentNightCycle = GameRoleManager.Instance.currentDay;
-        }
+        int currentNightCycle = ThuongOnlineSerpentSpiritAdapter.GetAuthoritativeNightNumber();
 
         // =====================================================
         // ACTION CHECK
@@ -333,6 +340,33 @@ public class NetworkPlayerAction : NetworkBehaviour
             {
                 isSerpentSpiritRole = true;
             }
+        }
+
+        bool isWeaverOfFateRole = false;
+        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null)
+        {
+            if (RoleManager.Instance.playerRoles.TryGetValue((int)requesterClientId, out BaseRole wfCheck) && wfCheck != null)
+            {
+                isWeaverOfFateRole = wfCheck.roleType == RoleType.WeaverOfFate;
+            }
+        }
+        if (!isWeaverOfFateRole && PlayerManager.Instance != null)
+        {
+            PlayerData pCheck = PlayerManager.Instance.GetplayerByID((int)requesterClientId);
+            if (pCheck != null && pCheck.roleType == RoleType.WeaverOfFate)
+            {
+                isWeaverOfFateRole = true;
+            }
+        }
+
+        if (isWeaverOfFateRole && weaverUsedPlayers.Contains(requesterClientId))
+        {
+            SendActionResultToClient(
+                false,
+                "Dệt Duyên chỉ dùng được một lần mỗi ván.",
+                requesterClientId
+            );
+            return;
         }
 
         if (isSerpentSpiritRole && currentNightCycle < 3)
@@ -541,16 +575,23 @@ public class NetworkPlayerAction : NetworkBehaviour
                     isGuardian =
                         requesterRole.roleType ==
                         RoleType.VillageGuardian;
-
-                    isShamanSave =
-                        requesterRole.roleType ==
-                        RoleType.Shaman &&
-                        subActionId == 1;
                 }
             }
         }
 
-        bool allowSelfTarget = isGuardian || isShamanSave;
+        // Shaman tuyệt đối không được phép tự cứu chính mình!
+        if (isShamanRole && subActionId == 1 && requesterClientId == targetPlayerId)
+        {
+            SendActionResultToClient(
+                false,
+                "Pháp Sư không thể tự cứu chính mình!",
+                requesterClientId
+            );
+            Debug.LogWarning($"SERVER ACTION BLOCKED | Pháp Sư (Player {requesterClientId + 1}) cố gắng tự cứu bản thân!");
+            return;
+        }
+
+        bool allowSelfTarget = isGuardian || isWeaverOfFateRole;
 
         if (
             requesterClientId == targetPlayerId &&
@@ -577,8 +618,6 @@ public class NetworkPlayerAction : NetworkBehaviour
                 + (requesterClientId + 1)
                 + " | Guardian="
                 + isGuardian
-                + " | ShamanSave="
-                + isShamanSave
             );
         }
 
@@ -643,6 +682,72 @@ public class NetworkPlayerAction : NetworkBehaviour
             );
 
             return;
+        }
+
+        // =====================================================
+        // WEAVER OF FATE VALIDATION CHO MỤC TIÊU THỨ 2
+        // =====================================================
+
+        if (isWeaverOfFateRole)
+        {
+            ulong secondTargetId = (ulong)subActionId;
+            if (targetPlayerId == secondTargetId)
+            {
+                SendActionResultToClient(
+                    false,
+                    "Hai mục tiêu ghép đôi phải khác nhau!",
+                    requesterClientId
+                );
+                return;
+            }
+
+            if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(secondTargetId))
+            {
+                SendActionResultToClient(
+                    false,
+                    "Target thứ hai không tồn tại!",
+                    requesterClientId
+                );
+                return;
+            }
+
+            NetworkClient target2Client = NetworkManager.Singleton.ConnectedClients[secondTargetId];
+            if (target2Client.PlayerObject == null)
+            {
+                SendActionResultToClient(
+                    false,
+                    "Target thứ hai không tồn tại!",
+                    requesterClientId
+                );
+                return;
+            }
+
+            NetworkPlayerStateSync target2State = target2Client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+            if (target2State != null && (target2State.State.Value == NetworkPlayerStateType.Dead ||
+                                         target2State.State.Value == NetworkPlayerStateType.Spectating ||
+                                         target2State.State.Value == NetworkPlayerStateType.Disconnected))
+            {
+                SendActionResultToClient(
+                    false,
+                    "Target thứ hai đã chết hoặc ngắt kết nối!",
+                    requesterClientId
+                );
+                return;
+            }
+
+            if (PlayerManager.Instance != null)
+            {
+                PlayerData p2 = PlayerManager.Instance.GetplayerByID((int)secondTargetId);
+                if (p2 != null && !p2.isAlive)
+                {
+                    SendActionResultToClient(
+                        false,
+                        "Target thứ hai đã chết!",
+                        requesterClientId
+                    );
+                    return;
+                }
+            }
         }
 
         // =====================================================
@@ -947,18 +1052,26 @@ public class NetworkPlayerAction : NetworkBehaviour
             if (success)
             {
                 bool requesterIsShaman = false;
+                bool requesterIsWeaver = false;
                 if (RoleManager.Instance != null && RoleManager.Instance.playerRoles != null &&
                     RoleManager.Instance.playerRoles.TryGetValue((int)clientId, out BaseRole r) && r != null)
                 {
                     requesterIsShaman = r.roleType == RoleType.Shaman;
+                    requesterIsWeaver = r.roleType == RoleType.WeaverOfFate;
                 }
-                if (!requesterIsShaman && PlayerManager.Instance != null)
+                if (PlayerManager.Instance != null)
                 {
                     PlayerData p = PlayerManager.Instance.GetplayerByID((int)clientId);
-                    if (p != null && p.roleType == RoleType.Shaman)
+                    if (p != null)
                     {
-                        requesterIsShaman = true;
+                        if (p.roleType == RoleType.Shaman) requesterIsShaman = true;
+                        if (p.roleType == RoleType.WeaverOfFate) requesterIsWeaver = true;
                     }
+                }
+
+                if (requesterIsWeaver)
+                {
+                    weaverUsedPlayers.Add(clientId);
                 }
 
                 if (!requesterIsShaman)
@@ -1163,6 +1276,15 @@ public class NetworkPlayerAction : NetworkBehaviour
                 "SHAMAN VICTIM PROMPT: Chỉ Server mới được gửi thông báo!"
             );
 
+            return;
+        }
+
+        // Không gửi thông báo tự cứu cho Shaman khi chính Shaman là nạn nhân
+        if ((ulong)victimPlayerId == clientId)
+        {
+            Debug.LogWarning(
+                $"SHAMAN VICTIM PROMPT: Chặn gửi thông báo: Shaman (Client {clientId}) là nạn nhân bị tấn công, không được tự cứu!"
+            );
             return;
         }
 
