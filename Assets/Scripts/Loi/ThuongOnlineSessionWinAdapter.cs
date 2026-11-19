@@ -75,6 +75,7 @@ namespace Thuong.Online
         }
 
         public int GetVisibleDay() => visibleDay;
+        public GamePhase GetVisiblePhase() => visiblePhase;
         public RoleType GetPrivateRole() => privateRole;
         public ushort GetPrivateFlags() => privateFlags;
 
@@ -144,18 +145,28 @@ namespace Thuong.Online
         /// <summary>
         /// Áp dụng giới hạn kỹ năng Xà Tinh trong Thương Online:
         /// Ở Đêm 1 và Đêm 2, xóa cờ HasActiveLocalAbility (bit 8) để RoleAbilityUI ẩn nút CHỌN MỤC TIÊU.
-        /// Từ Đêm 3 trở đi, cho phép hiển thị và sử dụng bình thường.
+        /// Từ Đêm 3 trở đi, BẬT LẠI cờ HasActiveLocalAbility (bit 8) để hiển thị và sử dụng bình thường.
         /// </summary>
         public void EnforceSerpentSpiritNightRestriction()
         {
             if (privateRole == RoleType.SerpentSpirit)
             {
-                int night = visibleDay > 0 ? visibleDay : (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0 ? NightManager.Instance.CurrentNightNumber : 1);
+                int night = ThuongOnlineSerpentSpiritAdapter.GetAuthoritativeNightNumber();
+                if (visibleDay < night)
+                {
+                    visibleDay = night;
+                }
                 if (night < 3)
                 {
                     // Bit 8 là cờ HasActiveLocalAbility, xóa bit 8 để RoleAbilityUI ẩn nút chọn mục tiêu
                     privateFlags = (ushort)(privateFlags & ~8);
                 }
+                else
+                {
+                    // Từ Đêm 3 trở đi: BẬT LẠI cờ HasActiveLocalAbility (bit 8) để RoleAbilityUI hiện nút chọn mục tiêu
+                    privateFlags = (ushort)(privateFlags | 8);
+                }
+                ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
             }
         }
     }

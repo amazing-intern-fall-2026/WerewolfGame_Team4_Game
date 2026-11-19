@@ -20,6 +20,14 @@ public class NetworkTargetCardUI : MonoBehaviour
     private int subActionId;
     private string cachedPlayerName;
 
+    private Image cardImage;
+    private Color defaultCardColor = Color.white;
+    private bool hasCachedDefaultColor;
+    private bool isSelected;
+
+    public bool IsSelected => isSelected;
+    public string PlayerName => cachedPlayerName;
+
     public void Setup(
         int id,
         string playerName,
@@ -30,6 +38,19 @@ public class NetworkTargetCardUI : MonoBehaviour
         playerID = id;
         subActionId = subAction;
         cachedPlayerName = playerName;
+
+        if (cardImage == null)
+        {
+            cardImage = GetComponent<Image>();
+        }
+
+        if (cardImage != null && !hasCachedDefaultColor)
+        {
+            defaultCardColor = cardImage.color;
+            hasCachedDefaultColor = true;
+        }
+
+        SetSelected(false);
 
         if (playerNameText != null)
         {
@@ -65,6 +86,47 @@ public class NetworkTargetCardUI : MonoBehaviour
         }
     }
 
+    public void SetSelected(bool selected)
+    {
+        isSelected = selected;
+
+        if (cardImage == null)
+        {
+            cardImage = GetComponent<Image>();
+        }
+
+        if (cardImage != null)
+        {
+            if (selected)
+            {
+                // Hiệu ứng đánh dấu trực quan: màu viền vàng sáng / xanh neon
+                cardImage.color = new Color(1f, 0.85f, 0.1f, 1f);
+            }
+            else
+            {
+                cardImage.color = defaultCardColor;
+            }
+        }
+
+        transform.localScale = selected ? new Vector3(1.05f, 1.05f, 1f) : Vector3.one;
+    }
+
+    public Sprite GetAvatarSprite()
+    {
+        Transform avatarTrans = transform.Find("Avatar");
+        if (avatarTrans != null)
+        {
+            Image img = avatarTrans.GetComponent<Image>();
+            if (img != null) return img.sprite;
+        }
+        return null;
+    }
+
+    public void TriggerCardClickForTest()
+    {
+        OnCardClicked();
+    }
+
     private void OnCardClicked()
     {
         // Nếu ở chế độ xem danh sách (subActionId < 0), click card sẽ mở thông tin vai trò
@@ -74,6 +136,13 @@ public class NetworkTargetCardUI : MonoBehaviour
             {
                 NetworkRoleDetailUI.Instance.ShowForPlayer(playerID, cachedPlayerName);
             }
+            return;
+        }
+
+        // Nếu Role yêu cầu quy trình Xác Nhận mục tiêu (như Xà Tinh), chỉ chọn và đánh dấu mục tiêu
+        if (NetworkTargetListUI.Instance != null && NetworkTargetListUI.Instance.RequiresConfirmation())
+        {
+            NetworkTargetListUI.Instance.OnCardSelected(this, playerID, cachedPlayerName);
             return;
         }
 
