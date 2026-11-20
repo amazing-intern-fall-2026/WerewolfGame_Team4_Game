@@ -8,12 +8,11 @@ using UnityEngine.SceneManagement;
 /// Adapter tích hợp kỹ năng Pháp Sư (Shaman) trong Thương Online.
 /// 
 /// Đảm bảo:
-/// 1. Shaman KHÔNG ĐƯỢC PHÉP tự cứu bản thân (cả ở UI, Target Selection và Server RPC validation).
+/// 1. Shaman ĐƯỢC PHÉP tự cứu bản thân bằng Bùa Lợi nếu vẫn còn lượt sử dụng; Bùa Hại vẫn không thể tự nhắm bản thân.
 /// 2. Bùa hại (Poison / Kill Charm) của Shaman gây sát thương chí mạng chính xác lên mục tiêu hợp lệ thông qua DeathResolver.
 /// 3. Không bỏ qua cơ chế delay xử lý bùa hại hiện có (5.0s delay trong NetworkGameOverManager).
 /// 4. Quản lý việc thông báo UI riêng cho Shaman khi có người bị tấn công vào ban đêm để lựa chọn cứu hoặc không cứu.
 /// 5. Độc lập, Event-driven, KHÔNG Reflection, KHÔNG Update polling.
-/// 6. TUYỆT ĐỐI KHÔNG CHỈNH SỬA BẤT KỲ FILE NÀO TRONG Assets/Scripts/Thuong/.
 /// </summary>
 public static class ThuongOnlineShamanAdapter
 {
@@ -41,9 +40,29 @@ public static class ThuongOnlineShamanAdapter
 
             NetworkPhaseSync.OnPhaseChangedGlobal -= HandleGlobalPhaseChanged;
             NetworkPhaseSync.OnPhaseChangedGlobal += HandleGlobalPhaseChanged;
+
+            NightManager.NightAttackRegistered -= HandleNightAttackRegistered;
+            NightManager.NightAttackRegistered += HandleNightAttackRegistered;
         }
 
         HookSceneManagers();
+    }
+
+    private static void HandleNightAttackRegistered(NightManager.NightAttackEvent evt)
+    {
+        if (Unity.Netcode.NetworkManager.Singleton != null && !Unity.Netcode.NetworkManager.Singleton.IsServer &&
+            (ThuongOnlineSession.Active == null || !ThuongOnlineSession.Active.GetNetworkManager().IsServer))
+        {
+            return;
+        }
+
+        if (evt.VictimId < 0) return;
+
+        // Sự kiện tấn công ban đêm (Monster / Killer / Ability Kill) -> thông báo riêng cho Shaman
+        if (evt.Cause == DeathCause.Monster || evt.Cause == DeathCause.Killer || evt.Cause == DeathCause.Ability)
+        {
+            NetworkShamanNotificationUI.NotifyVictimUnderAttack(evt.VictimId, null, evt.EventId);
+        }
     }
 
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -77,11 +96,14 @@ public static class ThuongOnlineShamanAdapter
 
     private static void HandleGameRolePhaseChanged(GamePhase prev, GamePhase next)
     {
-        // Khi kết thúc Night Phase chuyển sang ResolveNight, Discussion, hoặc DayStart
-        if (prev == GamePhase.Night || next == GamePhase.ResolveNight || next == GamePhase.Discussion || next == GamePhase.DayStart)
+        if (next != GamePhase.Night)
         {
             ResolveNightShamanKills();
             NetworkShamanNotificationUI.Instance?.HidePrompt();
+        }
+        if (next == GamePhase.RoleReveal || next == GamePhase.Setup || next == GamePhase.GameOver)
+        {
+            NetworkShamanNotificationUI.Instance?.ResetForNewMatch();
         }
     }
 
@@ -121,19 +143,7 @@ public static class ThuongOnlineShamanAdapter
                 }
                 else if (effect.Type == StatusEffectType.Protected)
                 {
-                    // Shaman dùng Bùa Cứu trong Thương Online
-                    // Đảm bảo không cho tự cứu bản thân
-                    if (target.playerID == source.playerID)
-                    {
-                        Debug.LogWarning($"[ThuongOnlineShamanAdapter] CHẶN TỰ CỨU: Shaman (Player {source.playerID + 1}) cố dùng Bùa Lợi lên chính mình!");
-                        target.effects?.Remove(effect);
-                        if (target.status != null) target.status.isProtected = false;
-                        // Phục hồi lại bùa lợi cho Shaman nếu bị trừ nhầm
-                        if (RoleManager.Instance != null && RoleManager.Instance.playerRoles.TryGetValue(source.playerID, out var role) && role is ShamanRole sr)
-                        {
-                            sr.SelectCharm(true);
-                        }
-                    }
+                    // Shaman được phép dùng Bùa Lợi lên bản thân hoặc người chơi khác theo luật chính thức
                 }
             }
         }
@@ -151,15 +161,15 @@ public static class ThuongOnlineShamanAdapter
     }
 
     /// <summary>
-    /// Kiểm tra xem Shaman có đang cố tự cứu bản thân hay không.
+    /// Kiểm tra xem Shaman có bị cấm tự cứu không (theo luật chính thức: cho phép tự cứu, luôn trả về false).
     /// </summary>
     public static bool IsShamanSelfSaveForbidden(int shamanPlayerId, int targetPlayerId)
     {
-        return shamanPlayerId == targetPlayerId;
+        return false;
     }
 
     /// <summary>
-    /// Kiểm tra xem Shaman có đủ điều kiện sử dụng Bùa Cứu hay không.
+    /// Kiểm tra xem Shaman có đủ điều kiện sử dụng Bùa Cứu hay không (cho phép tự cứu bản thân).
     /// </summary>
     public static bool CanShamanSaveTarget(PlayerData shaman, PlayerData target, out string error)
     {
@@ -184,12 +194,6 @@ public static class ThuongOnlineShamanAdapter
         if (target == null || !target.isAlive)
         {
             error = "Mục tiêu không tồn tại hoặc đã bị loại.";
-            return false;
-        }
-
-        if (shaman.playerID == target.playerID)
-        {
-            error = "Pháp Sư không được phép tự cứu chính mình!";
             return false;
         }
 

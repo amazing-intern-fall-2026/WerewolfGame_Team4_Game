@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Thuong.Online;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -63,8 +64,30 @@ public static class ThuongOnlineSerpentSpiritAdapter
     private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         isBound = false;
+        PurgeGhostRoleAbilityCanvases();
         EnforceSessionRestriction();
         ThuongOnlineSerpentSpiritRuntime.EnsureRuntimeExists();
+    }
+
+    /// <summary>
+    /// Tiêu hủy toàn bộ Canvas "Role Ability Canvas" bị bake sẵn từ scene file khi scene vừa load.
+    /// RoleAbilityUI của GameHUD sẽ tự động tạo Canvas dynamic mới khi khởi tạo.
+    /// Loại bỏ triệt để 15 ghost canvases và lỗi tràn bộ nhớ TLS Allocator ALLOC_TEMP_TLS.
+    /// </summary>
+    public static void PurgeGhostRoleAbilityCanvases()
+    {
+        var activeScene = SceneManager.GetActiveScene();
+        if (!activeScene.isLoaded) return;
+
+        var roots = activeScene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            var r = roots[i];
+            if (r != null && r.name == "Role Ability Canvas")
+            {
+                UnityEngine.Object.Destroy(r);
+            }
+        }
     }
 
     private static void HandleGlobalPhaseChanged(GamePhase phase)
@@ -139,6 +162,17 @@ public static class ThuongOnlineSerpentSpiritAdapter
             night = Mathf.Max(night, NetworkPhaseSync.Instance.CurrentNightCycle.Value);
         }
 
+        // 5. HUD nhãn trực tiếp trên GameHUD (ví dụ: "NGÀY 3 / BAN ĐÊM")
+        var hud = UnityEngine.Object.FindAnyObjectByType<GameHUD>();
+        if (hud != null && hud.phaseText != null && !string.IsNullOrEmpty(hud.phaseText.text))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(hud.phaseText.text, @"NGÀY\s*(\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int hudDay))
+            {
+                night = Mathf.Max(night, hudDay);
+            }
+        }
+
         return night > 0 ? night : 1;
     }
 
@@ -161,11 +195,85 @@ public static class ThuongOnlineSerpentSpiritAdapter
     }
 
     /// <summary>
-    /// Tìm GameObject gốc của Canvas "Role Ability Canvas" theo tên trực tiếp (không dùng FindObjectsByType).
+    /// Lấy danh sách tất cả GameObject gốc của Canvas "Role Ability Canvas" trong mọi scene đã load.
+    /// </summary>
+    public static List<GameObject> GetAllRoleAbilityCanvasRoots()
+    {
+        var list = new List<GameObject>();
+        for (int s = 0; s < SceneManager.sceneCount; s++)
+        {
+            var sc = SceneManager.GetSceneAt(s);
+            if (!sc.isLoaded) continue;
+            var roots = sc.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                var r = roots[i];
+                if (r != null && r.name == "Role Ability Canvas" && !list.Contains(r))
+                {
+                    list.Add(r);
+                }
+            }
+        }
+
+        var allCanvases = Resources.FindObjectsOfTypeAll<Canvas>();
+        for (int i = 0; i < allCanvases.Length; i++)
+        {
+            var c = allCanvases[i];
+            if (c != null && c.gameObject != null && c.gameObject.name == "Role Ability Canvas" && c.gameObject.scene.isLoaded)
+            {
+                if (!list.Contains(c.gameObject)) list.Add(c.gameObject);
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Tìm GameObject gốc của Canvas "Role Ability Canvas" theo tên trực tiếp.
     /// </summary>
     public static GameObject GetRoleAbilityCanvasRoot()
     {
-        return GameObject.Find("Role Ability Canvas");
+        var roots = GetAllRoleAbilityCanvasRoots();
+        return roots.Count > 0 ? roots[0] : GameObject.Find("Role Ability Canvas");
+    }
+
+    /// <summary>
+    /// Lấy danh sách tất cả các nút "Use skill" (CHỌN MỤC TIÊU) trong toàn bộ các Canvas Role Ability.
+    /// Tìm kiếm toàn diện kể cả khi GameObject đang bị disable.
+    /// </summary>
+    public static List<Button> GetAllUseSkillButtons()
+    {
+        var list = new List<Button>();
+        var roots = GetAllRoleAbilityCanvasRoots();
+        for (int i = 0; i < roots.Count; i++)
+        {
+            var root = roots[i];
+            if (root == null) continue;
+
+            var buttons = root.GetComponentsInChildren<Button>(true);
+            for (int b = 0; b < buttons.Length; b++)
+            {
+                if (buttons[b] != null && buttons[b].gameObject.name == "Use skill" && !list.Contains(buttons[b]))
+                {
+                    list.Add(buttons[b]);
+                }
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            var allButtons = Resources.FindObjectsOfTypeAll<Button>();
+            for (int i = 0; i < allButtons.Length; i++)
+            {
+                var b = allButtons[i];
+                if (b != null && b.gameObject != null && b.gameObject.name == "Use skill" && b.gameObject.scene.isLoaded)
+                {
+                    if (!list.Contains(b)) list.Add(b);
+                }
+            }
+        }
+
+        return list;
     }
 
     /// <summary>
@@ -173,27 +281,8 @@ public static class ThuongOnlineSerpentSpiritAdapter
     /// </summary>
     public static Button GetUseSkillButton()
     {
-        var root = GetRoleAbilityCanvasRoot();
-        if (root == null) return null;
-
-        var t = root.transform.Find("Role Ability Window/Card/Ability/Ability details/Use skill");
-        if (t != null)
-        {
-            return t.GetComponent<Button>();
-        }
-
-        var window = root.transform.Find("Role Ability Window");
-        if (window != null)
-        {
-            var buttons = window.GetComponentsInChildren<Button>(true);
-            for (int i = 0; i < buttons.Length; i++)
-            {
-                if (buttons[i] != null && buttons[i].gameObject.name == "Use skill")
-                    return buttons[i];
-            }
-        }
-
-        return null;
+        var buttons = GetAllUseSkillButtons();
+        return buttons.Count > 0 ? buttons[0] : null;
     }
 
     /// <summary>
@@ -201,13 +290,18 @@ public static class ThuongOnlineSerpentSpiritAdapter
     /// </summary>
     public static Button GetOpenRoleAbilityButton()
     {
-        var root = GetRoleAbilityCanvasRoot();
-        if (root == null) return null;
-
-        var t = root.transform.Find("Open Role Ability");
-        if (t != null)
+        var roots = GetAllRoleAbilityCanvasRoots();
+        for (int i = 0; i < roots.Count; i++)
         {
-            return t.GetComponent<Button>();
+            var root = roots[i];
+            if (root == null) continue;
+
+            var t = root.transform.Find("Open Role Ability");
+            if (t != null)
+            {
+                var btn = t.GetComponent<Button>();
+                if (btn != null) return btn;
+            }
         }
 
         return null;
@@ -271,19 +365,17 @@ public static class ThuongOnlineSerpentSpiritAdapter
     }
 
     /// <summary>
-    /// Gắn duy nhất 1 SerpentSpiritUIWatcher vào "Role Ability Window" để bắt sự kiện OnEnable khi mở cửa sổ.
-    /// Tuyệt đối không gắn vào nhiều đối tượng, không duyệt toàn bộ cây phân cấp, không gây đệ quy.
+    /// Gắn SerpentSpiritUIWatcher vào "Role Ability Window" để bắt sự kiện OnEnable và Update khi mở cửa sổ.
+    /// Tự động gắn lên tất cả Canvas Role Ability tìm thấy mà chưa có watcher.
     /// </summary>
     public static void AttachUIWatcher(GameObject canvasRoot = null)
     {
-        if (canvasRoot == null)
+        var roots = canvasRoot != null ? new List<GameObject> { canvasRoot } : GetAllRoleAbilityCanvasRoots();
+        for (int i = 0; i < roots.Count; i++)
         {
-            canvasRoot = GetRoleAbilityCanvasRoot();
-        }
-
-        if (canvasRoot != null)
-        {
-            var window = canvasRoot.transform.Find("Role Ability Window");
+            var r = roots[i];
+            if (r == null) continue;
+            var window = r.transform.Find("Role Ability Window");
             if (window != null)
             {
                 if (window.GetComponent<SerpentSpiritUIWatcher>() == null)
@@ -299,21 +391,30 @@ public static class ThuongOnlineSerpentSpiritAdapter
     /// </summary>
     public static void HookRoleAbilityOpenButton()
     {
-        var btn = GetOpenRoleAbilityButton();
-        if (btn != null)
+        var roots = GetAllRoleAbilityCanvasRoots();
+        for (int i = 0; i < roots.Count; i++)
         {
-            btn.onClick.RemoveListener(SyncRoleAbilityUIButtons);
-            btn.onClick.AddListener(SyncRoleAbilityUIButtons);
+            var r = roots[i];
+            if (r == null) continue;
+            var t = r.transform.Find("Open Role Ability");
+            if (t != null)
+            {
+                var btn = t.GetComponent<Button>();
+                if (btn != null)
+                {
+                    btn.onClick.RemoveListener(SyncRoleAbilityUIButtons);
+                    btn.onClick.AddListener(SyncRoleAbilityUIButtons);
+                }
+            }
         }
     }
 
     /// <summary>
-    /// Thiết lập liên kết Canvas 1 lần duy nhất khi vào trận.
+    /// Thiết lập liên kết Canvas khi vào trận.
     /// </summary>
     public static void BindCanvas(GameObject canvasRoot)
     {
-        if (isBound || canvasRoot == null) return;
-        isBound = true;
+        if (canvasRoot == null) return;
 
         AttachUIWatcher(canvasRoot);
         HookRoleAbilityOpenButton();
@@ -322,6 +423,7 @@ public static class ThuongOnlineSerpentSpiritAdapter
 
     /// <summary>
     /// Đồng bộ trạng thái hiển thị của nút "CHỌN MỤC TIÊU" (Use skill) trên Role Ability Canvas (GameHUD popup của Thương).
+    /// Áp dụng cho toàn bộ các nút Use skill trong tất cả các Canvas Role Ability.
     /// Có cờ bảo vệ chống đệ quy (recursion guard) và không cấp phát bộ nhớ native.
     /// </summary>
     public static void SyncRoleAbilityUIButtons()
@@ -347,9 +449,12 @@ public static class ThuongOnlineSerpentSpiritAdapter
             bool isAlive = local == null || local.isAlive;
             bool shouldShow = (night >= 3) && isAlive;
 
-            var useBtn = GetUseSkillButton();
-            if (useBtn != null)
+            var buttons = GetAllUseSkillButtons();
+            for (int i = 0; i < buttons.Count; i++)
             {
+                var useBtn = buttons[i];
+                if (useBtn == null) continue;
+
                 if (useBtn.gameObject.activeSelf != shouldShow)
                 {
                     useBtn.gameObject.SetActive(shouldShow);
@@ -368,9 +473,13 @@ public static class ThuongOnlineSerpentSpiritAdapter
                         interactable = CanSerpentSpiritAttack(local, night);
                     }
 
-                    useBtn.interactable = interactable;
+                    if (useBtn.interactable != interactable)
+                    {
+                        useBtn.interactable = interactable;
+                    }
+
                     var label = useBtn.GetComponentInChildren<TMPro.TMP_Text>();
-                    if (label != null)
+                    if (label != null && label.text != "CHỌN MỤC TIÊU")
                     {
                         label.text = "CHỌN MỤC TIÊU";
                     }
@@ -435,21 +544,26 @@ public class ThuongOnlineSerpentSpiritRuntime : MonoBehaviour
         StartCoroutine(BindCanvasRoutine());
     }
 
+    private void LateUpdate()
+    {
+        ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
+    }
+
     private IEnumerator BindCanvasRoutine()
     {
-        for (int i = 0; i < 30; i++)
+        // Liên tục kiểm tra và bind Canvas của RoleAbilityUI xuyên suốt trận đấu
+        while (true)
         {
-            var canvasRoot = ThuongOnlineSerpentSpiritAdapter.GetRoleAbilityCanvasRoot();
-            if (canvasRoot != null)
+            var canvasRoots = ThuongOnlineSerpentSpiritAdapter.GetAllRoleAbilityCanvasRoots();
+            for (int c = 0; c < canvasRoots.Count; c++)
             {
-                var windowTransform = canvasRoot.transform.Find("Role Ability Window");
-                if (windowTransform != null)
+                var canvasRoot = canvasRoots[c];
+                if (canvasRoot != null)
                 {
                     ThuongOnlineSerpentSpiritAdapter.BindCanvas(canvasRoot);
-                    yield break;
                 }
             }
-            yield return new WaitForSeconds(0.2f);
+            yield return new WaitForSeconds(1.0f);
         }
     }
 }
@@ -457,7 +571,7 @@ public class ThuongOnlineSerpentSpiritRuntime : MonoBehaviour
 /// <summary>
 /// Component lifecycle watcher duy nhất gắn vào GameObject "Role Ability Window".
 /// Khi người chơi mở cửa sổ (OnEnable), tự động kích hoạt đồng bộ nút kỹ năng.
-/// Không đệ quy, không spam FindObjects, không ép trạng thái mỗi frame.
+/// Khi cửa sổ đang mở, kiểm tra và đảm bảo nút kỹ năng hiển thị đúng ở Đêm 3 trở đi.
 /// </summary>
 public class SerpentSpiritUIWatcher : MonoBehaviour
 {
@@ -468,10 +582,6 @@ public class SerpentSpiritUIWatcher : MonoBehaviour
         ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
     }
 
-    /// <summary>
-    /// Khi cửa sổ đang mở, chỉ kiểm tra xem số đêm có thay đổi không (ví dụ chuyển từ Đêm 2 sang Đêm 3).
-    /// Tuyệt đối không gọi các hàm quét nặng hay ép trạng thái mỗi frame.
-    /// </summary>
     private void Update()
     {
         var session = ThuongOnlineSession.Active;
@@ -481,6 +591,16 @@ public class SerpentSpiritUIWatcher : MonoBehaviour
         {
             cachedNight = currentNight;
             ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
+            return;
+        }
+
+        if (currentNight >= 3)
+        {
+            var useBtn = transform.Find("Card/Ability/Ability details/Use skill");
+            if (useBtn != null && !useBtn.gameObject.activeSelf)
+            {
+                ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
+            }
         }
     }
 }

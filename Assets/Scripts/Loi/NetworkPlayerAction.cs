@@ -1279,15 +1279,6 @@ public class NetworkPlayerAction : NetworkBehaviour
             return;
         }
 
-        // Không gửi thông báo tự cứu cho Shaman khi chính Shaman là nạn nhân
-        if ((ulong)victimPlayerId == clientId)
-        {
-            Debug.LogWarning(
-                $"SHAMAN VICTIM PROMPT: Chặn gửi thông báo: Shaman (Client {clientId}) là nạn nhân bị tấn công, không được tự cứu!"
-            );
-            return;
-        }
-
         if (NetworkManager.Singleton == null)
             return;
 

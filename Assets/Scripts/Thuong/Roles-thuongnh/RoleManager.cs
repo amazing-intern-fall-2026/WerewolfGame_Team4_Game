@@ -133,7 +133,8 @@ public class RoleManager : MonoBehaviour
         var actorValidation = AbilityValidator.ValidateLegacyActor(GameRoleManager.Instance, role);
         if (!actorValidation.IsValid) { feedback = actorValidation.Message; return false; }
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
-        ActionValidationResult targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
+        bool allowSelfTarget = role is ShamanRole shamanRole && shamanRole.IsGoodCharmSelected;
+        ActionValidationResult targetValidation = TargetValidator.ValidateLegacy(role.owner, target, allowSelfTarget);
         if (!targetValidation.IsValid)
         {
             feedback = targetValidation.Message;

@@ -1002,18 +1002,14 @@ public class NetworkSkillUI : MonoBehaviour
             return;
 
         int localId = -1;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.HasLocalRole)
+        {
+            localId = session.LocalPlayerId;
+        }
+        else if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
         {
             localId = (int)NetworkManager.Singleton.LocalClientId;
-        }
-
-        // QUY TẮC BẮT BUỘC: Shaman không được phép tự cứu bản thân!
-        // Khi Shaman là người bị DogSpirit hoặc nguồn sát thương khác tấn công, Shaman KHÔNG ĐƯỢC xuất hiện lựa chọn tự cứu.
-        if (localId == victimId)
-        {
-            Debug.LogWarning("[NetworkSkillUI] Shaman chính là nạn nhân bị tấn công -> KHÔNG hiển thị lựa chọn tự cứu.");
-            HideShamanPrompt();
-            return;
         }
 
         currentPromptVictimId = victimId;
@@ -1021,8 +1017,10 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (shamanPromptText != null)
         {
-            shamanPromptText.text =
-                $"Mục tiêu: <color=#F1C40F><b>{victimName}</b></color>\nBạn có muốn sử dụng bùa cứu để cứu người chơi này không?";
+            bool isSelfAttacked = localId == victimId;
+            shamanPromptText.text = isSelfAttacked
+                ? $"Mục tiêu: <color=#F1C40F><b>{victimName}</b></color>\nBạn đang bị tấn công! Bạn có muốn sử dụng bùa cứu để tự cứu mình không?"
+                : $"Mục tiêu: <color=#F1C40F><b>{victimName}</b></color>\nBạn có muốn sử dụng bùa cứu để cứu người chơi này không?";
         }
 
         if (shamanPromptPanel != null)
