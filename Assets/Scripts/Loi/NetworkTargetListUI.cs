@@ -785,10 +785,10 @@ public class NetworkTargetListUI : MonoBehaviour
         bool isGuardian =
             localRole == RoleType.VillageGuardian;
 
-        // Pháp Sư (Shaman) tuyệt đối không được phép tự cứu bản thân!
+        // Pháp Sư (Shaman) được phép dùng Bùa Lợi (subActionId == 1) tự cứu bản thân
         // WeaverOfFate (Ghép đôi) cho phép chọn bản thân là một trong hai người
         bool allowSelfTarget =
-            isGuardian || currentSubActionId < 0 || isPairSelectionMode;
+            isGuardian || (localRole == RoleType.Shaman && currentSubActionId == 1) || currentSubActionId < 0 || isPairSelectionMode;
 
         Debug.Log(
             "TARGET LIST: Local Role = "

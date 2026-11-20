@@ -889,12 +889,23 @@ public class RoleAbilityUI : MonoBehaviour
     {
         var online = Thuong.Online.ThuongOnlineSession.Active;
         if (online != null)
+        {
+            if (actor != null && actor.roleType == RoleType.Shaman && !selectingHunterTrap &&
+                target != null && target.playerID == actor.playerID)
+            {
+                return onlineGoodCharm && online.HasGoodCharm && target.isAlive
+                    ? ActionValidationResult.Success()
+                    : ActionValidationResult.Fail(ActionFailureReason.SelfTargetForbidden, "Không được dùng bùa hại lên chính mình.");
+            }
             return target != null && online.CanTargetLocalAbility(target.playerID)
                 ? ActionValidationResult.Success()
                 : ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Mục tiêu không hợp lệ theo luật kỹ năng.");
+        }
+        bool allowSelfTarget = actor != null && actor.roleType == RoleType.Shaman && !selectingHunterTrap &&
+                               GetLocalShamanRole()?.IsGoodCharmSelected == true;
         return RoleManager.UsesConfiguredAbility(actor) && !selectingHunterTrap
             ? TargetValidator.Validate(actor, target, actor.roleDefinition)
-            : TargetValidator.ValidateLegacy(actor, target);
+            : TargetValidator.ValidateLegacy(actor, target, allowSelfTarget);
     }
 
     private static bool CanSetHunterTrap(PlayerData player, GameRoleManager game)
@@ -990,7 +1001,16 @@ public class RoleAbilityUI : MonoBehaviour
         var online = Thuong.Online.ThuongOnlineSession.Active;
         if (online != null)
         {
-            if (!online.CanTargetLocalAbility(targetID))
+            bool isShamanSelfSave = player != null && player.roleType == RoleType.Shaman &&
+                                    !selectingHunterTrap && targetID == player.playerID;
+            if (isShamanSelfSave)
+            {
+                if (!onlineGoodCharm)
+                { targetFeedbackLabel.text = "Không được dùng bùa hại lên chính mình."; return; }
+                if (!online.HasGoodCharm || !player.isAlive)
+                { targetFeedbackLabel.text = "Bùa lợi không khả dụng."; return; }
+            }
+            else if (!online.CanTargetLocalAbility(targetID))
             { targetFeedbackLabel.text = "Mục tiêu không hợp lệ theo luật kỹ năng."; return; }
             bool canUseOnline = online.CanUseLocalAbility(out string networkReason);
             if (player == null || !canUseOnline)

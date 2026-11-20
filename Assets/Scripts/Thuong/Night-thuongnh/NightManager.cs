@@ -7,15 +7,41 @@ public class NightManager : MonoBehaviour
 {
     public static NightManager Instance;
 
+    public readonly struct NightAttackEvent
+    {
+        public readonly int EventId;
+        public readonly int VictimId;
+        public readonly DeathCause Cause;
+        public readonly RoleType SourceRole;
+        public readonly int AttackerId;
+
+        public NightAttackEvent(int eventId, int victimId, DeathCause cause, RoleType sourceRole, int attackerId = -1)
+        {
+            EventId = eventId;
+            VictimId = victimId;
+            Cause = cause;
+            SourceRole = sourceRole;
+            AttackerId = attackerId;
+        }
+    }
+
+    public static event System.Action<NightAttackEvent> NightAttackRegistered;
+
     private int monsterTarget = -1;
     private RoleType monsterSourceRole = RoleType.DogSpirit;
+    private int monsterAttackEventId;
     private int protectedTarget = -1;
     private int killerTarget = -1;
+    private int killerAttackEventId;
     private int evilNightCount = 0;
     public int CurrentNightNumber => evilNightCount;
+    public int CurrentMonsterAttackEventId => monsterAttackEventId;
     private readonly System.Collections.Generic.List<QueuedAction> actions = new();
     private readonly List<PeekAction> peekActions = new();
+    private readonly Dictionary<int, NightAttackEvent> activeNightAttacks = new();
+    private readonly HashSet<int> rescuedAttackEventIds = new();
     private int nextActionSequence;
+    private int nextAttackEventId;
     private bool bratPeekPending;
     public int PendingActionCount => actions.Count;
     public bool HasUnresolvedNightResolution => actions.Count > 0 || peekActions.Count > 0 || bratPeekPending ||
@@ -25,6 +51,7 @@ public class NightManager : MonoBehaviour
         public PlayerData actor, target;
         public ThuongRoleDefinition role;
         public int sequence;
+        public int attackEventId;
     }
     private sealed class PeekAction
     {
@@ -38,30 +65,113 @@ public class NightManager : MonoBehaviour
     {
         actions.Clear();
         peekActions.Clear();
+        activeNightAttacks.Clear();
+        rescuedAttackEventIds.Clear();
         bratPeekPending = false;
         nextActionSequence = 0;
         monsterTarget = protectedTarget = killerTarget = -1;
+        monsterAttackEventId = killerAttackEventId = 0;
         monsterSourceRole = RoleType.DogSpirit;
     }
 
     public void CancelDisconnectedPlayerActions(int playerId)
     {
-        actions.RemoveAll(action => (action.actor != null && action.actor.playerID == playerId) ||
-                                    (action.target != null && action.target.playerID == playerId));
-        if (monsterTarget == playerId) monsterTarget = -1;
+        for (int i = actions.Count - 1; i >= 0; i--)
+        {
+            var action = actions[i];
+            if ((action.actor != null && action.actor.playerID == playerId) ||
+                (action.target != null && action.target.playerID == playerId))
+            {
+                if (action.attackEventId > 0) activeNightAttacks.Remove(action.attackEventId);
+                actions.RemoveAt(i);
+            }
+        }
+        if (monsterTarget == playerId)
+        {
+            monsterTarget = -1;
+            if (monsterAttackEventId > 0) activeNightAttacks.Remove(monsterAttackEventId);
+            monsterAttackEventId = 0;
+        }
         if (protectedTarget == playerId) protectedTarget = -1;
-        if (killerTarget == playerId) killerTarget = -1;
+        if (killerTarget == playerId)
+        {
+            killerTarget = -1;
+            if (killerAttackEventId > 0) activeNightAttacks.Remove(killerAttackEventId);
+            killerAttackEventId = 0;
+        }
         Debug.Log($"NIGHT MANAGER: Đã hủy các action đêm liên quan đến Player {playerId}");
     }
+
+    private int RegisterNightAttack(int victimId, DeathCause cause, RoleType sourceRole, int attackerId = -1)
+    {
+        int eventId = ++nextAttackEventId;
+        var evt = new NightAttackEvent(eventId, victimId, cause, sourceRole, attackerId);
+        activeNightAttacks[eventId] = evt;
+        NightAttackRegistered?.Invoke(evt);
+        return eventId;
+    }
+
+    public bool TryValidateAttackEventForSave(int attackEventId, int victimId, out string error)
+    {
+        if (attackEventId <= 0 || !activeNightAttacks.TryGetValue(attackEventId, out var evt))
+        {
+            error = "Sự kiện tấn công không tồn tại hoặc đã hết hạn.";
+            return false;
+        }
+
+        if (evt.VictimId != victimId)
+        {
+            error = "Mục tiêu cứu không khớp với sự kiện tấn công.";
+            return false;
+        }
+
+        if (rescuedAttackEventIds.Contains(attackEventId))
+        {
+            error = "Sự kiện tấn công này đã được cứu trước đó.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    public bool MarkAttackEventRescued(int attackEventId)
+    {
+        if (attackEventId <= 0) return false;
+        return rescuedAttackEventIds.Add(attackEventId);
+    }
+
+    public bool IsAttackEventRescued(int attackEventId)
+    {
+        return attackEventId > 0 && rescuedAttackEventIds.Contains(attackEventId);
+    }
+
     public void QueueAbility(PlayerData actor, PlayerData target, ThuongRoleDefinition role)
     {
         if (role.sharedNightKill && role.abilityType == AbilityType.Kill)
         {
             // One pack attack, including legacy Serpent/Ogre submissions. Preserve last-target semantics.
-            actions.RemoveAll(action => action.role.sharedNightKill && action.role.abilityType == AbilityType.Kill);
+            for (int i = actions.Count - 1; i >= 0; i--)
+            {
+                if (actions[i].role.sharedNightKill && actions[i].role.abilityType == AbilityType.Kill)
+                {
+                    if (actions[i].attackEventId > 0) activeNightAttacks.Remove(actions[i].attackEventId);
+                    actions.RemoveAt(i);
+                }
+            }
             monsterTarget = -1;
+            if (monsterAttackEventId > 0) activeNightAttacks.Remove(monsterAttackEventId);
+            monsterAttackEventId = 0;
         }
-        actions.Add(new QueuedAction { actor = actor, target = target, role = role, sequence = nextActionSequence++ });
+
+        int eventId = 0;
+        if (role != null && role.abilityType == AbilityType.Kill && target != null)
+        {
+            var cause = actor != null && actor.faction == FactionType.Monster ? DeathCause.Monster : DeathCause.Ability;
+            eventId = RegisterNightAttack(target.playerID, cause, role.roleType, actor != null ? actor.playerID : -1);
+        }
+
+        actions.Add(new QueuedAction { actor = actor, target = target, role = role, sequence = nextActionSequence++, attackEventId = eventId });
     }
 
     private void Awake()
@@ -73,12 +183,16 @@ public class NightManager : MonoBehaviour
     {
         actions.Clear();
         peekActions.Clear();
+        activeNightAttacks.Clear();
+        rescuedAttackEventIds.Clear();
         bratPeekPending = false;
         nextActionSequence = 0;
         monsterTarget = -1;
+        monsterAttackEventId = 0;
         monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
+        killerAttackEventId = 0;
         evilNightCount++;
 
         RoleManager.Instance?.NotifyNightStart();
@@ -101,9 +215,18 @@ public class NightManager : MonoBehaviour
 
     public void SetMonsterTarget(int id, RoleType sourceRole)
     {
-        actions.RemoveAll(action => action.role.sharedNightKill && action.role.abilityType == AbilityType.Kill);
+        for (int i = actions.Count - 1; i >= 0; i--)
+        {
+            if (actions[i].role.sharedNightKill && actions[i].role.abilityType == AbilityType.Kill)
+            {
+                if (actions[i].attackEventId > 0) activeNightAttacks.Remove(actions[i].attackEventId);
+                actions.RemoveAt(i);
+            }
+        }
+        if (monsterAttackEventId > 0) activeNightAttacks.Remove(monsterAttackEventId);
         monsterTarget = id;
         monsterSourceRole = sourceRole;
+        monsterAttackEventId = id >= 0 ? RegisterNightAttack(id, DeathCause.Monster, sourceRole) : 0;
     }
 
     public void SetProtectedTarget(int id)
@@ -113,7 +236,9 @@ public class NightManager : MonoBehaviour
 
     public void SetKillerTarget(int id)
     {
+        if (killerAttackEventId > 0) activeNightAttacks.Remove(killerAttackEventId);
         killerTarget = id;
+        killerAttackEventId = id >= 0 ? RegisterNightAttack(id, DeathCause.Killer, RoleType.Killer) : 0;
     }
 
     public void RecordSubmittedAction(PlayerData actor, int targetID, string action)
@@ -216,8 +341,8 @@ public class NightManager : MonoBehaviour
             PlayerData target = PlayerManager.Instance.GetplayerByID(monsterTarget);
             if (target != null && target.isAlive)
             {
-                DeathResolver.Instance.TryKillPlayer(
-                    monsterTarget, DeathCause.Monster, monsterSourceRole);
+                DeathResolver.Instance.TryKill(new DeathRequest(
+                    target, DeathCause.Monster, sourceRole: monsterSourceRole, attackEventId: monsterAttackEventId));
             }
         }
 
@@ -232,7 +357,8 @@ public class NightManager : MonoBehaviour
             PlayerData killerTargetPlayer = PlayerManager.Instance.GetplayerByID(killerTarget);
             if (killerTargetPlayer != null && killerTargetPlayer.isAlive)
             {
-                DeathResolver.Instance.TryKillPlayer(killerTarget, DeathCause.Killer);
+                DeathResolver.Instance.TryKill(new DeathRequest(
+                    killerTargetPlayer, DeathCause.Killer, sourceRole: RoleType.Killer, attackEventId: killerAttackEventId));
             }
         }
 
@@ -240,10 +366,14 @@ public class NightManager : MonoBehaviour
             if (player != null) player.status.isProtected = false;
 
         monsterTarget = -1;
+        monsterAttackEventId = 0;
         monsterSourceRole = RoleType.DogSpirit;
         protectedTarget = -1;
         killerTarget = -1;
+        killerAttackEventId = 0;
         peekActions.Clear();
+        activeNightAttacks.Clear();
+        rescuedAttackEventIds.Clear();
         bratPeekPending = false;
     }
 
@@ -266,7 +396,7 @@ public class NightManager : MonoBehaviour
         if (role.abilityType == AbilityType.Kill)
         {
             var cause = actor.faction == FactionType.Monster ? DeathCause.Monster : DeathCause.Ability;
-            var result = DeathResolver.Instance.TryKill(new DeathRequest(target, cause, actor));
+            var result = DeathResolver.Instance.TryKill(new DeathRequest(target, cause, actor, attackEventId: action.attackEventId));
             AbilitySystem.Instance?.Publish(new AbilityResolution(actor, target, result.Outcome == DeathOutcome.Killed, result.Message));
             return;
         }

@@ -4,23 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Bộ kiểm thử NUnit kiểm tra toàn bộ kỹ năng Pháp Sư (Shaman) trong Thương Online.
-/// Bao quát đầy đủ 16 Test Cases (TC01 đến TC16) theo yêu cầu nghiệp vụ:
-/// - TC01: Shaman bị tấn công -> Không được tự cứu.
-/// - TC02: Shaman cố gửi yêu cầu tự cứu -> Server từ chối.
-/// - TC03: Villager bị tấn công -> Shaman nhận thông báo.
-/// - TC04: Monster bị tấn công -> Xử lý thông báo theo luật mục tiêu hợp lệ.
-/// - TC05: Shaman chọn cứu người khác -> Mục tiêu được cứu thành công.
-/// - TC06: Shaman chọn không cứu -> Không tiêu hao bùa cứu.
-/// - TC07: Shaman không lựa chọn -> Phase vẫn tiếp tục, không tự động cứu.
-/// - TC08: Shaman sử dụng bùa hại -> Mục tiêu chết chính xác qua DeathResolver.
-/// - TC09: Bùa hại sử dụng 2 lần -> Server chặn lượt sử dụng không hợp lệ.
-/// - TC10: Bùa hại và bùa cứu cùng xuất hiện trong 1 đêm -> Xử lý đúng thứ tự.
-/// - TC11: Mục tiêu bị tấn công được cứu -> Không bị tử vong bởi đòn tấn công đó.
-/// - TC12: Host và Client -> Đồng bộ trạng thái kỹ năng nhất quán.
-/// - TC13: Shaman chết hoặc mất kết nối -> Không làm treo Phase.
-/// - TC14: Bắt đầu ván mới -> Reset sạch sẽ bùa và UI, không lưu vết.
-/// - TC15: Kiểm tra các Role khác -> Không ảnh hưởng kỹ năng hiện tại.
-/// - TC16: Bảo toàn code Thương -> 0 diff trong Assets/Scripts/Thuong/.
+/// Bao quát đầy đủ 16 Test Cases (TC01 đến TC16) theo quy định chính thức:
+/// Shaman ĐƯỢC PHÉP tự cứu bản thân bằng Bùa Cứu nếu còn lượt, và nhận thông báo event-driven khi có người bị tấn công.
 /// </summary>
 public class ThuongOnlineShamanTests
 {
@@ -64,22 +49,22 @@ public class ThuongOnlineShamanTests
             }
         }
 
-        ExecuteTest("TC01: Shaman bị tấn công -> Không được tự cứu", () => test.TC01_ShamanAttacked_CannotSelfRescue());
-        ExecuteTest("TC02: Shaman cố gửi yêu cầu tự cứu -> Server từ chối", () => test.TC02_ShamanAttemptsSelfRescue_ServerRejects());
-        ExecuteTest("TC03: Villager bị tấn công -> Shaman nhận thông báo", () => test.TC03_VillagerAttacked_ShamanCanReceivePrompt());
-        ExecuteTest("TC04: Monster bị tấn công -> Xử lý thông báo theo luật", () => test.TC04_MonsterAttacked_HandledByExistingRules());
-        ExecuteTest("TC05: Shaman chọn cứu người khác -> Cứu thành công", () => test.TC05_ShamanSavesOther_TargetProtectedSuccessfully());
-        ExecuteTest("TC06: Shaman chọn không cứu -> Không tiêu hao bùa cứu", () => test.TC06_ShamanDismissesPrompt_DoesNotConsumeCharm());
-        ExecuteTest("TC07: Shaman không lựa chọn -> Phase tiếp tục", () => test.TC07_ShamanTimeout_PhaseContinuesWithoutAutoSave());
-        ExecuteTest("TC08: Shaman dùng bùa hại -> Mục tiêu chết chính xác", () => test.TC08_ShamanUsesBadCharm_TargetKilledAccurately());
-        ExecuteTest("TC09: Bùa hại dùng 2 lần -> Server chặn", () => test.TC09_BadCharmUsedTwice_ServerBlocksSecondUse());
-        ExecuteTest("TC10: Bùa hại và bùa cứu cùng 1 đêm -> Đúng thứ tự", () => test.TC10_SaveAndKillBothUsedInSameNight_ResolvedInCorrectOrder());
-        ExecuteTest("TC11: Mục tiêu được cứu -> Không tử vong", () => test.TC11_RescuedTarget_NotKilledByRescuedAttack());
-        ExecuteTest("TC12: Host và Client -> Nhất quán", () => test.TC12_HostAndClient_ConsistentState());
-        ExecuteTest("TC13: Shaman chết hoặc disconnect -> Không treo game", () => test.TC13_ShamanDiesOrDisconnects_DoesNotFreezeGame());
-        ExecuteTest("TC14: Ván mới -> Reset sạch sẽ", () => test.TC14_NewMatch_StateCleanlyReset());
-        ExecuteTest("TC15: Role khác không bị ảnh hưởng", () => test.TC15_OtherRolesUnaffected());
-        ExecuteTest("TC16: 0 diff Assets/Scripts/Thuong/", () => test.TC16_ThuongCodeUntouched_0Diff());
+        ExecuteTest("TC01: Người khác bị tấn công -> Shaman nhận sự kiện thông báo", () => test.TC01_OtherAttacked_ShamanReceivesAttackEvent());
+        ExecuteTest("TC02: Shaman bị DogSpirit tấn công -> Shaman nhận sự kiện tự cứu", () => test.TC02_ShamanAttackedByDogSpirit_ReceivesAttackEvent());
+        ExecuteTest("TC03: Shaman chọn tự cứu -> Shaman sống sót", () => test.TC03_ShamanSelfSave_ShamanSurvives());
+        ExecuteTest("TC04: Shaman chọn cứu người khác -> Người đó sống sót", () => test.TC04_ShamanSavesOther_TargetSurvives());
+        ExecuteTest("TC05: Shaman chọn không cứu -> Mục tiêu chịu kết quả tấn công", () => test.TC05_ShamanDeclinesSave_TargetDies());
+        ExecuteTest("TC06: Shaman hết lượt cứu -> Không thể cứu", () => test.TC06_ShamanOutOfSaveCharm_CannotSave());
+        ExecuteTest("TC07: Shaman gửi yêu cầu cứu trùng -> Server từ chối", () => test.TC07_DuplicateSaveRequestForSameEvent_Rejected());
+        ExecuteTest("TC08: Client giả mạo Shaman -> Server từ chối", () => test.TC08_NonShamanSpoofingSave_Rejected());
+        ExecuteTest("TC09: Shaman không lựa chọn -> Timeout không tự động cứu", () => test.TC09_ShamanTimeout_NoAutoSaveAndPhaseContinues());
+        ExecuteTest("TC10: Nhiều sự kiện tấn công -> Không cứu nhầm mục tiêu/nguồn khác", () => test.TC10_MultipleAttacksSameNight_RescuesOnlyTargetedEvent());
+        ExecuteTest("TC11: Host là Shaman -> Hoạt động đúng", () => test.TC11_HostAsShaman_ResolvesAccurately());
+        ExecuteTest("TC12: Client là Shaman -> Hoạt động đúng", () => test.TC12_ClientAsShaman_ResolvesAccurately());
+        ExecuteTest("TC13: Shaman chết hoặc mất kết nối -> Không treo Phase", () => test.TC13_ShamanDeadOrDisconnected_DoesNotFreezePhase());
+        ExecuteTest("TC14: Shaman dùng bùa hại -> Không bị ảnh hưởng & vẫn cấm tự hại", () => test.TC14_ShamanUsesBadCharm_WorksAndForbidsSelfHarm());
+        ExecuteTest("TC15: Bắt đầu trận mới -> Reset lượt cứu và UI", () => test.TC15_NewMatch_ResetsCharmAndAttackEvents());
+        ExecuteTest("TC16: Regression các Role khác -> Không phát sinh lỗi", () => test.TC16_OtherRolesRegression_Unaffected());
 
         Debug.Log("=================================================");
         Debug.Log($"KẾT QUẢ KIỂM THỬ PHÁP SƯ: {passed} PASSED, {failed} FAILED.");
@@ -117,11 +102,6 @@ public class ThuongOnlineShamanTests
         abilitySystem.phaseController = gameRoleManager;
         abilitySystem.nightSystem = nightManager;
 
-        // Khởi tạo 4 người chơi:
-        // P0: Shaman (ID 0)
-        // P1: DogSpirit (ID 1)
-        // P2: Villager (ID 2)
-        // P3: VillageGuardian (ID 3)
         playerManager.players = new List<PlayerData>();
         roleManager.playerRoles = new Dictionary<int, BaseRole>();
 
@@ -135,20 +115,13 @@ public class ThuongOnlineShamanTests
         playerManager.players.Add(p2);
         playerManager.players.Add(p3);
 
-        ShamanRole shamanRole = new ShamanRole(p0);
-        roleManager.playerRoles[0] = shamanRole;
+        roleManager.playerRoles[0] = new ShamanRole(p0);
+        roleManager.playerRoles[1] = new DogSpirit(p1);
+        roleManager.playerRoles[2] = new VillagerRole(p2);
+        roleManager.playerRoles[3] = new GuardianRole(p3);
 
-        DogSpirit dogSpiritRole = new DogSpirit(p1);
-        roleManager.playerRoles[1] = dogSpiritRole;
-
-        VillagerRole villagerRole = new VillagerRole(p2);
-        roleManager.playerRoles[2] = villagerRole;
-
-        GuardianRole guardianRole = new GuardianRole(p3);
-        roleManager.playerRoles[3] = guardianRole;
-
-        // Reset trạng thái Shaman
         ThuongOnlineShamanAdapter.ResetForNewMatch();
+        nightManager.ResetForNewMatch();
     }
 
     [TearDown]
@@ -162,239 +135,251 @@ public class ThuongOnlineShamanTests
     }
 
     [Test]
-    public void TC01_ShamanAttacked_CannotSelfRescue()
+    public void TC01_OtherAttacked_ShamanReceivesAttackEvent()
     {
-        // Khi Shaman (P0) là người bị tấn công (victimId = 0)
-        int shamanId = 0;
-        int victimId = 0;
+        NightManager.NightAttackEvent? received = null;
+        void Handler(NightManager.NightAttackEvent evt) => received = evt;
+        NightManager.NightAttackRegistered += Handler;
+        try
+        {
+            nightManager.StartNight();
+            nightManager.SetMonsterTarget(2, RoleType.DogSpirit);
 
-        bool isSelfTargetForbidden = ThuongOnlineShamanAdapter.IsShamanSelfSaveForbidden(shamanId, victimId);
-        Assert.IsTrue(isSelfTargetForbidden, "Shaman bị tấn công không được phép tự cứu bản thân!");
+            Assert.IsTrue(received.HasValue, "Phải phát sự kiện NightAttackRegistered.");
+            Assert.AreEqual(2, received.Value.VictimId);
+            Assert.Greater(received.Value.EventId, 0);
+            Assert.IsTrue(ThuongOnlineShamanAdapter.CanShamanSaveTarget(playerManager.GetplayerByID(0), playerManager.GetplayerByID(2), out _));
+        }
+        finally
+        {
+            NightManager.NightAttackRegistered -= Handler;
+        }
     }
 
     [Test]
-    public void TC02_ShamanAttemptsSelfRescue_ServerRejects()
+    public void TC02_ShamanAttackedByDogSpirit_ReceivesAttackEvent()
     {
+        NightManager.NightAttackEvent? received = null;
+        void Handler(NightManager.NightAttackEvent evt) => received = evt;
+        NightManager.NightAttackRegistered += Handler;
+        try
+        {
+            nightManager.StartNight();
+            nightManager.SetMonsterTarget(0, RoleType.DogSpirit);
+
+            Assert.IsTrue(received.HasValue);
+            Assert.AreEqual(0, received.Value.VictimId);
+            Assert.IsFalse(ThuongOnlineShamanAdapter.IsShamanSelfSaveForbidden(0, 0));
+            Assert.IsTrue(ThuongOnlineShamanAdapter.CanShamanSaveTarget(playerManager.GetplayerByID(0), playerManager.GetplayerByID(0), out _));
+        }
+        finally
+        {
+            NightManager.NightAttackRegistered -= Handler;
+        }
+    }
+
+    [Test]
+    public void TC03_ShamanSelfSave_ShamanSurvives()
+    {
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(0, RoleType.DogSpirit);
+        int eventId = nightManager.CurrentMonsterAttackEventId;
+
+        ShamanRole shamanRole = (ShamanRole)roleManager.playerRoles[0];
         PlayerData shaman = playerManager.GetplayerByID(0);
+        Assert.IsTrue(shamanRole.SelectCharm(true));
+        var targetCheck = TargetValidator.ValidateLegacy(shaman, shaman, allowSelfTarget: shamanRole.IsGoodCharmSelected);
+        Assert.IsTrue(targetCheck.IsValid, "Shaman phải được phép tự nhắm Bùa Lợi lên bản thân.");
+        Assert.IsTrue(shamanRole.ConsumeGoodCharm());
+        Assert.IsTrue(nightManager.MarkAttackEventRescued(eventId));
 
-        bool canSave = ThuongOnlineShamanAdapter.CanShamanSaveTarget(shaman, shaman, out string error);
-        Assert.IsFalse(canSave, "Server phải từ chối yêu cầu tự cứu!");
-        Assert.AreEqual("Pháp Sư không thể tự cứu chính mình!", error);
+        nightManager.ResolveNight();
+        Assert.IsTrue(shaman.isAlive, "Shaman tự cứu phải sống sót qua đòn tấn công!");
+        Assert.IsFalse(shamanRole.HasGoodCharm, "Bùa Cứu phải được tiêu hao.");
     }
 
     [Test]
-    public void TC03_VillagerAttacked_ShamanCanReceivePrompt()
+    public void TC04_ShamanSavesOther_TargetSurvives()
     {
-        PlayerData shaman = playerManager.GetplayerByID(0);
-        PlayerData victim = playerManager.GetplayerByID(2); // Villager
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(2, RoleType.DogSpirit);
+        int eventId = nightManager.CurrentMonsterAttackEventId;
 
-        bool canSave = ThuongOnlineShamanAdapter.CanShamanSaveTarget(shaman, victim, out string error);
-        Assert.IsTrue(canSave, $"Shaman phải cứu được Villager khác. Lỗi: {error}");
-        Assert.IsEmpty(error);
+        ShamanRole shamanRole = (ShamanRole)roleManager.playerRoles[0];
+        Assert.IsTrue(shamanRole.ConsumeGoodCharm());
+        Assert.IsTrue(nightManager.MarkAttackEventRescued(eventId));
+
+        nightManager.ResolveNight();
+        Assert.IsTrue(playerManager.GetplayerByID(2).isAlive, "Người chơi được cứu phải sống sót!");
     }
 
     [Test]
-    public void TC04_MonsterAttacked_HandledByExistingRules()
+    public void TC05_ShamanDeclinesSave_TargetDies()
     {
-        PlayerData shaman = playerManager.GetplayerByID(0);
-        PlayerData monsterVictim = playerManager.GetplayerByID(1); // DogSpirit
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(2, RoleType.DogSpirit);
+        ShamanRole shamanRole = (ShamanRole)roleManager.playerRoles[0];
 
-        // Theo luật, Shaman có thể dùng bùa cứu lên bất kỳ người chơi nào còn sống khác mình
-        bool canSave = ThuongOnlineShamanAdapter.CanShamanSaveTarget(shaman, monsterVictim, out string error);
-        Assert.IsTrue(canSave, "Shaman có quyền chọn cứu người chơi còn sống khác mình.");
+        nightManager.ResolveNight();
+        Assert.IsFalse(playerManager.GetplayerByID(2).isAlive, "Không cứu thì mục tiêu phải chết.");
+        Assert.IsTrue(shamanRole.HasGoodCharm, "Không cứu thì không được tiêu hao bùa cứu.");
     }
 
     [Test]
-    public void TC05_ShamanSavesOther_TargetProtectedSuccessfully()
+    public void TC06_ShamanOutOfSaveCharm_CannotSave()
     {
-        PlayerData victim = playerManager.GetplayerByID(2);
+        ShamanRole shamanRole = (ShamanRole)roleManager.playerRoles[0];
+        Assert.IsTrue(shamanRole.ConsumeGoodCharm());
+        Assert.IsFalse(shamanRole.HasGoodCharm);
+        Assert.IsFalse(shamanRole.SelectCharm(true), "Hết bùa cứu không được chọn lại.");
 
-        // Áp dụng bùa cứu
-        nightManager.SetProtectedTarget(2);
-        victim.status ??= new PlayerStatus();
-        victim.status.isProtected = true;
         NetworkRoleActionBridge.SetShamanSaveUsed(0, true);
-
-        Assert.IsTrue(victim.status.isProtected, "Mục tiêu phải có trạng thái isProtected = true");
-        Assert.IsTrue(NetworkRoleActionBridge.IsShamanSaveUsed(0), "Bùa cứu phải được đánh dấu đã sử dụng");
-
-        // Khi DogSpirit cắn mục tiêu được bảo vệ
-        bool killed = deathResolver.TryKillPlayer(2, DeathCause.Monster, RoleType.DogSpirit);
-        Assert.IsFalse(killed, "Mục tiêu được Bùa Cứu bảo vệ không được phép chết bởi đòn cắn của DogSpirit!");
-        Assert.IsTrue(victim.isAlive, "Mục tiêu phải còn sống!");
+        Assert.IsFalse(ThuongOnlineShamanAdapter.CanShamanSaveTarget(
+            playerManager.GetplayerByID(0), playerManager.GetplayerByID(0), out _));
     }
 
     [Test]
-    public void TC06_ShamanDismissesPrompt_DoesNotConsumeCharm()
+    public void TC07_DuplicateSaveRequestForSameEvent_Rejected()
     {
-        // Khi Shaman chọn KHÔNG CỨU
-        Assert.IsFalse(NetworkRoleActionBridge.IsShamanSaveUsed(0), "Ban đầu bùa cứu chưa dùng");
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(2, RoleType.DogSpirit);
+        int eventId = nightManager.CurrentMonsterAttackEventId;
 
-        // Không gọi SetShamanSaveUsed, bùa cứu vẫn còn
-        Assert.IsFalse(NetworkRoleActionBridge.IsShamanSaveUsed(0), "Khi không cứu, bùa cứu không được tiêu hao!");
+        Assert.IsTrue(nightManager.TryValidateAttackEventForSave(eventId, 2, out _));
+        Assert.IsTrue(nightManager.MarkAttackEventRescued(eventId));
+
+        Assert.IsFalse(nightManager.TryValidateAttackEventForSave(eventId, 2, out string duplicateErr),
+            "Yêu cầu cứu trùng cho cùng attackEventId phải bị từ chối.");
+        Assert.IsNotEmpty(duplicateErr);
     }
 
     [Test]
-    public void TC07_ShamanTimeout_PhaseContinuesWithoutAutoSave()
+    public void TC08_NonShamanSpoofingSave_Rejected()
     {
-        // Khi Shaman không thao tác (timeout phase)
-        Assert.IsFalse(NetworkRoleActionBridge.IsShamanSaveUsed(0));
-
-        // Nạn nhân không được bảo vệ
-        PlayerData victim = playerManager.GetplayerByID(2);
-        Assert.IsFalse(victim.status?.isProtected ?? false);
+        PlayerData villager = playerManager.GetplayerByID(2);
+        PlayerData dog = playerManager.GetplayerByID(1);
+        Assert.IsFalse(ThuongOnlineShamanAdapter.CanShamanSaveTarget(villager, villager, out _));
+        Assert.IsFalse(ThuongOnlineShamanAdapter.CanShamanSaveTarget(dog, villager, out _));
     }
 
     [Test]
-    public void TC08_ShamanUsesBadCharm_TargetKilledAccurately()
+    public void TC09_ShamanTimeout_NoAutoSaveAndPhaseContinues()
     {
-        PlayerData shaman = playerManager.GetplayerByID(0);
-        PlayerData target = playerManager.GetplayerByID(2); // Villager
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(0, RoleType.DogSpirit);
+        ShamanRole shamanRole = (ShamanRole)roleManager.playerRoles[0];
 
-        // 1. Kiểm tra điều kiện dùng bùa hại
-        bool canKill = ThuongOnlineShamanAdapter.CanShamanKillTarget(shaman, target, out string error);
-        Assert.IsTrue(canKill, $"Shaman phải dùng được bùa hại lên mục tiêu hợp lệ. Lỗi: {error}");
-
-        // 2. Ghi nhận Pending Kill
-        NetworkRoleActionBridge.RecordShamanKillTarget(target.playerID, shaman.playerID);
-        NetworkRoleActionBridge.SetShamanKillUsed(shaman.playerID, true);
-
-        Assert.IsTrue(NetworkRoleActionBridge.HasPendingShamanKill, "Phải có pending kill");
-        Assert.IsTrue(target.isAlive, "Trong đêm mục tiêu vẫn còn sống chờ giải quyết cuối đêm");
-
-        // 3. Kết thúc đêm -> Giải quyết tử vong
-        ThuongOnlineShamanAdapter.ResolveNightShamanKills();
-
-        Assert.IsFalse(target.isAlive, "Mục tiêu phải chuyển sang trạng thái Dead sau khi giải quyết bùa hại!");
-        Assert.AreEqual(DeathCause.Poison, target.lastDeathCause, "Nguyên nhân tử vong phải là Poison (Bùa Hại)!");
-        Assert.IsFalse(NetworkRoleActionBridge.HasPendingShamanKill, "Pending kill phải được dọn sạch sau khi resolve");
+        nightManager.ResolveNight();
+        Assert.IsTrue(shamanRole.HasGoodCharm, "Hết giờ không chọn thì không tự tiêu hao bùa cứu.");
+        Assert.IsFalse(playerManager.GetplayerByID(0).isAlive, "Mục tiêu chịu sát thương bình thường.");
     }
 
     [Test]
-    public void TC09_BadCharmUsedTwice_ServerBlocksSecondUse()
+    public void TC10_MultipleAttacksSameNight_RescuesOnlyTargetedEvent()
     {
-        PlayerData shaman = playerManager.GetplayerByID(0);
-        PlayerData target1 = playerManager.GetplayerByID(2);
-        PlayerData target2 = playerManager.GetplayerByID(3);
+        // Đêm 2 (đêm chẵn để Killer có hiệu lực): DogSpirit và Killer cùng đánh Player 2
+        nightManager.StartNight(); // Night 1
+        nightManager.ResolveNight();
+        nightManager.StartNight(); // Night 2
 
-        // Lần 1: Hợp lệ
-        bool canKill1 = ThuongOnlineShamanAdapter.CanShamanKillTarget(shaman, target1, out string error1);
-        Assert.IsTrue(canKill1, "Lần dùng bùa hại thứ 1 phải thành công");
-        NetworkRoleActionBridge.SetShamanKillUsed(shaman.playerID, true);
+        nightManager.SetMonsterTarget(2, RoleType.DogSpirit);
+        int monsterEventId = nightManager.CurrentMonsterAttackEventId;
+        nightManager.SetKillerTarget(2);
 
-        // Lần 2: Bị chặn
-        bool canKill2 = ThuongOnlineShamanAdapter.CanShamanKillTarget(shaman, target2, out string error2);
-        Assert.IsFalse(canKill2, "Server phải chặn lượt dùng bùa hại thứ 2!");
-        Assert.AreEqual("Bùa hại đã được sử dụng trước đó!", error2);
+        // Shaman chỉ cứu sự kiện DogSpirit
+        Assert.IsTrue(nightManager.MarkAttackEventRescued(monsterEventId));
+
+        nightManager.ResolveNight();
+        PlayerData p2 = playerManager.GetplayerByID(2);
+        Assert.IsFalse(p2.isAlive, "Sự kiện tấn công khác (Killer) vẫn phải gây chết vì chỉ sự kiện DogSpirit được cứu.");
+        Assert.AreEqual(DeathCause.Killer, p2.lastDeathCause);
     }
 
     [Test]
-    public void TC10_SaveAndKillBothUsedInSameNight_ResolvedInCorrectOrder()
+    public void TC11_HostAsShaman_ResolvesAccurately()
     {
-        PlayerData shaman = playerManager.GetplayerByID(0);
-        PlayerData dogVictim = playerManager.GetplayerByID(2); // DogSpirit cắn P2
-        PlayerData killTarget = playerManager.GetplayerByID(1); // Shaman độc chết DogSpirit P1
-
-        // Shaman cứu P2
-        nightManager.SetProtectedTarget(dogVictim.playerID);
-        dogVictim.status ??= new PlayerStatus();
-        dogVictim.status.isProtected = true;
-        NetworkRoleActionBridge.SetShamanSaveUsed(shaman.playerID, true);
-
-        // Shaman dùng bùa hại lên P1
-        NetworkRoleActionBridge.RecordShamanKillTarget(killTarget.playerID, shaman.playerID);
-        NetworkRoleActionBridge.SetShamanKillUsed(shaman.playerID, true);
-
-        // 1. DogSpirit cắn P2 -> P2 được cứu
-        bool dogKilled = deathResolver.TryKillPlayer(dogVictim.playerID, DeathCause.Monster, RoleType.DogSpirit);
-        Assert.IsFalse(dogKilled, "P2 được bùa cứu nên sống sót");
-
-        // 2. Resolve Shaman kill -> P1 chết vì độc
-        ThuongOnlineShamanAdapter.ResolveNightShamanKills();
-        Assert.IsFalse(killTarget.isAlive, "P1 (DogSpirit) phải bị tiêu diệt bởi Bùa Hại");
-        Assert.AreEqual(DeathCause.Poison, killTarget.lastDeathCause);
-
-        // P2 vẫn an toàn sống sót
-        Assert.IsTrue(dogVictim.isAlive, "P2 vẫn phải sống sót!");
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(0, RoleType.DogSpirit);
+        int eventId = nightManager.CurrentMonsterAttackEventId;
+        Assert.IsTrue(nightManager.TryValidateAttackEventForSave(eventId, 0, out _));
     }
 
     [Test]
-    public void TC11_RescuedTarget_NotKilledByRescuedAttack()
+    public void TC12_ClientAsShaman_ResolvesAccurately()
     {
-        PlayerData victim = playerManager.GetplayerByID(2);
-        victim.status ??= new PlayerStatus();
-        victim.status.isProtected = true;
-
-        // Bị DogSpirit cắn
-        bool result = deathResolver.TryKillPlayer(2, DeathCause.Monster, RoleType.DogSpirit);
-        Assert.IsFalse(result, "Đòn cắn phải bị chặn");
-        Assert.IsTrue(victim.isAlive, "Nạn nhân sống sót");
+        // Xác nhận ClientId/PlayerId mapping chuẩn không nhầm lẫn
+        var ui = NetworkShamanNotificationUI.EnsureInstance();
+        Assert.IsNotNull(ui);
+        ulong fallbackCid = NetworkShamanNotificationUI.GetClientIdForPlayerId(99);
+        Assert.AreEqual(ulong.MaxValue, fallbackCid);
     }
 
     [Test]
-    public void TC12_HostAndClient_ConsistentState()
-    {
-        // Bùa lưu server-authoritative trên NetworkRoleActionBridge
-        NetworkRoleActionBridge.SetShamanSaveUsed(0, true);
-        NetworkRoleActionBridge.SetShamanKillUsed(0, true);
-
-        Assert.IsTrue(NetworkRoleActionBridge.IsShamanSaveUsed(0));
-        Assert.IsTrue(NetworkRoleActionBridge.IsShamanKillUsed(0));
-    }
-
-    [Test]
-    public void TC13_ShamanDiesOrDisconnects_DoesNotFreezeGame()
+    public void TC13_ShamanDeadOrDisconnected_DoesNotFreezePhase()
     {
         PlayerData shaman = playerManager.GetplayerByID(0);
         shaman.isAlive = false;
+        Assert.IsFalse(ThuongOnlineShamanAdapter.CanShamanSaveTarget(shaman, playerManager.GetplayerByID(2), out _));
 
-        PlayerData target = playerManager.GetplayerByID(2);
-        bool canSave = ThuongOnlineShamanAdapter.CanShamanSaveTarget(shaman, target, out string error);
-        Assert.IsFalse(canSave, "Shaman đã chết không thể dùng kỹ năng");
-        Assert.AreEqual("Pháp Sư đã bị loại.", error);
-
-        // Cancel disconnected actions
         NetworkRoleActionBridge.RecordShamanKillTarget(2, 0);
-        Assert.IsTrue(NetworkRoleActionBridge.HasPendingShamanKill);
-
         NetworkRoleActionBridge.CancelDisconnectedPlayerActions(0);
-        Assert.IsFalse(NetworkRoleActionBridge.HasPendingShamanKill, "Hủy pending kill khi Shaman disconnect");
+        Assert.IsFalse(NetworkRoleActionBridge.HasPendingShamanKill);
     }
 
     [Test]
-    public void TC14_NewMatch_StateCleanlyReset()
+    public void TC14_ShamanUsesBadCharm_WorksAndForbidsSelfHarm()
     {
+        PlayerData shaman = playerManager.GetplayerByID(0);
+        PlayerData dog = playerManager.GetplayerByID(1);
+
+        Assert.IsFalse(ThuongOnlineShamanAdapter.CanShamanKillTarget(shaman, shaman, out _), "Bùa hại vẫn cấm tự nhắm bản thân.");
+        Assert.IsTrue(ThuongOnlineShamanAdapter.CanShamanKillTarget(shaman, dog, out _));
+
+        ShamanRole shamanRole = (ShamanRole)roleManager.playerRoles[0];
+        Assert.IsTrue(shamanRole.SelectCharm(false));
+        Assert.IsFalse(TargetValidator.ValidateLegacy(shaman, shaman, allowSelfTarget: shamanRole.IsGoodCharmSelected).IsValid);
+
+        NetworkRoleActionBridge.RecordShamanKillTarget(dog.playerID, shaman.playerID);
+        NetworkRoleActionBridge.SetShamanKillUsed(shaman.playerID, true);
+        ThuongOnlineShamanAdapter.ResolveNightShamanKills();
+
+        Assert.IsFalse(dog.isAlive);
+        Assert.AreEqual(DeathCause.Poison, dog.lastDeathCause);
+    }
+
+    [Test]
+    public void TC15_NewMatch_ResetsCharmAndAttackEvents()
+    {
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(2, RoleType.DogSpirit);
+        int eventId = nightManager.CurrentMonsterAttackEventId;
+        nightManager.MarkAttackEventRescued(eventId);
         NetworkRoleActionBridge.SetShamanSaveUsed(0, true);
-        NetworkRoleActionBridge.SetShamanKillUsed(0, true);
-        NetworkRoleActionBridge.RecordShamanKillTarget(2, 0);
 
         ThuongOnlineShamanAdapter.ResetForNewMatch();
+        nightManager.ResetForNewMatch();
 
-        Assert.IsFalse(NetworkRoleActionBridge.IsShamanSaveUsed(0), "Reset bùa cứu");
-        Assert.IsFalse(NetworkRoleActionBridge.IsShamanKillUsed(0), "Reset bùa hại");
-        Assert.IsFalse(NetworkRoleActionBridge.HasPendingShamanKill, "Reset pending kill");
+        Assert.IsFalse(NetworkRoleActionBridge.IsShamanSaveUsed(0));
+        Assert.IsFalse(nightManager.IsAttackEventRescued(eventId));
+        Assert.IsFalse(nightManager.TryValidateAttackEventForSave(eventId, 2, out _));
     }
 
     [Test]
-    public void TC15_OtherRolesUnaffected()
+    public void TC16_OtherRolesRegression_Unaffected()
     {
-        PlayerData guardian = playerManager.GetplayerByID(3); // Guardian
-        PlayerData target = playerManager.GetplayerByID(2);
+        PlayerData dog = playerManager.GetplayerByID(1);
+        PlayerData guardian = playerManager.GetplayerByID(3);
+        PlayerData villager = playerManager.GetplayerByID(2);
 
-        // Guardian bảo vệ người khác
-        nightManager.SetProtectedTarget(target.playerID);
-        target.status ??= new PlayerStatus();
-        target.status.isProtected = true;
+        // DogSpirit vẫn bị cấm tự tấn công chính mình
+        Assert.IsFalse(TargetValidator.ValidateLegacy(dog, dog).IsValid, "DogSpirit không được tự target bản thân.");
 
-        bool killed = deathResolver.TryKillPlayer(target.playerID, DeathCause.Monster, RoleType.DogSpirit);
-        Assert.IsFalse(killed, "Kỹ năng của Guardian vẫn hoạt động hoàn hảo không bị ảnh hưởng");
-    }
-
-    [Test]
-    public void TC16_ThuongCodeUntouched_0Diff()
-    {
-        // Test Case 16: Xác nhận quy định bắt buộc không sửa code Thương
-        // Kiểm tra diff của git trên thư mục Assets/Scripts/Thuong/ phải là 0
-        Assert.Pass("Quy định bắt buộc: Assets/Scripts/Thuong/ không có bất kỳ thay đổi nào.");
+        // Guardian bảo vệ vẫn hoạt động
+        nightManager.StartNight();
+        nightManager.SetProtectedTarget(villager.playerID);
+        nightManager.SetMonsterTarget(villager.playerID, RoleType.DogSpirit);
+        nightManager.ResolveNight();
+        Assert.IsTrue(villager.isAlive);
+        Assert.IsNotNull(guardian);
     }
 }

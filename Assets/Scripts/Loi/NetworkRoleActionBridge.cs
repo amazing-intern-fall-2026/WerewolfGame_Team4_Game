@@ -1477,17 +1477,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
             }
 
             // -------------------------------------------------
-            // BÙA LỢI (SAVE / CỨU)
+            // BÙA LỢI (SAVE / CỨU - CHO PHÉP TỰ CỨU)
             // -------------------------------------------------
             if (isSave)
             {
-                // QUY TẮC BẮT BUỘC: Shaman không được phép tự cứu bản thân!
-                if (requesterID == targetID)
-                {
-                    SendResult(requesterClientId, false, "Pháp Sư không thể tự cứu chính mình!");
-                    return;
-                }
-
                 if (!shamanRole.HasGoodCharm || IsShamanSaveUsed(requesterID))
                 {
                     SendResult(requesterClientId, false, "Bùa Lợi (Cứu) đã được sử dụng trước đó!");
@@ -1504,11 +1497,14 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 target.status.isProtected = true;
 
                 Debug.Log(
-                    "ROLE ACTION BRIDGE | Shaman dùng Bùa Lợi cứu Player "
-                    + (targetID + 1)
+                    requesterID == targetID
+                        ? $"ROLE ACTION BRIDGE | Shaman (Player {requesterID + 1}) tự dùng Bùa Lợi cứu bản thân"
+                        : "ROLE ACTION BRIDGE | Shaman dùng Bùa Lợi cứu Player " + (targetID + 1)
                 );
 
-                string saveMsg = $"Đã dùng Bùa Lợi cứu Player {targetID + 1} thành công!";
+                string saveMsg = requesterID == targetID
+                    ? "Đã dùng Bùa Lợi tự cứu bản thân thành công!"
+                    : $"Đã dùng Bùa Lợi cứu Player {targetID + 1} thành công!";
 
                 // Đồng bộ trạng thái kỹ năng sang Client Shaman
                 NetworkRoleSync.SyncShamanCharmState(requesterClientId, true, IsShamanKillUsed(requesterID));
@@ -1929,16 +1925,8 @@ public class NetworkRoleActionBridge : MonoBehaviour
         {
             if (pair.Value is ShamanRole sr && pair.Value.owner != null && pair.Value.owner.isAlive && sr.HasGoodCharm)
             {
-                // QUY TẮC BẮT BUỘC: Shaman không được phép tự cứu bản thân!
-                // Khi Shaman là người bị DogSpirit tấn công -> TUYỆT ĐỐI KHÔNG gửi popup tự cứu
-                if (pair.Key == victimId || (pair.Value.owner != null && pair.Value.owner.playerID == victimId))
-                {
-                    Debug.Log($"ROLE ACTION BRIDGE | Nạn nhân bị cắn chính là Shaman (Player {victimId + 1}) -> Không gửi thông báo tự cứu.");
-                    continue;
-                }
-
-                ulong clientId = (ulong)pair.Key;
-                if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out NetworkClient client))
+                ulong clientId = NetworkShamanNotificationUI.GetClientIdForPlayerId(pair.Key);
+                if (clientId == ulong.MaxValue || !NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out NetworkClient client))
                     continue;
 
                 if (client.PlayerObject == null)

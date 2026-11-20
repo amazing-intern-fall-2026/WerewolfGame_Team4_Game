@@ -60,6 +60,11 @@ public class DeathResolver:MonoBehaviour
         if (ThuongLogicSceneScope.IsActive && GameRoleManager.Instance?.currentState == GameState.GameOver)
             return Publish(request, DeathOutcome.InvalidRequest, "Trận đấu đã kết thúc.");
         int targetID = target.playerID;
+        if (request.AttackEventId > 0 && NightManager.Instance != null &&
+            NightManager.Instance.IsAttackEventRescued(request.AttackEventId))
+        {
+            return Publish(request, DeathOutcome.Prevented, $"{target.DisplayName} được Bùa Lợi của Pháp Sư cứu sống.");
+        }
         if (target.roleType == RoleType.Idiot && cause == DeathCause.Vote)
         {
             return Publish(request, DeathOutcome.Prevented, $"{target.DisplayName} miễn nhiễm bỏ phiếu theo luật Thằng Khờ.");
