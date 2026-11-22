@@ -7,14 +7,16 @@ public readonly struct DeathRequest
     public DeathCause Cause { get; }
     public RoleType? SourceRole { get; }
     public bool BypassProtection { get; }
+    public int AttackEventId { get; }
     public DeathRequest(PlayerData target, DeathCause cause, PlayerData source = null,
-        bool bypassProtection = false, RoleType? sourceRole = null)
+        bool bypassProtection = false, RoleType? sourceRole = null, int attackEventId = 0)
     {
         Target = target;
         Cause = cause;
         Source = source;
         SourceRole = sourceRole ?? source?.roleType;
         BypassProtection = bypassProtection;
+        AttackEventId = attackEventId;
     }
 }
 

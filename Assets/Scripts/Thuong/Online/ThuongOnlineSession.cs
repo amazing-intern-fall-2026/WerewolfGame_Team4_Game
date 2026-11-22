@@ -437,8 +437,13 @@ namespace Thuong.Online
             RegisterMainFlowMessages();
             RegisterCommunicationMessages();
             RegisterVillageMessages();
+            RegisterShamanMessages();
             messaging.RegisterNamedMessageHandler(MapReadyMessage, ReceiveMapAcknowledgement);
         }
+
+        partial void RegisterShamanMessages();
+        partial void UnregisterShamanMessages();
+        partial void OnOnlinePhaseChanged(GamePhase previous, GamePhase current);
 
         private void UnregisterMessageHandlers()
         {
@@ -452,6 +457,7 @@ namespace Thuong.Online
                 UnregisterMainFlowMessages();
                 UnregisterCommunicationMessages();
                 UnregisterVillageMessages();
+                UnregisterShamanMessages();
                 messaging.UnregisterNamedMessageHandler(MapReadyMessage);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Hello);
                 messaging.UnregisterNamedMessageHandler(ThuongOnlineMessages.Ready);
@@ -907,6 +913,7 @@ namespace Thuong.Online
             ReadMapState(reader);
             reader.ReadValueSafe(out byte state);
             reader.ReadValueSafe(out byte phase);
+            GamePhase previousVisiblePhase = visiblePhase;
             if (visiblePhase != (GamePhase)phase) localActionFeedback = string.Empty;
             reader.ReadValueSafe(out visibleDay);
             reader.ReadValueSafe(out visibleRemaining);
@@ -918,6 +925,7 @@ namespace Thuong.Online
             reader.ReadValueSafe(out FixedString128Bytes serverStatus);
             visibleState = (GameState)state;
             visiblePhase = (GamePhase)phase;
+            if (previousVisiblePhase != visiblePhase) OnOnlinePhaseChanged(previousVisiblePhase, visiblePhase);
             visibleWinner = winner.ToString();
             string receivedStatus = serverStatus.ToString();
             if (!string.IsNullOrEmpty(receivedStatus)) status = receivedStatus;
@@ -1193,7 +1201,7 @@ namespace Thuong.Online
                     break;
                 case ThuongOnlineAction.ShamanGoodCharm:
                 case ThuongOnlineAction.ShamanBadCharm:
-                    accepted = TryUseShaman(actor, argument,
+                    accepted = TryUseShaman(actor, argument, secondArgument,
                         action == ThuongOnlineAction.ShamanGoodCharm, out feedback);
                     break;
                 case ThuongOnlineAction.HunterTrap:
@@ -1245,11 +1253,48 @@ namespace Thuong.Online
             return false;
         }
 
-        private static bool TryUseShaman(PlayerData actor, int targetId, bool good, out string feedback)
+        private bool TryUseShaman(PlayerData actor, int targetId, int attackEventId, bool good, out string feedback)
         {
             if (RoleManager.Instance == null ||
                 !RoleManager.Instance.playerRoles.TryGetValue(actor.playerID, out BaseRole baseRole) ||
-                baseRole is not ShamanRole shaman || !shaman.SelectCharm(good))
+                baseRole is not ShamanRole shaman)
+            { feedback = "Bùa này không khả dụng."; return false; }
+
+            if (good && attackEventId > 0)
+            {
+                if (game == null || game.currentState == GameState.GameOver || game.currentPhase != GamePhase.Night)
+                { feedback = "Chỉ có thể dùng bùa cứu vào ban đêm."; return false; }
+                if (actor == null || !actor.isAlive)
+                { feedback = "Người đã chết không thể dùng kỹ năng."; return false; }
+                if (actor.HasEffect(StatusEffectType.Silenced))
+                { feedback = "Người chơi đang bị khóa kỹ năng."; return false; }
+                if (actor.hasUseNightAction)
+                { feedback = "Bạn đã dùng kỹ năng trong đêm này."; return false; }
+                if (!shaman.HasGoodCharm)
+                { feedback = "Bùa lợi đã được sử dụng trước đó."; return false; }
+
+                PlayerData target = players?.GetplayerByID(targetId);
+                if (target == null || !target.isAlive)
+                { feedback = "Mục tiêu không tồn tại hoặc đã bị loại."; return false; }
+
+                if (NightManager.Instance == null)
+                { feedback = "Chưa có hệ thống xử lý ban đêm."; return false; }
+                if (!NightManager.Instance.TryValidateAttackEventForSave(attackEventId, targetId, out feedback))
+                { return false; }
+
+                if (!shaman.ConsumeGoodCharm())
+                { feedback = "Bùa lợi không khả dụng."; return false; }
+
+                NightManager.Instance.MarkAttackEventRescued(attackEventId);
+                actor.hasUseNightAction = true;
+                actor.NotifyChanged();
+                feedback = targetId == actor.playerID
+                    ? "Đã dùng bùa lợi tự cứu bản thân thành công!"
+                    : $"Đã dùng bùa lợi cứu {target.DisplayName} thành công!";
+                return true;
+            }
+
+            if (!shaman.SelectCharm(good))
             { feedback = "Bùa này không khả dụng."; return false; }
             return RoleManager.Instance.UseNightAbility(actor.playerID, targetId, out feedback);
         }

@@ -5,6 +5,7 @@ public class NetworkPhaseSync : NetworkBehaviour
 {
     public static NetworkPhaseSync Instance;
     public static event System.Action<GamePhase> OnPhaseChangedGlobal;
+    public static event System.Action<int> OnNightCycleChangedGlobal;
 
     public NetworkVariable<GamePhase> CurrentPhase =
         new NetworkVariable<GamePhase>(
@@ -172,8 +173,16 @@ public class NetworkPhaseSync : NetworkBehaviour
 
         if (dev2Phase == GamePhase.Night)
         {
-            int currentDay =
-                roleManager.currentDay;
+            int currentDay = roleManager.currentDay;
+            if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > currentDay)
+            {
+                currentDay = NightManager.Instance.CurrentNightNumber;
+            }
+
+            if (roleManager.currentDay < currentDay)
+            {
+                roleManager.currentDay = currentDay;
+            }
 
             if (currentDay != lastNetworkNightDay)
             {
@@ -548,5 +557,12 @@ public class NetworkPhaseSync : NetworkBehaviour
             + " → "
             + newNight
         );
+
+        OnNightCycleChangedGlobal?.Invoke(newNight);
+
+        if (NetworkSkillUI.Instance != null)
+        {
+            NetworkSkillUI.Instance.UpdateSkillUI();
+        }
     }
 }

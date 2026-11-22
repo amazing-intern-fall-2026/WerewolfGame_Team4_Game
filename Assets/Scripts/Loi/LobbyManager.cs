@@ -369,10 +369,10 @@ public class LobbyManager : NetworkBehaviour
 
             if (FindPlayerIndex(cid) < 0)
             {
-                string name = NetworkGamePlayerNameSetup.GetName(cid);
+                string name = NetworkGamePlayerNameSetup.HasName(cid) ? NetworkGamePlayerNameSetup.GetName(cid) : null;
                 if (string.IsNullOrWhiteSpace(name))
                 {
-                    name = "Player " + (cid + 1);
+                    name = NetworkGamePlayerNameSetup.GenerateNextDefaultName();
                 }
                 players.Add(new PlayerLobbyData(cid, name));
                 NetworkGamePlayerNameSetup.Save(cid, name);
@@ -456,8 +456,7 @@ public class LobbyManager : NetworkBehaviour
         if (NetworkManager.Singleton == null)
             return;
 
-        string playerName =
-            "Player " + (NetworkManager.Singleton.LocalClientId + 1);
+        string playerName = string.Empty;
 
         if (playerNameInput != null)
         {
@@ -477,13 +476,24 @@ public class LobbyManager : NetworkBehaviour
     {
         ulong clientId = rpcParams.Receive.SenderClientId;
 
-        playerName = playerName.Trim();
+        playerName = playerName != null ? playerName.Trim() : string.Empty;
 
         if (string.IsNullOrWhiteSpace(playerName))
-            playerName = "Player " + (clientId + 1);
-
-        if (playerName.Length > 20)
-            playerName = playerName.Substring(0, 20);
+        {
+            if (!NetworkGamePlayerNameSetup.HasName(clientId))
+            {
+                playerName = NetworkGamePlayerNameSetup.GenerateNextDefaultName();
+            }
+            else
+            {
+                playerName = NetworkGamePlayerNameSetup.GetName(clientId);
+            }
+        }
+        else
+        {
+            if (playerName.Length > 20)
+                playerName = playerName.Substring(0, 20);
+        }
 
         int index = FindPlayerIndex(clientId);
 

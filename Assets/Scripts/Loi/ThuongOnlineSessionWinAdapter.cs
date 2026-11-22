@@ -75,8 +75,39 @@ namespace Thuong.Online
         }
 
         public int GetVisibleDay() => visibleDay;
+        public GamePhase GetVisiblePhase() => visiblePhase;
         public RoleType GetPrivateRole() => privateRole;
         public ushort GetPrivateFlags() => privateFlags;
+        public Unity.Netcode.NetworkManager GetNetworkManager() => network != null ? network : Unity.Netcode.NetworkManager.Singleton;
+
+        partial void RegisterShamanMessages()
+        {
+            if (network != null && network.CustomMessagingManager != null)
+            {
+                NetworkShamanNotificationUI.EnsureInstance().RegisterOnMessagingManager(network.CustomMessagingManager);
+            }
+            ThuongOnlineShamanAdapter.EnsureInstalled();
+        }
+
+        partial void UnregisterShamanMessages()
+        {
+            if (network != null && network.CustomMessagingManager != null && NetworkShamanNotificationUI.Instance != null)
+            {
+                NetworkShamanNotificationUI.Instance.UnregisterFromMessagingManager(network.CustomMessagingManager);
+            }
+        }
+
+        partial void OnOnlinePhaseChanged(GamePhase previous, GamePhase current)
+        {
+            if (current != GamePhase.Night)
+            {
+                NetworkShamanNotificationUI.Instance?.HidePrompt();
+            }
+            if (current == GamePhase.RoleReveal || current == GamePhase.Setup || current == GamePhase.GameOver)
+            {
+                NetworkShamanNotificationUI.Instance?.ResetForNewMatch();
+            }
+        }
 
         /// <summary>
         /// Tra cứu PlayerId của người chơi tương ứng với ClientId từ serverPlayers.
@@ -144,19 +175,108 @@ namespace Thuong.Online
         /// <summary>
         /// Áp dụng giới hạn kỹ năng Xà Tinh trong Thương Online:
         /// Ở Đêm 1 và Đêm 2, xóa cờ HasActiveLocalAbility (bit 8) để RoleAbilityUI ẩn nút CHỌN MỤC TIÊU.
-        /// Từ Đêm 3 trở đi, cho phép hiển thị và sử dụng bình thường.
+        /// Từ Đêm 3 trở đi, BẬT LẠI cờ HasActiveLocalAbility (bit 8) để hiển thị và sử dụng bình thường.
         /// </summary>
         public void EnforceSerpentSpiritNightRestriction()
         {
             if (privateRole == RoleType.SerpentSpirit)
             {
-                int night = visibleDay > 0 ? visibleDay : (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0 ? NightManager.Instance.CurrentNightNumber : 1);
+                int night = ThuongOnlineSerpentSpiritAdapter.GetAuthoritativeNightNumber();
+                if (visibleDay < night)
+                {
+                    visibleDay = night;
+                }
                 if (night < 3)
                 {
                     // Bit 8 là cờ HasActiveLocalAbility, xóa bit 8 để RoleAbilityUI ẩn nút chọn mục tiêu
                     privateFlags = (ushort)(privateFlags & ~8);
                 }
+                else
+                {
+                    // Từ Đêm 3 trở đi: BẬT LẠI cờ HasActiveLocalAbility (bit 8) để RoleAbilityUI hiện nút chọn mục tiêu
+                    privateFlags = (ushort)(privateFlags | 8);
+
+                    if (players?.players != null)
+                    {
+                        foreach (var target in players.players)
+                        {
+                            if (target != null && target.isAlive && target.playerID != localPlayerId)
+                            {
+                                localAllowedTargets.Add(target.playerID);
+                            }
+                        }
+                    }
+                }
+                matchMaxDay = 7 + night;
+                ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
             }
+        }
+
+        /// <summary>
+        /// Dò tìm mục tiêu đang bị Quái vật (Monster/DogSpirit/SerpentSpirit/Ogre/WhiteHound) nhắm tới trong ban đêm.
+        /// Kiểm tra cả NightManager.BuildPeekReport() và nhật ký đêm hiện tại (matchJournal).
+        /// </summary>
+        public bool TryGetMonsterNightTarget(out int victimId)
+        {
+            victimId = -1;
+            if (NightManager.Instance != null)
+            {
+                string report = NightManager.Instance.BuildPeekReport();
+                if (!string.IsNullOrEmpty(report))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        report,
+                        @"(?:Sói|Xà|Quỷ|Bạch khuyển|DogSpirit|SerpentSpirit|Ogre|WhiteHound)\s*(?:→|>)\s*P(\d+)");
+                    if (match.Success && int.TryParse(match.Groups[1].Value, out int pNum))
+                    {
+                        victimId = pNum - 1;
+                        return true;
+                    }
+                }
+            }
+
+            if (matchJournal != null && players?.players != null)
+            {
+                int currentDay = game != null ? game.currentDay : visibleDay;
+                for (int i = matchJournal.Count - 1; i >= 0; i--)
+                {
+                    var entry = matchJournal[i];
+                    if (entry.Day != currentDay || entry.Phase != GamePhase.Night || string.IsNullOrEmpty(entry.Text))
+                    {
+                        continue;
+                    }
+
+                    bool isMonsterAction =
+                        entry.Text.Contains("(DogSpirit)") ||
+                        entry.Text.Contains("(SerpentSpirit)") ||
+                        entry.Text.Contains("(Ogre)") ||
+                        entry.Text.Contains("(WhiteHound)");
+                    if (!isMonsterAction)
+                    {
+                        continue;
+                    }
+
+                    const string marker = " lên ";
+                    int markerIdx = entry.Text.LastIndexOf(marker, StringComparison.Ordinal);
+                    if (markerIdx >= 0)
+                    {
+                        string targetName = entry.Text.Substring(markerIdx + marker.Length).Trim().TrimEnd('.');
+                        foreach (var candidate in players.players)
+                        {
+                            if (candidate == null || !candidate.isAlive) continue;
+                            if (string.Equals(candidate.DisplayName, targetName, StringComparison.Ordinal) ||
+                                string.Equals(candidate.playerName, targetName, StringComparison.Ordinal) ||
+                                string.Equals($"Player {candidate.playerID + 1}", targetName, StringComparison.Ordinal))
+                            {
+                                victimId = candidate.playerID;
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }

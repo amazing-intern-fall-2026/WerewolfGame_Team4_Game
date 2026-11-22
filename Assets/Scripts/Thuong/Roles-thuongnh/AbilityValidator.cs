@@ -18,11 +18,14 @@ public readonly struct ActionValidationResult
 public static class TargetValidator
 {
     public static ActionValidationResult ValidateLegacy(PlayerData actor, PlayerData target)
+        => ValidateLegacy(actor, target, allowSelfTarget: false);
+
+    public static ActionValidationResult ValidateLegacy(PlayerData actor, PlayerData target, bool allowSelfTarget)
     {
         if (actor == null) return ActionValidationResult.Fail(ActionFailureReason.ActorMissing, "Không tìm thấy người dùng.");
         if (target == null) return ActionValidationResult.Fail(ActionFailureReason.TargetMissing, "Hãy chọn mục tiêu.");
         if (!target.isAlive) return ActionValidationResult.Fail(ActionFailureReason.TargetDead, "Mục tiêu đã chết.");
-        if (actor.playerID == target.playerID)
+        if (!allowSelfTarget && actor.playerID == target.playerID)
             return ActionValidationResult.Fail(ActionFailureReason.SelfTargetForbidden, "Không được chọn chính mình.");
         return ActionValidationResult.Success();
     }
