@@ -7,10 +7,15 @@ public class WellMinigame : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private RectTransform pointer;
-    [SerializeField] private RectTransform barContainer;      // BarBackground
+    [SerializeField] private RectTransform barContainer;      // Top BarBackground
     [SerializeField] private RectTransform yellowZone; 
     [SerializeField] private RectTransform greenZone;  
     [SerializeField] private TextMeshProUGUI scoreText;      
+
+    [Header("Progress Bar References")]
+    [SerializeField] private Image progressBarFill;            // Vertical Fill Image (Image Type = Filled, Vertical, Bottom)
+    [SerializeField] private RectTransform progressBarPointer;    // Bucket Image RectTransform on the progress bar
+    [SerializeField] private RectTransform progressBarContainer;  // VerticalProgressBarBG (Parent container)
 
     [Header("Bucket World Reference")]
     [SerializeField] private SpriteRenderer bucketSpriteRenderer; // Drag "TX Village Props - Bucket" here
@@ -42,7 +47,6 @@ public class WellMinigame : MonoBehaviour
     {
         currentPointerSpeed = initialPointerSpeed;
         
-        // Ensure bucket starts fully visible at the well
         if (bucketSpriteRenderer != null)
         {
             SetBucketAlpha(1f);
@@ -50,6 +54,7 @@ public class WellMinigame : MonoBehaviour
 
         RandomizeZones(); 
         UpdateScoreUI();
+        UpdateProgressBar();
     }
 
     void Update()
@@ -71,7 +76,7 @@ public class WellMinigame : MonoBehaviour
             movingForward = true;
         }
 
-        // Update UI position of the pointer along the bar
+        // Update UI position of the top pointer along the timing bar
         float barWidth = barContainer.rect.width;
         float newX = (currentProgress - 0.5f) * barWidth;
         pointer.anchoredPosition = new Vector2(newX, pointer.anchoredPosition.y);
@@ -136,20 +141,20 @@ public class WellMinigame : MonoBehaviour
         if (currentProgress >= currentGreenRange.x && currentProgress <= currentGreenRange.y)
         {
             Debug.Log("Green! Perfect Pull! (+2 Points)");
-            RegisterPull(2); // Green awards 2 points (Wins faster)
+            RegisterPull(2);
         }
         else if (currentProgress >= currentYellowRange.x && currentProgress <= currentYellowRange.y)
         {
             Debug.Log("Yellow! Good Pull! (+1 Point)");
-            RegisterPull(1); // Yellow awards 1 point (Takes longer)
+            RegisterPull(1);
         }
         else
         {
             Debug.Log("Red! Missed!");
-            // Penalty on miss
             currentPoints = Mathf.Max(0, currentPoints - 1);
             currentPointerSpeed = Mathf.Max(initialPointerSpeed, currentPointerSpeed - 0.2f);
             
+            UpdateProgressBar();
             RandomizeZones(); 
             isPlaying = true; 
         }
@@ -158,7 +163,8 @@ public class WellMinigame : MonoBehaviour
     private void RegisterPull(int pointsGained)
     {
         currentPoints += pointsGained;
-        currentPointerSpeed += speedIncreasePerTap; // Increase speed per success
+        currentPointerSpeed += speedIncreasePerTap;
+        UpdateProgressBar();
 
         if (currentPoints >= requiredPointsToComplete)
         {
@@ -181,7 +187,7 @@ public class WellMinigame : MonoBehaviour
         Vector3 startPosition = bucketTransform.position; 
         Vector3 floatTargetPosition = startPosition + new Vector3(0, floatDistance, 0);
 
-        // STEP 1: FLOAT - Bucket moves upward while remaining fully visible
+        // STEP 1: FLOAT UP
         float elapsed = 0f;
         while (elapsed < floatDuration)
         {
@@ -192,7 +198,7 @@ public class WellMinigame : MonoBehaviour
         }
         bucketTransform.position = floatTargetPosition;
 
-        // STEP 2: FADE OUT - Bucket stays floating and fades away
+        // STEP 2: FADE OUT
         elapsed = 0f;
         while (elapsed < fadeOutDuration)
         {
@@ -203,7 +209,7 @@ public class WellMinigame : MonoBehaviour
         }
         SetBucketAlpha(0f);
 
-        // STEP 3: REAPPEAR AT START - Teleport back to well mouth and fade in
+        // STEP 3: REAPPEAR AT START POSITION
         bucketTransform.position = startPosition;
         elapsed = 0f;
         while (elapsed < fadeInDuration)
@@ -215,11 +221,33 @@ public class WellMinigame : MonoBehaviour
         }
         SetBucketAlpha(1f);
 
-        // Reset round state
+        // Reset round state & progress bar
         currentPoints = 0;
         currentPointerSpeed = initialPointerSpeed;
+        UpdateProgressBar();
         RandomizeZones(); 
         isPlaying = true;
+    }
+
+    private void UpdateProgressBar()
+    {
+        float fillRatio = Mathf.Clamp01((float)currentPoints / requiredPointsToComplete);
+
+        // 1. Update fill amount
+        if (progressBarFill != null)
+        {
+            progressBarFill.fillAmount = fillRatio;
+        }
+
+        // 2. Update bucket pointer position along the vertical bar
+        if (progressBarPointer != null && progressBarContainer != null)
+        {
+            float totalHeight = progressBarContainer.rect.height;
+            
+            // Assuming Anchor is set to Bottom-Center (Pivot Y = 0 or 0.5)
+            float newY = fillRatio * totalHeight;
+            progressBarPointer.anchoredPosition = new Vector2(progressBarPointer.anchoredPosition.x, newY);
+        }
     }
 
     private void SetBucketAlpha(float alpha)
