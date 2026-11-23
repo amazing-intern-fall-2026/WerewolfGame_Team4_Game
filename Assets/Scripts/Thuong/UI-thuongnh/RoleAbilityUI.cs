@@ -489,6 +489,19 @@ public class RoleAbilityUI : MonoBehaviour
             ? "Player " + (player.playerID + 1) : player.playerName;
     }
 
+    private string TargetDisplayLabel(PlayerData target, bool includeSelfTag = true)
+    {
+        if (target == null) return string.Empty;
+        string prefix = $"P{target.playerID + 1:00}";
+        string baseName = PlayerName(target);
+        string formatted = baseName.StartsWith(prefix + " ", System.StringComparison.OrdinalIgnoreCase)
+            ? baseName
+            : $"{prefix}  {baseName}";
+        if (includeSelfTag && target.playerID == localPlayerID)
+            formatted += " (Bản thân)";
+        return formatted;
+    }
+
     private void RefreshRole(PlayerData player)
     {
         hasShownRole = true;
@@ -540,7 +553,7 @@ public class RoleAbilityUI : MonoBehaviour
         }
         if (playerLabel != null)
         {
-            playerLabel.text = $"<b>{PlayerName(player)}</b>\n<size=85%>{info.DisplayName}</size>";
+            playerLabel.text = $"<b>{TargetDisplayLabel(player, includeSelfTag: false)}</b>\n<size=85%>{info.DisplayName}</size>";
         }
         if (openLabel != null) openLabel.text = "ROLE / " + info.DisplayName.ToUpper();
 
@@ -787,7 +800,6 @@ public class RoleAbilityUI : MonoBehaviour
         }
 
         int lobbyCount = 0;
-        int count = 0;
         bool selectingSecondLover = player.roleType == RoleType.WeaverOfFate &&
                                     firstLoverTargetID != -1;
         foreach (PlayerData target in lobby)
@@ -798,19 +810,24 @@ public class RoleAbilityUI : MonoBehaviour
             if (selectingSecondLover && target.playerID == firstLoverTargetID)
                 continue;
             int targetID = target.playerID;
-            string name = $"{PlayerName(target)}  /  ID {targetID}";
+            string name = TargetDisplayLabel(target);
             Button button = ActionButton("Target " + targetID, targetContent,
                 name, Vector2.zero, Vector2.one, "#2F5962", () => SelectTarget(targetID));
-            button.GetComponentInChildren<TMP_Text>().fontSize = 17;
+            TMP_Text buttonLabel = button.GetComponentInChildren<TMP_Text>();
+            if (buttonLabel != null)
+            {
+                buttonLabel.fontSizeMax = 16;
+                buttonLabel.fontSizeMin = 11;
+                buttonLabel.fontSize = 16;
+            }
             targetButtons.Add(targetID, button);
-            count++;
         }
 
         targetTitleLabel.text = selectingSecondLover
             ? "CHỌN NGƯỜI THỨ HAI"
             : $"MỤC TIÊU / LOBBY {lobbyCount} NGƯỜI";
         bool canUse = CanUse(player, GameRoleManager.Instance, out string reason);
-        RefreshTargets(player, canUse, reason);
+        int selectableCount = RefreshTargets(player, canUse, reason);
         if (!canUse)
             targetFeedbackLabel.text = reason;
         else if (selectingSecondLover)
@@ -818,12 +835,12 @@ public class RoleAbilityUI : MonoBehaviour
             PlayerData firstTarget = PlayerManager.Instance.GetplayerByID(firstLoverTargetID);
             targetFeedbackLabel.text = firstTarget == null
                 ? "Chọn người chơi thứ hai."
-                : $"Đã chọn {PlayerName(firstTarget)}. Chọn người thứ hai.";
+                : $"Đã chọn {TargetDisplayLabel(firstTarget)}. Chọn người thứ hai.";
         }
         else
-            targetFeedbackLabel.text = count == 0
+            targetFeedbackLabel.text = selectableCount == 0
                 ? "Không có mục tiêu còn sống hợp lệ."
-                : $"{count} người chơi có thể chọn.";
+                : $"{selectableCount} người chơi có thể chọn.";
         abilityView.SetActive(false);
         resultView.SetActive(false);
         targetView.SetActive(true);
@@ -872,8 +889,9 @@ public class RoleAbilityUI : MonoBehaviour
         resultView.SetActive(true);
     }
 
-    private void RefreshTargets(PlayerData player, bool canUse, string reason)
+    private int RefreshTargets(PlayerData player, bool canUse, string reason)
     {
+        int activeCount = 0;
         foreach (var pair in targetButtons)
         {
             var target = PlayerManager.Instance?.GetplayerByID(pair.Key);
@@ -881,8 +899,10 @@ public class RoleAbilityUI : MonoBehaviour
                 !(player?.roleType == RoleType.WeaverOfFate && firstLoverTargetID == pair.Key);
             pair.Value.gameObject.SetActive(allowed);
             pair.Value.interactable = allowed && canUse;
+            if (allowed) activeCount++;
         }
         if (!canUse) targetFeedbackLabel.text = reason;
+        return activeCount;
     }
 
     private ActionValidationResult ValidateTarget(PlayerData actor, PlayerData target)
@@ -1128,7 +1148,7 @@ public class RoleAbilityUI : MonoBehaviour
         actionFeedback = feedback;
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         resultFeedbackLabel.text = target == null ? feedback :
-            $"{feedback}\nMục tiêu: {PlayerName(target)} (ID {targetID}).";
+            $"{feedback}\nMục tiêu: {TargetDisplayLabel(target)}.";
         targetView.SetActive(false);
         abilityView.SetActive(false);
         resultView.SetActive(true);
