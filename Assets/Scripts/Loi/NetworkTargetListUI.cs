@@ -933,12 +933,21 @@ public class NetworkTargetListUI : MonoBehaviour
                     nameSync.GetPlayerName();
             }
 
+            string prefix = $"P{playerID + 1:00}";
+            string displayName = playerName.StartsWith(prefix + " ", System.StringComparison.OrdinalIgnoreCase)
+                ? playerName
+                : $"{prefix}  {playerName}";
+            if (allowSelfTarget && playerID == localPlayerID)
+            {
+                displayName += " (Bản thân)";
+            }
+
             Debug.Log(
                 "TARGET NAME TEST"
                 + " | Player = "
                 + (playerID + 1)
                 + " | Name = "
-                + playerName
+                + displayName
             );
 
             // ==========================================
@@ -947,7 +956,7 @@ public class NetworkTargetListUI : MonoBehaviour
 
             cardUI.Setup(
                 playerID,
-                playerName,
+                displayName,
                 isAlive,
                 currentSubActionId
             );
