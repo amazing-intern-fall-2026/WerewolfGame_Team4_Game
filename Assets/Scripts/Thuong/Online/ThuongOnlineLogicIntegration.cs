@@ -55,6 +55,17 @@ namespace Thuong.Online
         private int[] AllowedTargets(PlayerData actor)
         {
             if (actor == null || players?.players == null) return Array.Empty<int>();
+            if (roomRules.mode != ThuongMatchMode.RealtimeProximity &&
+                NightManager.Instance != null &&
+                NightManager.Instance.IsDogSpiritDecisionActive &&
+                NightManager.IsMonsterPackMember(actor))
+            {
+                if (!NightManager.CanParticipateInDogSpiritDecision(actor, out _))
+                    return Array.Empty<int>();
+                return NightManager.Instance.DogSpiritTiedCandidateIds
+                    .Where(id => NightManager.Instance.IsValidDogSpiritDecisionTarget(id, out _))
+                    .ToArray();
+            }
             bool allowShamanSelf = actor.roleType == RoleType.Shaman && !RoleManager.UsesConfiguredAbility(actor) &&
                                    roles != null && roles.playerRoles.TryGetValue(actor.playerID, out BaseRole role) &&
                                    role is ShamanRole shaman && shaman.HasGoodCharm;
@@ -63,7 +74,7 @@ namespace Thuong.Online
                     CanProtectRealtimeTarget(actor.playerID, target.playerID)) &&
                 (RoleManager.UsesConfiguredAbility(actor)
                     ? TargetValidator.Validate(actor, target, actor.roleDefinition).IsValid &&
-                      game.abilities.Validate(actor, target).FailureReason != ActionFailureReason.RepeatedTarget
+                      (NightManager.IsMonsterPackMember(actor) || game.abilities.Validate(actor, target).FailureReason != ActionFailureReason.RepeatedTarget)
                     : TargetValidator.ValidateLegacy(actor, target, allowShamanSelf).IsValid))
                 .Select(target => target.playerID).ToArray();
         }

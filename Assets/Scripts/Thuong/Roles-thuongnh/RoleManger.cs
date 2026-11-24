@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -90,8 +90,28 @@ public class RoleManger : MonoBehaviour
         var targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
         if (!targetValidation.IsValid) { feedback = targetValidation.Message; return false; }
 
+        if (NightManager.IsMonsterPackMember(role.owner))
+        {
+            var night = NightManager.Instance;
+            int nightNum = night != null ? night.CurrentEffectiveNightNumber() : 0;
+            if (night != null)
+            {
+                if (!night.TryCastMonsterVote(role.owner, targetID, nightNum, out feedback))
+                    return false;
+                role.owner.hasUseNightAction = true;
+                role.owner.NotifyChanged();
+                return true;
+            }
+            if (!NightManager.CanParticipateInMonsterPackAttack(role.owner, nightNum, out feedback))
+                return false;
+        }
+
         if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
+        if (NightManager.IsMonsterPackMember(role.owner))
+        {
+            NightManager.Instance?.SetMonsterSelector(targetID, playerID);
+        }
         role.owner.hasUseNightAction = role is not FoxSpiritRole fox || fox.HasUsedAllNightActions;
         role.owner.NotifyChanged();
         return true;
