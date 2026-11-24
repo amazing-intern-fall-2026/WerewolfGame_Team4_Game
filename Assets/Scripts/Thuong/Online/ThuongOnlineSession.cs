@@ -1008,7 +1008,12 @@ namespace Thuong.Online
             if (player.isAlive) flags |= 1;
             if (player.hasVoted) flags |= 2;
             bool configured = RoleManager.UsesConfiguredAbility(player);
+            bool isMonsterPackActor = NightManager.IsMonsterPackMember(player);
+            bool monsterAbilityDone = NightManager.Instance != null && (NightManager.Instance.IsDogSpiritDecisionActive
+                ? !NightManager.CanParticipateInDogSpiritDecision(player, out _)
+                : (NightManager.Instance.IsMonsterVoteClosed || NightManager.Instance.IsMonsterAttackLockedForCurrentNight()));
             bool abilityUsed = roomRules.mode == ThuongMatchMode.RealtimeProximity ? player.hasUseNightAction
+                : isMonsterPackActor ? monsterAbilityDone
                 : configured ? game.abilities.ValidateActor(player).FailureReason == ActionFailureReason.AlreadyUsed : player.hasUseNightAction;
             if (abilityUsed) flags |= 4;
             if (player.CanVote) flags |= 32;
@@ -1195,6 +1200,8 @@ namespace Thuong.Online
                         roles.playerRoles.TryGetValue(actor.playerID, out BaseRole bratBaseRole) &&
                         bratBaseRole is BratRole brat)
                         accepted = brat.TryPeek(out feedback);
+                    else if (NightManager.IsMonsterPackMember(actor))
+                        accepted = TryExecuteMonsterPackAbilityOnServer(actor, argument, out feedback);
                     else
                         accepted = RoleManager.Instance != null &&
                                    RoleManager.Instance.UseNightAbility(actor.playerID, argument, out feedback);

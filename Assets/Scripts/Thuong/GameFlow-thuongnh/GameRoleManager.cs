@@ -27,6 +27,10 @@ public class GameRoleManager : MonoBehaviour
     public bool IsHunterRevengeWindow => currentPhase == GamePhase.HunterRevenge;
     public bool MustWaitForHunterRevenge => HasPendingHunterRevenge || IsHunterRevengeWindow && !resolving;
     public const float HunterRevengeSeconds = 20;
+    public const float DogSpiritDecisionSeconds = 15f;
+    public bool IsDogSpiritDecisionWindow => started && currentState == GameState.Night &&
+        NightManager.Instance != null && NightManager.Instance.IsDogSpiritDecisionActive;
+    private bool awaitingDogSpiritDecisionFinish;
     private bool resumeDayAfterHunter;
     private DeathResolver observedDeathSystem;
     public event System.Action<GamePhase, GamePhase> PhaseChanged;
@@ -118,6 +122,23 @@ public class GameRoleManager : MonoBehaviour
             if (!HasPendingHunterRevenge) CompleteHunterRevenge();
             return;
         }
+        if (awaitingDogSpiritDecisionFinish)
+        {
+            if (NightManager.Instance == null || !NightManager.Instance.IsDogSpiritDecisionActive)
+            {
+                awaitingDogSpiritDecisionFinish = false;
+                FinishNight();
+                return;
+            }
+            if (PhaseTimeRemaining <= 0 || !NightManager.Instance.HasConnectedNonSilencedDogSpirit())
+            {
+                awaitingDogSpiritDecisionFinish = false;
+                NightManager.Instance.ResolveDogSpiritDecisionFallback();
+                FinishNight();
+                return;
+            }
+            return;
+        }
         if (PhaseTimeRemaining > 0) return;
         if (currentState == GameState.RoleReveal)
         {
@@ -125,6 +146,13 @@ public class GameRoleManager : MonoBehaviour
         }
         else if (currentState == GameState.Night)
         {
+            if (NightManager.Instance != null && NightManager.Instance.BeginDogSpiritTieDecisionIfNeeded())
+            {
+                awaitingDogSpiritDecisionFinish = true;
+                PhaseTimeRemaining = DogSpiritDecisionSeconds;
+                WinConditionManager.Instance?.NotifyMatchStateChanged();
+                return;
+            }
             FinishNight();
         }
         else if (currentState == GameState.Discussion) StartVoting();
@@ -188,6 +216,7 @@ public class GameRoleManager : MonoBehaviour
     public void EndDay()
     {
         if (!started || currentState != GameState.Day) return;
+        awaitingDogSpiritDecisionFinish = false;
         DayTimer.Instance.StopTimer();
         PlayerManager.Instance.LockPlayers();
         SetPhase(GamePhase.Night);
@@ -210,6 +239,7 @@ public class GameRoleManager : MonoBehaviour
     {
         bool freeRoamPhase = currentPhase is GamePhase.DayStart or GamePhase.Event or GamePhase.Task or GamePhase.Night;
         if (!started || !freeRoamPhase || currentState is not (GameState.Day or GameState.Night)) return false;
+        awaitingDogSpiritDecisionFinish = false;
         DayTimer.Instance?.StopTimer();
         NightManager.Instance?.ClearActions();
         var players = PlayerManager.Instance?.players;
@@ -235,9 +265,23 @@ public class GameRoleManager : MonoBehaviour
         }
         finally { resolving = false; }
     }
+    public void CompleteDogSpiritDecisionIfReady()
+    {
+        if (!started || currentState != GameState.Night || resolving) return;
+        if (NightManager.Instance != null && NightManager.Instance.IsDogSpiritDecisionActive) return;
+        if (!awaitingDogSpiritDecisionFinish &&
+            (NightManager.Instance == null || !NightManager.Instance.IsMonsterVoteClosed))
+        {
+            return;
+        }
+        awaitingDogSpiritDecisionFinish = false;
+        FinishNight();
+    }
+
     public void FinishNight()
     {
         if (!started || currentState != GameState.Night || resolving) return;
+        awaitingDogSpiritDecisionFinish = false;
         resolving = true;
         try
         {
@@ -370,6 +414,7 @@ public class GameRoleManager : MonoBehaviour
         Result = null;
         PhaseTimeRemaining = 0;
         resumeDayAfterHunter = false;
+        awaitingDogSpiritDecisionFinish = false;
         currentState = GameState.RoleReveal;
         currentPhase = GamePhase.Setup;
         currentDay = 1;
@@ -422,6 +467,7 @@ public class GameRoleManager : MonoBehaviour
             NightManager.Instance.ClearActions();
         }
         PhaseTimeRemaining = 0;
+        awaitingDogSpiritDecisionFinish = false;
         DayTimer.Instance?.StopTimer();
         PlayerManager.Instance?.LockPlayers();
         Debug.Log(winner + " Win");

@@ -13,12 +13,15 @@ public class SerpentSpirit : BaseRole
         if (!owner.isAlive)
             return;
 
-        if (owner.serpentNightCount < 2)
+        int nightNum = NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0
+            ? NightManager.Instance.CurrentNightNumber
+            : owner.serpentNightCount;
+        if (nightNum < 3)
         {
             Debug.Log(owner.playerName + " chưa thể giết. Xà tinh đang trong 2 đêm đầu.");
             return;
         }
 
-        NightManager.Instance.SetMonsterTarget(TargetID, RoleType.SerpentSpirit);
+        NightManager.Instance.SetMonsterTarget(TargetID, RoleType.SerpentSpirit, owner.playerID);
     }
 }

@@ -1,5 +1,36 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
+
+public readonly struct VoteTallyOutcome
+{
+    public readonly Dictionary<int, int> Tallies;
+    public readonly int WinningTargetId;
+    public readonly int HighestVotes;
+    public readonly int NoEliminationVotes;
+    public readonly bool IsTie;
+    public readonly bool NoEliminationWon;
+    public readonly int TopChoiceCount;
+
+    public VoteTallyOutcome(
+        Dictionary<int, int> tallies,
+        int winningTargetId,
+        int highestVotes,
+        int noEliminationVotes,
+        bool isTie,
+        bool noEliminationWon,
+        int topChoiceCount)
+    {
+        Tallies = tallies;
+        WinningTargetId = winningTargetId;
+        HighestVotes = highestVotes;
+        NoEliminationVotes = noEliminationVotes;
+        IsTie = isTie;
+        NoEliminationWon = noEliminationWon;
+        TopChoiceCount = topChoiceCount;
+    }
+}
+
 public class VoteManager : MonoBehaviour
 {
     public static VoteManager Instance;
@@ -87,6 +118,72 @@ public class VoteManager : MonoBehaviour
         voter.NotifyChanged();
         return true;
     }
+    public static VoteTallyOutcome EvaluatePlayerBallots(
+        IReadOnlyDictionary<int, VoteChoice> ballotChoices,
+        Func<int, PlayerData> resolvePlayer,
+        Func<PlayerData, int> getWeight,
+        Func<PlayerData, bool> isEligibleTarget = null)
+    {
+        var tallies = new Dictionary<int, int>();
+        int noEliminationVotes = 0;
+
+        if (ballotChoices != null && resolvePlayer != null && getWeight != null)
+        {
+            foreach (var ballot in ballotChoices)
+            {
+                var voter = resolvePlayer(ballot.Key);
+                if (voter == null) continue;
+                int weight = getWeight(voter);
+                if (weight <= 0) continue;
+
+                if (ballot.Value.Kind == VoteChoiceKind.NoElimination)
+                {
+                    noEliminationVotes += weight;
+                    continue;
+                }
+
+                var candidate = resolvePlayer(ballot.Value.TargetPlayerId);
+                if (candidate == null || !candidate.isAlive) continue;
+                if (isEligibleTarget != null && !isEligibleTarget(candidate)) continue;
+
+                tallies.TryGetValue(candidate.playerID, out int count);
+                tallies[candidate.playerID] = count + weight;
+            }
+        }
+
+        int target = -1;
+        int highest = noEliminationVotes;
+        int topChoices = noEliminationVotes > 0 ? 1 : 0;
+        bool skipIsTop = noEliminationVotes > 0;
+
+        foreach (var vote in tallies)
+        {
+            if (vote.Value > highest)
+            {
+                target = vote.Key;
+                highest = vote.Value;
+                topChoices = 1;
+                skipIsTop = false;
+            }
+            else if (vote.Value == highest && highest > 0)
+            {
+                topChoices++;
+                target = -1;
+            }
+        }
+
+        bool tied = highest > 0 && topChoices > 1;
+        bool noEliminationWon = highest > 0 && !tied && skipIsTop;
+        return new VoteTallyOutcome(
+            tallies,
+            (!tied && !noEliminationWon) ? target : -1,
+            highest,
+            noEliminationVotes,
+            tied,
+            noEliminationWon,
+            topChoices);
+    }
+
     public void ResolveVote()
     {
         // A repeated callback must not recalculate the same choices after a death.
@@ -95,35 +192,15 @@ public class VoteManager : MonoBehaviour
         resolved = true;
         votes.Clear();
         // Store choices only; transient effects and alive-state are evaluated at resolution.
-        int noEliminationVotes = 0;
-        foreach (var ballot in choices)
-        {
-            var voter = PlayerManager.Instance?.GetplayerByID(ballot.Key);
-            if (voter == null) continue;
-            int weight = voter.GetVoteWeight();
-            if (weight == 0) continue;
-            if (ballot.Value.Kind == VoteChoiceKind.NoElimination)
-            {
-                noEliminationVotes += weight;
-                continue;
-            }
-            var candidate = PlayerManager.Instance?.GetplayerByID(ballot.Value.TargetPlayerId);
-            if (candidate == null || !candidate.isAlive) continue;
-            votes.TryGetValue(candidate.playerID, out int tally);
-            votes[candidate.playerID] = tally + weight;
-        }
-        int target = -1, highest = noEliminationVotes;
-        int topChoices = noEliminationVotes > 0 ? 1 : 0;
-        bool skipIsTop = noEliminationVotes > 0;
-        foreach (var vote in votes)
-        {
-            if (vote.Value > highest) { target = vote.Key; highest = vote.Value; topChoices = 1; skipIsTop = false; }
-            else if (vote.Value == highest && highest > 0) { topChoices++; target = -1; }
-        }
-        bool tied = highest > 0 && topChoices > 1;
-        bool noEliminationWon = highest > 0 && !tied && skipIsTop;
-        var tallies = new Dictionary<int, int>(votes);
-        votes.Clear();
+        var outcome = EvaluatePlayerBallots(
+            choices,
+            id => PlayerManager.Instance?.GetplayerByID(id),
+            voter => voter.GetVoteWeight());
+        var tallies = new Dictionary<int, int>(outcome.Tallies);
+        bool tied = outcome.IsTie;
+        bool noEliminationWon = outcome.NoEliminationWon;
+        int target = outcome.WinningTargetId;
+        int noEliminationVotes = outcome.NoEliminationVotes;
         PlayerData eliminated = null;
         string message = tied ? "Phiếu hòa, không ai bị loại."
             : noEliminationWon ? "Người chơi đã chọn không loại ai."
