@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class GameRoleManager : MonoBehaviour
 {
@@ -389,6 +389,7 @@ public class GameRoleManager : MonoBehaviour
     }
     private void EndGame(string winner)
     {
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
         // The scoped evaluator owns the result. Legacy role/task shortcuts must
         // not finish an online match halfway through an atomic resolution.
         if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
@@ -396,11 +397,13 @@ public class GameRoleManager : MonoBehaviour
     }
     internal void FinishLocalMatch(string winner)
     {
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
         if (WinConditionManager.Instance != null && WinConditionManager.Instance.HasMatchEvaluator(this)) return;
         FinishGame(winner, false);
     }
     internal void FinishEvaluatedMatch(string winner)
     {
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
         if (WinConditionManager.Instance == null || !WinConditionManager.Instance.HasMatchEvaluator(this)) return;
         FinishGame(winner, false);
     }

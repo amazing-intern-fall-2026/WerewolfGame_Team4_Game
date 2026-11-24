@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
@@ -24,20 +25,29 @@ public static class ThuongOnlineWinConditionTests
         Debug.Log("BẮT ĐẦU BỘ KIỂM THỬ: ĐIỀU KIỆN CHIẾN THẮNG BẠCH KHUYỂN – THƯƠNG ONLINE");
         Debug.Log("=========================================================================");
 
-        Test_Case1_UnawakenedWhiteHound_Alive_VillagersWinAccordingToRule();
-        Test_Case2_AwakenedWhiteHound_Alive_WithOtherMonsters_VillagersCannotWin();
-        Test_Case3_AwakenedWhiteHound_Alive_AllOtherMonstersDead_VillagersCannotWin();
-        Test_Case4_AwakenedWhiteHound_Dead_NotCountedAsAliveMonster_VillagersWin();
-        Test_Case5_WhiteHoundAwakens_And_DogSpiritKilled_InSameNight_CheckFinalState();
-        Test_Case6_HostAndClient_ConsistentOutcome();
-        Test_Case7_NewMatch_AwakenedStateReset();
-        Test_Case8_AwakenedWhiteHound_2VillagersAlive_DogSpiritDead_GameMustContinue();
-        Test_Case9_DogSpiritBitesWhiteHound_AwakenNotificationSent();
-        Test_Case10_MainMenu_BlocksGameOverUI();
-        Test_TC1_to_TC8_SerpentSpirit();
-        Test_TC9_to_TC16_DogSpirit_WhiteHound();
-        Test_TC1_to_TC11_DogSpirit_Bite_Notification();
-        Test_TC01_to_TC14_Monster_Chat();
+        // Tạm thời dùng luật thắng bình thường trong phạm vi bộ regression test cũ, sau đó khôi phục lại cờ testing
+        WinConditionTestConfig.SetRuntimeOverrideForTest(false);
+        try
+        {
+            Test_Case1_UnawakenedWhiteHound_Alive_VillagersWinAccordingToRule();
+            Test_Case2_AwakenedWhiteHound_Alive_WithOtherMonsters_VillagersCannotWin();
+            Test_Case3_AwakenedWhiteHound_Alive_AllOtherMonstersDead_VillagersCannotWin();
+            Test_Case4_AwakenedWhiteHound_Dead_NotCountedAsAliveMonster_VillagersWin();
+            Test_Case5_WhiteHoundAwakens_And_DogSpiritKilled_InSameNight_CheckFinalState();
+            Test_Case6_HostAndClient_ConsistentOutcome();
+            Test_Case7_NewMatch_AwakenedStateReset();
+            Test_Case8_AwakenedWhiteHound_2VillagersAlive_DogSpiritDead_GameMustContinue();
+            Test_Case9_DogSpiritBitesWhiteHound_AwakenNotificationSent();
+            Test_Case10_MainMenu_BlocksGameOverUI();
+            Test_TC1_to_TC8_SerpentSpirit();
+            Test_TC9_to_TC16_DogSpirit_WhiteHound();
+            Test_TC1_to_TC11_DogSpirit_Bite_Notification();
+            Test_TC01_to_TC14_Monster_Chat();
+        }
+        finally
+        {
+            WinConditionTestConfig.SetRuntimeOverrideForTest(null);
+        }
 
         Debug.Log("=========================================================================");
         Debug.Log($"KẾT QUẢ KIỂM THỬ: {passCount} PASSED, {failCount} FAILED");
@@ -1021,5 +1031,274 @@ public static class ThuongOnlineWinConditionTests
             if (chatMgrGO != null) UnityEngine.Object.DestroyImmediate(chatMgrGO);
             Teardown(pmGO, pm);
         }
+    }
+}
+
+/// <summary>
+/// Menu cấu hình và bộ kiểm thử NUnit TC01–TC10 cho Debug Mode bật/tắt xét điều kiện thắng (DisableWinConditionForTesting).
+/// Mặc định luôn false; chỉ cho phép bật trong Editor hoặc Development Build và đồng bộ từ Host/Server.
+/// </summary>
+public class WinConditionDisableTests
+{
+    private const string ToggleMenuPath = "Tools/Loi/Testing/Disable Win Condition For Testing";
+
+    private GameObject rootGo;
+    private PlayerManager playerManager;
+    private GameRoleManager gameRoleManager;
+    private WinConditionManager winConditionManager;
+    private NightManager nightManager;
+    private DeathResolver deathResolver;
+    private VoteManager voteManager;
+
+    [MenuItem(ToggleMenuPath, false)]
+    public static void ToggleDisableWinCondition()
+    {
+        bool next = !WinConditionTestConfig.DisableWinConditionForTesting;
+        ThuongOnlineWinAdapter.SetDebugMode(next);
+        Menu.SetChecked(ToggleMenuPath, WinConditionTestConfig.DisableWinConditionForTesting);
+        Debug.Log(WinConditionTestConfig.DisableWinConditionForTesting
+            ? "[DebugMode] ĐÃ BẬT chế độ kiểm thử: Tạm ngưng xét điều kiện thắng (chỉ có hiệu lực trong phiên hiện tại)."
+            : "[DebugMode] ĐÃ TẮT chế độ kiểm thử: Khôi phục xét điều kiện thắng bình thường.");
+    }
+
+    [MenuItem(ToggleMenuPath, true)]
+    public static bool ToggleDisableWinConditionValidate()
+    {
+        Menu.SetChecked(ToggleMenuPath, WinConditionTestConfig.DisableWinConditionForTesting);
+        return WinConditionTestConfig.CanModifyDebugMode();
+    }
+
+    [MenuItem("Tools/Loi/Testing/Restore Win Condition (Enable)")]
+    public static void RestoreWinConditionMenu()
+    {
+        WinConditionTestConfig.ResetForNewMatch();
+        ThuongOnlineWinAdapter.Instance?.ResetDebugToggleForNewMatch();
+        Menu.SetChecked(ToggleMenuPath, false);
+        Thuong.Online.ThuongOnlineSession.Active?.BroadcastWinCheckTestModeOnServer();
+        WinConditionManager.Instance?.NotifyMatchStateChanged();
+        Debug.Log("[DebugMode] Đã đặt lại DisableWinConditionForTesting = false (chế độ thắng thua bình thường).");
+    }
+
+    [MenuItem("Tools/Tests/Run Win Condition Disable Tests")]
+    public static void RunAllTests()
+    {
+        Debug.Log("=================================================================");
+        Debug.Log("BẮT ĐẦU KIỂM THỬ DEBUG MODE XÉT ĐIỀU KIỆN THẮNG (TC01–TC10)");
+        Debug.Log("=================================================================");
+
+        var tests = new WinConditionDisableTests();
+        int passed = 0;
+        int failed = 0;
+
+        void Execute(string name, Action body)
+        {
+            try
+            {
+                tests.Setup();
+                body();
+                Debug.Log($"[PASS] {name}");
+                passed++;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[FAIL] {name}: {ex.Message}");
+                failed++;
+            }
+            finally
+            {
+                tests.TearDown();
+            }
+        }
+
+        Execute("TC01: Mở game bình thường -> Debug Mode mặc định tắt (false)", () => tests.TC01_DefaultState_DebugModeIsDisabled());
+        Execute("TC02: Khi tắt Debug Mode -> Dân Làng thắng đúng điều kiện", () => tests.TC02_DebugModeOff_VillagersWinNormally());
+        Execute("TC03: Khi tắt Debug Mode -> Ma Sói thắng đúng điều kiện", () => tests.TC03_DebugModeOff_WerewolvesWinNormally());
+        Execute("TC04: WhiteHound và các phe trung lập vẫn thắng đúng luật", () => tests.TC04_DebugModeOff_WhiteHoundAndNeutralsWinNormally());
+        Execute("TC05: Bật Debug Mode trong Editor -> Trận không tự kết thúc khi đạt điều kiện thắng", () => tests.TC05_DebugModeOn_MatchDoesNotEndOnWinConditions());
+        Execute("TC06: Khi bật Debug Mode -> Người chơi vẫn chết và dùng kỹ năng bình thường", () => tests.TC06_DebugModeOn_PlayersStillDieAndUseSkillsNormally());
+        Execute("TC07: Host và Client nhận cùng trạng thái Debug Mode", () => tests.TC07_HostAndClient_SyncDebugModeState());
+        Execute("TC08: Client không thể tự ý thay đổi trạng thái Debug Mode", () => tests.TC08_ClientCannotModifyDebugMode());
+        Execute("TC09: Bắt đầu ván mới không giữ nhầm trạng thái kiểm thử", () => tests.TC09_NewMatch_DoesNotRetainTestingState());
+        Execute("TC10: Release Build không thể bật Debug Mode", () => tests.TC10_ReleaseBuild_CannotEnableDebugMode());
+
+        Debug.Log("=================================================================");
+        Debug.Log($"KẾT QUẢ KIỂM THỬ DEBUG MODE: {passed} PASSED, {failed} FAILED.");
+        Debug.Log("=================================================================");
+    }
+
+    [SetUp]
+    public void Setup()
+    {
+        WinConditionTestConfig.ResetForNewMatch();
+
+        rootGo = new GameObject("[TestWinDebugModeEnv]");
+        playerManager = rootGo.AddComponent<PlayerManager>();
+        PlayerManager.Instance = playerManager;
+
+        gameRoleManager = rootGo.AddComponent<GameRoleManager>();
+        GameRoleManager.Instance = gameRoleManager;
+        gameRoleManager.manualLogicPrototype = true;
+        gameRoleManager.currentState = GameState.Day;
+        gameRoleManager.currentPhase = GamePhase.DayResolution;
+        gameRoleManager.currentDay = 1;
+
+        winConditionManager = rootGo.AddComponent<WinConditionManager>();
+        WinConditionManager.Instance = winConditionManager;
+
+        nightManager = rootGo.AddComponent<NightManager>();
+        NightManager.Instance = nightManager;
+
+        deathResolver = rootGo.AddComponent<DeathResolver>();
+        DeathResolver.Instance = deathResolver;
+
+        voteManager = rootGo.AddComponent<VoteManager>();
+        VoteManager.Instance = voteManager;
+
+        playerManager.players = new List<PlayerData>
+        {
+            new PlayerData { playerID = 0, playerName = "P0_DogSpirit", roleType = RoleType.DogSpirit, faction = FactionType.Monster, isAlive = true },
+            new PlayerData { playerID = 1, playerName = "P1_Villager", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true },
+            new PlayerData { playerID = 2, playerName = "P2_Madman", roleType = RoleType.Madman, faction = FactionType.Neutral, isAlive = true },
+            new PlayerData { playerID = 3, playerName = "P3_Villager2", roleType = RoleType.Villager, faction = FactionType.Villager, isAlive = true }
+        };
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        WinConditionTestConfig.ResetForNewMatch();
+        if (PlayerManager.Instance == playerManager) PlayerManager.Instance = null;
+        if (GameRoleManager.Instance == gameRoleManager) GameRoleManager.Instance = null;
+        if (WinConditionManager.Instance == winConditionManager) WinConditionManager.Instance = null;
+        if (NightManager.Instance == nightManager) NightManager.Instance = null;
+        if (DeathResolver.Instance == deathResolver) DeathResolver.Instance = null;
+        if (VoteManager.Instance == voteManager) VoteManager.Instance = null;
+        if (rootGo != null) UnityEngine.Object.DestroyImmediate(rootGo);
+    }
+
+    [Test]
+    public void TC01_DefaultState_DebugModeIsDisabled()
+    {
+        Assert.IsFalse(WinConditionTestConfig.DisableWinConditionForTesting);
+        Assert.IsFalse(WinConditionTestConfig.IsWinConditionDisabled);
+    }
+
+    [Test]
+    public void TC02_DebugModeOff_VillagersWinNormally()
+    {
+        playerManager.players[0].isAlive = false;
+        playerManager.players[2].isAlive = false;
+
+        ThuongOnlineWinAdapter.EnsureWinEvaluatorInstalled();
+        winConditionManager.CheckWinCondition(true);
+
+        Assert.AreEqual(GameState.GameOver, gameRoleManager.currentState);
+        Assert.AreEqual("Villagers", gameRoleManager.Winner);
+    }
+
+    [Test]
+    public void TC03_DebugModeOff_WerewolvesWinNormally()
+    {
+        playerManager.players[2].isAlive = false;
+        playerManager.players[3].isAlive = false;
+
+        ThuongOnlineWinAdapter.EnsureWinEvaluatorInstalled();
+        winConditionManager.CheckWinCondition(true);
+
+        Assert.AreEqual(GameState.GameOver, gameRoleManager.currentState);
+        Assert.AreEqual("Werewolves", gameRoleManager.Winner);
+    }
+
+    [Test]
+    public void TC04_DebugModeOff_WhiteHoundAndNeutralsWinNormally()
+    {
+        // Kiểm tra WhiteHound thức tỉnh thắng (1v1) và Madman bị vote loại ngày 1 thắng
+        playerManager.players[0].isAlive = false;
+        playerManager.players[1].roleType = RoleType.WhiteHound;
+        playerManager.players[1].isWhiteHoundAwakened = true;
+        playerManager.players[1].faction = FactionType.Monster;
+        playerManager.players[2].isAlive = false;
+
+        ThuongOnlineWinAdapter.EnsureWinEvaluatorInstalled();
+        winConditionManager.CheckWinCondition(true);
+
+        Assert.AreEqual(GameState.GameOver, gameRoleManager.currentState);
+        Assert.AreEqual("White Wolf", gameRoleManager.Winner);
+    }
+
+    [Test]
+    public void TC05_DebugModeOn_MatchDoesNotEndOnWinConditions()
+    {
+        WinConditionTestConfig.DisableWinConditionForTesting = true;
+        Assert.IsTrue(WinConditionTestConfig.IsWinConditionDisabled);
+
+        // Dù Dân Làng đạt điều kiện thắng (hoặc Ma Sói/Neutral), trận vẫn không GameOver
+        playerManager.players[0].isAlive = false;
+        playerManager.players[2].isAlive = false;
+        ThuongOnlineWinAdapter.EnsureWinEvaluatorInstalled();
+        winConditionManager.CheckWinCondition(true);
+
+        Assert.AreNotEqual(GameState.GameOver, gameRoleManager.currentState);
+        Assert.IsTrue(string.IsNullOrEmpty(gameRoleManager.Winner));
+    }
+
+    [Test]
+    public void TC06_DebugModeOn_PlayersStillDieAndUseSkillsNormally()
+    {
+        WinConditionTestConfig.DisableWinConditionForTesting = true;
+
+        nightManager.StartNight();
+        nightManager.SetMonsterTarget(1, RoleType.DogSpirit);
+        nightManager.ResolveNight();
+        Assert.IsFalse(playerManager.players[1].isAlive, "Người chơi vẫn chết do kỹ năng đêm khi bật Debug Mode.");
+
+        gameRoleManager.SetPhase(GamePhase.Voting);
+        voteManager.StartVote();
+        Assert.IsTrue(voteManager.TryVote(2, 0));
+        Assert.IsTrue(voteManager.TryVote(3, 0));
+        voteManager.ResolveVote();
+        Assert.AreEqual(0, voteManager.LastResolution.Eliminated.playerID);
+        Assert.IsFalse(playerManager.players[0].isAlive, "Người chơi vẫn bị loại qua bỏ phiếu.");
+        Assert.AreNotEqual(GameState.GameOver, gameRoleManager.currentState);
+    }
+
+    [Test]
+    public void TC07_HostAndClient_SyncDebugModeState()
+    {
+        WinConditionTestConfig.SetServerSyncOverride(true);
+        Assert.IsTrue(WinConditionTestConfig.IsWinConditionDisabled);
+
+        WinConditionTestConfig.SetServerSyncOverride(false);
+        Assert.IsFalse(WinConditionTestConfig.IsWinConditionDisabled);
+    }
+
+    [Test]
+    public void TC08_ClientCannotModifyDebugMode()
+    {
+        Assert.IsFalse(WinConditionTestConfig.CanModifyDebugModeForState(isListening: true, isServer: false));
+        Assert.IsTrue(WinConditionTestConfig.CanModifyDebugModeForState(isListening: true, isServer: true));
+    }
+
+    [Test]
+    public void TC09_NewMatch_DoesNotRetainTestingState()
+    {
+        WinConditionTestConfig.DisableWinConditionForTesting = true;
+        Assert.IsTrue(WinConditionTestConfig.IsWinConditionDisabled);
+
+        ThuongOnlineWinAdapter.ResetForNewMatch();
+
+        Assert.IsFalse(WinConditionTestConfig.DisableWinConditionForTesting);
+        Assert.IsFalse(WinConditionTestConfig.IsWinConditionDisabled);
+    }
+
+    [Test]
+    public void TC10_ReleaseBuild_CannotEnableDebugMode()
+    {
+        Assert.IsFalse(WinConditionTestConfig.ResolveDebugStateForEnvironment(isEditor: false, isDebugBuild: false, requestedState: true),
+            "Release Build tuyệt đối không được phép bật Debug Mode.");
+        Assert.IsTrue(WinConditionTestConfig.ResolveDebugStateForEnvironment(isEditor: false, isDebugBuild: true, requestedState: true),
+            "Development Build được phép bật khi yêu cầu.");
+        Assert.IsTrue(WinConditionTestConfig.ResolveDebugStateForEnvironment(isEditor: true, isDebugBuild: false, requestedState: true),
+            "Unity Editor được phép bật khi yêu cầu.");
     }
 }

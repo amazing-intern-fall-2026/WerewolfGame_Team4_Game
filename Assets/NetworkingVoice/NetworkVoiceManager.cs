@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Services.Authentication;
@@ -72,12 +73,19 @@ public class NetworkVoiceManager : MonoBehaviour
 
     public static event Action<bool> OnMicrophoneMuteChanged;
     public static event Action<bool> OnOutputMuteChanged;
+    public static event Action<bool> OnLocalSpeakingChanged;
+    public static event Action<string, bool> OnParticipantSpeakingChanged;
 
     private readonly SemaphoreSlim _voiceLock = new SemaphoreSlim(1, 1);
     private Task _ongoingLeaveTask;
     private bool _isJoiningChannel;
     private string _targetJoiningChannelName;
     private bool _isApplicationQuitting;
+    private bool _vivoxParticipantEventsHooked;
+    private readonly Dictionary<VivoxParticipant, Action> _participantSpeechHandlers = new Dictionary<VivoxParticipant, Action>();
+    private readonly Dictionary<string, bool> _participantSpeakingStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsLocalSpeaking { get; private set; }
 
     private async void Awake()
     {
@@ -109,6 +117,7 @@ public class NetworkVoiceManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        UnhookVivoxParticipantEvents();
         if (AuthManager.Instance != null)
         {
             AuthManager.Instance.OnAuthStateChanged -= OnAuthStateChanged;
@@ -207,6 +216,7 @@ public class NetworkVoiceManager : MonoBehaviour
                 {
                     VivoxService.Instance.UnmuteOutputDevice();
                 }
+                HookVivoxParticipantEvents();
                 Debug.Log($"[VOICE] Đã thiết lập trạng thái mute ban đầu cho Vivox: MicMuted={_isMicrophoneMuted}, OutputMuted={_isOutputMuted}");
             }
 
@@ -430,6 +440,7 @@ public class NetworkVoiceManager : MonoBehaviour
         {
             CurrentChannelName = null;
             IsInLobbyVoice = false;
+            ClearAllParticipantSpeakingStates();
         }
     }
 
@@ -504,10 +515,12 @@ public class NetworkVoiceManager : MonoBehaviour
         try
         {
             Debug.Log("[VOICE] [3/3] Đang uninitialize Vivox SDK...");
+            UnhookVivoxParticipantEvents();
             VivoxService.Instance.Uninitialize();
             IsInitialized = false;
             CurrentChannelName = null;
             IsInLobbyVoice = false;
+            ClearAllParticipantSpeakingStates();
             Debug.Log("[VOICE] [3/3] Đã uninitialize Vivox SDK hoàn tất.");
         }
         catch (Exception e)
@@ -570,8 +583,120 @@ public class NetworkVoiceManager : MonoBehaviour
         }
 
         bool actualState = IsMicrophoneMuted;
+        if (actualState && IsLocalSpeaking)
+        {
+            IsLocalSpeaking = false;
+            OnLocalSpeakingChanged?.Invoke(false);
+        }
         Debug.Log($"VOICE | Microphone: {(actualState ? "OFF (MUTED)" : "ON (UNMUTED)")} (Vivox={actualState})");
         OnMicrophoneMuteChanged?.Invoke(actualState);
+    }
+
+    public bool IsParticipantSpeaking(string participantKey)
+    {
+        if (string.IsNullOrWhiteSpace(participantKey)) return false;
+        return _participantSpeakingStates.TryGetValue(participantKey.Trim(), out bool speaking) && speaking;
+    }
+
+    public void SetParticipantSpeakingState(string participantKey, bool isSelf, bool speaking)
+    {
+        if (isSelf)
+        {
+            bool effectiveLocalSpeaking = speaking && !IsMicrophoneMuted;
+            if (IsLocalSpeaking != effectiveLocalSpeaking)
+            {
+                IsLocalSpeaking = effectiveLocalSpeaking;
+                OnLocalSpeakingChanged?.Invoke(effectiveLocalSpeaking);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(participantKey))
+        {
+            string key = participantKey.Trim();
+            bool effectiveSpeaking = speaking && (!isSelf || !IsMicrophoneMuted);
+            bool changed = !_participantSpeakingStates.TryGetValue(key, out bool prev) || prev != effectiveSpeaking;
+            _participantSpeakingStates[key] = effectiveSpeaking;
+            if (changed)
+            {
+                OnParticipantSpeakingChanged?.Invoke(key, effectiveSpeaking);
+            }
+        }
+    }
+
+    private void HookVivoxParticipantEvents()
+    {
+        if (_vivoxParticipantEventsHooked || VivoxService.Instance == null) return;
+        VivoxService.Instance.ParticipantAddedToChannel += HandleVivoxParticipantAdded;
+        VivoxService.Instance.ParticipantRemovedFromChannel += HandleVivoxParticipantRemoved;
+        _vivoxParticipantEventsHooked = true;
+    }
+
+    private void UnhookVivoxParticipantEvents()
+    {
+        if (_vivoxParticipantEventsHooked && VivoxService.Instance != null)
+        {
+            VivoxService.Instance.ParticipantAddedToChannel -= HandleVivoxParticipantAdded;
+            VivoxService.Instance.ParticipantRemovedFromChannel -= HandleVivoxParticipantRemoved;
+        }
+        _vivoxParticipantEventsHooked = false;
+        ClearAllParticipantSpeakingStates();
+    }
+
+    private void HandleVivoxParticipantAdded(VivoxParticipant participant)
+    {
+        if (participant == null || _participantSpeechHandlers.ContainsKey(participant)) return;
+        Action handler = () => HandleVivoxParticipantSpeechChanged(participant);
+        _participantSpeechHandlers[participant] = handler;
+        participant.ParticipantSpeechDetected += handler;
+        HandleVivoxParticipantSpeechChanged(participant);
+    }
+
+    private void HandleVivoxParticipantRemoved(VivoxParticipant participant)
+    {
+        if (participant == null) return;
+        if (_participantSpeechHandlers.TryGetValue(participant, out var handler))
+        {
+            participant.ParticipantSpeechDetected -= handler;
+            _participantSpeechHandlers.Remove(participant);
+        }
+
+        string key = !string.IsNullOrWhiteSpace(participant.DisplayName) ? participant.DisplayName : participant.PlayerId;
+        SetParticipantSpeakingState(key, participant.IsSelf, false);
+        if (!string.IsNullOrWhiteSpace(participant.PlayerId) && participant.PlayerId != key)
+        {
+            SetParticipantSpeakingState(participant.PlayerId, participant.IsSelf, false);
+        }
+    }
+
+    private void HandleVivoxParticipantSpeechChanged(VivoxParticipant participant)
+    {
+        if (participant == null) return;
+        string key = !string.IsNullOrWhiteSpace(participant.DisplayName) ? participant.DisplayName : participant.PlayerId;
+        bool speaking = participant.SpeechDetected && !participant.IsMuted;
+        SetParticipantSpeakingState(key, participant.IsSelf, speaking);
+        if (!string.IsNullOrWhiteSpace(participant.PlayerId) && participant.PlayerId != key)
+        {
+            SetParticipantSpeakingState(participant.PlayerId, participant.IsSelf, speaking);
+        }
+    }
+
+    private void ClearAllParticipantSpeakingStates()
+    {
+        foreach (var pair in _participantSpeechHandlers)
+        {
+            if (pair.Key != null && pair.Value != null)
+            {
+                pair.Key.ParticipantSpeechDetected -= pair.Value;
+            }
+        }
+        _participantSpeechHandlers.Clear();
+        _participantSpeakingStates.Clear();
+
+        if (IsLocalSpeaking)
+        {
+            IsLocalSpeaking = false;
+            OnLocalSpeakingChanged?.Invoke(false);
+        }
     }
 
     public void SetMicrophoneActive(bool active)

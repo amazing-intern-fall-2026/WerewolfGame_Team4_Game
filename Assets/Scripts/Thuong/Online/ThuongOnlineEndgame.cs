@@ -149,6 +149,11 @@ namespace Thuong.Online
 
         private void EvaluateOnlineWin(bool dayFinished)
         {
+            if (WinConditionTestConfig.IsWinConditionDisabled)
+            {
+                onlineOutcomeDirty = false;
+                return;
+            }
             if (network == null || !network.IsServer || !matchStarted || matchResult != null ||
                 game == null || game.currentState == GameState.GameOver || players == null ||
                 scopedWinManager == null || !scopedWinManager.HasMatchEvaluator(game)) return;

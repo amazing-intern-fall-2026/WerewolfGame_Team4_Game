@@ -20,7 +20,8 @@ public class NetworkChatUI : MonoBehaviour
     public enum ChatTab : byte
     {
         Village = 0,
-        Monster = 1
+        Monster = 1,
+        Dead = 2
     }
 
     [Header("Panel Root & Toggle Button")]
@@ -34,18 +35,33 @@ public class NetworkChatUI : MonoBehaviour
     [SerializeField] private GameObject tabBarObj;
     [SerializeField] private Button villageTabButton;
     [SerializeField] private Button monsterTabButton;
+    [SerializeField] private Button deadTabButton;
     [SerializeField] private Image villageTabImage;
     [SerializeField] private Image monsterTabImage;
+    [SerializeField] private Image deadTabImage;
     [SerializeField] private TextMeshProUGUI villageTabText;
     [SerializeField] private TextMeshProUGUI monsterTabText;
+    [SerializeField] private TextMeshProUGUI deadTabText;
     [SerializeField] private GameObject monsterTabObj;
     [SerializeField] private GameObject monsterTabUnreadDot;
+    [SerializeField] private GameObject deadTabObj;
+    [SerializeField] private GameObject deadTabUnreadDot;
 
-    [Header("Dual Scroll Views")]
+    [Header("Multi-Channel Scroll Views")]
     [SerializeField] private ScrollRect villageScrollRect;
     [SerializeField] private RectTransform villageContent;
     [SerializeField] private ScrollRect monsterScrollRect;
     [SerializeField] private RectTransform monsterContent;
+    [SerializeField] private GameObject deadViewObj;
+    [SerializeField] private ScrollRect deadScrollRect;
+    [SerializeField] private RectTransform deadContent;
+    [SerializeField] private Button deadMicButton;
+    [SerializeField] private Image deadMicImage;
+    [SerializeField] private TextMeshProUGUI deadMicText;
+    [SerializeField] private Button deadSpeakerButton;
+    [SerializeField] private Image deadSpeakerImage;
+    [SerializeField] private TextMeshProUGUI deadSpeakerText;
+    [SerializeField] private TextMeshProUGUI deadMembersText;
 
     [Header("Messages & Scroll (Backwards Compatibility)")]
     [SerializeField] private ScrollRect scrollRect;
@@ -65,37 +81,44 @@ public class NetworkChatUI : MonoBehaviour
 
     private int unreadVillageCount = 0;
     private int unreadMonsterCount = 0;
+    private int unreadDeadCount = 0;
     private int unreadMessagesCount = 0;
     private bool isOpen = false;
     public bool IsOpen => isOpen;
     public bool IsInputFocused => chatInputField != null && chatInputField.isFocused;
+    public bool IsDeadTabVisible => deadTabObj != null && deadTabObj.activeSelf;
+    public bool IsMonsterTabVisible => monsterTabObj != null && monsterTabObj.activeSelf;
+    public bool IsDeadViewVisible => deadViewObj != null && deadViewObj.activeSelf;
+    public string DeadMembersLabelText => deadMembersText != null ? deadMembersText.text : string.Empty;
+    public string DeadMicLabelText => deadMicText != null ? deadMicText.text : string.Empty;
+    public string DeadSpeakerLabelText => deadSpeakerText != null ? deadSpeakerText.text : string.Empty;
 
     private ChatTab activeTab = ChatTab.Village;
     public ChatTab ActiveTab => activeTab;
 
-    private float lastPermissionCheckTime = 0f;
+    private bool wasDeadPermitted = false;
+    private bool hasCachedAvailability = false;
+    private bool lastAvailabilityAllowed = true;
+    private string lastAvailabilityDescription = string.Empty;
 
     public void SetCommunicationAvailability(bool allowed, string description)
     {
-        if (chatInputField != null)
+        bool deadActive = HasDeadChatPermission();
+        bool changed = !hasCachedAvailability ||
+                       lastAvailabilityAllowed != allowed ||
+                       !string.Equals(lastAvailabilityDescription, description, StringComparison.Ordinal) ||
+                       wasDeadPermitted != deadActive;
+
+        hasCachedAvailability = true;
+        lastAvailabilityAllowed = allowed;
+        lastAvailabilityDescription = description ?? string.Empty;
+
+        if (changed)
         {
-            chatInputField.interactable = allowed;
-            if (!allowed && chatInputField.isFocused) chatInputField.DeactivateInputField();
-            if (chatInputField.placeholder is TMP_Text hint)
-            {
-                if (allowed)
-                {
-                    hint.text = activeTab == ChatTab.Monster ? "Nhập tin nhắn Monster..." : "Nhập tin nhắn làng...";
-                }
-                else
-                {
-                    hint.text = description;
-                }
-            }
+            RefreshAllTabPermissions();
         }
-        if (sendButton != null) sendButton.interactable = allowed;
-        var title = chatPanelRoot != null ? chatPanelRoot.transform.Find("HeaderBar/TitleText")?.GetComponent<TMP_Text>() : null;
-        if (title != null) title.text = description;
+
+        UpdateInputAvailabilityForActiveTab();
     }
 
     private RectTransform panelRect;
@@ -127,8 +150,8 @@ public class NetworkChatUI : MonoBehaviour
         // Khởi tạo tab mặc định là Chat Làng
         SwitchToTab(ChatTab.Village);
 
-        // Cập nhật hiển thị Tab Monster theo quyền thực tế của người chơi
-        RefreshMonsterTabVisibility();
+        // Cập nhật hiển thị các Tab theo quyền thực tế của người chơi
+        RefreshAllTabPermissions();
 
         // Nạp lại toàn bộ lịch sử tin nhắn
         ReloadHistory();
@@ -139,8 +162,22 @@ public class NetworkChatUI : MonoBehaviour
         NetworkChatManager.OnChatMessageReceived += HandleMessageReceived;
         NetworkChatManager.OnChatHistoryCleared += HandleHistoryCleared;
         NetworkChatManager.OnMonsterChatPermissionChanged += HandleMonsterPermissionChanged;
+        NetworkChatManager.OnDeadChatPermissionChanged += HandleDeadPermissionChanged;
+        NetworkChatManager.OnDeadChatMembersChanged += HandleDeadMembersChanged;
 
-        RefreshMonsterTabVisibility();
+        NetworkVoiceManager.OnMicrophoneMuteChanged += HandleVoiceStateChanged;
+        NetworkVoiceManager.OnOutputMuteChanged += HandleVoiceStateChanged;
+        NetworkVoiceManager.OnLocalSpeakingChanged += HandleLocalSpeakingChanged;
+        NetworkVoiceManager.OnParticipantSpeakingChanged += HandleParticipantSpeakingChanged;
+
+        NetworkPlayerStateSync.OnLocalPlayerDeath += HandleLocalPlayerDiedEvent;
+        if (DeathResolver.Instance != null)
+        {
+            DeathResolver.Instance.DeathResolved -= HandleDeathResolvedEvent;
+            DeathResolver.Instance.DeathResolved += HandleDeathResolvedEvent;
+        }
+
+        RefreshAllTabPermissions();
     }
 
     private void OnDisable()
@@ -148,6 +185,19 @@ public class NetworkChatUI : MonoBehaviour
         NetworkChatManager.OnChatMessageReceived -= HandleMessageReceived;
         NetworkChatManager.OnChatHistoryCleared -= HandleHistoryCleared;
         NetworkChatManager.OnMonsterChatPermissionChanged -= HandleMonsterPermissionChanged;
+        NetworkChatManager.OnDeadChatPermissionChanged -= HandleDeadPermissionChanged;
+        NetworkChatManager.OnDeadChatMembersChanged -= HandleDeadMembersChanged;
+
+        NetworkVoiceManager.OnMicrophoneMuteChanged -= HandleVoiceStateChanged;
+        NetworkVoiceManager.OnOutputMuteChanged -= HandleVoiceStateChanged;
+        NetworkVoiceManager.OnLocalSpeakingChanged -= HandleLocalSpeakingChanged;
+        NetworkVoiceManager.OnParticipantSpeakingChanged -= HandleParticipantSpeakingChanged;
+
+        NetworkPlayerStateSync.OnLocalPlayerDeath -= HandleLocalPlayerDiedEvent;
+        if (DeathResolver.Instance != null)
+        {
+            DeathResolver.Instance.DeathResolved -= HandleDeathResolvedEvent;
+        }
     }
 
     private void OnDestroy()
@@ -159,13 +209,6 @@ public class NetworkChatUI : MonoBehaviour
     private void Update()
     {
         HandleVirtualKeyboardOffset();
-
-        // Kiểm tra định kỳ (0.6s) để phát hiện ngay khi Bạch Khuyển thức tỉnh hoặc đổi quyền trong trận
-        if (Time.unscaledTime - lastPermissionCheckTime > 0.6f)
-        {
-            lastPermissionCheckTime = Time.unscaledTime;
-            RefreshMonsterTabVisibility();
-        }
     }
 
     // =========================================================
@@ -195,18 +238,23 @@ public class NetworkChatUI : MonoBehaviour
         {
             Thuong.Online.ThuongOnlineSession.Active?.PauseForChat();
 
-            // Cập nhật quyền hiển thị tab Monster khi mở chat
-            RefreshMonsterTabVisibility();
+            // Cập nhật quyền hiển thị các Tab khi mở chat
+            RefreshAllTabPermissions();
 
             // Xóa unread badge của tab đang mở
             if (activeTab == ChatTab.Village) unreadVillageCount = 0;
             else if (activeTab == ChatTab.Monster) unreadMonsterCount = 0;
-            unreadMessagesCount = unreadVillageCount + unreadMonsterCount;
+            else if (activeTab == ChatTab.Dead)
+            {
+                unreadDeadCount = 0;
+                if (deadTabUnreadDot != null) deadTabUnreadDot.SetActive(false);
+            }
+            unreadMessagesCount = unreadVillageCount + unreadMonsterCount + unreadDeadCount;
             UpdateUnreadBadge();
 
             StartCoroutine(ScrollToBottomCoroutine());
 
-            if (chatInputField != null)
+            if (chatInputField != null && chatInputField.interactable)
             {
                 chatInputField.ActivateInputField();
             }
@@ -217,7 +265,12 @@ public class NetworkChatUI : MonoBehaviour
     {
         if (tab == ChatTab.Monster && !HasMonsterChatPermission())
         {
-            Debug.LogWarning("[CHAT UI] Bạn không thuộc phe Monster hoặc chưa thức tỉnh, không thể mở Tab Monster!");
+            Debug.LogWarning("[CHAT UI] Bạn không thuộc phe Monster còn sống, không thể mở Tab Monster!");
+            return;
+        }
+        if (tab == ChatTab.Dead && !HasDeadChatPermission())
+        {
+            Debug.LogWarning("[CHAT UI] Người chơi còn sống không thể truy cập Tab Người Chết!");
             return;
         }
 
@@ -232,10 +285,29 @@ public class NetworkChatUI : MonoBehaviour
         {
             monsterScrollRect.gameObject.SetActive(activeTab == ChatTab.Monster);
         }
+        if (deadViewObj != null)
+        {
+            deadViewObj.SetActive(activeTab == ChatTab.Dead);
+        }
 
         // Cập nhật con trỏ ScrollRect và Content hoạt động
-        scrollRect = activeTab == ChatTab.Village ? villageScrollRect : monsterScrollRect;
-        messageContent = activeTab == ChatTab.Village ? villageContent : monsterContent;
+        if (activeTab == ChatTab.Dead)
+        {
+            scrollRect = deadScrollRect;
+            messageContent = deadContent;
+            RefreshDeadVoiceVisuals();
+            RefreshDeadMembersDisplay();
+        }
+        else if (activeTab == ChatTab.Monster)
+        {
+            scrollRect = monsterScrollRect;
+            messageContent = monsterContent;
+        }
+        else
+        {
+            scrollRect = villageScrollRect;
+            messageContent = villageContent;
+        }
 
         // Xóa unread của tab vừa chuyển tới
         if (activeTab == ChatTab.Village) unreadVillageCount = 0;
@@ -244,12 +316,18 @@ public class NetworkChatUI : MonoBehaviour
             unreadMonsterCount = 0;
             if (monsterTabUnreadDot != null) monsterTabUnreadDot.SetActive(false);
         }
-        unreadMessagesCount = unreadVillageCount + unreadMonsterCount;
+        else if (activeTab == ChatTab.Dead)
+        {
+            unreadDeadCount = 0;
+            if (deadTabUnreadDot != null) deadTabUnreadDot.SetActive(false);
+        }
+        unreadMessagesCount = unreadVillageCount + unreadMonsterCount + unreadDeadCount;
         UpdateUnreadBadge();
 
         // Cập nhật giao diện Tab và Input
         UpdateTabStyles();
         UpdateInputControlsForActiveTab();
+        UpdateInputAvailabilityForActiveTab();
 
         StartCoroutine(ScrollToBottomCoroutine());
     }
@@ -257,13 +335,15 @@ public class NetworkChatUI : MonoBehaviour
     private void UpdateTabStyles()
     {
         bool isVillage = activeTab == ChatTab.Village;
+        bool isMonster = activeTab == ChatTab.Monster;
+        bool isDead = activeTab == ChatTab.Dead;
 
         // Style Tab Làng
         if (villageTabImage != null)
         {
             villageTabImage.color = isVillage
-                ? new Color(0.18f, 0.45f, 0.75f, 1f)   // Xanh dương nổi bật khi active
-                : new Color(0.10f, 0.14f, 0.22f, 0.85f); // Tối màu khi inactive
+                ? new Color(0.18f, 0.45f, 0.75f, 1f)
+                : new Color(0.10f, 0.14f, 0.22f, 0.85f);
         }
         if (villageTabText != null)
         {
@@ -274,14 +354,27 @@ public class NetworkChatUI : MonoBehaviour
         // Style Tab Monster
         if (monsterTabImage != null)
         {
-            monsterTabImage.color = !isVillage
-                ? new Color(0.70f, 0.15f, 0.20f, 1f)   // Đỏ quái vật nổi bật khi active
-                : new Color(0.22f, 0.08f, 0.10f, 0.85f); // Tím đỏ sẫm khi inactive
+            monsterTabImage.color = isMonster
+                ? new Color(0.70f, 0.15f, 0.20f, 1f)
+                : new Color(0.22f, 0.08f, 0.10f, 0.85f);
         }
         if (monsterTabText != null)
         {
-            monsterTabText.color = !isVillage ? new Color(1f, 0.9f, 0.4f, 1f) : new Color(0.85f, 0.55f, 0.55f, 0.9f);
-            monsterTabText.fontStyle = !isVillage ? FontStyles.Bold : FontStyles.Normal;
+            monsterTabText.color = isMonster ? new Color(1f, 0.9f, 0.4f, 1f) : new Color(0.85f, 0.55f, 0.55f, 0.9f);
+            monsterTabText.fontStyle = isMonster ? FontStyles.Bold : FontStyles.Normal;
+        }
+
+        // Style Tab Người Chết
+        if (deadTabImage != null)
+        {
+            deadTabImage.color = isDead
+                ? new Color(0.42f, 0.24f, 0.68f, 1f)
+                : new Color(0.14f, 0.11f, 0.22f, 0.88f);
+        }
+        if (deadTabText != null)
+        {
+            deadTabText.color = isDead ? new Color(0.95f, 0.90f, 1f, 1f) : new Color(0.70f, 0.62f, 0.85f, 0.9f);
+            deadTabText.fontStyle = isDead ? FontStyles.Bold : FontStyles.Normal;
         }
     }
 
@@ -289,9 +382,12 @@ public class NetworkChatUI : MonoBehaviour
     {
         if (chatInputField != null && chatInputField.placeholder is TMP_Text hint)
         {
-            hint.text = activeTab == ChatTab.Monster
-                ? "Nhập tin nhắn Monster (chỉ phe sói)..."
-                : "Nhập tin nhắn làng...";
+            if (activeTab == ChatTab.Dead)
+                hint.text = "Nhập tin nhắn Người Chết...";
+            else if (activeTab == ChatTab.Monster)
+                hint.text = "Nhập tin nhắn Monster (chỉ phe sói)...";
+            else
+                hint.text = HasDeadChatPermission() ? "Bạn đã chết — chỉ xem Chat Làng" : "Nhập tin nhắn làng...";
         }
 
         if (sendButton != null)
@@ -299,11 +395,105 @@ public class NetworkChatUI : MonoBehaviour
             var sImg = sendButton.GetComponent<Image>();
             if (sImg != null)
             {
-                sImg.color = activeTab == ChatTab.Monster
-                    ? new Color(0.75f, 0.15f, 0.20f, 0.95f) // Đỏ Monster
-                    : new Color(0.15f, 0.55f, 0.95f, 0.95f); // Xanh Làng
+                sImg.color = activeTab == ChatTab.Dead
+                    ? new Color(0.48f, 0.28f, 0.78f, 0.95f)
+                    : activeTab == ChatTab.Monster
+                        ? new Color(0.75f, 0.15f, 0.20f, 0.95f)
+                        : new Color(0.15f, 0.55f, 0.95f, 0.95f);
             }
         }
+    }
+
+    private void UpdateInputAvailabilityForActiveTab()
+    {
+        bool deadPermitted = HasDeadChatPermission();
+        bool allowed;
+        string titleText;
+
+        if (deadPermitted)
+        {
+            if (activeTab == ChatTab.Dead)
+            {
+                allowed = Thuong.Online.ThuongOnlineSession.Active == null || lastAvailabilityAllowed;
+                titleText = "KÊNH NGƯỜI CHẾT (DEAD CHAT)";
+            }
+            else
+            {
+                allowed = false;
+                titleText = "BẠN ĐÃ BỊ LOẠI (CHỈ XEM)";
+            }
+        }
+        else if (activeTab == ChatTab.Monster)
+        {
+            allowed = HasMonsterChatPermission();
+            titleText = "CHAT MONSTER";
+        }
+        else
+        {
+            allowed = !hasCachedAvailability || lastAvailabilityAllowed;
+            titleText = hasCachedAvailability && !string.IsNullOrEmpty(lastAvailabilityDescription)
+                ? lastAvailabilityDescription
+                : "TRÒ CHUYỆN";
+        }
+
+        if (chatInputField != null)
+        {
+            chatInputField.interactable = allowed;
+            if (!allowed && chatInputField.isFocused) chatInputField.DeactivateInputField();
+            if (chatInputField.placeholder is TMP_Text hint && !allowed && hasCachedAvailability && !deadPermitted && !string.IsNullOrEmpty(lastAvailabilityDescription))
+            {
+                hint.text = lastAvailabilityDescription;
+            }
+        }
+        if (sendButton != null) sendButton.interactable = allowed;
+
+        var title = chatPanelRoot != null ? chatPanelRoot.transform.Find("HeaderBar/TitleText")?.GetComponent<TMP_Text>() : null;
+        if (title != null) title.text = titleText;
+    }
+
+    public void RefreshAllTabPermissions()
+    {
+        RefreshMonsterTabVisibility();
+        RefreshDeadTabVisibility();
+        UpdateInputControlsForActiveTab();
+        UpdateInputAvailabilityForActiveTab();
+    }
+
+    public void RefreshDeadTabVisibility()
+    {
+        bool hasDeadPerm = HasDeadChatPermission();
+        bool justBecameDead = !wasDeadPermitted && hasDeadPerm;
+        wasDeadPermitted = hasDeadPerm;
+
+        if (deadTabObj != null)
+        {
+            deadTabObj.SetActive(hasDeadPerm);
+        }
+        else if (deadTabButton != null)
+        {
+            deadTabButton.gameObject.SetActive(hasDeadPerm);
+        }
+
+        if (justBecameDead)
+        {
+            SwitchToTab(ChatTab.Dead);
+            RefreshDeadMembersDisplay();
+            RefreshDeadVoiceVisuals();
+        }
+        else if (!hasDeadPerm && activeTab == ChatTab.Dead)
+        {
+            SwitchToTab(ChatTab.Village);
+        }
+        else if (hasDeadPerm && activeTab == ChatTab.Dead)
+        {
+            RefreshDeadMembersDisplay();
+            RefreshDeadVoiceVisuals();
+        }
+    }
+
+    public static bool HasDeadChatPermission()
+    {
+        return NetworkChatManager.HasLocalDeadChatPermission();
     }
 
     public void RefreshMonsterTabVisibility()
@@ -319,19 +509,22 @@ public class NetworkChatUI : MonoBehaviour
             monsterTabButton.gameObject.SetActive(hasPermission);
         }
 
-        // Nếu mất quyền mà đang đứng ở Tab Monster -> tự động chuyển về Tab Làng
+        // Nếu mất quyền mà đang đứng ở Tab Monster -> tự động chuyển về Tab phù hợp
         if (!hasPermission && activeTab == ChatTab.Monster)
         {
-            SwitchToTab(ChatTab.Village);
+            SwitchToTab(HasDeadChatPermission() ? ChatTab.Dead : ChatTab.Village);
         }
     }
 
     public static bool HasMonsterChatPermission()
     {
+        if (HasDeadChatPermission()) return false;
+
         // 1. Bạch Khuyển không nằm trong kênh chat của Monster theo yêu cầu
         var session = Thuong.Online.ThuongOnlineSession.Active;
         if (session != null && session.HasLocalRole)
         {
+            if (!session.IsLocalPlayerAliveInMatch()) return false;
             var role = session.GetPrivateRole();
             if (role == RoleType.WhiteHound || role == RoleType.WhiteWolf) return false;
         }
@@ -363,6 +556,7 @@ public class NetworkChatUI : MonoBehaviour
                 {
                     if (p != null && (ulong)p.playerID == localClientId)
                     {
+                        if (!p.isAlive || p.isDisconnected) return false;
                         if (p.roleType == RoleType.WhiteHound || p.roleType == RoleType.WhiteWolf) return false;
                         if (p.roleType == RoleType.DogSpirit || p.roleType == RoleType.SerpentSpirit || p.roleType == RoleType.Ogre) return true;
                         if (p.faction == FactionType.Monster) return true;
@@ -376,11 +570,174 @@ public class NetworkChatUI : MonoBehaviour
 
     private void HandleMonsterPermissionChanged(bool hasPermission)
     {
-        RefreshMonsterTabVisibility();
+        RefreshAllTabPermissions();
         if (hasPermission && !isOpen && monsterTabUnreadDot != null)
         {
             monsterTabUnreadDot.SetActive(true);
         }
+    }
+
+    private void HandleDeadPermissionChanged(bool hasPermission)
+    {
+        RefreshAllTabPermissions();
+        if (hasPermission)
+        {
+            ReloadHistory();
+            if (!isOpen && deadTabUnreadDot != null)
+            {
+                deadTabUnreadDot.SetActive(true);
+            }
+        }
+    }
+
+    private void HandleDeadMembersChanged(IReadOnlyList<NetworkChatManager.DeadMemberInfo> members)
+    {
+        RefreshDeadMembersDisplay();
+    }
+
+    private void HandleVoiceStateChanged(bool muted)
+    {
+        RefreshDeadVoiceVisuals();
+    }
+
+    private void HandleLocalSpeakingChanged(bool speaking)
+    {
+        RefreshDeadVoiceVisuals();
+        RefreshDeadMembersDisplay();
+    }
+
+    private void HandleParticipantSpeakingChanged(string participantKey, bool speaking)
+    {
+        RefreshDeadMembersDisplay();
+    }
+
+    private void HandleLocalPlayerDiedEvent()
+    {
+        NetworkChatManager.RefreshLocalMonsterChatPermission();
+        NetworkChatManager.RefreshLocalDeadChatPermission();
+        RefreshAllTabPermissions();
+    }
+
+    private void HandleDeathResolvedEvent(DeathResult result)
+    {
+        NetworkChatManager.RefreshLocalMonsterChatPermission();
+        NetworkChatManager.RefreshLocalDeadChatPermission();
+        RefreshAllTabPermissions();
+    }
+
+    public void OnDeadMicClicked()
+    {
+        if (!HasDeadChatPermission())
+        {
+            Debug.LogWarning("[DEAD VOICE] Chỉ người chơi đã chết mới dùng được Micro kênh Người Chết.");
+            return;
+        }
+        if (NetworkVoiceManager.Instance != null)
+        {
+            NetworkVoiceManager.Instance.ToggleMicrophone();
+        }
+        RefreshDeadVoiceVisuals();
+    }
+
+    public void OnDeadSpeakerClicked()
+    {
+        if (!HasDeadChatPermission())
+        {
+            Debug.LogWarning("[DEAD VOICE] Chỉ người chơi đã chết mới dùng được Loa kênh Người Chết.");
+            return;
+        }
+        if (NetworkVoiceManager.Instance != null)
+        {
+            NetworkVoiceManager.Instance.ToggleOutputAudio();
+        }
+        RefreshDeadVoiceVisuals();
+    }
+
+    public void RefreshDeadVoiceVisuals()
+    {
+        var voice = NetworkVoiceManager.Existing ?? NetworkVoiceManager.Instance;
+        bool micMuted = voice == null || voice.IsMicrophoneMuted;
+        bool localSpeaking = !micMuted && voice != null && voice.IsLocalSpeaking;
+        bool speakerMuted = voice != null && voice.IsOutputMuted;
+
+        if (deadMicImage != null)
+        {
+            deadMicImage.color = micMuted
+                ? new Color(0.42f, 0.16f, 0.19f, 0.95f)
+                : localSpeaking
+                    ? new Color(0.16f, 0.68f, 0.36f, 1f)
+                    : new Color(0.12f, 0.48f, 0.28f, 0.95f);
+        }
+        if (deadMicText != null)
+        {
+            deadMicText.text = micMuted
+                ? "[MIC] TẮT"
+                : localSpeaking
+                    ? "[MIC] ● ĐANG NÓI"
+                    : "[MIC] BẬT";
+            deadMicText.color = micMuted
+                ? new Color(1f, 0.72f, 0.72f, 1f)
+                : localSpeaking
+                    ? new Color(1f, 0.94f, 0.45f, 1f)
+                    : new Color(0.85f, 1f, 0.90f, 1f);
+        }
+
+        if (deadSpeakerImage != null)
+        {
+            deadSpeakerImage.color = speakerMuted
+                ? new Color(0.48f, 0.28f, 0.12f, 0.95f)
+                : new Color(0.12f, 0.38f, 0.58f, 0.95f);
+        }
+        if (deadSpeakerText != null)
+        {
+            deadSpeakerText.text = speakerMuted ? "[LOA] TẮT" : "[LOA] BẬT";
+            deadSpeakerText.color = speakerMuted
+                ? new Color(1f, 0.80f, 0.58f, 1f)
+                : new Color(0.82f, 0.95f, 1f, 1f);
+        }
+    }
+
+    public void RefreshDeadMembersDisplay()
+    {
+        if (deadMembersText == null) return;
+        if (!HasDeadChatPermission())
+        {
+            deadMembersText.text = string.Empty;
+            return;
+        }
+
+        var members = NetworkChatManager.Instance != null ? NetworkChatManager.Instance.DeadMembers : null;
+        if (members == null || members.Count == 0)
+        {
+            deadMembersText.text = "<color=#9A94B8>Người chết (0): Chưa có thành viên khác</color>";
+            return;
+        }
+
+        var voice = NetworkVoiceManager.Existing;
+        ulong localClientId = Unity.Netcode.NetworkManager.Singleton != null ? Unity.Netcode.NetworkManager.Singleton.LocalClientId : ulong.MaxValue;
+        int localPlayerId = Thuong.Online.ThuongOnlineSession.Active != null
+            ? Thuong.Online.ThuongOnlineSession.Active.LocalPlayerId
+            : NetworkWhiteHoundNotificationUI.GetLocalPlayerId();
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<color=#C9B3FF><b>Kênh Người Chết ({members.Count}):</b></color> ");
+        for (int i = 0; i < members.Count; i++)
+        {
+            if (i > 0) sb.Append("  |  ");
+            var m = members[i];
+            bool isSelf = (localClientId != ulong.MaxValue && m.ClientId == localClientId) ||
+                          (localPlayerId >= 0 && m.PlayerId == localPlayerId);
+            bool speaking = voice != null && (
+                (isSelf && voice.IsLocalSpeaking) ||
+                voice.IsParticipantSpeaking(m.Name) ||
+                voice.IsParticipantSpeaking(m.ClientId.ToString())
+            );
+            string dot = speaking ? "<color=#4DFF88>●</color> " : string.Empty;
+            string nameColor = isSelf ? "#B9F3FF" : "#EAE6FA";
+            string suffix = isSelf ? " (Bạn)" : string.Empty;
+            sb.Append($"{dot}<color={nameColor}>{m.Name}{suffix}</color>");
+        }
+        deadMembersText.text = sb.ToString();
     }
 
     // =========================================================
@@ -394,7 +751,28 @@ public class NetworkChatUI : MonoBehaviour
         string text = chatInputField.text;
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        if (activeTab == ChatTab.Monster)
+        if (activeTab == ChatTab.Dead)
+        {
+            if (!HasDeadChatPermission())
+            {
+                Debug.LogWarning("[CHAT UI] Người chơi còn sống không thể gửi vào kênh Người Chết!");
+                return;
+            }
+            if (NetworkChatManager.Instance != null)
+            {
+                NetworkChatManager.Instance.SendDeadChatMessage(text);
+            }
+            else
+            {
+                Debug.LogWarning("[CHAT UI] Chưa có NetworkChatManager trong scene!");
+            }
+        }
+        else if (HasDeadChatPermission())
+        {
+            Debug.LogWarning("[CHAT UI] Người chơi đã chết chỉ được phép gửi tin nhắn trong kênh Người Chết!");
+            return;
+        }
+        else if (activeTab == ChatTab.Monster)
         {
             // Gửi qua kênh Monster Chat riêng biệt
             if (NetworkChatManager.Instance != null)
@@ -424,16 +802,38 @@ public class NetworkChatUI : MonoBehaviour
         }
 
         chatInputField.text = string.Empty;
-        chatInputField.ActivateInputField();
+        if (chatInputField.interactable)
+        {
+            chatInputField.ActivateInputField();
+        }
     }
 
     private void HandleMessageReceived(NetworkChatManager.ChatMessageEntry entry)
     {
+        bool isDeadMsg = entry.Channel == (byte)ChatChannel.Dead;
         bool isMonsterMsg = entry.Channel == (byte)ChatChannel.Monster;
 
-        if (isMonsterMsg)
+        if (isDeadMsg)
         {
-            // Nếu là tin nhắn Monster nhưng máy cục bộ không có quyền Monster, tuyệt đối bỏ qua
+            if (!HasDeadChatPermission()) return;
+
+            AddMessageItem(entry, deadContent);
+            while (deadContent != null && deadContent.childCount > NetworkChatManager.MaxHistoryCount)
+            {
+                var oldest = deadContent.GetChild(0);
+                oldest.SetParent(null);
+                Destroy(oldest.gameObject);
+            }
+
+            if (!isOpen || activeTab != ChatTab.Dead)
+            {
+                unreadDeadCount++;
+                if (deadTabUnreadDot != null) deadTabUnreadDot.SetActive(true);
+            }
+        }
+        else if (isMonsterMsg)
+        {
+            // Nếu là tin nhắn Monster nhưng máy cục bộ không có quyền Monster (hoặc đã chết), tuyệt đối bỏ qua
             if (!HasMonsterChatPermission()) return;
 
             AddMessageItem(entry, monsterContent);
@@ -470,10 +870,12 @@ public class NetworkChatUI : MonoBehaviour
             }
         }
 
-        unreadMessagesCount = unreadVillageCount + unreadMonsterCount;
+        unreadMessagesCount = unreadVillageCount + unreadMonsterCount + unreadDeadCount;
         UpdateUnreadBadge();
 
-        if ((isMonsterMsg && activeTab == ChatTab.Monster) || (!isMonsterMsg && activeTab == ChatTab.Village))
+        if ((isDeadMsg && activeTab == ChatTab.Dead) ||
+            (isMonsterMsg && activeTab == ChatTab.Monster) ||
+            (!isDeadMsg && !isMonsterMsg && activeTab == ChatTab.Village))
         {
             StartCoroutine(ScrollToBottomCoroutine());
         }
@@ -497,10 +899,20 @@ public class NetworkChatUI : MonoBehaviour
             }
         }
 
+        if (deadContent != null)
+        {
+            for (int i = deadContent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(deadContent.GetChild(i).gameObject);
+            }
+        }
+
         unreadVillageCount = 0;
         unreadMonsterCount = 0;
+        unreadDeadCount = 0;
         unreadMessagesCount = 0;
         if (monsterTabUnreadDot != null) monsterTabUnreadDot.SetActive(false);
+        if (deadTabUnreadDot != null) deadTabUnreadDot.SetActive(false);
         UpdateUnreadBadge();
     }
 
@@ -529,6 +941,21 @@ public class NetworkChatUI : MonoBehaviour
             foreach (var msg in NetworkChatManager.Instance.MonsterHistory)
             {
                 AddMessageItem(msg, monsterContent);
+            }
+        }
+
+        // 3. Tải lịch sử Chat Người Chết (chỉ khi đã chết)
+        if (deadContent != null)
+        {
+            for (int i = deadContent.childCount - 1; i >= 0; i--)
+                Destroy(deadContent.GetChild(i).gameObject);
+
+            if (HasDeadChatPermission())
+            {
+                foreach (var msg in NetworkChatManager.Instance.DeadHistory)
+                {
+                    AddMessageItem(msg, deadContent);
+                }
             }
         }
 
@@ -565,22 +992,31 @@ public class NetworkChatUI : MonoBehaviour
 
             ulong localClientId = Unity.Netcode.NetworkManager.Singleton != null ? Unity.Netcode.NetworkManager.Singleton.LocalClientId : 0;
             bool isMe = entry.SenderClientId == localClientId;
+            string timeTag = entry.TimestampTicks > 0
+                ? $"<color=#8892A8>[{new DateTime(entry.TimestampTicks, DateTimeKind.Utc).ToLocalTime():HH:mm}]</color> "
+                : string.Empty;
 
             if (entry.IsSystem)
             {
-                textComp.text = $"<color=#FFD700><i>[Hệ thống] {entry.MessageText}</i></color>";
+                textComp.text = $"{timeTag}<color=#FFD700><i>[Hệ thống] {entry.MessageText}</i></color>";
+            }
+            else if (entry.Channel == (byte)ChatChannel.Dead)
+            {
+                string nameColor = isMe ? "#88EEFF" : "#D4B8FF";
+                string prefix = isMe ? "Bạn" : entry.SenderName.ToString();
+                textComp.text = $"{timeTag}<color=#B27AFF><b>[Người Chết]</b></color> <color={nameColor}><b>{prefix}:</b></color> <color=#EFEAFF>{entry.MessageText}</color>";
             }
             else if (entry.Channel == (byte)ChatChannel.Monster)
             {
                 string nameColor = isMe ? "#FF8888" : "#FF5555";
                 string prefix = isMe ? "Bạn" : entry.SenderName.ToString();
-                textComp.text = $"<color=#FF2222><b>[Sói]</b></color> <color={nameColor}><b>{prefix}:</b></color> <color=#FFE5E5>{entry.MessageText}</color>";
+                textComp.text = $"{timeTag}<color=#FF2222><b>[Sói]</b></color> <color={nameColor}><b>{prefix}:</b></color> <color=#FFE5E5>{entry.MessageText}</color>";
             }
             else
             {
                 string nameColor = isMe ? "#55DDFF" : "#FFCC44";
                 string prefix = isMe ? "Bạn" : entry.SenderName.ToString();
-                textComp.text = $"<color={nameColor}><b>{prefix}:</b></color> <color=#FFFFFF>{entry.MessageText}</color>";
+                textComp.text = $"{timeTag}<color={nameColor}><b>{prefix}:</b></color> <color=#FFFFFF>{entry.MessageText}</color>";
             }
         }
 
@@ -667,6 +1103,24 @@ public class NetworkChatUI : MonoBehaviour
         {
             monsterTabButton.onClick.RemoveAllListeners();
             monsterTabButton.onClick.AddListener(() => SwitchToTab(ChatTab.Monster));
+        }
+
+        if (deadTabButton != null)
+        {
+            deadTabButton.onClick.RemoveAllListeners();
+            deadTabButton.onClick.AddListener(() => SwitchToTab(ChatTab.Dead));
+        }
+
+        if (deadMicButton != null)
+        {
+            deadMicButton.onClick.RemoveAllListeners();
+            deadMicButton.onClick.AddListener(OnDeadMicClicked);
+        }
+
+        if (deadSpeakerButton != null)
+        {
+            deadSpeakerButton.onClick.RemoveAllListeners();
+            deadSpeakerButton.onClick.AddListener(OnDeadSpeakerClicked);
         }
 
         if (sendButton != null)
@@ -767,81 +1221,23 @@ public class NetworkChatUI : MonoBehaviour
             tbRt.anchoredPosition = new Vector2(0, -32);
             tbRt.sizeDelta = new Vector2(-16, 28);
             tabBarObj = tbObj;
+            tbTrans = tbObj.transform;
 
             // Tab Làng
-            GameObject vTab = new GameObject("VillageTab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            vTab.transform.SetParent(tbObj.transform, false);
-            RectTransform vRt = vTab.GetComponent<RectTransform>();
-            vRt.anchorMin = new Vector2(0, 0);
-            vRt.anchorMax = new Vector2(0.5f, 1);
-            vRt.offsetMin = new Vector2(0, 0);
-            vRt.offsetMax = new Vector2(-3, 0);
-
-            villageTabImage = vTab.GetComponent<Image>();
-            villageTabImage.color = new Color(0.18f, 0.45f, 0.75f, 1f);
-            villageTabButton = vTab.GetComponent<Button>();
-            villageTabButton.targetGraphic = villageTabImage;
-
-            GameObject vTxt = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            vTxt.transform.SetParent(vTab.transform, false);
-            RectTransform vtRt = vTxt.GetComponent<RectTransform>();
-            vtRt.anchorMin = Vector2.zero;
-            vtRt.anchorMax = Vector2.one;
-            vtRt.sizeDelta = Vector2.zero;
-
-            villageTabText = vTxt.GetComponent<TextMeshProUGUI>();
-            if (cachedFont != null) villageTabText.font = cachedFont;
-            villageTabText.text = "CHAT LÀNG";
-            villageTabText.fontSize = 12;
-            villageTabText.fontStyle = FontStyles.Bold;
-            villageTabText.color = Color.white;
-            villageTabText.alignment = TextAlignmentOptions.Center;
-            villageTabText.raycastTarget = false;
+            GameObject vTab = CreateChannelTab(tbObj.transform, "VillageTab", "CHAT LÀNG",
+                new Color(0.18f, 0.45f, 0.75f, 1f), Color.white, out villageTabImage, out villageTabButton, out villageTabText);
 
             // Tab Monster
-            GameObject mTab = new GameObject("MonsterTab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            mTab.transform.SetParent(tbObj.transform, false);
-            RectTransform mRt = mTab.GetComponent<RectTransform>();
-            mRt.anchorMin = new Vector2(0.5f, 0);
-            mRt.anchorMax = new Vector2(1, 1);
-            mRt.offsetMin = new Vector2(3, 0);
-            mRt.offsetMax = new Vector2(0, 0);
+            CreateChannelTab(tbObj.transform, "MonsterTab", "CHAT MONSTER",
+                new Color(0.22f, 0.08f, 0.10f, 0.85f), new Color(0.85f, 0.55f, 0.55f, 0.9f),
+                out monsterTabImage, out monsterTabButton, out monsterTabText, out monsterTabUnreadDot, new Color(1f, 0.2f, 0.2f, 1f));
+            monsterTabObj = monsterTabButton.gameObject;
 
-            monsterTabImage = mTab.GetComponent<Image>();
-            monsterTabImage.color = new Color(0.22f, 0.08f, 0.10f, 0.85f);
-            monsterTabButton = mTab.GetComponent<Button>();
-            monsterTabButton.targetGraphic = monsterTabImage;
-            monsterTabObj = mTab;
-
-            GameObject mTxt = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            mTxt.transform.SetParent(mTab.transform, false);
-            RectTransform mtRt = mTxt.GetComponent<RectTransform>();
-            mtRt.anchorMin = Vector2.zero;
-            mtRt.anchorMax = Vector2.one;
-            mtRt.sizeDelta = Vector2.zero;
-
-            monsterTabText = mTxt.GetComponent<TextMeshProUGUI>();
-            if (cachedFont != null) monsterTabText.font = cachedFont;
-            monsterTabText.text = "CHAT MONSTER";
-            monsterTabText.fontSize = 12;
-            monsterTabText.fontStyle = FontStyles.Bold;
-            monsterTabText.color = new Color(0.85f, 0.55f, 0.55f, 0.9f);
-            monsterTabText.alignment = TextAlignmentOptions.Center;
-            monsterTabText.raycastTarget = false;
-
-            // Monster Tab Unread Dot
-            GameObject dotObj = new GameObject("UnreadDot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            dotObj.transform.SetParent(mTab.transform, false);
-            RectTransform dotRt = dotObj.GetComponent<RectTransform>();
-            dotRt.anchorMin = new Vector2(1, 1);
-            dotRt.anchorMax = new Vector2(1, 1);
-            dotRt.pivot = new Vector2(0.5f, 0.5f);
-            dotRt.anchoredPosition = new Vector2(-4, -4);
-            dotRt.sizeDelta = new Vector2(10, 10);
-            Image dotImg = dotObj.GetComponent<Image>();
-            dotImg.color = new Color(1f, 0.2f, 0.2f, 1f);
-            monsterTabUnreadDot = dotObj;
-            monsterTabUnreadDot.SetActive(false);
+            // Tab Người Chết
+            CreateChannelTab(tbObj.transform, "DeadTab", "NGƯỜI CHẾT",
+                new Color(0.14f, 0.11f, 0.22f, 0.88f), new Color(0.70f, 0.62f, 0.85f, 0.9f),
+                out deadTabImage, out deadTabButton, out deadTabText, out deadTabUnreadDot, new Color(0.75f, 0.42f, 1f, 1f));
+            deadTabObj = deadTabButton.gameObject;
         }
         else
         {
@@ -863,7 +1259,33 @@ public class NetworkChatUI : MonoBehaviour
                 Transform dot = mt.Find("UnreadDot");
                 if (dot != null) monsterTabUnreadDot = dot.gameObject;
             }
+            Transform dt = tbTrans.Find("DeadTab");
+            if (dt == null)
+            {
+                CreateChannelTab(tbTrans, "DeadTab", "NGƯỜI CHẾT",
+                    new Color(0.14f, 0.11f, 0.22f, 0.88f), new Color(0.70f, 0.62f, 0.85f, 0.9f),
+                    out deadTabImage, out deadTabButton, out deadTabText, out deadTabUnreadDot, new Color(0.75f, 0.42f, 1f, 1f));
+                deadTabObj = deadTabButton.gameObject;
+            }
+            else
+            {
+                deadTabObj = dt.gameObject;
+                deadTabButton = dt.GetComponent<Button>();
+                deadTabImage = dt.GetComponent<Image>();
+                deadTabText = dt.GetComponentInChildren<TextMeshProUGUI>();
+                Transform dot = dt.Find("UnreadDot");
+                if (dot != null) deadTabUnreadDot = dot.gameObject;
+            }
         }
+
+        // Bảo đảm TabBar tự chia đều bề rộng cho các tab đang hiển thị (1, 2 hoặc 3 tab)
+        var tabLayout = tabBarObj.GetComponent<HorizontalLayoutGroup>();
+        if (tabLayout == null) tabLayout = tabBarObj.AddComponent<HorizontalLayoutGroup>();
+        tabLayout.spacing = 4f;
+        tabLayout.childControlWidth = true;
+        tabLayout.childControlHeight = true;
+        tabLayout.childForceExpandWidth = true;
+        tabLayout.childForceExpandHeight = true;
 
         // 2. Tìm hoặc liên kết VillageScrollView
         Transform svTrans = panelTrans.Find("MessageScrollView");
@@ -897,7 +1319,6 @@ public class NetworkChatUI : MonoBehaviour
                 if (mcnt != null)
                 {
                     monsterContent = mcnt.GetComponent<RectTransform>();
-                    // Xóa tin nhắn rác nếu sao chép từ Village
                     for (int i = monsterContent.childCount - 1; i >= 0; i--)
                         Destroy(monsterContent.GetChild(i).gameObject);
                 }
@@ -914,9 +1335,221 @@ public class NetworkChatUI : MonoBehaviour
             }
         }
 
+        // 4. Tìm hoặc tạo DeadView (Voice Bar + Danh sách thành viên Người Chết + DeadScrollView)
+        EnsureDeadChatView(panelTrans);
+
         // Đồng bộ con trỏ mặc định
         scrollRect = villageScrollRect;
         messageContent = villageContent;
+    }
+
+    private GameObject CreateChannelTab(
+        Transform parent,
+        string objName,
+        string title,
+        Color bgColor,
+        Color textColor,
+        out Image bgImg,
+        out Button btn,
+        out TextMeshProUGUI label)
+    {
+        GameObject tab = new GameObject(objName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        tab.transform.SetParent(parent, false);
+        bgImg = tab.GetComponent<Image>();
+        bgImg.color = bgColor;
+        btn = tab.GetComponent<Button>();
+        btn.targetGraphic = bgImg;
+
+        GameObject txt = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        txt.transform.SetParent(tab.transform, false);
+        RectTransform tRt = txt.GetComponent<RectTransform>();
+        tRt.anchorMin = Vector2.zero;
+        tRt.anchorMax = Vector2.one;
+        tRt.sizeDelta = Vector2.zero;
+
+        label = txt.GetComponent<TextMeshProUGUI>();
+        if (cachedFont != null) label.font = cachedFont;
+        label.text = title;
+        label.fontSize = 11;
+        label.fontStyle = FontStyles.Bold;
+        label.color = textColor;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        return tab;
+    }
+
+    private void CreateChannelTab(
+        Transform parent,
+        string objName,
+        string title,
+        Color bgColor,
+        Color textColor,
+        out Image bgImg,
+        out Button btn,
+        out TextMeshProUGUI label,
+        out GameObject unreadDot,
+        Color dotColor)
+    {
+        GameObject tab = CreateChannelTab(parent, objName, title, bgColor, textColor, out bgImg, out btn, out label);
+        GameObject dotObj = new GameObject("UnreadDot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        dotObj.transform.SetParent(tab.transform, false);
+        RectTransform dotRt = dotObj.GetComponent<RectTransform>();
+        dotRt.anchorMin = new Vector2(1, 1);
+        dotRt.anchorMax = new Vector2(1, 1);
+        dotRt.pivot = new Vector2(0.5f, 0.5f);
+        dotRt.anchoredPosition = new Vector2(-4, -4);
+        dotRt.sizeDelta = new Vector2(10, 10);
+        Image dotImg = dotObj.GetComponent<Image>();
+        dotImg.color = dotColor;
+        unreadDot = dotObj;
+        unreadDot.SetActive(false);
+    }
+
+    private void EnsureDeadChatView(Transform panelTrans)
+    {
+        Transform existingDead = panelTrans.Find("DeadView");
+        if (existingDead == null)
+        {
+            GameObject dv = new GameObject("DeadView", typeof(RectTransform));
+            dv.transform.SetParent(panelTrans, false);
+            RectTransform dvRt = dv.GetComponent<RectTransform>();
+            dvRt.anchorMin = new Vector2(0, 0);
+            dvRt.anchorMax = new Vector2(1, 1);
+            dvRt.offsetMin = new Vector2(8, 46);
+            dvRt.offsetMax = new Vector2(-8, -64);
+            deadViewObj = dv;
+
+            // 1. Voice Bar (Nút Micro & Nút Loa tách biệt rõ ràng)
+            GameObject voiceBar = new GameObject("DeadVoiceBar", typeof(RectTransform));
+            voiceBar.transform.SetParent(dv.transform, false);
+            RectTransform vbRt = voiceBar.GetComponent<RectTransform>();
+            vbRt.anchorMin = new Vector2(0, 1);
+            vbRt.anchorMax = new Vector2(1, 1);
+            vbRt.pivot = new Vector2(0.5f, 1);
+            vbRt.anchoredPosition = Vector2.zero;
+            vbRt.sizeDelta = new Vector2(0, 28);
+
+            CreateVoiceToggleButton(voiceBar.transform, "DeadMicButton", "[MIC] TẮT",
+                new Vector2(0f, 0f), new Vector2(0.49f, 1f),
+                new Color(0.42f, 0.16f, 0.19f, 0.95f), out deadMicButton, out deadMicImage, out deadMicText);
+
+            CreateVoiceToggleButton(voiceBar.transform, "DeadSpeakerButton", "[LOA] BẬT",
+                new Vector2(0.51f, 0f), new Vector2(1f, 1f),
+                new Color(0.12f, 0.38f, 0.58f, 0.95f), out deadSpeakerButton, out deadSpeakerImage, out deadSpeakerText);
+
+            // 2. Danh sách thành viên Kênh Người Chết
+            GameObject membersBar = new GameObject("DeadMembersBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            membersBar.transform.SetParent(dv.transform, false);
+            RectTransform mbRt = membersBar.GetComponent<RectTransform>();
+            mbRt.anchorMin = new Vector2(0, 1);
+            mbRt.anchorMax = new Vector2(1, 1);
+            mbRt.pivot = new Vector2(0.5f, 1);
+            mbRt.anchoredPosition = new Vector2(0, -31);
+            mbRt.sizeDelta = new Vector2(0, 28);
+            membersBar.GetComponent<Image>().color = new Color(0.08f, 0.06f, 0.14f, 0.9f);
+
+            GameObject mTxtObj = new GameObject("MembersText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            mTxtObj.transform.SetParent(membersBar.transform, false);
+            RectTransform mtRt = mTxtObj.GetComponent<RectTransform>();
+            mtRt.anchorMin = Vector2.zero;
+            mtRt.anchorMax = Vector2.one;
+            mtRt.offsetMin = new Vector2(6, 2);
+            mtRt.offsetMax = new Vector2(-6, -2);
+            deadMembersText = mTxtObj.GetComponent<TextMeshProUGUI>();
+            if (cachedFont != null) deadMembersText.font = cachedFont;
+            deadMembersText.fontSize = 11;
+            deadMembersText.fontSizeMin = 9;
+            deadMembersText.fontSizeMax = 12;
+            deadMembersText.enableAutoSizing = true;
+            deadMembersText.textWrappingMode = TextWrappingModes.Normal;
+            deadMembersText.alignment = TextAlignmentOptions.MidlineLeft;
+            deadMembersText.raycastTarget = false;
+
+            // 3. DeadScrollView
+            if (villageScrollRect != null)
+            {
+                GameObject dsvObj = Instantiate(villageScrollRect.gameObject, dv.transform, false);
+                dsvObj.name = "DeadScrollView";
+                dsvObj.SetActive(true);
+                RectTransform dsvRt = dsvObj.GetComponent<RectTransform>();
+                dsvRt.anchorMin = Vector2.zero;
+                dsvRt.anchorMax = Vector2.one;
+                dsvRt.offsetMin = Vector2.zero;
+                dsvRt.offsetMax = new Vector2(0, -62);
+
+                deadScrollRect = dsvObj.GetComponent<ScrollRect>();
+                Transform dvp = dsvObj.transform.Find("Viewport");
+                if (dvp != null)
+                {
+                    Transform dcnt = dvp.Find("Content");
+                    if (dcnt != null)
+                    {
+                        deadContent = dcnt.GetComponent<RectTransform>();
+                        for (int i = deadContent.childCount - 1; i >= 0; i--)
+                            Destroy(deadContent.GetChild(i).gameObject);
+                    }
+                }
+            }
+
+            deadViewObj.SetActive(false);
+        }
+        else
+        {
+            deadViewObj = existingDead.gameObject;
+            deadMicButton = existingDead.Find("DeadVoiceBar/DeadMicButton")?.GetComponent<Button>();
+            deadMicImage = deadMicButton != null ? deadMicButton.GetComponent<Image>() : null;
+            deadMicText = deadMicButton != null ? deadMicButton.GetComponentInChildren<TextMeshProUGUI>() : null;
+
+            deadSpeakerButton = existingDead.Find("DeadVoiceBar/DeadSpeakerButton")?.GetComponent<Button>();
+            deadSpeakerImage = deadSpeakerButton != null ? deadSpeakerButton.GetComponent<Image>() : null;
+            deadSpeakerText = deadSpeakerButton != null ? deadSpeakerButton.GetComponentInChildren<TextMeshProUGUI>() : null;
+
+            deadMembersText = existingDead.Find("DeadMembersBar/MembersText")?.GetComponent<TextMeshProUGUI>();
+            deadScrollRect = existingDead.Find("DeadScrollView")?.GetComponent<ScrollRect>();
+            deadContent = deadScrollRect != null ? deadScrollRect.transform.Find("Viewport/Content")?.GetComponent<RectTransform>() : null;
+        }
+    }
+
+    private void CreateVoiceToggleButton(
+        Transform parent,
+        string name,
+        string initialLabel,
+        Vector2 anchorMin,
+        Vector2 anchorMax,
+        Color bgColor,
+        out Button button,
+        out Image bgImg,
+        out TextMeshProUGUI label)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        bgImg = go.GetComponent<Image>();
+        bgImg.color = bgColor;
+        button = go.GetComponent<Button>();
+        button.targetGraphic = bgImg;
+
+        GameObject txt = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        txt.transform.SetParent(go.transform, false);
+        RectTransform tRt = txt.GetComponent<RectTransform>();
+        tRt.anchorMin = Vector2.zero;
+        tRt.anchorMax = Vector2.one;
+        tRt.offsetMin = new Vector2(4, 0);
+        tRt.offsetMax = new Vector2(-4, 0);
+
+        label = txt.GetComponent<TextMeshProUGUI>();
+        if (cachedFont != null) label.font = cachedFont;
+        label.text = initialLabel;
+        label.fontSize = 11;
+        label.fontStyle = FontStyles.Bold;
+        label.color = Color.white;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
     }
 
     /// <summary>
