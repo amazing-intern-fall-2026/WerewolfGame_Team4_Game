@@ -595,6 +595,9 @@ public class NetworkGameOverManager : MonoBehaviour
         if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
             return;
 
+        if (WinConditionTestConfig.IsWinConditionDisabled)
+            return;
+
         // Tiến độ nhiệm vụ đạt 100% -> Dân làng thắng ngay lập tức
         if (TaskManager.Instance != null && TaskManager.Instance.progress >= 100)
         {
@@ -944,6 +947,7 @@ public class NetworkGameOverManager : MonoBehaviour
     public void TriggerGameOver(string winner)
     {
         if (!Application.isPlaying) return;
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
 
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         if (IsNonGameplayScene(activeScene.name))

@@ -32,6 +32,16 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
 {
     public static ThuongOnlineWinAdapter Instance { get; private set; }
 
+    [Header("Debug Mode (Chỉ hoạt động trong Editor / Development Build)")]
+    [Tooltip("Mặc định là false. Chỉ dùng tạm ngưng xét thắng khi kiểm thử trong Editor hoặc Development Build; tự động reset về false khi sang trận mới.")]
+    [SerializeField] private bool disableWinConditionForTesting = false;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticDebugStateOnLaunch()
+    {
+        WinConditionTestConfig.ResetForNewMatch();
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
@@ -61,11 +71,43 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
             return;
         }
         Instance = this;
+        disableWinConditionForTesting = false;
+        WinConditionTestConfig.ResetForNewMatch();
         if (Application.isPlaying)
         {
             DontDestroyOnLoad(gameObject);
         }
         SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnValidate()
+    {
+        if (!WinConditionTestConfig.IsDebugEnvironmentAllowed)
+        {
+            disableWinConditionForTesting = false;
+            return;
+        }
+
+        if (Application.isPlaying && WinConditionTestConfig.CanModifyDebugMode())
+        {
+            WinConditionTestConfig.DisableWinConditionForTesting = disableWinConditionForTesting;
+        }
+    }
+
+    public void ResetDebugToggleForNewMatch()
+    {
+        disableWinConditionForTesting = false;
+        WinConditionTestConfig.ResetForNewMatch();
+    }
+
+    public static void SetDebugMode(bool disabled)
+    {
+        if (!WinConditionTestConfig.CanModifyDebugMode()) return;
+        WinConditionTestConfig.DisableWinConditionForTesting = disabled;
+        if (Instance != null)
+        {
+            Instance.disableWinConditionForTesting = WinConditionTestConfig.DisableWinConditionForTesting;
+        }
     }
 
     private void OnDestroy()
@@ -307,16 +349,10 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Hàm đánh giá điều kiện chiến thắng chuẩn xác, không dùng Reflection, không ghi đè roleType,
-    /// bảo toàn toàn bộ quy tắc game:
-    /// - Bạch Khuyển thức tỉnh còn sống: Dân Làng KHÔNG THỂ thắng.
-    /// - Bạch Khuyển chưa thức tỉnh còn sống: Dân Làng THẮNG khi hết quái vật.
-    /// - Bạch Khuyển đã chết: không tính vào phe sống.
-    /// - Parity và solo win được bảo toàn đầy đủ.
-    /// </summary>
     public static void EvaluateMatchOutcome(bool dayFinished)
     {
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
+
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
         if (NetworkGameOverManager.HasPendingHunterDeathShot()) return;
@@ -553,5 +589,146 @@ public class ThuongOnlineWinAdapter : MonoBehaviour
         NetworkWhiteHoundNotificationUI.ResetMatchNotificationState();
         NetworkDogSpiritNotificationUI.ResetMatchNotificationState();
         NetworkChatManager.Instance?.ClearHistory();
+        Instance?.ResetDebugToggleForNewMatch();
+        if (Instance == null)
+        {
+            WinConditionTestConfig.ResetForNewMatch();
+        }
+    }
+}
+
+/// <summary>
+/// Cấu hình Debug Mode cho điều kiện chiến thắng:
+/// - Mặc định luôn là false (xét điều kiện thắng bình thường).
+/// - Không lưu trạng thái sang phiên chơi khác hay bản Build khác.
+/// - Chỉ cho phép bật trong Unity Editor hoặc Development Build; bản Release Build luôn trả về false.
+/// - Chỉ Server/Host (hoặc offline) mới có quyền thay đổi và đồng bộ xuống Client.
+/// </summary>
+public static class WinConditionTestConfig
+{
+    private const string LegacyEditorPrefKey = "Werewolf.Testing.DisableWinConditionForTesting";
+    private static bool disableWinConditionForTesting;
+    private static bool? serverSyncOverride;
+    private static bool? runtimeTestOverride;
+
+#if UNITY_EDITOR
+    [UnityEditor.InitializeOnLoadMethod]
+    private static void ClearLegacyPersistedFlag()
+    {
+        if (UnityEditor.EditorPrefs.HasKey(LegacyEditorPrefKey))
+        {
+            UnityEditor.EditorPrefs.DeleteKey(LegacyEditorPrefKey);
+        }
+    }
+#endif
+
+    public static bool IsDebugEnvironmentAllowed
+    {
+        get
+        {
+#if UNITY_EDITOR
+            return true;
+#else
+            return Debug.isDebugBuild;
+#endif
+        }
+    }
+
+    public static bool ResolveDebugStateForEnvironment(bool isEditor, bool isDebugBuild, bool requestedState)
+    {
+        return (isEditor || isDebugBuild) && requestedState;
+    }
+
+    public static bool CanModifyDebugModeForState(bool isListening, bool isServer)
+    {
+        if (!IsDebugEnvironmentAllowed) return false;
+        if (isListening && !isServer) return false;
+        return true;
+    }
+
+    public static bool CanModifyDebugMode()
+    {
+        var net = NetworkManager.Singleton;
+        bool isListening = net != null && net.IsListening;
+        bool isServer = net != null && net.IsServer;
+        return CanModifyDebugModeForState(isListening, isServer);
+    }
+
+    public static bool DisableWinConditionForTesting
+    {
+        get
+        {
+            if (!IsDebugEnvironmentAllowed) return false;
+            var net = NetworkManager.Singleton;
+            if (net != null && net.IsListening && !net.IsServer)
+            {
+                return serverSyncOverride ?? false;
+            }
+            return disableWinConditionForTesting;
+        }
+        set
+        {
+            if (!CanModifyDebugMode())
+            {
+                if (value)
+                {
+                    Debug.LogWarning("[DebugMode] Từ chối bật DisableWinConditionForTesting (chỉ Server/Host trong Editor hoặc Development Build mới có quyền).");
+                }
+                return;
+            }
+
+            disableWinConditionForTesting = value;
+            runtimeTestOverride = null;
+            ThuongOnlineSession.Active?.BroadcastWinCheckTestModeOnServer();
+            if (!value)
+            {
+                WinConditionManager.Instance?.NotifyMatchStateChanged();
+            }
+        }
+    }
+
+    public static bool IsWinConditionDisabled
+    {
+        get
+        {
+            if (!IsDebugEnvironmentAllowed) return false;
+
+            var net = NetworkManager.Singleton;
+            if (net != null && net.IsListening && !net.IsServer)
+            {
+                return serverSyncOverride ?? false;
+            }
+
+            if (runtimeTestOverride.HasValue) return runtimeTestOverride.Value;
+            if (serverSyncOverride.HasValue) return serverSyncOverride.Value;
+            return disableWinConditionForTesting;
+        }
+    }
+
+    public static void SetServerSyncOverride(bool? disabled)
+    {
+        if (!IsDebugEnvironmentAllowed)
+        {
+            serverSyncOverride = null;
+            return;
+        }
+        serverSyncOverride = disabled;
+    }
+
+    public static void SetRuntimeOverrideForTest(bool? disabled)
+    {
+        if (!IsDebugEnvironmentAllowed)
+        {
+            runtimeTestOverride = null;
+            return;
+        }
+        runtimeTestOverride = disabled;
+    }
+
+    public static void ResetForNewMatch()
+    {
+        disableWinConditionForTesting = false;
+        serverSyncOverride = null;
+        runtimeTestOverride = null;
     }
 }

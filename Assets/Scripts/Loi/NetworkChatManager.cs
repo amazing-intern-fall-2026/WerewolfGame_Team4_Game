@@ -7,13 +7,15 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Kênh chat trong game:
-/// - Village (0): Chat Làng (tất cả người chơi).
-/// - Monster (1): Chat Monster (chỉ dành cho các thành viên phe Monster).
+/// - Village (0): Chat Làng (người chơi còn sống).
+/// - Monster (1): Chat Monster (chỉ dành cho thành viên phe Monster còn sống).
+/// - Dead (2): Kênh Người Chết (chỉ dành cho người chơi đã chết).
 /// </summary>
 public enum ChatChannel : byte
 {
     Village = 0,
-    Monster = 1
+    Monster = 1,
+    Dead = 2
 }
 
 /// <summary>
@@ -33,6 +35,25 @@ public class NetworkChatManager : NetworkBehaviour
     public const string MonsterChatRequestMessage = "loi.monsterchat.request.v1";
     public const string MonsterChatDeliveryMessage = "loi.monsterchat.delivery.v1";
     public const string MonsterChatPermissionSyncMessage = "loi.monsterchat.permsync.v1";
+
+    public const string DeadChatRequestMessage = "loi.deadchat.request.v1";
+    public const string DeadChatDeliveryMessage = "loi.deadchat.delivery.v1";
+    public const string DeadChatMemberSyncMessage = "loi.deadchat.membersync.v1";
+
+    [Serializable]
+    public struct DeadMemberInfo : IEquatable<DeadMemberInfo>
+    {
+        public ulong ClientId;
+        public int PlayerId;
+        public string Name;
+
+        public bool Equals(DeadMemberInfo other)
+        {
+            return ClientId == other.ClientId &&
+                   PlayerId == other.PlayerId &&
+                   string.Equals(Name, other.Name, StringComparison.Ordinal);
+        }
+    }
 
     [Serializable]
     public struct ChatMessageEntry : INetworkSerializable, IEquatable<ChatMessageEntry>
@@ -68,19 +89,34 @@ public class NetworkChatManager : NetworkBehaviour
     public static event Action<ChatMessageEntry> OnChatMessageReceived;
     public static event Action<ChatMessageEntry> OnVillageChatMessageReceived;
     public static event Action<ChatMessageEntry> OnMonsterChatMessageReceived;
+    public static event Action<ChatMessageEntry> OnDeadChatMessageReceived;
     public static event Action<bool> OnMonsterChatPermissionChanged;
+    public static event Action<bool> OnDeadChatPermissionChanged;
+    public static event Action<IReadOnlyList<DeadMemberInfo>> OnDeadChatMembersChanged;
     public static event Action OnChatHistoryCleared;
 
     private readonly List<ChatMessageEntry> messageHistory = new List<ChatMessageEntry>();
     private readonly List<ChatMessageEntry> villageHistory = new List<ChatMessageEntry>();
     private readonly List<ChatMessageEntry> monsterHistory = new List<ChatMessageEntry>();
+    private readonly List<ChatMessageEntry> deadHistory = new List<ChatMessageEntry>();
+    private readonly List<DeadMemberInfo> deadMembers = new List<DeadMemberInfo>();
+
+    private readonly Dictionary<ulong, uint> deadChatSequences = new Dictionary<ulong, uint>();
+    private readonly Dictionary<ulong, double> deadLastSentAt = new Dictionary<ulong, double>();
+    private readonly Dictionary<ulong, string> deadLastSentText = new Dictionary<ulong, string>();
+    private uint localDeadSequence;
 
     public IReadOnlyList<ChatMessageEntry> MessageHistory => messageHistory;
     public IReadOnlyList<ChatMessageEntry> VillageHistory => villageHistory;
     public IReadOnlyList<ChatMessageEntry> MonsterHistory => monsterHistory;
+    public IReadOnlyList<ChatMessageEntry> DeadHistory => deadHistory;
+    public IReadOnlyList<DeadMemberInfo> DeadMembers => deadMembers;
 
     private static bool localMonsterChatPermission = false;
     public static bool LocalMonsterChatPermission => localMonsterChatPermission;
+
+    private static bool localDeadChatPermission = false;
+    public static bool LocalDeadChatPermission => localDeadChatPermission;
 
     private void Awake()
     {
@@ -133,6 +169,9 @@ public class NetworkChatManager : NetworkBehaviour
         NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= HandleLocalWhiteHoundAwakened;
         NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged += HandleLocalWhiteHoundAwakened;
 
+        NetworkPlayerStateSync.OnLocalPlayerDeath -= HandleLocalPlayerDeathEvent;
+        NetworkPlayerStateSync.OnLocalPlayerDeath += HandleLocalPlayerDeathEvent;
+
         if (DeathResolver.Instance != null)
         {
             DeathResolver.Instance.DeathResolved -= HandleDeathResolved;
@@ -146,6 +185,7 @@ public class NetworkChatManager : NetworkBehaviour
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
         NetworkRoleSync.OnLocalWhiteHoundAwakenedChanged -= HandleLocalWhiteHoundAwakened;
+        NetworkPlayerStateSync.OnLocalPlayerDeath -= HandleLocalPlayerDeathEvent;
 
         if (DeathResolver.Instance != null)
         {
@@ -168,6 +208,7 @@ public class NetworkChatManager : NetworkBehaviour
         string name = scene.name;
         if (name == "MainMenu" || name == "OnlineSceneLobby" || name == "SceneLobby")
         {
+            ResetDeadChatState();
             ClearHistory();
             localMonsterChatPermission = false;
             OnMonsterChatPermissionChanged?.Invoke(false);
@@ -175,6 +216,7 @@ public class NetworkChatManager : NetworkBehaviour
         else
         {
             RefreshLocalMonsterChatPermission();
+            RefreshLocalDeadChatPermission();
         }
     }
 
@@ -212,6 +254,11 @@ public class NetworkChatManager : NetworkBehaviour
         if (localId >= 0 && player.playerID == localId)
         {
             RefreshLocalMonsterChatPermission();
+            RefreshLocalDeadChatPermission();
+        }
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            SyncDeadChatStateOnServer();
         }
     }
 
@@ -221,13 +268,24 @@ public class NetworkChatManager : NetworkBehaviour
         RefreshLocalMonsterChatPermission();
     }
 
+    private void HandleLocalPlayerDeathEvent()
+    {
+        RefreshLocalMonsterChatPermission();
+        RefreshLocalDeadChatPermission();
+    }
+
     /// <summary>
     /// Xử lý sự kiện từ DeathResolver trên Server:
-    /// Bạch Khuyển không nằm trong kênh chat của Monster.
+    /// Bạch Khuyển không nằm trong kênh chat của Monster; người chơi chết chuyển sang kênh Người Chết.
     /// </summary>
     private void HandleDeathResolved(DeathResult result)
     {
-        // Yêu cầu: Bạch Khuyển không nằm trong kênh chat của Monster
+        RefreshLocalMonsterChatPermission();
+        RefreshLocalDeadChatPermission();
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            SyncDeadChatStateOnServer();
+        }
     }
 
     // =========================================================
@@ -249,6 +307,15 @@ public class NetworkChatManager : NetworkBehaviour
 
                 net.CustomMessagingManager.UnregisterNamedMessageHandler(MonsterChatPermissionSyncMessage);
                 net.CustomMessagingManager.RegisterNamedMessageHandler(MonsterChatPermissionSyncMessage, ReceiveMonsterChatPermissionSync);
+
+                net.CustomMessagingManager.UnregisterNamedMessageHandler(DeadChatRequestMessage);
+                net.CustomMessagingManager.RegisterNamedMessageHandler(DeadChatRequestMessage, ReceiveDeadChatRequest);
+
+                net.CustomMessagingManager.UnregisterNamedMessageHandler(DeadChatDeliveryMessage);
+                net.CustomMessagingManager.RegisterNamedMessageHandler(DeadChatDeliveryMessage, ReceiveDeadChatDelivery);
+
+                net.CustomMessagingManager.UnregisterNamedMessageHandler(DeadChatMemberSyncMessage);
+                net.CustomMessagingManager.RegisterNamedMessageHandler(DeadChatMemberSyncMessage, ReceiveDeadChatMemberSync);
             }
             catch (Exception ex)
             {
@@ -267,6 +334,9 @@ public class NetworkChatManager : NetworkBehaviour
                 net.CustomMessagingManager.UnregisterNamedMessageHandler(MonsterChatRequestMessage);
                 net.CustomMessagingManager.UnregisterNamedMessageHandler(MonsterChatDeliveryMessage);
                 net.CustomMessagingManager.UnregisterNamedMessageHandler(MonsterChatPermissionSyncMessage);
+                net.CustomMessagingManager.UnregisterNamedMessageHandler(DeadChatRequestMessage);
+                net.CustomMessagingManager.UnregisterNamedMessageHandler(DeadChatDeliveryMessage);
+                net.CustomMessagingManager.UnregisterNamedMessageHandler(DeadChatMemberSyncMessage);
             }
             catch { }
         }
@@ -331,6 +401,75 @@ public class NetworkChatManager : NetworkBehaviour
         SetLocalMonsterChatPermission(hasPermission);
     }
 
+    private void ReceiveDeadChatRequest(ulong senderClientId, FastBufferReader reader)
+    {
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsServer) return;
+
+        reader.ReadValueSafe(out uint sequence);
+        reader.ReadValueSafe(out FixedString512Bytes text);
+        ProcessDeadChatMessage(senderClientId, text.ToString(), sequence);
+    }
+
+    private void ReceiveDeadChatDelivery(ulong senderClientId, FastBufferReader reader)
+    {
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsClient || senderClientId != NetworkManager.ServerClientId)
+        {
+            Debug.LogWarning("[CHAT DEAD] Bỏ qua tin nhắn không đến từ Server.");
+            return;
+        }
+
+        if (!HasLocalDeadChatPermission())
+        {
+            Debug.LogWarning("[CHAT DEAD] Người chơi chưa chết hoặc không có quyền Dead Chat, từ chối nhận.");
+            return;
+        }
+
+        var entry = new ChatMessageEntry();
+        reader.ReadValueSafe(out entry.SenderClientId);
+        reader.ReadValueSafe(out entry.SenderName);
+        reader.ReadValueSafe(out entry.MessageText);
+        reader.ReadValueSafe(out entry.TimestampTicks);
+        reader.ReadValueSafe(out entry.IsSystem);
+        reader.ReadValueSafe(out entry.Channel);
+        entry.Channel = (byte)ChatChannel.Dead;
+
+        if (!IsDuplicateEntry(deadHistory, entry))
+        {
+            AddMessageInternal(entry);
+        }
+    }
+
+    private void ReceiveDeadChatMemberSync(ulong senderClientId, FastBufferReader reader)
+    {
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsClient || senderClientId != NetworkManager.ServerClientId)
+            return;
+
+        reader.ReadValueSafe(out bool hasPermission);
+        reader.ReadValueSafe(out ushort count);
+
+        var synced = new List<DeadMemberInfo>(count);
+        for (int i = 0; i < count; i++)
+        {
+            reader.ReadValueSafe(out ulong cid);
+            reader.ReadValueSafe(out int pid);
+            reader.ReadValueSafe(out FixedString64Bytes name);
+            if (hasPermission)
+            {
+                synced.Add(new DeadMemberInfo
+                {
+                    ClientId = cid,
+                    PlayerId = pid,
+                    Name = name.ToString()
+                });
+            }
+        }
+
+        ApplyDeadChatMemberSync(hasPermission, synced);
+    }
+
     // =========================================================
     // 2. PHÂN QUYỀN VÀ XÁC THỰC PHE MONSTER
     // =========================================================
@@ -340,7 +479,7 @@ public class NetworkChatManager : NetworkBehaviour
     /// </summary>
     public static bool IsPlayerMonster(PlayerData player)
     {
-        if (player == null) return false;
+        if (player == null || !player.isAlive || player.isDisconnected) return false;
         // Yêu cầu: Bạch Khuyển (kể cả khi đã thức tỉnh thành Sói Trắng) KHÔNG nằm trong kênh chat của Monster
         if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
             return false;
@@ -352,11 +491,13 @@ public class NetworkChatManager : NetworkBehaviour
     }
 
     /// <summary>
-    /// Server xác thực ClientId có thuộc phe Monster hợp lệ không.
+    /// Server xác thực ClientId có thuộc phe Monster hợp lệ (và còn sống) không.
     /// Tuyệt đối không tin tưởng dữ liệu do Client gửi lên.
     /// </summary>
     public static bool IsClientMonster(ulong clientId)
     {
+        if (IsClientDead(clientId)) return false;
+
         // 1. Kiểm tra qua ThuongOnlineSession nếu đang trong Thương Online
         var session = Thuong.Online.ThuongOnlineSession.Active;
         if (session != null)
@@ -382,6 +523,125 @@ public class NetworkChatManager : NetworkBehaviour
         }
 
         return false;
+    }
+
+    public static bool IsPlayerDead(PlayerData player)
+    {
+        return player != null && !player.isAlive && !player.isDisconnected;
+    }
+
+    /// <summary>
+    /// Server xác thực ClientId đã chết và đủ quyền vào kênh Người Chết hay chưa.
+    /// Tuyệt đối không tin tưởng trạng thái do Client tự gửi lên.
+    /// </summary>
+    public static bool IsClientDead(ulong clientId)
+    {
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null)
+        {
+            return session.IsServerPlayerDead(clientId);
+        }
+
+        var net = NetworkManager.Singleton;
+        if (net != null && net.IsListening)
+        {
+            if (net.ConnectedClients != null && net.ConnectedClients.TryGetValue(clientId, out var client) && client != null && client.PlayerObject != null)
+            {
+                var stateSync = client.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+                if (stateSync != null)
+                {
+                    if (stateSync.State.Value == NetworkPlayerStateType.Disconnected) return false;
+                    if (stateSync.State.Value == NetworkPlayerStateType.Dead) return true;
+                }
+            }
+        }
+
+        if (PlayerManager.Instance != null)
+        {
+            var p = PlayerManager.Instance.GetplayerByID((int)clientId);
+            if (p != null) return IsPlayerDead(p);
+        }
+
+        return false;
+    }
+
+    public static List<ulong> GetDeadClientIds()
+    {
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null)
+        {
+            var members = session.GetServerDeadChatMembers();
+            var ids = new List<ulong>(members.Count);
+            foreach (var m in members) ids.Add(m.ClientId);
+            return ids;
+        }
+
+        var list = new List<ulong>();
+        var net = NetworkManager.Singleton;
+        if (net != null && net.IsListening)
+        {
+            foreach (ulong cId in net.ConnectedClientsIds)
+            {
+                if (IsClientDead(cId)) list.Add(cId);
+            }
+            return list;
+        }
+
+        if (PlayerManager.Instance?.players != null)
+        {
+            foreach (var p in PlayerManager.Instance.players)
+            {
+                if (IsPlayerDead(p)) list.Add((ulong)p.playerID);
+            }
+        }
+        return list;
+    }
+
+    public static bool HasLocalDeadChatPermission()
+    {
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null)
+        {
+            return session.IsLocalPlayerDeadInMatch();
+        }
+
+        var net = NetworkManager.Singleton;
+        if (net != null && net.IsListening && net.LocalClient != null && net.LocalClient.PlayerObject != null)
+        {
+            var stateSync = net.LocalClient.PlayerObject.GetComponent<NetworkPlayerStateSync>();
+            if (stateSync != null)
+            {
+                return stateSync.State.Value == NetworkPlayerStateType.Dead;
+            }
+        }
+
+        int localPlayerId = NetworkWhiteHoundNotificationUI.GetLocalPlayerId();
+        if (localPlayerId >= 0 && PlayerManager.Instance != null)
+        {
+            var p = PlayerManager.Instance.GetplayerByID(localPlayerId);
+            if (p != null)
+            {
+                return IsPlayerDead(p);
+            }
+        }
+
+        return localDeadChatPermission;
+    }
+
+    public static void SetLocalDeadChatPermission(bool hasPermission)
+    {
+        if (localDeadChatPermission != hasPermission)
+        {
+            localDeadChatPermission = hasPermission;
+            Debug.Log($"[CHAT DEAD] Quyền Dead Chat cục bộ thay đổi: {hasPermission}");
+            OnDeadChatPermissionChanged?.Invoke(hasPermission);
+        }
+    }
+
+    public static void RefreshLocalDeadChatPermission()
+    {
+        bool allowed = HasLocalDeadChatPermission();
+        SetLocalDeadChatPermission(allowed);
     }
 
     /// <summary>
@@ -415,10 +675,13 @@ public class NetworkChatManager : NetworkBehaviour
     /// </summary>
     public static bool HasLocalMonsterChatPermission()
     {
+        if (HasLocalDeadChatPermission()) return false;
+
         // 1. Kiểm tra vai trò cục bộ qua ThuongOnlineSession: Bạch Khuyển không nằm trong kênh chat của Monster
         var session = Thuong.Online.ThuongOnlineSession.Active;
         if (session != null && session.HasLocalRole)
         {
+            if (!session.IsLocalPlayerAliveInMatch()) return false;
             var role = session.GetPrivateRole();
             if (role == RoleType.WhiteHound || role == RoleType.WhiteWolf)
                 return false;
@@ -535,6 +798,18 @@ public class NetworkChatManager : NetworkBehaviour
         if (sanitized.Length > MaxMessageLength)
         {
             sanitized = sanitized.Substring(0, MaxMessageLength);
+        }
+
+        if (channel == ChatChannel.Dead)
+        {
+            SendDeadChatMessage(sanitized);
+            return;
+        }
+
+        if (HasLocalDeadChatPermission())
+        {
+            Debug.LogWarning($"[CHAT] Người chơi đã chết không thể gửi tin nhắn vào kênh {channel}!");
+            return;
         }
 
         if (channel == ChatChannel.Monster)
@@ -684,6 +959,294 @@ public class NetworkChatManager : NetworkBehaviour
         return true;
     }
 
+    public void SendDeadChatMessage(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        string sanitized = SanitizeChatContent(text);
+        if (string.IsNullOrEmpty(sanitized)) return;
+
+        if (!HasLocalDeadChatPermission())
+        {
+            Debug.LogWarning("[CHAT DEAD] Người chơi còn sống không thể gửi tin nhắn vào kênh Người Chết!");
+            return;
+        }
+
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null)
+        {
+            if (session.SendDeadChatThroughSession(sanitized))
+                return;
+        }
+
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsListening)
+        {
+            var entry = new ChatMessageEntry
+            {
+                SenderClientId = (ulong)Mathf.Max(0, NetworkWhiteHoundNotificationUI.GetLocalPlayerId()),
+                SenderName = new FixedString64Bytes(GetLocalSenderName()),
+                MessageText = new FixedString512Bytes(sanitized),
+                TimestampTicks = DateTime.UtcNow.Ticks,
+                IsSystem = false,
+                Channel = (byte)ChatChannel.Dead
+            };
+            AddMessageInternal(entry);
+            return;
+        }
+
+        uint seq = ++localDeadSequence;
+        if (net.IsServer)
+        {
+            ProcessDeadChatMessage(net.LocalClientId, sanitized, seq);
+        }
+        else
+        {
+            using var writer = new FastBufferWriter(568, Allocator.Temp);
+            writer.WriteValueSafe(seq);
+            writer.WriteValueSafe(new FixedString512Bytes(sanitized));
+            net.CustomMessagingManager.SendNamedMessage(DeadChatRequestMessage, NetworkManager.ServerClientId, writer);
+        }
+    }
+
+    public bool ProcessDeadChatMessage(ulong senderClientId, string rawText, uint clientSequence = 0)
+    {
+        if (string.IsNullOrWhiteSpace(rawText)) return false;
+
+        if (!IsClientDead(senderClientId))
+        {
+            Debug.LogWarning($"[CHAT DEAD] TỪ CHỐI! Client {senderClientId} chưa chết, không thể gửi tin nhắn Dead Chat!");
+            return false;
+        }
+
+        string sanitized = SanitizeChatContent(rawText);
+        if (string.IsNullOrEmpty(sanitized)) return false;
+
+        if (clientSequence != 0 && deadChatSequences.TryGetValue(senderClientId, out uint prevSeq) && clientSequence <= prevSeq)
+        {
+            return false;
+        }
+
+        double now = Time.realtimeSinceStartupAsDouble;
+        if (deadLastSentAt.TryGetValue(senderClientId, out double lastTime) &&
+            now - lastTime < 0.35 &&
+            deadLastSentText.TryGetValue(senderClientId, out string lastText) &&
+            string.Equals(lastText, sanitized, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (clientSequence != 0) deadChatSequences[senderClientId] = clientSequence;
+        deadLastSentAt[senderClientId] = now;
+        deadLastSentText[senderClientId] = sanitized;
+
+        string senderName = ResolveSenderName(senderClientId);
+        var entry = new ChatMessageEntry
+        {
+            SenderClientId = senderClientId,
+            SenderName = new FixedString64Bytes(senderName),
+            MessageText = new FixedString512Bytes(sanitized),
+            TimestampTicks = DateTime.UtcNow.Ticks,
+            IsSystem = false,
+            Channel = (byte)ChatChannel.Dead
+        };
+
+        List<ulong> deadClientIds = GetDeadClientIds();
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsListening)
+        {
+            AddMessageInternal(entry);
+            return true;
+        }
+
+        foreach (ulong recipientClientId in deadClientIds)
+        {
+            if (recipientClientId == net.LocalClientId)
+            {
+                if (!IsDuplicateEntry(deadHistory, entry))
+                {
+                    AddMessageInternal(entry);
+                }
+            }
+            else if (net.ConnectedClients.ContainsKey(recipientClientId))
+            {
+                using var writer = new FastBufferWriter(600, Allocator.Temp);
+                writer.WriteValueSafe(entry.SenderClientId);
+                writer.WriteValueSafe(entry.SenderName);
+                writer.WriteValueSafe(entry.MessageText);
+                writer.WriteValueSafe(entry.TimestampTicks);
+                writer.WriteValueSafe(entry.IsSystem);
+                writer.WriteValueSafe(entry.Channel);
+
+                net.CustomMessagingManager.SendNamedMessage(
+                    DeadChatDeliveryMessage,
+                    recipientClientId,
+                    writer,
+                    NetworkDelivery.ReliableSequenced
+                );
+            }
+        }
+
+        return true;
+    }
+
+    public void SyncDeadChatStateOnServer()
+    {
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null)
+        {
+            session.BroadcastDeadChatMembersOnServer();
+            return;
+        }
+
+        var net = NetworkManager.Singleton;
+        if (net == null || !net.IsListening)
+        {
+            var localMembers = BuildStandaloneDeadMembers();
+            ApplyDeadChatMemberSync(HasLocalDeadChatPermission(), localMembers);
+            return;
+        }
+
+        if (!net.IsServer) return;
+
+        var members = BuildStandaloneDeadMembers();
+        foreach (ulong clientId in net.ConnectedClientsIds)
+        {
+            bool allowed = IsClientDead(clientId);
+            SendDeadMemberSyncToClient(net, clientId, allowed, members);
+        }
+    }
+
+    internal static void SendDeadMemberSyncToClient(NetworkManager net, ulong clientId, bool allowed, List<DeadMemberInfo> members)
+    {
+        if (net == null) return;
+        if (clientId == net.LocalClientId)
+        {
+            if (Instance != null)
+            {
+                Instance.ApplyDeadChatMemberSync(allowed, allowed ? members : new List<DeadMemberInfo>());
+            }
+            else
+            {
+                SetLocalDeadChatPermission(allowed);
+            }
+            return;
+        }
+
+        if (net.CustomMessagingManager == null || !net.ConnectedClients.ContainsKey(clientId)) return;
+
+        int count = allowed && members != null ? members.Count : 0;
+        using var writer = new FastBufferWriter(Mathf.Max(64, 16 + count * 80), Allocator.Temp);
+        writer.WriteValueSafe(allowed);
+        writer.WriteValueSafe((ushort)count);
+        for (int i = 0; i < count; i++)
+        {
+            writer.WriteValueSafe(members[i].ClientId);
+            writer.WriteValueSafe(members[i].PlayerId);
+            writer.WriteValueSafe(new FixedString64Bytes(members[i].Name ?? string.Empty));
+        }
+
+        net.CustomMessagingManager.SendNamedMessage(
+            DeadChatMemberSyncMessage,
+            clientId,
+            writer,
+            NetworkDelivery.ReliableSequenced
+        );
+    }
+
+    public void ApplyDeadChatMemberSync(bool hasPermission, List<DeadMemberInfo> members)
+    {
+        SetLocalDeadChatPermission(hasPermission);
+
+        bool changed = false;
+        if (!hasPermission || members == null)
+        {
+            if (deadMembers.Count > 0)
+            {
+                deadMembers.Clear();
+                changed = true;
+            }
+        }
+        else if (deadMembers.Count != members.Count)
+        {
+            deadMembers.Clear();
+            deadMembers.AddRange(members);
+            changed = true;
+        }
+        else
+        {
+            for (int i = 0; i < members.Count; i++)
+            {
+                if (!deadMembers[i].Equals(members[i]))
+                {
+                    deadMembers.Clear();
+                    deadMembers.AddRange(members);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            OnDeadChatMembersChanged?.Invoke(deadMembers);
+        }
+    }
+
+    private List<DeadMemberInfo> BuildStandaloneDeadMembers()
+    {
+        var list = new List<DeadMemberInfo>();
+        var net = NetworkManager.Singleton;
+        if (net != null && net.IsListening)
+        {
+            foreach (ulong cid in net.ConnectedClientsIds)
+            {
+                if (!IsClientDead(cid)) continue;
+                list.Add(new DeadMemberInfo
+                {
+                    ClientId = cid,
+                    PlayerId = (int)cid,
+                    Name = ResolveSenderName(cid)
+                });
+            }
+            return list;
+        }
+
+        if (PlayerManager.Instance?.players != null)
+        {
+            foreach (var p in PlayerManager.Instance.players)
+            {
+                if (IsPlayerDead(p))
+                {
+                    list.Add(new DeadMemberInfo
+                    {
+                        ClientId = (ulong)p.playerID,
+                        PlayerId = p.playerID,
+                        Name = p.DisplayName
+                    });
+                }
+            }
+        }
+        return list;
+    }
+
+    private static string SanitizeChatContent(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        string trimmed = value.Trim();
+        if (trimmed.Length > MaxMessageLength) trimmed = trimmed.Substring(0, MaxMessageLength);
+        return trimmed.Replace('<', '‹').Replace('>', '›');
+    }
+
+    private static bool IsDuplicateEntry(List<ChatMessageEntry> history, ChatMessageEntry entry)
+    {
+        for (int i = history.Count - 1; i >= 0 && i >= history.Count - 8; i--)
+        {
+            if (history[i].Equals(entry)) return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// ServerRpc nhận tin nhắn từ Client cho Netcode standalone mode.
     /// </summary>
@@ -695,6 +1258,18 @@ public class NetworkChatManager : NetworkBehaviour
 
         if (string.IsNullOrWhiteSpace(text))
             return;
+
+        if (channel == (byte)ChatChannel.Dead)
+        {
+            ProcessDeadChatMessage(senderClientId, text);
+            return;
+        }
+
+        if (IsClientDead(senderClientId))
+        {
+            Debug.LogWarning($"[CHAT] TỪ CHỐI! Người chơi đã chết Client {senderClientId} không được gửi vào kênh {(ChatChannel)channel}.");
+            return;
+        }
 
         if (channel == (byte)ChatChannel.Monster)
         {
@@ -774,7 +1349,16 @@ public class NetworkChatManager : NetworkBehaviour
             messageHistory.RemoveAt(0);
         }
 
-        if (entry.Channel == (byte)ChatChannel.Monster)
+        if (entry.Channel == (byte)ChatChannel.Dead)
+        {
+            deadHistory.Add(entry);
+            while (deadHistory.Count > MaxHistoryCount)
+            {
+                deadHistory.RemoveAt(0);
+            }
+            OnDeadChatMessageReceived?.Invoke(entry);
+        }
+        else if (entry.Channel == (byte)ChatChannel.Monster)
         {
             monsterHistory.Add(entry);
             while (monsterHistory.Count > MaxHistoryCount)
@@ -798,7 +1382,13 @@ public class NetworkChatManager : NetworkBehaviour
 
     internal void ReceiveThuongMessage(ChatMessageEntry entry)
     {
-        entry.Channel = (byte)ChatChannel.Village;
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        bool isDeadChannel = session != null && session.CommunicationAudience == Thuong.Online.ThuongCommunicationAudience.Dead;
+        entry.Channel = isDeadChannel ? (byte)ChatChannel.Dead : (byte)ChatChannel.Village;
+
+        var targetList = isDeadChannel ? deadHistory : villageHistory;
+        if (IsDuplicateEntry(targetList, entry)) return;
+
         AddMessageInternal(entry);
     }
 
@@ -846,13 +1436,28 @@ public class NetworkChatManager : NetworkBehaviour
     }
 
     /// <summary>
-    /// Xóa toàn bộ lịch sử tin nhắn của cả hai kênh.
+    /// Xóa toàn bộ lịch sử tin nhắn của cả ba kênh.
     /// </summary>
     public void ClearHistory()
     {
         messageHistory.Clear();
         villageHistory.Clear();
         monsterHistory.Clear();
+        deadHistory.Clear();
+        OnChatHistoryCleared?.Invoke();
+    }
+
+    /// <summary>
+    /// Reset toàn bộ trạng thái, lịch sử, danh sách thành viên và quyền kênh Người Chết khi bắt đầu ván mới hoặc rời phòng.
+    /// </summary>
+    public void ResetDeadChatState()
+    {
+        deadHistory.Clear();
+        deadChatSequences.Clear();
+        deadLastSentAt.Clear();
+        deadLastSentText.Clear();
+        localDeadSequence = 0;
+        ApplyDeadChatMemberSync(false, null);
         OnChatHistoryCleared?.Invoke();
     }
 }
