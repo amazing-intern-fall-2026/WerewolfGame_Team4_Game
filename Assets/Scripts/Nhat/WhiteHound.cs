@@ -20,7 +20,7 @@ public class WhiteHound : BaseRole
         if (owner == null || !owner.isAlive || !owner.isWhiteHoundAwakened)
             return;
 
-        NightManager.Instance?.SetMonsterTarget(targetID, RoleType.WhiteHound);
+        NightManager.Instance?.SetWhiteHoundTarget(targetID, owner.playerID);
     }
 
     public override bool TryUseNightAbility(int targetID, out string feedback)

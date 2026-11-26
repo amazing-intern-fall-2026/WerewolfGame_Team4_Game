@@ -211,7 +211,7 @@ public class MonsterPackNightAttackTests
         var dog = AddPlayer(0, RoleType.DogSpirit, FactionType.Monster);
         var ogre = AddPlayer(1, RoleType.Ogre, FactionType.Monster);
         var serpent = AddPlayer(2, RoleType.SerpentSpirit, FactionType.Monster);
-        var wh = AddPlayer(3, RoleType.WhiteHound, FactionType.Monster, awakenedWhiteHound: true);
+        var ogre2 = AddPlayer(3, RoleType.Ogre, FactionType.Monster);
         var p1 = AddPlayer(4, RoleType.Villager, FactionType.Villager);
         var p2 = AddPlayer(5, RoleType.Villager, FactionType.Villager);
         var p3 = AddPlayer(6, RoleType.Villager, FactionType.Villager);
@@ -221,10 +221,10 @@ public class MonsterPackNightAttackTests
         nightManager.StartNight();
         gameRoleManager.currentDay = 3;
 
-        // P1 = 2 phiếu (Ogre, Serpent), P2 = 2 phiếu (DogSpirit, WhiteHound), P3 = 0 phiếu
+        // P1 = 2 phiếu (Ogre, Serpent), P2 = 2 phiếu (DogSpirit, Ogre2), P3 = 0 phiếu
         Assert.IsTrue(nightManager.TryCastMonsterVote(ogre, p1.playerID, 3, out _));
         Assert.IsTrue(nightManager.TryCastMonsterVote(serpent, p1.playerID, 3, out _));
-        Assert.IsTrue(nightManager.TryCastMonsterVote(wh, p2.playerID, 3, out _));
+        Assert.IsTrue(nightManager.TryCastMonsterVote(ogre2, p2.playerID, 3, out _));
         Assert.IsTrue(nightManager.TryCastMonsterVote(dog, p2.playerID, 3, out _));
 
         // DogSpirit đã bỏ phiếu cho p2 nằm trong nhóm hòa [p1, p2] -> sử dụng ngay lựa chọn của DogSpirit
@@ -244,7 +244,7 @@ public class MonsterPackNightAttackTests
         var dog = AddPlayer(0, RoleType.DogSpirit, FactionType.Monster);
         var ogre = AddPlayer(1, RoleType.Ogre, FactionType.Monster);
         var serpent = AddPlayer(2, RoleType.SerpentSpirit, FactionType.Monster);
-        var wh = AddPlayer(3, RoleType.WhiteHound, FactionType.Monster, awakenedWhiteHound: true);
+        var ogre2 = AddPlayer(3, RoleType.Ogre, FactionType.Monster);
         var p1 = AddPlayer(4, RoleType.Villager, FactionType.Villager);
         var p2 = AddPlayer(5, RoleType.Villager, FactionType.Villager);
         var p3 = AddPlayer(6, RoleType.Villager, FactionType.Villager);
@@ -254,10 +254,10 @@ public class MonsterPackNightAttackTests
         nightManager.StartNight();
         gameRoleManager.currentDay = 3;
 
-        // 3 người hòa 1 phiếu: p1 (Ogre), p2 (Serpent), p3 (WhiteHound), còn DogSpirit chưa vote
+        // 3 người hòa 1 phiếu: p1 (Ogre), p2 (Serpent), p3 (Ogre2), còn DogSpirit chưa vote
         Assert.IsTrue(nightManager.TryCastMonsterVote(ogre, p1.playerID, 3, out _));
         Assert.IsTrue(nightManager.TryCastMonsterVote(serpent, p2.playerID, 3, out _));
-        Assert.IsTrue(nightManager.TryCastMonsterVote(wh, p3.playerID, 3, out _));
+        Assert.IsTrue(nightManager.TryCastMonsterVote(ogre2, p3.playerID, 3, out _));
 
         Assert.IsTrue(nightManager.BeginDogSpiritTieDecisionIfNeeded());
         Assert.IsTrue(nightManager.IsDogSpiritDecisionActive);
@@ -280,7 +280,7 @@ public class MonsterPackNightAttackTests
         var dog = AddPlayer(0, RoleType.DogSpirit, FactionType.Monster);
         var ogre = AddPlayer(1, RoleType.Ogre, FactionType.Monster);
         var serpent = AddPlayer(2, RoleType.SerpentSpirit, FactionType.Monster);
-        var wh = AddPlayer(3, RoleType.WhiteHound, FactionType.Monster, awakenedWhiteHound: true);
+        var ogre2 = AddPlayer(3, RoleType.Ogre, FactionType.Monster);
         var p1 = AddPlayer(4, RoleType.Villager, FactionType.Villager);
         var p2 = AddPlayer(5, RoleType.Villager, FactionType.Villager);
         var p3 = AddPlayer(6, RoleType.Villager, FactionType.Villager);
@@ -295,11 +295,11 @@ public class MonsterPackNightAttackTests
         Assert.IsTrue(nightManager.TryCastMonsterVote(serpent, p2.playerID, 3, out _));
         Assert.IsTrue(nightManager.BeginDogSpiritTieDecisionIfNeeded());
 
-        // Trong bước phân định hòa, Ogre / Serpent / WhiteHound đều bị từ chối mọi phiếu/quyết định
+        // Trong bước phân định hòa, Ogre / Serpent / Ogre2 đều bị từ chối mọi phiếu/quyết định
         Assert.IsFalse(nightManager.TryCastMonsterVote(ogre, p1.playerID, 3, out _));
         Assert.IsFalse(nightManager.TrySubmitDogSpiritDecision(ogre, p1.playerID, 3, out _));
         Assert.IsFalse(nightManager.TrySubmitDogSpiritDecision(serpent, p2.playerID, 3, out _));
-        Assert.IsFalse(nightManager.TrySubmitDogSpiritDecision(wh, p3.playerID, 3, out _));
+        Assert.IsFalse(nightManager.TrySubmitDogSpiritDecision(ogre2, p3.playerID, 3, out _));
 
         // Chỉ DogSpirit chốt trong [p1, p2]
         Assert.IsTrue(nightManager.TrySubmitDogSpiritDecision(dog, p1.playerID, 3, out _));
@@ -315,7 +315,7 @@ public class MonsterPackNightAttackTests
         var dog = AddPlayer(0, RoleType.DogSpirit, FactionType.Monster);
         var ogre = AddPlayer(1, RoleType.Ogre, FactionType.Monster);
         var serpent = AddPlayer(2, RoleType.SerpentSpirit, FactionType.Monster);
-        var wh = AddPlayer(3, RoleType.WhiteHound, FactionType.Monster, awakenedWhiteHound: true);
+        var ogre3 = AddPlayer(3, RoleType.Ogre, FactionType.Monster);
         var p1 = AddPlayer(4, RoleType.Villager, FactionType.Villager);
         var p2 = AddPlayer(5, RoleType.Villager, FactionType.Villager);
         var p3 = AddPlayer(6, RoleType.Villager, FactionType.Villager);
@@ -325,13 +325,12 @@ public class MonsterPackNightAttackTests
         nightManager.StartNight();
         gameRoleManager.currentDay = 3;
 
-        // Hòa p1 (2 phiếu) & p2 (2 phiếu) khi có 5 Monster? Ở đây: Ogre->p1, Serpent->p2, DogSpirit->p3
-        // p1 = 1, p2 = 1, p3 = 1 -> nếu hòa cả 3 thì p3 nằm trong nhóm; nên cho thêm Ogre2/WhiteHound:
+        // Hòa p1 (2 phiếu) & p2 (2 phiếu), còn DogSpirit chọn p3 (1 phiếu)
         var ogre2 = AddPlayer(7, RoleType.Ogre, FactionType.Monster);
         Assert.IsTrue(nightManager.TryCastMonsterVote(ogre, p1.playerID, 3, out _));
         Assert.IsTrue(nightManager.TryCastMonsterVote(ogre2, p1.playerID, 3, out _));
         Assert.IsTrue(nightManager.TryCastMonsterVote(serpent, p2.playerID, 3, out _));
-        Assert.IsTrue(nightManager.TryCastMonsterVote(wh, p2.playerID, 3, out _));
+        Assert.IsTrue(nightManager.TryCastMonsterVote(ogre3, p2.playerID, 3, out _));
         Assert.IsTrue(nightManager.TryCastMonsterVote(dog, p3.playerID, 3, out _));
 
         // Nhóm hòa là [p1, p2] (2 phiếu), còn phiếu của DogSpirit đang là p3 (1 phiếu, ngoài nhóm hòa)
@@ -594,15 +593,15 @@ public class MonsterPackNightAttackTests
     {
         var dog = AddPlayer(0, RoleType.DogSpirit, FactionType.Monster);
         var ogre = AddPlayer(1, RoleType.Ogre, FactionType.Monster);
-        var wh = AddPlayer(2, RoleType.WhiteHound, FactionType.Monster, awakenedWhiteHound: true);
+        var ogre2 = AddPlayer(2, RoleType.Ogre, FactionType.Monster);
         var seer = AddPlayer(3, RoleType.Seer, FactionType.Villager);
         var v1 = AddPlayer(4, RoleType.Villager, FactionType.Villager);
         var v2 = AddPlayer(5, RoleType.Villager, FactionType.Villager);
 
         nightManager.StartNight();
-        // Ogre vote v1, WhiteHound vote v2, DogSpirit chưa vote -> mở bước DogSpirit phân định hòa
+        // Ogre vote v1, Ogre2 vote v2, DogSpirit chưa vote -> mở bước DogSpirit phân định hòa
         Assert.IsTrue(roleManager.UseNightAbility(ogre.playerID, v1.playerID, out _));
-        Assert.IsTrue(roleManager.UseNightAbility(wh.playerID, v2.playerID, out _));
+        Assert.IsTrue(roleManager.UseNightAbility(ogre2.playerID, v2.playerID, out _));
         Assert.IsTrue(nightManager.BeginDogSpiritTieDecisionIfNeeded());
 
         Assert.IsTrue(roleManager.UseNightAbility(seer.playerID, dog.playerID, out string seerMsg),

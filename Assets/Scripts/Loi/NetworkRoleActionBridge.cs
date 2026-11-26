@@ -1607,13 +1607,42 @@ public class NetworkRoleActionBridge : MonoBehaviour
         }
 
         // =====================================================
-        // MONSTER ATTACK (DOGSPIRIT, SERPENTSPIRIT, OGRE & AWAKENED WHITEHOUND) LOGIC
+        // WHITEHOUND INDEPENDENT ATTACK LOGIC (THIRD-PARTY)
+        // =====================================================
+        bool isWhiteHoundAttacker = role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf;
+        if (isWhiteHoundAttacker)
+        {
+            if (currentPhase != GamePhase.Night)
+            {
+                SendResult(requesterClientId, false, "Chỉ có thể tấn công vào ban đêm!");
+                return;
+            }
+
+            if (NightManager.Instance == null)
+            {
+                SendResult(requesterClientId, false, "Chưa có hệ thống xử lý ban đêm.");
+                return;
+            }
+
+            if (!NightManager.Instance.TrySubmitWhiteHoundAttack(requester, targetID, out string whFeedback))
+            {
+                Debug.LogWarning($"ROLE ACTION BRIDGE | Server từ chối WhiteHound (Player {requesterID + 1}) -> Player {targetID + 1}: {whFeedback}");
+                SendResult(requesterClientId, false, whFeedback);
+                return;
+            }
+
+            NotifyShamanAboutDogSpiritTarget(targetID);
+            Debug.Log($"ROLE ACTION BRIDGE | WhiteHound (Player {requesterID + 1}) đã chọn mục tiêu tấn công độc lập là Player {targetID + 1}.");
+            SendResult(requesterClientId, true, whFeedback);
+            return;
+        }
+
+        // =====================================================
+        // MONSTER VOTE ATTACK (DOGSPIRIT, SERPENTSPIRIT, OGRE) LOGIC
         // =====================================================
         bool isMonsterAttacker = role.roleType == RoleType.DogSpirit ||
                                  role.roleType == RoleType.SerpentSpirit ||
-                                 role.roleType == RoleType.Ogre ||
-                                 ((role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf) &&
-                                  requester != null && (requester.isWhiteHoundAwakened || requester.faction == FactionType.Monster));
+                                 role.roleType == RoleType.Ogre;
 
         if (isMonsterAttacker)
         {
@@ -1629,9 +1658,7 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 return;
             }
 
-            RoleType monsterSource = (role.roleType == RoleType.WhiteHound || role.roleType == RoleType.WhiteWolf)
-                ? RoleType.WhiteHound
-                : role.roleType;
+            RoleType monsterSource = role.roleType;
 
             int currentNight = GetCurrentNightNumber();
             if (!NightManager.Instance.TrySubmitMonsterPackTarget(requester, targetID, monsterSource, currentNight, out string packFeedback))
@@ -1644,14 +1671,11 @@ public class NetworkRoleActionBridge : MonoBehaviour
             NightManager.Instance.RecordSubmittedAction(requester, targetID, monsterSource.ToString());
 
             // Đánh dấu WhiteHound bị cắn nếu cắn trúng WhiteHound chưa thức tỉnh
-            if ((role.roleType == RoleType.DogSpirit || role.roleType == RoleType.SerpentSpirit || role.roleType == RoleType.Ogre) && target != null)
+            if (target != null && (target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf) &&
+                !target.isWhiteHoundAwakened && target.faction != FactionType.Monster)
             {
-                if ((target.roleType == RoleType.WhiteHound || target.roleType == RoleType.WhiteWolf) &&
-                    !target.isWhiteHoundAwakened && target.faction != FactionType.Monster)
-                {
-                    bittenWhiteHoundPlayerIds.Add(targetID);
-                    Debug.Log($"ROLE ACTION BRIDGE | {role.roleType} đã cắn WhiteHound (Player {targetID + 1}) -> Ghi nhận WhiteHound bị cắn đêm nay để thức tỉnh và ngăn Dân làng thắng!");
-                }
+                bittenWhiteHoundPlayerIds.Add(targetID);
+                Debug.Log($"ROLE ACTION BRIDGE | {role.roleType} đã cắn WhiteHound (Player {targetID + 1}) -> Ghi nhận WhiteHound bị cắn đêm nay để thức tỉnh và ngăn Dân làng thắng!");
             }
 
             requester.hasUseNightAction = true;
