@@ -185,7 +185,7 @@ namespace Thuong.Online
                     options.Add(new LocalInteractionOption(LocalInteractionKind.CompleteTask, stationId,
                         "Nhiệm vụ: " + stations[stationId].task.taskName));
             }
-            else if (CanUseLocalRealtimeMonsterAbility() && (privateFlags & (4 | 64)) == 0 ||
+            else if ((CanUseLocalRealtimeMonsterAbility() || CanUseLocalRealtimeWhiteHoundAbility()) && (privateFlags & (4 | 64)) == 0 ||
                      (privateRole is RoleType.VillageGuardian or RoleType.Seer) && (privateFlags & (4 | 64)) == 0)
             {
                 int targetId = NearestAlivePlayer(position, out _);
@@ -241,8 +241,12 @@ namespace Thuong.Online
         {
             if (privateRole is RoleType.DogSpirit or RoleType.Ogre) return true;
             if (privateRole == RoleType.SerpentSpirit) return visibleDay >= 3;
-            if (privateRole is RoleType.WhiteHound or RoleType.WhiteWolf) return (privateFlags & 128) != 0;
             return false;
+        }
+
+        private bool CanUseLocalRealtimeWhiteHoundAbility()
+        {
+            return privateRole is RoleType.WhiteHound or RoleType.WhiteWolf && (privateFlags & 128) != 0;
         }
 
         private int NearestAlivePlayer(Vector2 position, out float distance)
@@ -252,7 +256,8 @@ namespace Thuong.Online
             foreach (ThuongOnlinePublicPlayer candidate in publicPlayers)
             {
                 if (!candidate.Alive || candidate.PlayerId == localPlayerId) continue;
-                if ((privateRole == RoleType.VillageGuardian || CanUseLocalRealtimeMonsterAbility()) && !CanTargetLocalAbility(candidate.PlayerId)) continue;
+                if ((privateRole == RoleType.VillageGuardian || CanUseLocalRealtimeMonsterAbility() || CanUseLocalRealtimeWhiteHoundAbility()) &&
+                    !CanTargetLocalAbility(candidate.PlayerId)) continue;
                 float candidateDistance = Vector2.Distance(position, candidate.Position);
                 if (candidateDistance >= distance || candidateDistance > RealtimeInteractionRange) continue;
                 if (SelectedMap == null || !Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, position, candidate.Position)) continue;
@@ -285,18 +290,28 @@ namespace Thuong.Online
                 case RoleType.DogSpirit:
                 case RoleType.Ogre:
                 case RoleType.SerpentSpirit:
-                case RoleType.WhiteHound:
-                case RoleType.WhiteWolf:
                     if (!NightManager.CanParticipateInMonsterPackAttack(actor, night, out feedback)) return false;
                     if (!NightManager.IsValidMonsterPackTarget(actor, target, out feedback)) return false;
                     if (sharedRealtimeAttackUsed) { feedback = "Bầy đã dùng lượt tấn công đêm này."; return false; }
                     sharedRealtimeAttackUsed = true;
                     actor.hasUseNightAction = true;
                     var death = DeathResolver.Instance.TryKill(new DeathRequest(target, DeathCause.Monster, actor,
-                        sourceRole: actor.roleType == RoleType.WhiteWolf ? RoleType.WhiteHound : actor.roleType));
+                        sourceRole: actor.roleType));
                     feedback = death.Outcome == DeathOutcome.Killed ? $"Đã hạ {target.DisplayName}." : death.Message;
                     actor.NotifyChanged();
                     return death.Outcome is DeathOutcome.Killed or DeathOutcome.Prevented;
+
+                case RoleType.WhiteHound:
+                case RoleType.WhiteWolf:
+                    if (!NightManager.CanParticipateInWhiteHoundAttack(actor, out feedback)) return false;
+                    if (!NightManager.IsValidWhiteHoundTarget(actor, target, out feedback)) return false;
+                    if (actor.hasUseNightAction) { feedback = "Bạn đã dùng kỹ năng trong đêm này."; return false; }
+                    actor.hasUseNightAction = true;
+                    var whDeath = DeathResolver.Instance.TryKill(new DeathRequest(target, DeathCause.Monster, actor,
+                        sourceRole: RoleType.WhiteHound));
+                    feedback = whDeath.Outcome == DeathOutcome.Killed ? $"Đã hạ {target.DisplayName}." : whDeath.Message;
+                    actor.NotifyChanged();
+                    return whDeath.Outcome is DeathOutcome.Killed or DeathOutcome.Prevented;
 
                 case RoleType.VillageGuardian:
                     if (actor.hasUseNightAction) { feedback = "Bạn đã dùng kỹ năng trong đêm này."; return false; }

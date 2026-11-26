@@ -519,7 +519,7 @@ namespace Thuong.Online
                 { realtimePrompt.text = "BAN ĐÊM · Mở ROLE / KỸ NĂNG để chọn hành động"; return; }
                 bool corpseNearby = onlineCorpses.Any(item => Vector2.Distance(localAvatar.Root.transform.position, item.Position) <= RealtimeInteractionRange &&
                     SelectedMap != null && Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, localAvatar.Root.transform.position, item.Position));
-                bool canMonsterInteract = CanUseLocalRealtimeMonsterAbility();
+                bool canMonsterInteract = CanUseLocalRealtimeMonsterAbility() || CanUseLocalRealtimeWhiteHoundAbility();
                 if (!canMonsterInteract && privateRole is not (RoleType.VillageGuardian or RoleType.Seer))
                 { realtimePrompt.text = corpseNearby ? "E · BÁO XÁC" : "BAN ĐÊM · Vai trò này không có kỹ năng E trong mode này"; return; }
                 int targetId = NearestAlivePlayer(localAvatar.Root.transform.position, out _);

@@ -76,12 +76,14 @@ public class NightManager : MonoBehaviour
     private readonly List<PeekAction> peekActions = new();
     private readonly Dictionary<int, NightAttackEvent> activeNightAttacks = new();
     private readonly HashSet<int> rescuedAttackEventIds = new();
+    private readonly Dictionary<int, WhiteHoundAttackEntry> whiteHoundAttacks = new();
     private int nextActionSequence;
     private int nextAttackEventId;
     private bool bratPeekPending;
     public int PendingActionCount => actions.Count;
+    public bool HasPendingWhiteHoundAttack => whiteHoundAttacks.Count > 0;
     public bool HasUnresolvedNightResolution => actions.Count > 0 || peekActions.Count > 0 || bratPeekPending ||
-        monsterTarget != -1 || protectedTarget != -1 || killerTarget != -1;
+        monsterTarget != -1 || whiteHoundAttacks.Count > 0 || protectedTarget != -1 || killerTarget != -1;
     private sealed class QueuedAction
     {
         public PlayerData actor, target;
@@ -93,6 +95,12 @@ public class NightManager : MonoBehaviour
     {
         public int actorID, targetID;
         public string action;
+    }
+    private sealed class WhiteHoundAttackEntry
+    {
+        public int AttackerId;
+        public int TargetId;
+        public int AttackEventId;
     }
 
     private void OnDestroy()
@@ -116,6 +124,20 @@ public class NightManager : MonoBehaviour
 
     private void HandleDeathResolvedForMonsterVote(DeathResult result)
     {
+        if (result.Request.Target != null)
+        {
+            int deadId = result.Request.Target.playerID;
+            var removedWhKeys = whiteHoundAttacks
+                .Where(pair => pair.Key == deadId || pair.Value.TargetId == deadId)
+                .Select(pair => pair.Key)
+                .ToList();
+            foreach (int whKey in removedWhKeys)
+            {
+                if (whiteHoundAttacks[whKey].AttackEventId > 0)
+                    activeNightAttacks.Remove(whiteHoundAttacks[whKey].AttackEventId);
+                whiteHoundAttacks.Remove(whKey);
+            }
+        }
         if (dogSpiritDecisionActive)
         {
             if (result.Request.Target != null && dogSpiritTiedCandidateIds.Remove(result.Request.Target.playerID))
@@ -159,6 +181,7 @@ public class NightManager : MonoBehaviour
         peekActions.Clear();
         activeNightAttacks.Clear();
         rescuedAttackEventIds.Clear();
+        whiteHoundAttacks.Clear();
         monsterVoteChoices.Clear();
         monsterVoteTallies.Clear();
         monsterVoteSequence.Clear();
@@ -185,28 +208,18 @@ public class NightManager : MonoBehaviour
     public static bool IsMonsterPackMember(PlayerData player)
     {
         if (player == null) return false;
-        if (player.roleType == RoleType.DogSpirit ||
-            player.roleType == RoleType.SerpentSpirit ||
-            player.roleType == RoleType.Ogre)
-        {
-            return true;
-        }
-
-        if (player.roleType == RoleType.WhiteHound || player.roleType == RoleType.WhiteWolf)
-        {
-            return player.isWhiteHoundAwakened || player.faction == FactionType.Monster;
-        }
-
-        return false;
+        // Bạch Khuyển là phe thứ ba tấn công độc lập, không thuộc Monster Vote
+        return player.roleType == RoleType.DogSpirit ||
+               player.roleType == RoleType.SerpentSpirit ||
+               player.roleType == RoleType.Ogre;
     }
 
     public static bool IsMonsterPackRoleType(RoleType roleType, bool isWhiteHoundAwakened, FactionType faction)
     {
-        if (roleType == RoleType.DogSpirit || roleType == RoleType.SerpentSpirit || roleType == RoleType.Ogre)
-            return true;
-        if (roleType == RoleType.WhiteHound || roleType == RoleType.WhiteWolf)
-            return isWhiteHoundAwakened || faction == FactionType.Monster;
-        return false;
+        // Bạch Khuyển hoàn toàn độc lập với Monster Vote cả trước và sau thức tỉnh
+        return roleType == RoleType.DogSpirit ||
+               roleType == RoleType.SerpentSpirit ||
+               roleType == RoleType.Ogre;
     }
 
     public int CurrentEffectiveNightNumber()
@@ -248,12 +261,6 @@ public class NightManager : MonoBehaviour
             reason = "Người chơi đang bị khóa kỹ năng.";
             return false;
         }
-        if ((actor.roleType == RoleType.WhiteHound || actor.roleType == RoleType.WhiteWolf) &&
-            !actor.isWhiteHoundAwakened && actor.faction != FactionType.Monster)
-        {
-            reason = "Sói Trắng chưa thức tỉnh.";
-            return false;
-        }
         if (!IsMonsterPackMember(actor))
         {
             reason = "Người chơi không thuộc phe Quái vật.";
@@ -265,6 +272,134 @@ public class NightManager : MonoBehaviour
             return false;
         }
         reason = string.Empty;
+        return true;
+    }
+
+    public static bool CanParticipateInWhiteHoundAttack(PlayerData actor, out string reason)
+    {
+        if (actor == null)
+        {
+            reason = "Không tìm thấy người chơi.";
+            return false;
+        }
+        if (!actor.isAlive)
+        {
+            reason = "Người đã chết không thể tấn công.";
+            return false;
+        }
+        if (actor.isDisconnected)
+        {
+            reason = "Người chơi đã mất kết nối.";
+            return false;
+        }
+        if (actor.HasEffect(StatusEffectType.Silenced))
+        {
+            reason = "Người chơi đang bị khóa kỹ năng.";
+            return false;
+        }
+        if (actor.roleType != RoleType.WhiteHound && actor.roleType != RoleType.WhiteWolf)
+        {
+            reason = "Chỉ Bạch Khuyển mới dùng được đòn tấn công độc lập này.";
+            return false;
+        }
+        if (!actor.isWhiteHoundAwakened)
+        {
+            reason = "Bạch Khuyển chỉ tấn công sau khi thức tỉnh.";
+            return false;
+        }
+        reason = string.Empty;
+        return true;
+    }
+
+    public static bool IsValidWhiteHoundTarget(PlayerData actor, PlayerData target, out string reason)
+    {
+        if (target == null)
+        {
+            reason = "Mục tiêu không tồn tại.";
+            return false;
+        }
+        if (!target.isAlive)
+        {
+            reason = "Mục tiêu đã bị loại.";
+            return false;
+        }
+        if (target.isDisconnected)
+        {
+            reason = "Mục tiêu đã mất kết nối.";
+            return false;
+        }
+        if (actor != null && actor.playerID == target.playerID)
+        {
+            reason = "Bạch Khuyển không thể tự tấn công chính mình!";
+            return false;
+        }
+        // Không giới hạn phe mục tiêu: Bạch Khuyển có thể tấn công cả Dân Làng lẫn Monster
+        reason = string.Empty;
+        return true;
+    }
+
+    public bool HasWhiteHoundSubmittedAttack(int attackerId) => whiteHoundAttacks.ContainsKey(attackerId);
+
+    public int GetWhiteHoundTarget(int attackerId = -1)
+    {
+        if (attackerId >= 0)
+            return whiteHoundAttacks.TryGetValue(attackerId, out var entry) ? entry.TargetId : -1;
+        foreach (var entry in whiteHoundAttacks.Values)
+            return entry.TargetId;
+        return -1;
+    }
+
+    public int GetWhiteHoundAttackEventId(int attackerId = -1)
+    {
+        if (attackerId >= 0)
+            return whiteHoundAttacks.TryGetValue(attackerId, out var entry) ? entry.AttackEventId : 0;
+        foreach (var entry in whiteHoundAttacks.Values)
+            return entry.AttackEventId;
+        return 0;
+    }
+
+    public void SetWhiteHoundTarget(int targetId, int attackerId = -1)
+    {
+        if (whiteHoundAttacks.TryGetValue(attackerId, out var existing) && existing.AttackEventId > 0)
+        {
+            activeNightAttacks.Remove(existing.AttackEventId);
+        }
+
+        if (targetId < 0)
+        {
+            whiteHoundAttacks.Remove(attackerId);
+            return;
+        }
+
+        int eventId = RegisterNightAttack(targetId, DeathCause.Monster, RoleType.WhiteHound, attackerId);
+        whiteHoundAttacks[attackerId] = new WhiteHoundAttackEntry
+        {
+            AttackerId = attackerId,
+            TargetId = targetId,
+            AttackEventId = eventId
+        };
+    }
+
+    public bool TrySubmitWhiteHoundAttack(PlayerData actor, int targetId, out string feedback)
+    {
+        HookDeathResolver();
+        if (!CanParticipateInWhiteHoundAttack(actor, out feedback))
+            return false;
+
+        if (actor.hasUseNightAction || whiteHoundAttacks.ContainsKey(actor.playerID))
+        {
+            feedback = "Bạn đã chọn mục tiêu tấn công trong đêm này.";
+            return false;
+        }
+
+        PlayerData target = PlayerManager.Instance?.GetplayerByID(targetId);
+        if (!IsValidWhiteHoundTarget(actor, target, out feedback))
+            return false;
+
+        SetWhiteHoundTarget(targetId, actor.playerID);
+        actor.hasUseNightAction = true;
+        RecordSubmittedAction(actor, targetId, nameof(RoleType.WhiteHound));
+        feedback = $"Đã chọn {target.DisplayName} để tấn công.";
         return true;
     }
 
@@ -309,9 +444,7 @@ public class NightManager : MonoBehaviour
     {
         return action == nameof(RoleType.DogSpirit) ||
                action == nameof(RoleType.SerpentSpirit) ||
-               action == nameof(RoleType.Ogre) ||
-               action == nameof(RoleType.WhiteHound) ||
-               action == nameof(RoleType.WhiteWolf);
+               action == nameof(RoleType.Ogre);
     }
 
     public void CancelDisconnectedPlayerActions(int playerId)
@@ -325,6 +458,16 @@ public class NightManager : MonoBehaviour
                 if (action.attackEventId > 0) activeNightAttacks.Remove(action.attackEventId);
                 actions.RemoveAt(i);
             }
+        }
+        var removedWhKeys = whiteHoundAttacks
+            .Where(pair => pair.Key == playerId || pair.Value.TargetId == playerId)
+            .Select(pair => pair.Key)
+            .ToList();
+        foreach (int whKey in removedWhKeys)
+        {
+            if (whiteHoundAttacks[whKey].AttackEventId > 0)
+                activeNightAttacks.Remove(whiteHoundAttacks[whKey].AttackEventId);
+            whiteHoundAttacks.Remove(whKey);
         }
         if (dogSpiritDecisionActive)
         {
@@ -545,6 +688,7 @@ public class NightManager : MonoBehaviour
         peekActions.Clear();
         activeNightAttacks.Clear();
         rescuedAttackEventIds.Clear();
+        whiteHoundAttacks.Clear();
         monsterVoteChoices.Clear();
         monsterVoteTallies.Clear();
         monsterVoteSequence.Clear();
@@ -1306,6 +1450,8 @@ public class NightManager : MonoBehaviour
             entries.Add($"{PlayerLabel(action.actorID)} {ActionLabel(action.action)}>{PlayerLabel(action.targetID)}");
 
         AddUnrecordedTarget(entries, monsterTarget, "Sói", monsterSourceRole);
+        foreach (var whEntry in whiteHoundAttacks.Values)
+            AddUnrecordedTarget(entries, whEntry.TargetId, "Bạch khuyển", RoleType.WhiteHound);
         AddUnrecordedTarget(entries, protectedTarget, "Bảo vệ", RoleType.VillageGuardian);
         AddUnrecordedTarget(entries, killerTarget, "Sát nhân", RoleType.Killer);
 
@@ -1408,6 +1554,21 @@ public class NightManager : MonoBehaviour
                 if (effectiveNight > 0) resolvedMonsterNight = effectiveNight;
                 DeathResolver.Instance.TryKill(new DeathRequest(
                     target, DeathCause.Monster, sourceRole: monsterSourceRole, attackEventId: monsterAttackEventId));
+            }
+        }
+
+        // Xử lý đòn tấn công độc lập của Bạch Khuyển (tách biệt hoàn toàn với Monster Vote)
+        var pendingWhiteHound = whiteHoundAttacks.Values.ToArray();
+        whiteHoundAttacks.Clear();
+        foreach (var whEntry in pendingWhiteHound)
+        {
+            PlayerData whTarget = PlayerManager.Instance.GetplayerByID(whEntry.TargetId);
+            PlayerData whActor = whEntry.AttackerId >= 0 ? PlayerManager.Instance.GetplayerByID(whEntry.AttackerId) : null;
+            if (whTarget != null && whTarget.isAlive && !whTarget.isDisconnected &&
+                (whActor == null || whActor.playerID != whTarget.playerID))
+            {
+                DeathResolver.Instance.TryKill(new DeathRequest(
+                    whTarget, DeathCause.Monster, whActor, sourceRole: RoleType.WhiteHound, attackEventId: whEntry.AttackEventId));
             }
         }
 
