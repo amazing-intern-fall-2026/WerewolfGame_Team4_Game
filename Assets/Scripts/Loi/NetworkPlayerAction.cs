@@ -52,6 +52,9 @@ public class NetworkPlayerAction : NetworkBehaviour
     public static event Action<int, string>
         OnShamanVictimPromptReceived;
 
+    public static event Action<int, string, int>
+        OnShamanVictimPromptWithEventReceived;
+
     public static bool HasNetworkActionResultSubscribers()
     {
         return OnNetworkActionResult != null;
@@ -1270,6 +1273,15 @@ public class NetworkPlayerAction : NetworkBehaviour
         string victimPlayerName,
         ulong clientId)
     {
+        SendShamanVictimPromptToClient(victimPlayerId, victimPlayerName, clientId, 0);
+    }
+
+    public void SendShamanVictimPromptToClient(
+        int victimPlayerId,
+        string victimPlayerName,
+        ulong clientId,
+        int attackEventId)
+    {
         if (!IsServer)
         {
             Debug.LogWarning(
@@ -1313,6 +1325,7 @@ public class NetworkPlayerAction : NetworkBehaviour
         SendShamanVictimPromptClientRpc(
             victimPlayerId,
             victimPlayerName,
+            attackEventId,
             rpcParams
         );
     }
@@ -1325,6 +1338,7 @@ public class NetworkPlayerAction : NetworkBehaviour
     private void SendShamanVictimPromptClientRpc(
         int victimPlayerId,
         string victimPlayerName,
+        int attackEventId,
         ClientRpcParams rpcParams = default)
     {
         Debug.Log(
@@ -1332,7 +1346,19 @@ public class NetworkPlayerAction : NetworkBehaviour
             + victimPlayerId
             + " | Tên="
             + victimPlayerName
+            + " | EventId="
+            + attackEventId
         );
+
+        if (attackEventId > 0)
+        {
+            OnShamanVictimPromptWithEventReceived?.Invoke(
+                victimPlayerId,
+                victimPlayerName,
+                attackEventId
+            );
+            return;
+        }
 
         OnShamanVictimPromptReceived?.Invoke(
             victimPlayerId,

@@ -28,9 +28,11 @@ public class GameRoleManager : MonoBehaviour
     public bool MustWaitForHunterRevenge => HasPendingHunterRevenge || IsHunterRevengeWindow && !resolving;
     public const float HunterRevengeSeconds = 20;
     public const float DogSpiritDecisionSeconds = 15f;
+    public const float ShamanDecisionGraceSeconds = 8f;
     public bool IsDogSpiritDecisionWindow => started && currentState == GameState.Night &&
         NightManager.Instance != null && NightManager.Instance.IsDogSpiritDecisionActive;
     private bool awaitingDogSpiritDecisionFinish;
+    private bool awaitingShamanSaveFinish;
     private bool resumeDayAfterHunter;
     private DeathResolver observedDeathSystem;
     public event System.Action<GamePhase, GamePhase> PhaseChanged;
@@ -127,15 +129,24 @@ public class GameRoleManager : MonoBehaviour
             if (NightManager.Instance == null || !NightManager.Instance.IsDogSpiritDecisionActive)
             {
                 awaitingDogSpiritDecisionFinish = false;
-                FinishNight();
+                CompleteDogSpiritDecisionIfReady();
                 return;
             }
             if (PhaseTimeRemaining <= 0 || !NightManager.Instance.HasConnectedNonSilencedDogSpirit())
             {
                 awaitingDogSpiritDecisionFinish = false;
                 NightManager.Instance.ResolveDogSpiritDecisionFallback();
-                FinishNight();
+                CompleteDogSpiritDecisionIfReady();
                 return;
+            }
+            return;
+        }
+        if (awaitingShamanSaveFinish)
+        {
+            if (!HasPendingShamanResponseForCurrentMonsterAttack() || PhaseTimeRemaining <= 0)
+            {
+                awaitingShamanSaveFinish = false;
+                FinishNight();
             }
             return;
         }
@@ -217,6 +228,7 @@ public class GameRoleManager : MonoBehaviour
     {
         if (!started || currentState != GameState.Day) return;
         awaitingDogSpiritDecisionFinish = false;
+        awaitingShamanSaveFinish = false;
         DayTimer.Instance.StopTimer();
         PlayerManager.Instance.LockPlayers();
         SetPhase(GamePhase.Night);
@@ -240,6 +252,7 @@ public class GameRoleManager : MonoBehaviour
         bool freeRoamPhase = currentPhase is GamePhase.DayStart or GamePhase.Event or GamePhase.Task or GamePhase.Night;
         if (!started || !freeRoamPhase || currentState is not (GameState.Day or GameState.Night)) return false;
         awaitingDogSpiritDecisionFinish = false;
+        awaitingShamanSaveFinish = false;
         DayTimer.Instance?.StopTimer();
         NightManager.Instance?.ClearActions();
         var players = PlayerManager.Instance?.players;
@@ -265,6 +278,32 @@ public class GameRoleManager : MonoBehaviour
         }
         finally { resolving = false; }
     }
+    private bool HasPendingShamanResponseForCurrentMonsterAttack()
+    {
+        var night = NightManager.Instance;
+        if (night == null || !night.HasUnrescuedActiveAttackEvent(night.CurrentMonsterAttackEventId))
+            return false;
+
+        if (RoleManager.Instance?.playerRoles == null)
+            return false;
+
+        foreach (var role in RoleManager.Instance.playerRoles.Values)
+        {
+            if (role is ShamanRole shaman &&
+                shaman.owner != null &&
+                shaman.owner.isAlive &&
+                !shaman.owner.isDisconnected &&
+                !shaman.owner.hasUseNightAction &&
+                shaman.HasGoodCharm &&
+                !NetworkRoleActionBridge.IsShamanSaveUsed(shaman.owner.playerID) &&
+                !shaman.owner.HasEffect(StatusEffectType.Silenced))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void CompleteDogSpiritDecisionIfReady()
     {
         if (!started || currentState != GameState.Night || resolving) return;
@@ -275,6 +314,21 @@ public class GameRoleManager : MonoBehaviour
             return;
         }
         awaitingDogSpiritDecisionFinish = false;
+        if (HasPendingShamanResponseForCurrentMonsterAttack())
+        {
+            awaitingShamanSaveFinish = true;
+            PhaseTimeRemaining = Mathf.Max(PhaseTimeRemaining, ShamanDecisionGraceSeconds);
+            WinConditionManager.Instance?.NotifyMatchStateChanged();
+            return;
+        }
+        FinishNight();
+    }
+
+    public void CompleteShamanResponseWindowIfReady()
+    {
+        if (!awaitingShamanSaveFinish || !started || currentState != GameState.Night || resolving) return;
+        if (HasPendingShamanResponseForCurrentMonsterAttack()) return;
+        awaitingShamanSaveFinish = false;
         FinishNight();
     }
 
@@ -282,6 +336,7 @@ public class GameRoleManager : MonoBehaviour
     {
         if (!started || currentState != GameState.Night || resolving) return;
         awaitingDogSpiritDecisionFinish = false;
+        awaitingShamanSaveFinish = false;
         resolving = true;
         try
         {
@@ -468,6 +523,7 @@ public class GameRoleManager : MonoBehaviour
         }
         PhaseTimeRemaining = 0;
         awaitingDogSpiritDecisionFinish = false;
+        awaitingShamanSaveFinish = false;
         DayTimer.Instance?.StopTimer();
         PlayerManager.Instance?.LockPlayers();
         Debug.Log(winner + " Win");
