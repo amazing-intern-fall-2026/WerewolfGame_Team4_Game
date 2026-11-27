@@ -68,7 +68,8 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         previousOptions = (EnterPlayModeOptions)SessionState.GetInt(RunKey + ".Options", 0);
         previousStart = AssetDatabase.LoadAssetAtPath<SceneAsset>(SessionState.GetString(RunKey + ".Start", ""));
         if (!EditorApplication.isPlaying) WarmPlayModeScenario();
-        scenario = SessionState.GetBool(RunKey + ".ReviewSmoke", false) ? ExerciseReviewSmoke() : Exercise();
+        scenario = SessionState.GetBool(RunKey + ".UiReview", false) ? ExerciseUiReview() :
+            SessionState.GetBool(RunKey + ".ReviewSmoke", false) ? ExerciseReviewSmoke() : Exercise();
         deadline = EditorApplication.timeSinceStartup + 210; resumeAt = 0;
         Application.logMessageReceived -= ObserveLog; Application.logMessageReceived += ObserveLog;
         EditorApplication.update -= Tick; EditorApplication.update += Tick;
@@ -435,6 +436,8 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         SessionState.SetBool(RunKey, false);
         bool reviewSmoke = SessionState.GetBool(RunKey + ".ReviewSmoke", false);
         SessionState.SetBool(RunKey + ".ReviewSmoke", false);
+        bool uiReview = SessionState.GetBool(RunKey + ".UiReview", false);
+        SessionState.SetBool(RunKey + ".UiReview", false);
         foreach (var client in clients) if (client != null && Net(client).IsListening) Net(client).Shutdown();
         if (host != null && Net(host).IsListening) Net(host).Shutdown();
         EditorSceneManager.playModeStartScene = previousStart;
@@ -442,6 +445,7 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         string result = exception == null ? "THUONG_ROOM_UPGRADE_ONLINE_PASSED: " + checks : "THUONG_ROOM_UPGRADE_ONLINE_FAILED: " + exception;
         File.WriteAllText("Logs/RoomUpgrades/online-result.txt", result); Debug.Log(result);
         File.WriteAllLines("Logs/RoomUpgrades/online-metrics.txt", metrics);
+        if (uiReview) File.WriteAllText("Logs/ProjectReview20261127/ui-result.txt", result);
         if (reviewSmoke)
         {
             Directory.CreateDirectory("Logs/ThuongReviewImprovements20261112");

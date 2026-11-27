@@ -11,7 +11,6 @@ public static class ThuongOnlineWinConditionTests
     public static int PassCount => passCount;
     public static int FailCount => failCount;
 
-    [InitializeOnLoadMethod]
     [MenuItem("Tools/Tests/Run Thuong Online Win Condition Tests")]
     public static void RunAllTests()
     {

@@ -38,10 +38,18 @@ namespace Thuong.Online
             bool visible = connected && !matchStarted && !ShowRoleCard;
             if (lobbyCanvas == null && connected) BuildLobbyView();
             if (lobbyCanvas == null) return;
+            // Hide the whole hierarchy, including independently sorted modal canvases.
+            lobbyCanvas.gameObject.SetActive(visible);
             lobbyCanvas.enabled = visible;
             lobbyRaycaster.enabled = visible;
             RefreshTutorialVisibility();
-            if (!visible) return;
+            if (!visible)
+            {
+                CloseMapSettings();
+                if (rulesSettingsRoot != null) rulesSettingsRoot.SetActive(false);
+                if (villageRulesPanel != null) villageRulesPanel.SetActive(false);
+                return;
+            }
             RefreshMapSelector();
             RefreshRulesView();
 

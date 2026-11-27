@@ -485,6 +485,12 @@ namespace Thuong.Online
             avatars.Clear();
             SetGameplayHudVisible(false);
             ResetEndgamePresentation();
+            CloseTutorial();
+            SuspendNotebook();
+            CloseVillagePanel();
+            if (villageCanvas != null) villageCanvas.gameObject.SetActive(false);
+            if (taskGuideCanvas != null) taskGuideCanvas.gameObject.SetActive(false);
+            if (minimapRoot != null) minimapRoot.gameObject.SetActive(false);
             if (lobbyCanvas != null) lobbyCanvas.gameObject.SetActive(false);
             RemoveOnlineWinRules();
             RestoreOtherGameOverManager();

@@ -11,31 +11,11 @@ using UnityEngine;
 /// Trình thực thi kiểm thử độc lập cho tính năng Bảo Vệ (VillageGuardian) tự chọn bản thân trong Thương Online.
 /// Chạy kiểm tra cách ly trên preview scene mà không làm ảnh hưởng đến dữ liệu đang chạy.
 /// </summary>
-[InitializeOnLoad]
 public static class ThuongOnlineGuardianTestExecution
 {
     public static int PassCount { get; private set; }
     public static int FailCount { get; private set; }
     public static List<string> Results { get; } = new();
-
-    static ThuongOnlineGuardianTestExecution()
-    {
-        EditorApplication.delayCall += () =>
-        {
-            try
-            {
-                if (!Application.isPlaying && ThuongOnlineSession.Active == null &&
-                    (Unity.Netcode.NetworkManager.Singleton == null || !Unity.Netcode.NetworkManager.Singleton.IsListening))
-                {
-                    Run();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("[GUARDIAN TESTS] Auto-run skipped: " + ex.Message);
-            }
-        };
-    }
 
     [MenuItem("Tools/Loi/Run Thuong Online Guardian Self Target Tests")]
     public static void Run()

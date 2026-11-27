@@ -49,6 +49,9 @@ namespace Thuong.Online
             shadeRect.anchorMin = Vector2.zero; shadeRect.anchorMax = Vector2.one;
             shadeRect.offsetMin = shadeRect.offsetMax = Vector2.zero;
             shade.GetComponent<Image>().color = new Color(.015f, .025f, .035f, .88f);
+            var modalCanvas = shade.AddComponent<Canvas>();
+            modalCanvas.overrideSorting = true; modalCanvas.sortingOrder = 1900;
+            shade.AddComponent<GraphicRaycaster>();
 
             var panel = new GameObject("Tutorial card", typeof(RectTransform), typeof(Image));
             var panelRect = panel.GetComponent<RectTransform>(); panelRect.SetParent(shade.transform, false);

@@ -31,7 +31,7 @@ namespace Thuong.Online
             scaler.referenceResolution = new Vector2(1600, 900); scaler.matchWidthOrHeight = .5f;
             blackoutShade = LobbyPanel("Blackout shade", root.transform, Vector2.zero, Vector2.one, false).GetComponent<Image>();
             blackoutShade.raycastTarget = false;
-            villageStatus = LobbyText("Village status", root.transform, "", new Vector2(.28f, .16f), new Vector2(.75f, .20f), 18, TextAlignmentOptions.Center);
+            villageStatus = LobbyText("Village status", root.transform, "", new Vector2(.30f, .205f), new Vector2(.75f, .245f), 18, TextAlignmentOptions.Center);
             villageStatus.raycastTarget = false; villageStatus.richText = false;
             villageStatus.enableAutoSizing = true; villageStatus.fontSizeMin = 12;
             villageToggle = MatchButton(sceneHud, "LÀNG / TÚI ĐỒ", root.transform,
@@ -95,11 +95,15 @@ namespace Thuong.Online
             if (matchStarted && sceneHud != null) EnsureVillageUi();
             if (villageCanvas == null) return;
             bool show = connected && matchStarted && matchResult == null;
+            villageCanvas.gameObject.SetActive(show);
             villageCanvas.enabled = show;
             if (!show) { CloseVillagePanel(); if (villageWorld != null) villageWorld.SetActive(false); return; }
             bool free = LocalPlayerAlive && !IsPlayingTask && !NotebookIsOpen && !TutorialIsOpen &&
                 (visibleState == GameState.Day || visibleState == GameState.Night);
             villageToggle.gameObject.SetActive(free);
+            villageStatus.gameObject.SetActive(!NotebookIsOpen && !TutorialIsOpen && !VillagePanelOpen &&
+                !IsPlayingTask && !InteractionMenuOpen && !(worldCamera != null && worldCamera.overview) &&
+                visibleState == GameState.Day);
             if (!free) CloseVillagePanel();
             bool sabotage = visibleSabotage != ThuongSabotageKind.None && visibleSabotageUntil > VillageNow;
             float dark = sabotage && visibleSabotage == ThuongSabotageKind.Blackout && SelectedMap != null &&

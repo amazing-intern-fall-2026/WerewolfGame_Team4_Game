@@ -88,7 +88,7 @@ public sealed class ThuongMedievalTheme : MonoBehaviour
     private void CreateCredits()
     {
         creditsRoot = new GameObject("Medieval asset credits", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        var canvas = creditsRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = 70;
+        var canvas = creditsRoot.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = 1950;
         var scaler = creditsRoot.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1600, 900); scaler.matchWidthOrHeight = .5f;
         var window = CreditPanel("Credits Window", creditsRoot.transform, Vector2.zero, Vector2.one);

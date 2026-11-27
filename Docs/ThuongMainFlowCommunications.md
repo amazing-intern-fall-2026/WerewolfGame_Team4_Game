@@ -7,7 +7,7 @@ Ngày triển khai: 05/11/2026. Bắt đầu từ main `4fd7309`.
 1. Mở MainMenu, đăng nhập/Chơi ngay và tạo hoặc vào phòng bằng giao diện chính.
 2. Chủ phòng bấm **TIẾP TỤC / CHỌN MAP** khi có 2–25 người. Cả phòng chuyển sang phần chuẩn bị Thương bằng kết nối đang dùng.
 3. Chọn map/event và luật phòng, phân vai, đọc thẻ vai, Ready rồi bắt đầu như trước. Không Host/Join thêm lần nữa.
-4. Dùng nút Chat ở góc dưới bên trái. Nút mic/loa nằm ở góc trên bên phải, kèm trạng thái quyền trao đổi.
+4. Dùng nút Chat ở góc dưới bên trái. Hai nút mic/loa nhỏ nằm cạnh Chat, phía dưới nội dung chính. Nút hiện BẬT/TẮT khi thoại sẵn sàng và CHỜ khi chưa thể dùng; rê chuột lên nút để xem trạng thái kênh. Mic chỉ bật sau thao tác chủ động của người chơi.
 5. Khi kết thúc, chủ phòng bấm **VỀ LOBBY** để đưa cả phòng về lobby chính và chơi ván tiếp theo. Tên và mã phòng được giữ.
 6. **RỜI PHÒNG** dọn kênh thoại và phiên phòng, đóng kết nối rồi về menu. Client giữ bảng kết quả nếu host rời sau khi đã có kết quả.
 

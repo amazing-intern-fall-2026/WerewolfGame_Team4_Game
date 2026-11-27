@@ -72,9 +72,16 @@ namespace Thuong.Online
             if (taskGuideCanvas == null) return;
             bool alive = publicPlayers.Any(p => p.PlayerId == localPlayerId && p.Alive);
             bool visible = connected && matchStarted && matchResult == null && localMapReady && alive &&
-                visibleState == GameState.Day && !IsPlayingTask && !Thuong.Emotes.PlayerEmoteWheelUI.IsOpenFor(this);
+                visibleState == GameState.Day && !IsPlayingTask && !NotebookIsOpen && !TutorialIsOpen &&
+                !VillagePanelOpen && !InteractionMenuOpen && !hasSelectedInteraction &&
+                !Thuong.Emotes.PlayerEmoteWheelUI.IsOpenFor(this);
+            taskGuideCanvas.gameObject.SetActive(visible);
             taskGuideCanvas.enabled = visible;
-            if (!visible) return;
+            if (!visible)
+            {
+                taskMapPanel.SetActive(false); taskPromptRoot.SetActive(false);
+                return;
+            }
             bool overview = worldCamera != null && worldCamera.overview;
             taskMapPanel.SetActive(overview); taskPromptRoot.SetActive(!overview);
             if (Time.unscaledTime < nextGuideRefresh) return;

@@ -235,7 +235,7 @@ public static class ThuongMedievalSceneChecks
 
     // A separate UI camera preserves the real full-screen HUD when the world
     // camera uses a smaller viewport. Original layers/canvas settings are restored.
-    public static void SavePreview(string path, int width = 1600, int height = 900)
+    public static void SavePreview(string path, int width = 1600, int height = 900, Color? clearColor = null, Action verifyLayout = null)
     {
         Object.FindAnyObjectByType<GameHUD>().SendMessage("Update");
         foreach (var ui in Object.FindObjectsByType<RoleAbilityUI>()) ui.SendMessage("Update");
@@ -263,8 +263,8 @@ public static class ThuongMedievalSceneChecks
             { entry.canvas.renderMode = RenderMode.ScreenSpaceCamera; entry.canvas.worldCamera = uiCamera; entry.canvas.planeDistance = 1; }
             world.cullingMask &= ~(1 << 5); world.targetTexture = rt;
             world.GetComponent<ThuongTopDownCamera>()?.Refresh(true);
-            RenderTexture.active = rt; GL.Clear(true, true, new Color32(26, 33, 25, 255));
-            Canvas.ForceUpdateCanvases(); world.Render();
+            RenderTexture.active = rt; GL.Clear(true, true, clearColor ?? new Color32(26, 33, 25, 255));
+            Canvas.ForceUpdateCanvases(); verifyLayout?.Invoke(); world.Render();
             RenderTexture.active = rt; texture.ReadPixels(new Rect(0, 0, width, height), 0, 0); texture.Apply();
             uiCamera.Render(); RenderTexture.active = uiTarget;
             uiTexture.ReadPixels(new Rect(0, 0, width, height), 0, 0); uiTexture.Apply();

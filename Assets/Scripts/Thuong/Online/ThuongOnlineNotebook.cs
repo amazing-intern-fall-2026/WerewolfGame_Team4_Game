@@ -48,6 +48,9 @@ namespace Thuong.Online
             notebookPanel.anchorMin = new Vector2(.62f, .15f);
             notebookPanel.anchorMax = new Vector2(.98f, .76f);
             notebookPanel.offsetMin = notebookPanel.offsetMax = Vector2.zero;
+            var modalCanvas = root.AddComponent<Canvas>();
+            modalCanvas.overrideSorting = true; modalCanvas.sortingOrder = 1900;
+            root.AddComponent<GraphicRaycaster>();
             var background = root.GetComponent<Image>();
             background.color = new Color(.055f, .12f, .15f, .98f);
             ThuongMedievalTheme.Active?.StylePanel(background, "Personal notebook");
@@ -57,7 +60,7 @@ namespace Thuong.Online
             title.fontSize = 21;
             title.alignment = TextAlignmentOptions.Center;
 
-            notebookHistory = CreateNotebookText("Notes", notebookPanel, new Vector2(.06f, .25f), new Vector2(.94f, .85f));
+            notebookHistory = CreateNotebookText("Notes", notebookPanel, new Vector2(.06f, .40f), new Vector2(.94f, .85f));
             notebookHistory.fontSize = 16;
             notebookHistory.alignment = TextAlignmentOptions.TopLeft;
             notebookHistory.textWrappingMode = TextWrappingModes.Normal;
@@ -66,9 +69,9 @@ namespace Thuong.Online
 
             BuildNotebookInput(hud);
             MatchButton(hud, "GHI", notebookPanel,
-                new Vector2(.67f, .08f), new Vector2(.94f, .21f), SaveNotebookEntry);
+                new Vector2(.67f, .04f), new Vector2(.94f, .17f), SaveNotebookEntry);
             MatchButton(hud, "ĐÓNG", notebookPanel,
-                new Vector2(.06f, .08f), new Vector2(.33f, .21f), ToggleNotebook);
+                new Vector2(.06f, .04f), new Vector2(.33f, .17f), ToggleNotebook);
             notebookPanel.gameObject.SetActive(false);
             RefreshNotebookHistory();
         }
@@ -95,7 +98,7 @@ namespace Thuong.Online
             var root = new GameObject("Note entry", typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
             var rect = root.GetComponent<RectTransform>();
             rect.SetParent(notebookPanel, false);
-            rect.anchorMin = new Vector2(.06f, .08f); rect.anchorMax = new Vector2(.63f, .22f);
+            rect.anchorMin = new Vector2(.06f, .21f); rect.anchorMax = new Vector2(.94f, .36f);
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             root.GetComponent<Image>().color = new Color(.9f, .92f, .86f, 1f);
             notebookInput = root.GetComponent<TMP_InputField>();

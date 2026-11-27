@@ -87,7 +87,12 @@ public sealed class PlayerEmoteWheelUI : MonoBehaviour
         font = ThuongOnlineSession.Active != null ? ThuongOnlineSession.Active.EmoteFont : TMP_Settings.defaultFontAsset;
         BuildWheel();
         hint = Label("Keyboard hint", canvasRect, "", new Vector2(0, 30), new Vector2(380, 30), 17);
-        hint.rectTransform.anchorMin = hint.rectTransform.anchorMax = new Vector2(.5f, 0);
+        // Keep the shortcut in the task sidebar, clear of the match footer buttons.
+        hint.rectTransform.anchorMin = new Vector2(.03f, .325f);
+        hint.rectTransform.anchorMax = new Vector2(.22f, .375f);
+        hint.rectTransform.offsetMin = hint.rectTransform.offsetMax = Vector2.zero;
+        hint.enableAutoSizing = true; hint.fontSizeMin = 12; hint.fontSizeMax = 17;
+        hint.overflowMode = TextOverflowModes.Ellipsis;
         hint.color = new Color32(248, 225, 172, 255);
     }
 

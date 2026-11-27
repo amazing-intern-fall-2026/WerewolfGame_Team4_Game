@@ -10,7 +10,6 @@ public static class NetworkGameOverTests
     public static int PassCount => passCount;
     public static int FailCount => failCount;
 
-    [InitializeOnLoadMethod]
     [MenuItem("Tools/Tests/Run Network GameOver Tests")]
     public static void RunAllTests()
     {

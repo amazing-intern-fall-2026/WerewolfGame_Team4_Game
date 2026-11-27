@@ -44,6 +44,7 @@ namespace Thuong.Online
         private GameHUD sceneHud;
         private Canvas sceneHudCanvas;
         private GraphicRaycaster sceneHudRaycaster;
+        private CanvasGroup sceneHudVisibility;
         private bool privateStateReceived;
         private bool localRoleCardOpen;
         private bool localRoleConfirmed;
@@ -72,11 +73,24 @@ namespace Thuong.Online
             sceneHud.enabled = true;
             sceneHudCanvas = sceneHud.GetComponentInParent<Canvas>();
             sceneHudRaycaster = sceneHudCanvas != null ? sceneHudCanvas.GetComponent<GraphicRaycaster>() : null;
+            if (sceneHudCanvas != null)
+            {
+                sceneHudVisibility = sceneHudCanvas.GetComponent<CanvasGroup>();
+                if (sceneHudVisibility == null) sceneHudVisibility = sceneHudCanvas.gameObject.AddComponent<CanvasGroup>();
+            }
             SetGameplayHudVisible(false);
         }
 
         private void SetGameplayHudVisible(bool visible)
         {
+            // GameHUD must keep updating so it can restore itself on match start.
+            // CanvasGroup also hides nested canvases without disabling that controller.
+            if (sceneHudVisibility != null)
+            {
+                sceneHudVisibility.alpha = visible ? 1 : 0;
+                sceneHudVisibility.interactable = visible;
+                sceneHudVisibility.blocksRaycasts = visible;
+            }
             if (sceneHudCanvas != null) sceneHudCanvas.enabled = visible;
             if (sceneHudRaycaster != null) sceneHudRaycaster.enabled = visible;
         }
@@ -305,7 +319,8 @@ namespace Thuong.Online
         {
             // Close a task modal before any phase or personal-result UI becomes visible.
             if (LocalMinigameInvalid) CloseLocalMinigame();
-            SetGameplayHudVisible(matchStarted);
+            SetGameplayHudVisible(matchStarted && !leavingScene);
+            RefreshMinimap();
             RefreshEndgamePresentation();
             if (!matchStarted)
             {
@@ -392,9 +407,17 @@ namespace Thuong.Online
             TMP_Text footer = hud.transform.Find("Footer")?.GetComponent<TMP_Text>();
             if (footer != null)
             {
-                // Leave a clear gap before the HƯỚNG DẪN button (starts at x=.46).
-                footer.rectTransform.anchorMax = new Vector2(.43f, footer.rectTransform.anchorMax.y);
+                // Reserve separate slots for voice, credits, player count and match actions.
+                footer.rectTransform.anchorMin = new Vector2(.28f, footer.rectTransform.anchorMin.y);
+                footer.rectTransform.anchorMax = new Vector2(.445f, footer.rectTransform.anchorMax.y);
                 footer.text = $"ONLINE • {publicPlayers.Count} NGƯỜI";
+            }
+            var credits = hud.transform.Find("Asset credits button") as RectTransform;
+            if (credits != null)
+            {
+                credits.anchorMin = new Vector2(.17f, .014f);
+                credits.anchorMax = new Vector2(.27f, .071f);
+                credits.offsetMin = credits.offsetMax = Vector2.zero;
             }
             TMP_Text restart = hud.resultPanel != null ? hud.resultPanel.transform.Find("RestartHint")?.GetComponent<TMP_Text>() : null;
             if (restart != null) restart.text = "Rời phòng để tạo hoặc tham gia ván mới.";
@@ -439,19 +462,25 @@ namespace Thuong.Online
         private void RefreshRealtimePrompt(GameHUD hud)
         {
             if (realtimePrompt == null) return;
-            if (!matchStarted || NotebookIsOpen || TutorialIsOpen || !HasLocalRole)
+            if (!matchStarted || NotebookIsOpen || TutorialIsOpen || VillagePanelOpen || IsPlayingTask ||
+                worldCamera != null && worldCamera.overview || !HasLocalRole ||
+                visibleState == GameState.Day && !InteractionMenuOpen && !hasSelectedInteraction)
             { realtimePrompt.gameObject.SetActive(false); return; }
             realtimePrompt.gameObject.SetActive(true);
             if (!LocalPlayerAlive)
             { realtimePrompt.text = "ĐÃ BỊ LOẠI · Dùng bảng quan sát để theo dõi người còn sống"; return; }
             if (InteractionMenuOpen)
             {
+                realtimePrompt.rectTransform.anchorMin = new Vector2(.30f, .265f);
+                realtimePrompt.rectTransform.anchorMax = new Vector2(.74f, .46f);
                 var menuText = new StringBuilder("GIỮ E · CHỌN TƯƠNG TÁC\n");
                 for (int i = 0; i < interactionOptions.Count; i++)
                     menuText.AppendLine((i == interactionMenuSelection ? "▶ " : "   ") + interactionOptions[i].Label);
                 realtimePrompt.text = menuText.ToString();
                 return;
             }
+            realtimePrompt.rectTransform.anchorMin = new Vector2(.22f, .205f);
+            realtimePrompt.rectTransform.anchorMax = new Vector2(.74f, .255f);
             if (hasSelectedInteraction)
             { realtimePrompt.text = $"ĐÃ CHỌN · {selectedInteraction.Label} · NHẤN E ĐỂ THỰC HIỆN"; return; }
             if (!avatars.TryGetValue(localPlayerId, out ThuongOnlineAvatar localAvatar))

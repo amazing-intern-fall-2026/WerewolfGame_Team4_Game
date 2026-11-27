@@ -110,14 +110,18 @@ public sealed class PlayerNameTag : MonoBehaviour
 
         if (playerRoot.GetComponentInChildren<ThuongTopDownCharacter>() != null)
         {
-            textRect.localPosition = new Vector3(0, 1.15f, 0);
+            textRect.localPosition = new Vector3(0, 1.35f, 0);
             textRect.localScale = Vector3.one;
+            // Spawn slots are 1.25 world units apart. Bound each label so long
+            // nicknames cannot paint across the neighbouring player's name.
+            textRect.sizeDelta = new Vector2(1.15f, .75f);
         }
 
         nameText.fontSize = 2.3f;
         nameText.enableAutoSizing = false;
         nameText.textWrappingMode = TextWrappingModes.NoWrap;
-        nameText.overflowMode = TextOverflowModes.Overflow;
+        nameText.overflowMode = TextOverflowModes.Ellipsis;
+        nameText.richText = false;
         nameText.alignment = TextAlignmentOptions.Center;
         nameText.fontStyle = FontStyles.Bold;
         nameText.color = new Color32(240, 247, 245, 255);
@@ -166,9 +170,11 @@ public sealed class PlayerNameTag : MonoBehaviour
         // Display those as Player 1, Player 2 while preserving custom names.
         string generatedName = "Player " + player.playerID;
         bool topDown = GetComponentInParent<Assets.Scripts.Thuong.PlayerMovement>()?.GetComponentInChildren<ThuongTopDownCharacter>() != null;
-        nameText.text = string.IsNullOrWhiteSpace(player.playerName) ||
-                        player.playerName == generatedName
+        bool generated = string.IsNullOrWhiteSpace(player.playerName) || player.playerName == generatedName;
+        nameText.text = generated
             ? (topDown ? "P" + (player.playerID + 1).ToString("00") : "Player " + (player.playerID + 1))
             : player.playerName;
+        if (topDown && !generated)
+            nameText.text = $"P{player.playerID + 1:00}\n" + player.playerName.Replace('\r', ' ').Replace('\n', ' ');
     }
 }

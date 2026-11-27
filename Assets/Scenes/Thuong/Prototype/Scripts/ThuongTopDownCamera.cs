@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(Camera))]
 public sealed class ThuongTopDownCamera : MonoBehaviour
@@ -11,8 +12,53 @@ public sealed class ThuongTopDownCamera : MonoBehaviour
     public float smoothing = 12f;
     public bool overview;
     private Camera view;
+    private Canvas viewportFrame;
+    private readonly RectTransform[] frameEdges = new RectTransform[4];
 
     private void Awake() => view = GetComponent<Camera>();
+    private void OnEnable() => RefreshViewportFrame();
+    private void OnDisable()
+    {
+        if (viewportFrame != null) viewportFrame.gameObject.SetActive(false);
+    }
+
+    // The world camera only clears its viewport. Paint the remaining pixels every
+    // frame, otherwise closing a full-screen lobby/modal leaves its old image there.
+    private void RefreshViewportFrame()
+    {
+        if (view == null) view = GetComponent<Camera>();
+        if (viewportFrame == null)
+        {
+            var root = new GameObject("Viewport frame", typeof(Canvas));
+            root.transform.SetParent(transform, false);
+            viewportFrame = root.GetComponent<Canvas>();
+            viewportFrame.renderMode = RenderMode.ScreenSpaceOverlay;
+            viewportFrame.sortingOrder = -1000;
+            for (int i = 0; i < frameEdges.Length; i++)
+            {
+                var edge = new GameObject("Viewport edge " + i, typeof(RectTransform), typeof(Image));
+                frameEdges[i] = edge.GetComponent<RectTransform>();
+                frameEdges[i].SetParent(root.transform, false);
+                var image = edge.GetComponent<Image>();
+                image.color = new Color32(26, 33, 25, 255);
+                image.raycastTarget = false;
+            }
+        }
+        viewportFrame.gameObject.SetActive(true);
+        viewportFrame.targetDisplay = view.targetDisplay;
+        Rect area = view.rect;
+        PlaceFrameEdge(0, Vector2.zero, new Vector2(area.xMin, 1));
+        PlaceFrameEdge(1, new Vector2(area.xMax, 0), Vector2.one);
+        PlaceFrameEdge(2, new Vector2(area.xMin, 0), new Vector2(area.xMax, area.yMin));
+        PlaceFrameEdge(3, new Vector2(area.xMin, area.yMax), new Vector2(area.xMax, 1));
+    }
+
+    private void PlaceFrameEdge(int index, Vector2 min, Vector2 max)
+    {
+        RectTransform edge = frameEdges[index];
+        edge.anchorMin = min; edge.anchorMax = max;
+        edge.offsetMin = edge.offsetMax = Vector2.zero;
+    }
     public void Follow(Transform value)
     {
         target = value;
@@ -27,6 +73,7 @@ public sealed class ThuongTopDownCamera : MonoBehaviour
     public void Refresh(bool snap)
     {
         if (view == null) view = GetComponent<Camera>();
+        RefreshViewportFrame();
         view.orthographic = true;
         view.transform.rotation = Quaternion.identity;
         float aspect = view.aspect;
