@@ -48,17 +48,34 @@ namespace Thuong.Online
             ObserveRealtimeDeaths();
             abilitySystem.SetMatchRunning(false);
             game.PhaseChanged += HandleOnlineLogicPhaseChanged;
+            ThuongOnlineShamanAdapter.EnsureInstalled();
         }
         private void HandleOnlineLogicPhaseChanged(GamePhase previous, GamePhase current) => nextPrivateTime = 0;
 
         private int[] AllowedTargets(PlayerData actor)
         {
             if (actor == null || players?.players == null) return Array.Empty<int>();
+            if (roomRules.mode != ThuongMatchMode.RealtimeProximity &&
+                NightManager.Instance != null &&
+                NightManager.Instance.IsDogSpiritDecisionActive &&
+                NightManager.IsMonsterPackMember(actor))
+            {
+                if (!NightManager.CanParticipateInDogSpiritDecision(actor, out _))
+                    return Array.Empty<int>();
+                return NightManager.Instance.DogSpiritTiedCandidateIds
+                    .Where(id => NightManager.Instance.IsValidDogSpiritDecisionTarget(id, out _))
+                    .ToArray();
+            }
+            bool allowShamanSelf = actor.roleType == RoleType.Shaman && !RoleManager.UsesConfiguredAbility(actor) &&
+                                   roles != null && roles.playerRoles.TryGetValue(actor.playerID, out BaseRole role) &&
+                                   role is ShamanRole shaman && shaman.HasGoodCharm;
             return players.players.Where(target => target != null &&
+                (roomRules.mode != ThuongMatchMode.RealtimeProximity || actor.roleType != RoleType.VillageGuardian ||
+                    CanProtectRealtimeTarget(actor.playerID, target.playerID)) &&
                 (RoleManager.UsesConfiguredAbility(actor)
                     ? TargetValidator.Validate(actor, target, actor.roleDefinition).IsValid &&
-                      game.abilities.Validate(actor, target).FailureReason != ActionFailureReason.RepeatedTarget
-                    : TargetValidator.ValidateLegacy(actor, target).IsValid))
+                      (NightManager.IsMonsterPackMember(actor) || game.abilities.Validate(actor, target).FailureReason != ActionFailureReason.RepeatedTarget)
+                    : TargetValidator.ValidateLegacy(actor, target, allowShamanSelf).IsValid))
                 .Select(target => target.playerID).ToArray();
         }
         public bool CanTargetLocalAbility(int playerID) => HasLocalRole && localAllowedTargets.Contains(playerID);

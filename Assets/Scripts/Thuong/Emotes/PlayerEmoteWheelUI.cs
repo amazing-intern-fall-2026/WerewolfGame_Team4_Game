@@ -31,7 +31,7 @@ public sealed class PlayerEmoteWheelUI : MonoBehaviour
     private GameObject wheelRoot;
     private PlayerEmoteGraphic ring, preview;
     private readonly PlayerEmoteGraphic[] faces = new PlayerEmoteGraphic[PlayerEmoteCatalog.Count];
-    private TMP_Text selectedLabel, hint, controls;
+    private TMP_Text selectedLabel, controls;
     private TMP_FontAsset font;
     private int selection;
     private GamePhase openedPhase;
@@ -86,14 +86,6 @@ public sealed class PlayerEmoteWheelUI : MonoBehaviour
         canvasRect = (RectTransform)transform;
         font = ThuongOnlineSession.Active != null ? ThuongOnlineSession.Active.EmoteFont : TMP_Settings.defaultFontAsset;
         BuildWheel();
-        hint = Label("Keyboard hint", canvasRect, "", new Vector2(0, 30), new Vector2(380, 30), 17);
-        // Keep the shortcut in the task sidebar, clear of the match footer buttons.
-        hint.rectTransform.anchorMin = new Vector2(.03f, .325f);
-        hint.rectTransform.anchorMax = new Vector2(.22f, .375f);
-        hint.rectTransform.offsetMin = hint.rectTransform.offsetMax = Vector2.zero;
-        hint.enableAutoSizing = true; hint.fontSizeMin = 12; hint.fontSizeMax = 17;
-        hint.overflowMode = TextOverflowModes.Ellipsis;
-        hint.color = new Color32(248, 225, 172, 255);
     }
 
     private void BuildWheel()
@@ -130,15 +122,10 @@ public sealed class PlayerEmoteWheelUI : MonoBehaviour
         if (session == null || !session.IsEmoteSessionActive)
         {
             CloseWheel(false);
-            hint.gameObject.SetActive(false);
             return;
         }
 
         bool canUse = session.CanExpressEmote;
-        hint.gameObject.SetActive(canUse && !IsOpen && !IsTyping());
-        hint.text = session.EmoteCooldownRemaining > 0
-            ? $"Biểu cảm · {session.EmoteCooldownRemaining:0.0}s"
-            : $"Giữ [{session.EmoteKey}] · Biểu cảm";
 
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null) { CloseWheel(false); return; }
@@ -185,7 +172,6 @@ public sealed class PlayerEmoteWheelUI : MonoBehaviour
         Cursor.visible = true;
         lastMousePosition = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
         wheelRoot.SetActive(true);
-        if (hint != null) hint.gameObject.SetActive(false);
         wheelRoot.transform.SetAsLastSibling();
         controls.text = $"Giữ [{(session != null ? session.EmoteKey : Key.T)}] để chọn · Thả phím để gửi";
         SetSelection(0);

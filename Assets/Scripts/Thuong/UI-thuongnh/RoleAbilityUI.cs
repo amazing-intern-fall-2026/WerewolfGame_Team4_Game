@@ -30,6 +30,7 @@ public class RoleAbilityUI : MonoBehaviour
     private TMP_Text skillDescriptionLabel;
     private TMP_Text restrictionsLabel;
     private bool previousHunterPending;
+    private bool previousDogSpiritDecision;
     private int shownOnlineInformation;
     private TMP_Text statusLabel;
     private TMP_Text targetFeedbackLabel;
@@ -44,6 +45,11 @@ public class RoleAbilityUI : MonoBehaviour
     private Sprite defaultPortrait;
     private RectTransform targetContent;
     private readonly Dictionary<int, Button> targetButtons = new();
+    private readonly Dictionary<int, TMP_Text> monsterVoteBadgeLabels = new();
+    private readonly Dictionary<int, Image> monsterVoteAvatarImages = new();
+    private Thuong.Online.ThuongOnlineSession observedMonsterSession;
+    private NightManager observedMonsterNight;
+    private bool monsterVoteUiDirty;
     private bool initialized;
     private bool hasShownRole;
     private RoleType shownRole;
@@ -82,7 +88,14 @@ public class RoleAbilityUI : MonoBehaviour
     private void OnDestroy()
     {
         if (observedAbilitySystem != null) observedAbilitySystem.AbilityResolved -= HandleAbilityResolved;
+        if (observedMonsterSession != null) observedMonsterSession.MonsterVoteUpdated -= HandleMonsterVoteUpdated;
+        if (observedMonsterNight != null) observedMonsterNight.MonsterVoteStateChanged -= HandleMonsterVoteUpdated;
         if (abilityCanvas != null) Destroy(abilityCanvas.gameObject);
+    }
+
+    private void HandleMonsterVoteUpdated()
+    {
+        monsterVoteUiDirty = true;
     }
 
     private static RectTransform Panel(string name, Transform parent, Vector2 min,
@@ -489,6 +502,19 @@ public class RoleAbilityUI : MonoBehaviour
             ? "Player " + (player.playerID + 1) : player.playerName;
     }
 
+    private string TargetDisplayLabel(PlayerData target, bool includeSelfTag = true)
+    {
+        if (target == null) return string.Empty;
+        string prefix = $"P{target.playerID + 1:00}";
+        string baseName = PlayerName(target);
+        string formatted = baseName.StartsWith(prefix + " ", System.StringComparison.OrdinalIgnoreCase)
+            ? baseName
+            : $"{prefix}  {baseName}";
+        if (includeSelfTag && target.playerID == localPlayerID)
+            formatted += " (Bản thân)";
+        return formatted;
+    }
+
     private void RefreshRole(PlayerData player)
     {
         hasShownRole = true;
@@ -540,7 +566,7 @@ public class RoleAbilityUI : MonoBehaviour
         }
         if (playerLabel != null)
         {
-            playerLabel.text = $"<b>{PlayerName(player)}</b>\n<size=85%>{info.DisplayName}</size>";
+            playerLabel.text = $"<b>{TargetDisplayLabel(player, includeSelfTag: false)}</b>\n<size=85%>{info.DisplayName}</size>";
         }
         if (openLabel != null) openLabel.text = "ROLE / " + info.DisplayName.ToUpper();
 
@@ -621,6 +647,33 @@ public class RoleAbilityUI : MonoBehaviour
             reason = "Người chơi đang bị Silenced.";
         else if (game == null || game.currentPhase != GamePhase.Night)
             reason = "Kỹ năng chỉ dùng được vào ban đêm.";
+        else if (NightManager.IsMonsterPackMember(player) && NightManager.Instance != null)
+        {
+            var night = NightManager.Instance;
+            if (night.IsDogSpiritDecisionActive)
+            {
+                if (NightManager.CanParticipateInDogSpiritDecision(player, out string decisionReason))
+                {
+                    reason = "Hòa phiếu! Chó Tinh chọn 1 mục tiêu trong nhóm cao phiếu nhất để chốt ngay.";
+                    return true;
+                }
+                reason = player.roleType == RoleType.DogSpirit
+                    ? decisionReason
+                    : "Hòa phiếu! Đang chờ Chó Tinh chọn mục tiêu cuối cùng...";
+                return false;
+            }
+            if (night.IsMonsterVoteClosed || night.IsMonsterAttackLockedForCurrentNight())
+            {
+                reason = "Lượt bỏ phiếu của phe Quái vật trong đêm này đã kết thúc.";
+                return false;
+            }
+            if (!NightManager.CanParticipateInMonsterPackAttack(player, night.CurrentEffectiveNightNumber(), out reason))
+                return false;
+            reason = night.GetMonsterVotedTarget(player.playerID) >= 0
+                ? "Đã bỏ phiếu. Chọn người khác để đổi phiếu trước khi hết giờ."
+                : "Chọn một mục tiêu để bỏ phiếu tấn công đêm nay.";
+            return true;
+        }
         else if (player.roleType == RoleType.WeaverOfFate &&
                  GetLocalWeaverRole()?.HasUsedAbility == true)
             reason = "Dệt Duyên chỉ dùng được một lần mỗi ván.";
@@ -733,7 +786,50 @@ public class RoleAbilityUI : MonoBehaviour
 
         bool canUse = CanUse(player, game, out string reason);
         useButton.interactable = canUse;
-        if (targetView.activeSelf) RefreshTargets(player, canUse, reason);
+        bool isLocalMonsterPack = IsLocalMonsterVoteActive(online, player);
+        bool isDecisionActive = IsLocalDogSpiritDecisionActive(online, player) && !selectingHunterTrap;
+        bool canLocalDecide = isDecisionActive && CanLocalPlayerDecideDogSpirit(online, player);
+        if (isDecisionActive && !previousDogSpiritDecision && canLocalDecide && window != null && !ended)
+        {
+            ShowWindow(true);
+            OpenTargets();
+        }
+        previousDogSpiritDecision = isDecisionActive;
+        if (online != observedMonsterSession)
+        {
+            if (observedMonsterSession != null) observedMonsterSession.MonsterVoteUpdated -= HandleMonsterVoteUpdated;
+            observedMonsterSession = online;
+            if (observedMonsterSession != null) observedMonsterSession.MonsterVoteUpdated += HandleMonsterVoteUpdated;
+        }
+        if (online == null && NightManager.Instance != observedMonsterNight)
+        {
+            if (observedMonsterNight != null) observedMonsterNight.MonsterVoteStateChanged -= HandleMonsterVoteUpdated;
+            observedMonsterNight = NightManager.Instance;
+            if (observedMonsterNight != null) observedMonsterNight.MonsterVoteStateChanged += HandleMonsterVoteUpdated;
+        }
+        int myMonsterVoteId = GetLocalMonsterVoteChoice(online, player);
+        TMP_Text useBtnLabel = useButton != null ? useButton.GetComponentInChildren<TMP_Text>() : null;
+        if (useBtnLabel != null && shownRole != RoleType.Brat)
+        {
+            useBtnLabel.text = isDecisionActive
+                ? (canLocalDecide ? "CHỐT MỤC TIÊU (CHÓ TINH)" : "CHỜ CHÓ TINH CHỐT...")
+                : isLocalMonsterPack
+                    ? (myMonsterVoteId >= 0 ? "XEM / ĐỔI PHIẾU" : "BỎ PHIẾU TẤN CÔNG")
+                    : "CHỌN MỤC TIÊU";
+        }
+        if (targetView.activeSelf)
+        {
+            if (isLocalMonsterPack) UpdateMonsterVoteHeader(online, game, player);
+            if (monsterVoteUiDirty || isLocalMonsterPack)
+            {
+                monsterVoteUiDirty = false;
+                RefreshTargets(player, canUse, reason);
+            }
+            else
+            {
+                RefreshTargets(player, canUse, reason);
+            }
+        }
         ShamanRole shaman = GetLocalShamanRole();
         bool canUseShamanCharm = player != null && player.isAlive && !player.HasEffect(StatusEffectType.Silenced) && !player.hasUseNightAction &&
                                  state == GameState.Night && game != null && game.currentPhase == GamePhase.Night;
@@ -745,9 +841,19 @@ public class RoleAbilityUI : MonoBehaviour
                              player.hasHunterTrap);
         hunterTrapButton.interactable = CanSetHunterTrap(player, game);
         if (window.activeSelf && abilityView.activeSelf)
-            statusLabel.text = online != null ? online.Feedback + "\n" + reason
+        {
+            string packSummary = GetMonsterPackStatusLine(online, player);
+            string baseText = online != null ? online.Feedback + "\n" + reason
                 : !string.IsNullOrEmpty(actionFeedback) ? actionFeedback : reason;
-        if (online != null && resultView.activeSelf) resultFeedbackLabel.text = online.Feedback;
+            statusLabel.text = !string.IsNullOrEmpty(packSummary) ? packSummary + "\n" + baseText : baseText;
+        }
+        if (online != null && resultView.activeSelf)
+        {
+            string packSummary = GetMonsterPackStatusLine(online, player);
+            resultFeedbackLabel.text = !string.IsNullOrEmpty(packSummary)
+                ? online.Feedback + "\n" + packSummary
+                : online.Feedback;
+        }
     }
 
     private void ShowWindow(bool visible)
@@ -779,6 +885,8 @@ public class RoleAbilityUI : MonoBehaviour
             Destroy(button.gameObject);
         }
         targetButtons.Clear();
+        monsterVoteBadgeLabels.Clear();
+        monsterVoteAvatarImages.Clear();
         List<PlayerData> lobby = PlayerManager.Instance?.players;
         if (lobby == null)
         {
@@ -786,8 +894,15 @@ public class RoleAbilityUI : MonoBehaviour
             return;
         }
 
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        bool monsterVoteMode = IsLocalMonsterVoteActive(online, player) && !selectingHunterTrap;
+        var grid = targetContent.GetComponent<GridLayoutGroup>();
+        if (grid != null)
+        {
+            grid.cellSize = monsterVoteMode ? new Vector2(224, 54) : new Vector2(214, 44);
+        }
+
         int lobbyCount = 0;
-        int count = 0;
         bool selectingSecondLover = player.roleType == RoleType.WeaverOfFate &&
                                     firstLoverTargetID != -1;
         foreach (PlayerData target in lobby)
@@ -798,19 +913,35 @@ public class RoleAbilityUI : MonoBehaviour
             if (selectingSecondLover && target.playerID == firstLoverTargetID)
                 continue;
             int targetID = target.playerID;
-            string name = $"{PlayerName(target)}  /  ID {targetID}";
+            string name = TargetDisplayLabel(target);
             Button button = ActionButton("Target " + targetID, targetContent,
                 name, Vector2.zero, Vector2.one, "#2F5962", () => SelectTarget(targetID));
-            button.GetComponentInChildren<TMP_Text>().fontSize = 17;
+            TMP_Text buttonLabel = button.GetComponentInChildren<TMP_Text>();
+            if (buttonLabel != null)
+            {
+                buttonLabel.fontSizeMax = 16;
+                buttonLabel.fontSizeMin = 11;
+                buttonLabel.fontSize = 16;
+            }
+            if (monsterVoteMode)
+            {
+                ConfigureMonsterVoteCard(button, buttonLabel, online, targetID);
+            }
             targetButtons.Add(targetID, button);
-            count++;
         }
 
-        targetTitleLabel.text = selectingSecondLover
-            ? "CHỌN NGƯỜI THỨ HAI"
-            : $"MỤC TIÊU / LOBBY {lobbyCount} NGƯỜI";
+        if (monsterVoteMode)
+        {
+            UpdateMonsterVoteHeader(online, GameRoleManager.Instance, player);
+        }
+        else
+        {
+            targetTitleLabel.text = selectingSecondLover
+                ? "CHỌN NGƯỜI THỨ HAI"
+                : $"MỤC TIÊU / LOBBY {lobbyCount} NGƯỜI";
+        }
         bool canUse = CanUse(player, GameRoleManager.Instance, out string reason);
-        RefreshTargets(player, canUse, reason);
+        int selectableCount = RefreshTargets(player, canUse, reason);
         if (!canUse)
             targetFeedbackLabel.text = reason;
         else if (selectingSecondLover)
@@ -818,12 +949,12 @@ public class RoleAbilityUI : MonoBehaviour
             PlayerData firstTarget = PlayerManager.Instance.GetplayerByID(firstLoverTargetID);
             targetFeedbackLabel.text = firstTarget == null
                 ? "Chọn người chơi thứ hai."
-                : $"Đã chọn {PlayerName(firstTarget)}. Chọn người thứ hai.";
+                : $"Đã chọn {TargetDisplayLabel(firstTarget)}. Chọn người thứ hai.";
         }
-        else
-            targetFeedbackLabel.text = count == 0
+        else if (!monsterVoteMode)
+            targetFeedbackLabel.text = selectableCount == 0
                 ? "Không có mục tiêu còn sống hợp lệ."
-                : $"{count} người chơi có thể chọn.";
+                : $"{selectableCount} người chơi có thể chọn.";
         abilityView.SetActive(false);
         resultView.SetActive(false);
         targetView.SetActive(true);
@@ -872,29 +1003,272 @@ public class RoleAbilityUI : MonoBehaviour
         resultView.SetActive(true);
     }
 
-    private void RefreshTargets(PlayerData player, bool canUse, string reason)
+    private void ConfigureMonsterVoteCard(Button button, TMP_Text nameLabel, Thuong.Online.ThuongOnlineSession online, int targetId)
     {
+        if (button == null) return;
+        var avatarRect = Panel("VoteAvatarFrame", button.transform, new Vector2(0.025f, 0.12f), new Vector2(0.185f, 0.88f), "#1B3B45");
+        var avatarImgGo = new GameObject("Avatar", typeof(RectTransform), typeof(Image));
+        var avatarImgRt = avatarImgGo.GetComponent<RectTransform>();
+        avatarImgRt.SetParent(avatarRect, false);
+        avatarImgRt.anchorMin = new Vector2(0.05f, 0.05f);
+        avatarImgRt.anchorMax = new Vector2(0.95f, 0.95f);
+        avatarImgRt.offsetMin = avatarImgRt.offsetMax = Vector2.zero;
+        var avatarImg = avatarImgGo.GetComponent<Image>();
+        Sprite avatarSprite = online != null ? online.GetOnlinePlayerAvatarSprite(targetId) : defaultPortrait;
+        avatarImg.sprite = avatarSprite != null ? avatarSprite : defaultPortrait;
+        avatarImg.preserveAspect = true;
+        avatarImg.raycastTarget = false;
+        avatarImg.color = avatarImg.sprite != null ? Color.white : Hex("#79DED1");
+        monsterVoteAvatarImages[targetId] = avatarImg;
+
+        if (nameLabel != null)
+        {
+            nameLabel.rectTransform.anchorMin = new Vector2(0.20f, 0.06f);
+            nameLabel.rectTransform.anchorMax = new Vector2(0.71f, 0.94f);
+            nameLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            nameLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            nameLabel.overflowMode = TextOverflowModes.Ellipsis;
+        }
+
+        var badgeRect = Panel("VoteCountBadge", button.transform, new Vector2(0.72f, 0.14f), new Vector2(0.975f, 0.86f), "#10252E");
+        var voteCountLabel = Label("VoteCount", badgeRect, "0 phiếu", Vector2.zero, Vector2.one, 14, "#EBCB83", TextAlignmentOptions.Center);
+        voteCountLabel.fontSizeMin = 10;
+        voteCountLabel.fontSizeMax = 14;
+        monsterVoteBadgeLabels[targetId] = voteCountLabel;
+    }
+
+    private void UpdateMonsterVoteHeader(Thuong.Online.ThuongOnlineSession online, GameRoleManager game, PlayerData player)
+    {
+        if (targetTitleLabel == null) return;
+        float remaining = online != null ? online.VisiblePhaseRemaining : (game != null ? game.PhaseTimeRemaining : 0f);
+        int seconds = Mathf.CeilToInt(Mathf.Max(0f, remaining));
+        if (IsLocalDogSpiritDecisionActive(online, player) && !selectingHunterTrap)
+        {
+            bool canDecide = CanLocalPlayerDecideDogSpirit(online, player);
+            targetTitleLabel.text = canDecide
+                ? $"HÒA PHIẾU • CHÓ TINH CHỐT ({seconds / 60:00}:{seconds % 60:00})"
+                : $"HÒA PHIẾU • CHỜ CHÓ TINH ({seconds / 60:00}:{seconds % 60:00})";
+            return;
+        }
+        bool locked = online != null ? online.MonsterPackTargetLocked : (NightManager.Instance != null && NightManager.Instance.IsMonsterAttackLockedForCurrentNight());
+        if (locked)
+        {
+            targetTitleLabel.text = "KẾT QUẢ MONSTER VOTE (ĐÃ KHÓA)";
+            return;
+        }
+        targetTitleLabel.text = $"MONSTER VOTE • CÒN {seconds / 60:00}:{seconds % 60:00}";
+    }
+
+    private static bool IsLocalMonsterVoteActive(Thuong.Online.ThuongOnlineSession online, PlayerData player)
+    {
+        if (online != null)
+        {
+            if (!online.IsLocalMonsterPackMember) return false;
+            if (online.GetPrivateRole() == RoleType.SerpentSpirit && online.GetVisibleDay() < 3) return false;
+            return online.VisibleState == GameState.Night || online.MonsterPackTargetLocked || online.IsDogSpiritDecisionActive;
+        }
+        if (!NightManager.IsMonsterPackMember(player)) return false;
+        if (player.roleType == RoleType.SerpentSpirit &&
+            NightManager.Instance != null && NightManager.Instance.CurrentEffectiveNightNumber() < 3)
+        {
+            return false;
+        }
+        return true;
+    }
+
+    private static bool IsLocalDogSpiritDecisionActive(Thuong.Online.ThuongOnlineSession online, PlayerData player)
+    {
+        if (online != null) return online.IsDogSpiritDecisionActive;
+        return NightManager.IsMonsterPackMember(player) &&
+               NightManager.Instance != null &&
+               NightManager.Instance.IsDogSpiritDecisionActive;
+    }
+
+    private static bool CanLocalPlayerDecideDogSpirit(Thuong.Online.ThuongOnlineSession online, PlayerData player)
+    {
+        if (online != null) return online.CanLocalPlayerDecideDogSpiritTarget;
+        return NightManager.CanParticipateInDogSpiritDecision(player, out _);
+    }
+
+    private static bool IsTargetInDogSpiritTiedList(Thuong.Online.ThuongOnlineSession online, int targetId)
+    {
+        if (targetId < 0) return false;
+        if (online != null) return online.IsDogSpiritTiedCandidate(targetId);
+        return NightManager.Instance != null && NightManager.Instance.IsDogSpiritTiedCandidate(targetId);
+    }
+
+    private static int GetLocalMonsterVoteChoice(Thuong.Online.ThuongOnlineSession online, PlayerData player)
+    {
+        if (online != null && online.IsLocalMonsterPackMember)
+            return online.LocalMonsterVotedTargetId;
+        if (player != null && NightManager.IsMonsterPackMember(player) && NightManager.Instance != null)
+            return NightManager.Instance.GetMonsterVotedTarget(player.playerID);
+        return -1;
+    }
+
+    private int RefreshTargets(PlayerData player, bool canUse, string reason)
+    {
+        var online = Thuong.Online.ThuongOnlineSession.Active;
+        int packTargetId = GetCurrentMonsterPackTargetId(online, player);
+        int myVoteId = GetLocalMonsterVoteChoice(online, player);
+        bool isLocalMonsterPack = IsLocalMonsterVoteActive(online, player) && !selectingHunterTrap;
+        bool isDecisionActive = isLocalMonsterPack && IsLocalDogSpiritDecisionActive(online, player);
+        bool canLocalDecide = isDecisionActive && CanLocalPlayerDecideDogSpirit(online, player);
+        bool isLocked = online != null ? online.MonsterPackTargetLocked : (NightManager.Instance != null && NightManager.Instance.IsMonsterAttackLockedForCurrentNight());
+        int activeCount = 0;
         foreach (var pair in targetButtons)
         {
             var target = PlayerManager.Instance?.GetplayerByID(pair.Key);
             bool allowed = ValidateTarget(player, target).IsValid &&
                 !(player?.roleType == RoleType.WeaverOfFate && firstLoverTargetID == pair.Key);
+            if (isDecisionActive)
+            {
+                allowed = allowed && IsTargetInDogSpiritTiedList(online, pair.Key);
+            }
+            bool isMyChoice = isLocalMonsterPack && !isDecisionActive && myVoteId >= 0 && pair.Key == myVoteId;
+            bool isLeadingTarget = isLocalMonsterPack && !isDecisionActive && packTargetId >= 0 && pair.Key == packTargetId;
+            bool isConfirmedTarget = isLocalMonsterPack && isLocked && packTargetId >= 0 && pair.Key == packTargetId;
             pair.Value.gameObject.SetActive(allowed);
-            pair.Value.interactable = allowed && canUse;
+            pair.Value.interactable = allowed && canUse && !isLocked && (isDecisionActive ? canLocalDecide : !isMyChoice);
+            if (target != null)
+            {
+                TMP_Text btnLabel = pair.Value.GetComponentInChildren<TMP_Text>();
+                if (btnLabel != null)
+                {
+                    if (isDecisionActive)
+                        btnLabel.text = TargetDisplayLabel(target);
+                    else
+                        btnLabel.text = isMyChoice
+                            ? TargetDisplayLabel(target) + " [ĐÃ CHỌN]"
+                            : TargetDisplayLabel(target);
+                }
+                if (isLocalMonsterPack && monsterVoteBadgeLabels.TryGetValue(pair.Key, out TMP_Text countLabel) && countLabel != null)
+                {
+                    int votes = online != null
+                        ? online.GetMonsterVoteCountForTarget(pair.Key)
+                        : (NightManager.Instance != null ? NightManager.Instance.GetMonsterVoteCountForTarget(pair.Key) : 0);
+                    countLabel.text = $"{votes} phiếu";
+                }
+                Image btnImg = pair.Value.GetComponent<Image>();
+                if (btnImg != null)
+                {
+                    btnImg.color = isConfirmedTarget
+                        ? Hex("#9C3D3D")
+                        : isDecisionActive
+                            ? (canLocalDecide ? Hex("#B06A2E") : Hex("#4E5D64"))
+                            : isMyChoice
+                                ? Hex("#2E7D5B")
+                                : (isLeadingTarget
+                                    ? Hex("#9C3D3D")
+                                    : (ThuongMedievalTheme.Active != null ? Color.white : Hex("#2F5962")));
+                }
+            }
+            if (allowed) activeCount++;
         }
-        if (!canUse) targetFeedbackLabel.text = reason;
+        if (!canUse || isLocked || isDecisionActive)
+        {
+            string packSummary = isLocalMonsterPack ? GetMonsterPackStatusLine(online, player) : string.Empty;
+            targetFeedbackLabel.text = !string.IsNullOrEmpty(packSummary) ? packSummary : reason;
+        }
+        else if (isLocalMonsterPack)
+        {
+            string packSummary = GetMonsterPackStatusLine(online, player);
+            if (!string.IsNullOrEmpty(packSummary)) targetFeedbackLabel.text = packSummary;
+        }
+        else if (!(player?.roleType == RoleType.WeaverOfFate && firstLoverTargetID != -1))
+        {
+            targetFeedbackLabel.text = activeCount == 0
+                ? "Không có mục tiêu còn sống hợp lệ."
+                : $"{activeCount} người chơi có thể chọn.";
+        }
+        return activeCount;
+    }
+
+    private static int GetCurrentMonsterPackTargetId(Thuong.Online.ThuongOnlineSession online, PlayerData player)
+    {
+        if (online != null && online.IsLocalMonsterPackMember)
+            return online.MonsterPackTargetId;
+        if (NightManager.IsMonsterPackMember(player) && NightManager.Instance != null)
+            return NightManager.Instance.ActiveMonsterTargetId;
+        return -1;
+    }
+
+    private string GetMonsterPackStatusLine(Thuong.Online.ThuongOnlineSession online, PlayerData player)
+    {
+        if (online != null && online.IsLocalMonsterPackMember)
+        {
+            if (online.VisibleState == GameState.Night || online.MonsterPackTargetLocked)
+                return online.FormatMonsterPackStatusSummary();
+            return string.Empty;
+        }
+
+        if (NightManager.IsMonsterPackMember(player) && NightManager.Instance != null)
+        {
+            var night = NightManager.Instance;
+            int targetId = night.ActiveMonsterTargetId;
+            int myVoteId = player != null ? night.GetMonsterVotedTarget(player.playerID) : -1;
+            int highest = night.MonsterVoteHighestCount;
+            bool isTie = night.IsMonsterVoteTied;
+            bool locked = night.IsMonsterAttackLockedForCurrentNight();
+            if (night.IsDogSpiritDecisionActive)
+            {
+                return player != null && NightManager.CanParticipateInDogSpiritDecision(player, out _)
+                    ? $"HÒA PHIẾU ({highest} phiếu)! Chó Tinh chọn 1 người trong nhóm cao phiếu nhất để chốt ngay!"
+                    : $"HÒA PHIẾU ({highest} phiếu) — Đang chờ Chó Tinh chọn mục tiêu cuối cùng...";
+            }
+            if (locked)
+            {
+                if (targetId >= 0) return $"Đã chốt mục tiêu tấn công: P{targetId + 1:00} ({highest} phiếu)";
+                if (isTie) return $"Kết quả Monster Vote: Hòa phiếu ({highest} phiếu) — Không tấn công.";
+                return "Kết quả Monster Vote: Không có phiếu hợp lệ.";
+            }
+            string myPart = myVoteId >= 0 ? $"Phiếu của bạn: P{myVoteId + 1:00}" : "Bạn chưa bỏ phiếu";
+            string leadPart = isTie ? $"Hòa phiếu ({highest} phiếu) — Bằng phiếu Chó Tinh sẽ chốt"
+                : (targetId >= 0 ? $"Dẫn đầu: P{targetId + 1:00} ({highest} phiếu)" : "Chưa có phiếu nào");
+            return $"{myPart}  •  {leadPart}";
+        }
+
+        return string.Empty;
     }
 
     private ActionValidationResult ValidateTarget(PlayerData actor, PlayerData target)
     {
         var online = Thuong.Online.ThuongOnlineSession.Active;
         if (online != null)
+        {
+            if (actor != null && actor.roleType == RoleType.Shaman && !selectingHunterTrap &&
+                target != null && target.playerID == actor.playerID)
+            {
+                return onlineGoodCharm && online.HasGoodCharm && target.isAlive
+                    ? ActionValidationResult.Success()
+                    : ActionValidationResult.Fail(ActionFailureReason.SelfTargetForbidden, "Không được dùng bùa hại lên chính mình.");
+            }
+            if (online.IsLocalMonsterPackMember && !selectingHunterTrap && online.IsDogSpiritDecisionActive)
+            {
+                if (target == null || !target.isAlive)
+                    return ActionValidationResult.Fail(ActionFailureReason.TargetDead, "Mục tiêu đã bị loại.");
+                return online.IsDogSpiritTiedCandidate(target.playerID)
+                    ? ActionValidationResult.Success()
+                    : ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Chỉ được chọn một trong các mục tiêu có số phiếu cao nhất.");
+            }
             return target != null && online.CanTargetLocalAbility(target.playerID)
                 ? ActionValidationResult.Success()
                 : ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Mục tiêu không hợp lệ theo luật kỹ năng.");
+        }
+        if (NightManager.IsMonsterPackMember(actor) && !selectingHunterTrap &&
+            NightManager.Instance != null && NightManager.Instance.IsDogSpiritDecisionActive)
+        {
+            if (target == null)
+                return ActionValidationResult.Fail(ActionFailureReason.TargetMissing, "Mục tiêu không tồn tại.");
+            return NightManager.Instance.IsValidDogSpiritDecisionTarget(target.playerID, out string decisionError)
+                ? ActionValidationResult.Success()
+                : ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, decisionError);
+        }
+        bool allowSelfTarget = actor != null && actor.roleType == RoleType.Shaman && !selectingHunterTrap &&
+                               GetLocalShamanRole()?.IsGoodCharmSelected == true;
         return RoleManager.UsesConfiguredAbility(actor) && !selectingHunterTrap
             ? TargetValidator.Validate(actor, target, actor.roleDefinition)
-            : TargetValidator.ValidateLegacy(actor, target);
+            : TargetValidator.ValidateLegacy(actor, target, allowSelfTarget);
     }
 
     private static bool CanSetHunterTrap(PlayerData player, GameRoleManager game)
@@ -990,7 +1364,24 @@ public class RoleAbilityUI : MonoBehaviour
         var online = Thuong.Online.ThuongOnlineSession.Active;
         if (online != null)
         {
-            if (!online.CanTargetLocalAbility(targetID))
+            bool isShamanSelfSave = player != null && player.roleType == RoleType.Shaman &&
+                                    !selectingHunterTrap && targetID == player.playerID;
+            bool isDogSpiritDecision = online.IsLocalMonsterPackMember && !selectingHunterTrap && online.IsDogSpiritDecisionActive;
+            if (isDogSpiritDecision)
+            {
+                if (!online.CanLocalPlayerDecideDogSpiritTarget)
+                { targetFeedbackLabel.text = "Chỉ Chó Tinh mới được chọn mục tiêu hòa phiếu cuối cùng."; return; }
+                if (!online.IsDogSpiritTiedCandidate(targetID))
+                { targetFeedbackLabel.text = "Chỉ được chọn một trong các mục tiêu có số phiếu cao nhất."; return; }
+            }
+            else if (isShamanSelfSave)
+            {
+                if (!onlineGoodCharm)
+                { targetFeedbackLabel.text = "Không được dùng bùa hại lên chính mình."; return; }
+                if (!online.HasGoodCharm || !player.isAlive)
+                { targetFeedbackLabel.text = "Bùa lợi không khả dụng."; return; }
+            }
+            else if (!online.CanTargetLocalAbility(targetID))
             { targetFeedbackLabel.text = "Mục tiêu không hợp lệ theo luật kỹ năng."; return; }
             bool canUseOnline = online.CanUseLocalAbility(out string networkReason);
             if (player == null || !canUseOnline)
@@ -1008,6 +1399,13 @@ public class RoleAbilityUI : MonoBehaviour
                 player.roleType == RoleType.WeaverOfFate ? targetID : -1,
                 player.roleType == RoleType.Shaman, onlineGoodCharm, selectingHunterTrap);
             firstLoverTargetID = -1;
+            if (online.IsLocalMonsterPackMember && !selectingHunterTrap)
+            {
+                targetFeedbackLabel.text = isDogSpiritDecision
+                    ? "Đang chốt mục tiêu cuối cùng..."
+                    : "Đang gửi phiếu bầu...";
+                return;
+            }
             selectingHunterTrap = false;
             targetView.SetActive(false);
             abilityView.SetActive(false);
@@ -1087,6 +1485,8 @@ public class RoleAbilityUI : MonoBehaviour
             return;
         }
 
+        bool wasDecisionStep = NightManager.IsMonsterPackMember(player) && !selectingHunterTrap &&
+                               NightManager.Instance != null && NightManager.Instance.IsDogSpiritDecisionActive;
         bool success;
         string feedback;
         if (RoleManager.Instance != null)
@@ -1106,9 +1506,28 @@ public class RoleAbilityUI : MonoBehaviour
         }
 
         actionFeedback = feedback;
+        if (NightManager.IsMonsterPackMember(player) && !selectingHunterTrap)
+        {
+            if (wasDecisionStep)
+            {
+                GameRoleManager.Instance?.CompleteDogSpiritDecisionIfReady();
+                PlayerData confirmedTarget = PlayerManager.Instance?.GetplayerByID(targetID);
+                resultFeedbackLabel.text = confirmedTarget == null ? feedback :
+                    $"{feedback}\nMục tiêu: {TargetDisplayLabel(confirmedTarget)}.";
+                targetView.SetActive(false);
+                abilityView.SetActive(false);
+                resultView.SetActive(true);
+                Debug.Log("[Role Ability] " + feedback);
+                return;
+            }
+            RefreshTargets(player, CanUse(player, GameRoleManager.Instance, out string nextReason), nextReason);
+            targetFeedbackLabel.text = feedback;
+            Debug.Log("[Role Ability] " + feedback);
+            return;
+        }
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
         resultFeedbackLabel.text = target == null ? feedback :
-            $"{feedback}\nMục tiêu: {PlayerName(target)} (ID {targetID}).";
+            $"{feedback}\nMục tiêu: {TargetDisplayLabel(target)}.";
         targetView.SetActive(false);
         abilityView.SetActive(false);
         resultView.SetActive(true);

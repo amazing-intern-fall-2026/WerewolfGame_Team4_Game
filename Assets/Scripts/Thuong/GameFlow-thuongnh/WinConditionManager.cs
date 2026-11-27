@@ -28,6 +28,7 @@ public class WinConditionManager : MonoBehaviour
     public void CheckWinCondition() { CheckWinCondition(false); }
     public void CheckWinCondition(bool dayFinished)
     {
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
         var game = GameRoleManager.Instance;
         if (game == null || game.currentState == GameState.GameOver) return;
         if (NetworkGameOverManager.HasPendingHunterDeathShot()) return;

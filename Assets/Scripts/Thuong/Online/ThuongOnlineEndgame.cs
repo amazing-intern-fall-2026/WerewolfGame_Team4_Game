@@ -64,7 +64,14 @@ namespace Thuong.Online
                 info.Restrictions = "Một phát mỗi ván. Hết giờ mà không chọn sẽ mất lượt. Phát bắn có hiệu lực ngay sau khi host xác nhận.";
             }
             if (roomRules.mode == ThuongMatchMode.RealtimeProximity && privateRole != RoleType.Villager)
+            {
                 info.SkillDescription = "Trong ban đêm, đứng gần mục tiêu, bảo đảm không có tường chắn rồi nhấn E để dùng kỹ năng. Có hiệu lực ngay sau khi host xác nhận.";
+                if (privateRole == RoleType.VillageGuardian)
+                {
+                    info.SkillDescription += " Có thể bảo vệ bản thân; giữ E để chọn khi có nhiều tương tác.";
+                    info.Restrictions = "Một lần mỗi đêm. Không bảo vệ cùng một người, kể cả bản thân, trong hai đêm liên tiếp.";
+                }
+            }
             return info;
         }
 
@@ -142,6 +149,11 @@ namespace Thuong.Online
 
         private void EvaluateOnlineWin(bool dayFinished)
         {
+            if (WinConditionTestConfig.IsWinConditionDisabled)
+            {
+                onlineOutcomeDirty = false;
+                return;
+            }
             if (network == null || !network.IsServer || !matchStarted || matchResult != null ||
                 game == null || game.currentState == GameState.GameOver || players == null ||
                 scopedWinManager == null || !scopedWinManager.HasMatchEvaluator(game)) return;

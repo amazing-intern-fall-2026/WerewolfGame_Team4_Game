@@ -46,6 +46,7 @@ namespace Thuong.Online
         private GraphicRaycaster sceneHudRaycaster;
         private CanvasGroup sceneHudVisibility;
         private bool privateStateReceived;
+        private (ThuongMatchMode Mode, int EmoteKey, int Players)? matchHintState;
         private bool localRoleCardOpen;
         private bool localRoleConfirmed;
         private string localActionFeedback = string.Empty;
@@ -146,15 +147,33 @@ namespace Thuong.Online
             { reason = "Dùng E khi đứng gần mục tiêu; kỹ năng chọn toàn map đã tắt."; return false; }
             else if (CanSetHunterTrap) { reason = "Chọn mục tiêu cho bẫy."; return true; }
             else if ((privateFlags & 1) == 0) reason = "Bạn đã bị loại.";
+            else if (privateRole == RoleType.SerpentSpirit && visibleDay < 3) reason = "Xà Tinh chỉ có thể tấn công từ đêm thứ ba.";
             else if ((privateFlags & 8) == 0) reason = "Vai trò này có kỹ năng nội tại.";
             else if (visiblePhase != localAbilityPhase) reason = localAbilityPhase == GamePhase.Night
                 ? "Kỹ năng chỉ dùng được vào ban đêm." : "Hiện không phải giai đoạn dùng kỹ năng này.";
             else if ((privateFlags & 64) != 0) reason = "Bạn đang bị khóa kỹ năng.";
             else if ((privateFlags & 4) != 0) reason = "Bạn đã dùng kỹ năng trong đêm này.";
             else if (privateRole == RoleType.WhiteHound && (privateFlags & 128) == 0) reason = "Sói Trắng chưa thức tỉnh.";
+            else if (IsLocalMonsterPackMember && IsDogSpiritDecisionActive)
+            {
+                if (CanLocalPlayerDecideDogSpiritTarget)
+                {
+                    reason = "Hòa phiếu! Chó Tinh chọn 1 mục tiêu trong nhóm cao phiếu nhất để chốt ngay.";
+                    return true;
+                }
+                reason = "Hòa phiếu! Đang chờ Chó Tinh chọn mục tiêu cuối cùng...";
+            }
+            else if (IsLocalMonsterPackMember && (IsMonsterVoteClosed || MonsterPackTargetLocked)) reason = "Lượt bỏ phiếu của phe Quái vật đã kết thúc.";
             else if (privateRole == RoleType.WeaverOfFate && (privateFlags & 1024) != 0) reason = "Bạn đã dùng Dệt Duyên.";
             else if (privateRole == RoleType.Killer && IsKillerRestrictedThisNight())
                 reason = "Sát Nhân chỉ có thể tấn công vào đêm chẵn.";
+            else if (IsLocalMonsterPackMember)
+            {
+                reason = LocalMonsterVotedTargetId >= 0
+                    ? "Đã bỏ phiếu. Chọn người khác để đổi phiếu trước khi hết giờ."
+                    : "Chọn một mục tiêu để bỏ phiếu tấn công đêm nay.";
+                return true;
+            }
             else { reason = "Chọn kỹ năng rồi chọn mục tiêu."; return true; }
             return false;
         }
@@ -373,12 +392,20 @@ namespace Thuong.Online
             if (reopenVoteResult != null) reopenVoteResult.gameObject.SetActive(voteResultRevision > 0 && !meeting && visibleState != GameState.GameOver);
             // Online has a personal result overlay. The offline result panel stays unchanged.
             if (hud.resultPanel != null) hud.resultPanel.SetActive(false);
-            hud.SetOnlineFeedback(visiblePhase == GamePhase.HunterRevenge ? "THỢ SĂN TRẢ THÙ" : PhaseLabel(visibleState), Feedback);
+            string onlinePhaseText = visiblePhase == GamePhase.HunterRevenge
+                ? "THỢ SĂN TRẢ THÙ"
+                : IsLocalMonsterPackMember && IsDogSpiritDecisionActive
+                    ? (CanLocalPlayerDecideDogSpiritTarget
+                        ? "HÒA PHIẾU • CHÓ TINH CHỌN MỤC TIÊU"
+                        : "HÒA PHIẾU • CHỜ CHÓ TINH CHỐT")
+                    : PhaseLabel(visibleState);
+            hud.SetOnlineFeedback(onlinePhaseText, Feedback);
             RefreshSpectatorHud(hud);
         }
 
         private void EnsureMatchButtons(GameHUD hud)
         {
+            RefreshMatchHints(hud);
             if (reopenVoteResult != null) return;
             reopenVoteResult = MatchButton(hud, "Xem kết quả vote", hud.transform,
                 new Vector2(.60f, .014f), new Vector2(.76f, .071f), () => voteResultUntil = Time.unscaledTime + 10f);
@@ -400,10 +427,19 @@ namespace Thuong.Online
                     hud.meetingTitle.fontSizeMax = 32;
                 }
             }
+            TMP_Text restart = hud.resultPanel != null ? hud.resultPanel.transform.Find("RestartHint")?.GetComponent<TMP_Text>() : null;
+            if (restart != null) restart.text = "Rời phòng để tạo hoặc tham gia ván mới.";
+        }
+
+        private void RefreshMatchHints(GameHUD hud)
+        {
+            var state = (ActiveMatchMode, (int)EmoteKey, publicPlayers.Count);
+            if (matchHintState.HasValue && matchHintState.Value.Equals(state)) return;
+            matchHintState = state;
             TMP_Text instructions = hud.transform.Find("TaskPanel/Instructions")?.GetComponent<TMP_Text>();
             if (instructions != null) instructions.text = ActiveMatchMode == ThuongMatchMode.RealtimeProximity
-                ? "WASD / MŨI TÊN  Di chuyển\nE ban ngày  Nhiệm vụ hoặc báo xác ở gần\nE ban đêm  Kỹ năng gần của Khuyển tinh, Bảo vệ, Tiên tri\n\nBáo xác mở cuộc họp."
-                : "WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / chọn đường đi\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
+                ? $"WASD / MŨI TÊN  Di chuyển\nE ban ngày  Nhiệm vụ / báo xác ở gần\nE ban đêm  Dùng kỹ năng ở gần\nGiữ E  Chọn tương tác\nGiữ [{EmoteKey}]  Chọn biểu cảm\n\nBáo xác mở cuộc họp."
+                : $"WASD / MŨI TÊN  Di chuyển\nE  Thực hiện nhiệm vụ\nTAB  Bản đồ / dẫn đường\nGiữ [{EmoteKey}]  Chọn biểu cảm\nROLE / KỸ NĂNG  Xem vai trò\n\nMỗi loại nhiệm vụ góp một lần/ngày.";
             TMP_Text footer = hud.transform.Find("Footer")?.GetComponent<TMP_Text>();
             if (footer != null)
             {
@@ -419,8 +455,6 @@ namespace Thuong.Online
                 credits.anchorMax = new Vector2(.27f, .071f);
                 credits.offsetMin = credits.offsetMax = Vector2.zero;
             }
-            TMP_Text restart = hud.resultPanel != null ? hud.resultPanel.transform.Find("RestartHint")?.GetComponent<TMP_Text>() : null;
-            if (restart != null) restart.text = "Rời phòng để tạo hoặc tham gia ván mới.";
         }
 
         private static Button MatchButton(GameHUD hud, string label, Transform parent, Vector2 min, Vector2 max, UnityEngine.Events.UnityAction action)
@@ -514,14 +548,19 @@ namespace Thuong.Online
                 { realtimePrompt.text = "BAN ĐÊM · Mở ROLE / KỸ NĂNG để chọn hành động"; return; }
                 bool corpseNearby = onlineCorpses.Any(item => Vector2.Distance(localAvatar.Root.transform.position, item.Position) <= RealtimeInteractionRange &&
                     SelectedMap != null && Thuong.Maps.ThuongMapCollision.HasLine(SelectedMap, localAvatar.Root.transform.position, item.Position));
-                if (privateRole is not (RoleType.DogSpirit or RoleType.VillageGuardian or RoleType.Seer))
+                bool canMonsterInteract = CanUseLocalRealtimeMonsterAbility() || CanUseLocalRealtimeWhiteHoundAbility();
+                if (!canMonsterInteract && privateRole is not (RoleType.VillageGuardian or RoleType.Seer))
                 { realtimePrompt.text = corpseNearby ? "E · BÁO XÁC" : "BAN ĐÊM · Vai trò này không có kỹ năng E trong mode này"; return; }
                 int targetId = NearestAlivePlayer(localAvatar.Root.transform.position, out _);
                 if (targetId >= 0)
                 {
                     ThuongOnlinePublicPlayer target = publicPlayers.First(item => item.PlayerId == targetId);
                     string action = privateRole switch
-                    { RoleType.DogSpirit => "TẤN CÔNG", RoleType.VillageGuardian => "BẢO VỆ", _ => "SOI" };
+                    {
+                        RoleType.VillageGuardian => "BẢO VỆ",
+                        RoleType.Seer => "SOI",
+                        _ => "TẤN CÔNG"
+                    };
                     realtimePrompt.text = $"E · {action} · {target.Name}" + (corpseNearby ? " · GIỮ E ĐỂ CHỌN BÁO XÁC" : string.Empty);
                 }
                 else realtimePrompt.text = corpseNearby ? "E · BÁO XÁC" : "BAN ĐÊM · Tiến gần một người chơi, không xuyên tường";

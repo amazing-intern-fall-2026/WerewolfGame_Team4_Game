@@ -13,10 +13,12 @@ using Object = UnityEngine.Object;
 
 public static partial class ThuongRoomUpgradeOnlineChecks
 {
+    private const string UiReviewOutput = "Logs/MainIntegration20261127";
+
     [MenuItem("Tools/Thuong/Project Review/Check Lobby And Match UI")]
     public static void RunUiReview()
     {
-        Directory.CreateDirectory("Logs/ProjectReview20261127");
+        Directory.CreateDirectory(UiReviewOutput);
         SessionState.SetBool(RunKey + ".UiReview", true);
         Run();
     }
@@ -24,7 +26,7 @@ public static partial class ThuongRoomUpgradeOnlineChecks
     [MenuItem("Tools/Thuong/Project Review/Check Scenes And Gameplay Regressions")]
     public static void RunProjectRegressions()
     {
-        Directory.CreateDirectory("Logs/ProjectReview20261127");
+        Directory.CreateDirectory(UiReviewOutput);
         foreach (var entry in EditorBuildSettings.scenes.Where(entry => entry.enabled))
         {
             var scene = EditorSceneManager.OpenPreviewScene(entry.path);
@@ -41,7 +43,7 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         ThuongCommunicationChecks.Run();
         ThuongEndgameChecks.Run();
         ThuongEmoteSystemChecks.Run();
-        File.WriteAllText("Logs/ProjectReview20261127/regressions-result.txt", "THUONG_PROJECT_REVIEW_REGRESSIONS_PASSED\n");
+        File.WriteAllText(UiReviewOutput + "/regressions-result.txt", "THUONG_PROJECT_REVIEW_REGRESSIONS_PASSED\n");
         Debug.Log("THUONG_PROJECT_REVIEW_REGRESSIONS_PASSED");
     }
 
@@ -92,13 +94,24 @@ public static partial class ThuongRoomUpgradeOnlineChecks
         Check(Get<CanvasGroup>(host, "sceneHudVisibility").alpha == 1, "UI: HUD controller remains active and restores its content");
         Check(!Get<TMP_Text>(host, "realtimePrompt").gameObject.activeSelf,
             "UI: daytime task guidance has no duplicate interaction prompt");
-        var minimap = Get<RectTransform>(host, "minimapRoot");
-        var minimapPlayer = Get<Image>(host, "minimapPlayer");
-        Check(minimap.gameObject.activeInHierarchy && Get<Image>(host, "minimapImage").sprite == host.SelectedMap.thumbnail,
+        var roleCanvas = GameObject.Find("Role Ability Canvas");
+        CleanGhostCanvases.CleanActiveSceneIfApplicable();
+        Check(roleCanvas != null && roleCanvas.GetComponent<Canvas>() != null,
+            "UI: editor ghost cleanup preserves the live role ability canvas");
+        var minimap = Get<RectTransform>(host, "minimapPanel");
+        var playerMarkers = Get<System.Collections.IDictionary>(host, "minimapPlayerMarkers");
+        var minimapPlayer = Get<Image>(playerMarkers[Get<int>(host, "localPlayerId")], "Image");
+        Check(minimap.gameObject.activeInHierarchy && Get<Image>(host, "minimapMapImage").sprite == host.SelectedMap.thumbnail,
             "UI: gameplay minimap displays the selected map artwork");
-        Check(Get<Image[]>(host, "minimapTasks").Count(marker => marker.gameObject.activeSelf) ==
+        Check(Get<Dictionary<int, Image>>(host, "minimapStationMarkers").Values.Count(marker => marker.gameObject.activeSelf) ==
             Get<List<TaskData>>(TaskManager.Instance, "currentTasks").Count,
             "UI: minimap marks the active daily task stations");
+        Get<Button>(host, "minimapHeaderButton").onClick.Invoke();
+        Check(!Get<RectTransform>(host, "minimapViewport").gameObject.activeSelf && minimap.gameObject.activeInHierarchy,
+            "UI: main minimap collapse control remains available");
+        Get<Button>(host, "minimapHeaderButton").onClick.Invoke();
+        Check(Get<RectTransform>(host, "minimapViewport").gameObject.activeSelf,
+            "UI: main minimap expands again before gameplay checks");
         var localTag = Object.FindObjectsByType<PlayerNameTag>().First(tag => tag.GetComponent<TMP_Text>()?.text.StartsWith("P01") == true);
         var localAvatar = localTag.GetComponentInParent<Assets.Scripts.Thuong.PlayerMovement>().transform;
         Vector3 originalPosition = localAvatar.position;
@@ -155,14 +168,15 @@ public static partial class ThuongRoomUpgradeOnlineChecks
             "UI: inventory hides the world task prompt");
         CaptureUi("inventory"); Call(host, "CloseVillagePanel");
         var camera = Get<ThuongTopDownCamera>(host, "worldCamera");
-        Get<Button>(host, "minimapButton").onClick.Invoke();
+        Get<Button>(host, "minimapMapButton").onClick.Invoke();
         RefreshUi();
         Check(Get<GameObject>(host, "taskMapPanel").activeInHierarchy && !minimap.gameObject.activeInHierarchy,
             "UI: clicking minimap opens the full task map without a duplicate minimap overlay");
         CaptureUi("task-map"); camera.overview = false;
         var game = GameRoleManager.Instance; game.EndDay();
         RefreshUi();
-        Check(minimap.gameObject.activeInHierarchy, "UI: minimap remains available at night without remote-player markers");
+        Check(minimap.gameObject.activeInHierarchy && playerMarkers.Keys.Cast<int>().All(id => id == Get<int>(host, "localPlayerId")),
+            "UI: minimap remains available at night without remote-player markers");
         CaptureUi("night");
         game.FinishNight(); game.StartVoting(); RefreshUi();
         Check(hud.meetingPanel.activeInHierarchy, "UI: meeting roster opens during voting");
@@ -214,16 +228,17 @@ public static partial class ThuongRoomUpgradeOnlineChecks
 
     private static void CheckFooter(GameHUD hud)
     {
-        var minimap = Get<RectTransform>(host, "minimapRoot");
+        var minimap = Get<RectTransform>(host, "minimapPanel");
         var role = GameObject.Find("Role Ability Canvas")?.transform.Find("Open Role Ability") as RectTransform;
         Check(role != null && !WorldRect(minimap).Overlaps(WorldRect(role)) &&
             !WorldRect(minimap).Overlaps(WorldRect(hud.transform.Find("TopBar") as RectTransform)),
             "UI: minimap does not overlap the role button or phase header");
-        var mapImage = Get<Image>(host, "minimapImage");
+        var mapImage = Get<Image>(host, "minimapMapImage");
         Check(Mathf.Abs(mapImage.rectTransform.rect.width / mapImage.rectTransform.rect.height -
             mapImage.sprite.rect.width / mapImage.sprite.rect.height) < .005f,
             "UI: minimap artwork keeps its aspect ratio");
-        Check(!WorldRect(mapImage.rectTransform).Overlaps(WorldRect(minimap.Find("Minimap legend") as RectTransform)),
+        Check(minimap.Cast<Transform>().Where(child => child.name.EndsWith(" legend"))
+                .All(legend => !WorldRect(mapImage.rectTransform).Overlaps(WorldRect((RectTransform)legend))),
             "UI: minimap legend is separate from the map artwork and parchment border");
         string[] names = { "Asset credits button", "Footer", "HƯỚNG DẪN", "Xem kết quả vote", "Rời phòng", "SỔ TAY" };
         var emotes = Object.FindAnyObjectByType<Thuong.Emotes.PlayerEmoteWheelUI>();
@@ -245,11 +260,11 @@ public static partial class ThuongRoomUpgradeOnlineChecks
 
     private static void CaptureUi(string name, int width = 1280, int height = 720)
     {
-        string path = $"Logs/ProjectReview20261127/{name}-{width}x{height}.png";
+        string path = $"{UiReviewOutput}/{name}-{width}x{height}.png";
         // Poison pixels outside the camera viewport, simulating a previously drawn
         // lobby. Normal preview capture pre-clears them and masks this regression.
-        ThuongMedievalSceneChecks.SavePreview(path, width, height, Color.magenta,
-            name == "match" ? () => CheckFooter(Get<GameHUD>(host, "sceneHud")) : (Action)null);
+        ThuongMedievalSceneChecks.SavePreview(path, width, height, clearColor: Color.magenta,
+            verifyLayout: name == "match" ? () => CheckFooter(Get<GameHUD>(host, "sceneHud")) : (Action)null);
         var texture = new Texture2D(2, 2);
         try
         {

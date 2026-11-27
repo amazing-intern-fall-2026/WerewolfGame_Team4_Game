@@ -70,6 +70,13 @@ public class NetworkGameOverManager : MonoBehaviour
         }
     }
 
+    public static bool IsNonGameplayScene(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName)) return false;
+        return sceneName.IndexOf("MainMenu", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               sceneName.IndexOf("Lobby", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     public void ResetUIState()
     {
         isGameOver = false;
@@ -91,11 +98,15 @@ public class NetworkGameOverManager : MonoBehaviour
             dedicatedCanvasGO = null;
         }
 
-        var leftoverCanvas = GameObject.Find("GameOverDedicatedCanvas");
-        if (leftoverCanvas != null)
+        // Dọn dẹp triệt để mọi Canvas kết thúc ván còn sót lại kể cả inactive
+        var allCanvases = Resources.FindObjectsOfTypeAll<Canvas>();
+        foreach (var c in allCanvases)
         {
-            if (Application.isPlaying) Destroy(leftoverCanvas);
-            else DestroyImmediate(leftoverCanvas);
+            if (c != null && c.gameObject != null && c.gameObject.name == "GameOverDedicatedCanvas")
+            {
+                if (Application.isPlaying) Destroy(c.gameObject);
+                else DestroyImmediate(c.gameObject);
+            }
         }
     }
 
@@ -113,7 +124,7 @@ public class NetworkGameOverManager : MonoBehaviour
         _instance = this;
         ResetUIState();
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name != "MainMenu")
+        if (!IsNonGameplayScene(activeScene.name))
         {
             EnsureLoiMatchEvaluatorInstalled();
         }
@@ -122,7 +133,7 @@ public class NetworkGameOverManager : MonoBehaviour
     private void Start()
     {
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu")
+        if (IsNonGameplayScene(activeScene.name))
         {
             ResetUIState();
             return;
@@ -134,7 +145,7 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnEnable()
     {
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu")
+        if (IsNonGameplayScene(activeScene.name))
         {
             ResetUIState();
             return;
@@ -305,7 +316,7 @@ public class NetworkGameOverManager : MonoBehaviour
     private void Update()
     {
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu")
+        if (IsNonGameplayScene(activeScene.name))
         {
             if (uiShown || isGameOver || gameOverPanel != null || dedicatedCanvasGO != null)
             {
@@ -528,7 +539,7 @@ public class NetworkGameOverManager : MonoBehaviour
     public void CheckServerWinCondition(bool forceCheck = false)
     {
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu") return;
+        if (IsNonGameplayScene(activeScene.name)) return;
 
         EnsureLoiMatchEvaluatorInstalled();
 
@@ -582,6 +593,9 @@ public class NetworkGameOverManager : MonoBehaviour
             return;
 
         if (PlayerManager.Instance == null || PlayerManager.Instance.players == null || PlayerManager.Instance.players.Count == 0)
+            return;
+
+        if (WinConditionTestConfig.IsWinConditionDisabled)
             return;
 
         // Tiến độ nhiệm vụ đạt 100% -> Dân làng thắng ngay lập tức
@@ -933,9 +947,10 @@ public class NetworkGameOverManager : MonoBehaviour
     public void TriggerGameOver(string winner)
     {
         if (!Application.isPlaying) return;
+        if (WinConditionTestConfig.IsWinConditionDisabled) return;
 
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu")
+        if (IsNonGameplayScene(activeScene.name))
         {
             ResetUIState();
             return;
@@ -983,9 +998,9 @@ public class NetworkGameOverManager : MonoBehaviour
         if (!Application.isPlaying) return;
 
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu")
+        if (IsNonGameplayScene(activeScene.name))
         {
-            Debug.LogWarning("[NetworkGameOverManager] Đang ở MainMenu, hủy bỏ hiển thị GameOver UI.");
+            Debug.LogWarning("[NetworkGameOverManager] Đang ở scene ngoài trận, hủy bỏ hiển thị GameOver UI.");
             ResetUIState();
             return;
         }
@@ -1026,7 +1041,7 @@ public class NetworkGameOverManager : MonoBehaviour
         if (!Application.isPlaying) return;
 
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu") return;
+        if (IsNonGameplayScene(activeScene.name)) return;
 
         // 1. Đảm bảo có EventSystem để nhận tương tác chuột
         var existingEventSystem = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
@@ -1049,7 +1064,6 @@ public class NetworkGameOverManager : MonoBehaviour
         if (dedicatedCanvasGO == null)
         {
             dedicatedCanvasGO = new GameObject("GameOverDedicatedCanvas");
-            dedicatedCanvasGO.hideFlags = HideFlags.DontSave;
             Canvas canvas = dedicatedCanvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.overrideSorting = true;
@@ -1183,7 +1197,7 @@ public class NetworkGameOverManager : MonoBehaviour
         if (!Application.isPlaying) return;
 
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        if (activeScene.name == "MainMenu") return;
+        if (IsNonGameplayScene(activeScene.name)) return;
 
         // Nếu vì bất kỳ lý do gì gameOverPanel chưa hiện trên màn hình, OnGUI sẽ vẽ trực tiếp
         if (gameOverPanel == null)
@@ -1958,6 +1972,8 @@ public class NetworkGameOverManager : MonoBehaviour
     private void OnLeaveRoomClicked()
     {
         Debug.Log("GAME OVER | Người chơi bấm Rời phòng về MainMenu.");
+        ResetUIState();
+
         if (NetworkReturnToMenuController.Instance != null)
         {
             NetworkReturnToMenuController.Instance.RequestReturnToMenu();

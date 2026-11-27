@@ -133,15 +133,37 @@ public class RoleManager : MonoBehaviour
         var actorValidation = AbilityValidator.ValidateLegacyActor(GameRoleManager.Instance, role);
         if (!actorValidation.IsValid) { feedback = actorValidation.Message; return false; }
         PlayerData target = PlayerManager.Instance?.GetplayerByID(targetID);
-        ActionValidationResult targetValidation = TargetValidator.ValidateLegacy(role.owner, target);
+        bool allowSelfTarget = role is ShamanRole shamanRole && shamanRole.IsGoodCharmSelected;
+        ActionValidationResult targetValidation = TargetValidator.ValidateLegacy(role.owner, target, allowSelfTarget);
         if (!targetValidation.IsValid)
         {
             feedback = targetValidation.Message;
             return false;
         }
 
+        if (NightManager.IsMonsterPackMember(role.owner))
+        {
+            var night = NightManager.Instance;
+            int nightNum = night != null ? night.CurrentEffectiveNightNumber() : 0;
+            if (night != null)
+            {
+                if (!night.TryCastMonsterVote(role.owner, targetID, nightNum, out feedback))
+                    return false;
+                night.RecordSubmittedAction(role.owner, targetID, role.roleType.ToString());
+                role.owner.hasUseNightAction = true;
+                if (ThuongLogicSceneScope.IsActive) role.owner.NotifyChanged();
+                return true;
+            }
+            if (!NightManager.CanParticipateInMonsterPackAttack(role.owner, nightNum, out feedback))
+                return false;
+        }
+
         if (!RoleActionRules.TryUseNightAbility(role, targetID, out feedback))
             return false;
+        if (NightManager.IsMonsterPackMember(role.owner))
+        {
+            NightManager.Instance?.SetMonsterSelector(targetID, playerID);
+        }
         NightManager.Instance?.RecordSubmittedAction(role.owner, targetID, role.roleType.ToString());
         role.owner.hasUseNightAction = role is not FoxSpiritRole foxSpirit ||
                                        foxSpirit.HasUsedAllNightActions;

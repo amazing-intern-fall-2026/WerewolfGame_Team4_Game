@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class ShamanRole : BaseRole
 {
@@ -9,6 +9,17 @@ public class ShamanRole : BaseRole
 
     public bool HasGoodCharm => hasGoodCharm;
     public bool HasBadCharm => hasBadCharm;
+    public bool IsGoodCharmSelected => hasSelectedCharm && selectedGoodCharm;
+
+    public bool ConsumeGoodCharm()
+    {
+        if (!hasGoodCharm || owner == null || !owner.isAlive)
+            return false;
+
+        hasGoodCharm = false;
+        hasSelectedCharm = false;
+        return true;
+    }
 
     public ShamanRole(PlayerData owner) : base(owner)
     {

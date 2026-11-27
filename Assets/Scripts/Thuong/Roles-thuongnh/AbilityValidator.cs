@@ -18,12 +18,17 @@ public readonly struct ActionValidationResult
 public static class TargetValidator
 {
     public static ActionValidationResult ValidateLegacy(PlayerData actor, PlayerData target)
+        => ValidateLegacy(actor, target, allowSelfTarget: false);
+
+    public static ActionValidationResult ValidateLegacy(PlayerData actor, PlayerData target, bool allowSelfTarget)
     {
         if (actor == null) return ActionValidationResult.Fail(ActionFailureReason.ActorMissing, "Không tìm thấy người dùng.");
         if (target == null) return ActionValidationResult.Fail(ActionFailureReason.TargetMissing, "Hãy chọn mục tiêu.");
         if (!target.isAlive) return ActionValidationResult.Fail(ActionFailureReason.TargetDead, "Mục tiêu đã chết.");
-        if (actor.playerID == target.playerID)
+        if (!allowSelfTarget && actor.playerID == target.playerID)
             return ActionValidationResult.Fail(ActionFailureReason.SelfTargetForbidden, "Không được chọn chính mình.");
+        if (NightManager.IsMonsterPackMember(actor) && NightManager.IsMonsterPackMember(target))
+            return ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Không thể tấn công đồng đội phe Quái vật.");
         return ActionValidationResult.Success();
     }
 
@@ -46,6 +51,11 @@ public static class TargetValidator
             TargetFactionRule.NeutralOnly => target.faction == FactionType.Neutral,
             _ => false
         };
+        if (allowed && role.abilityType == AbilityType.Kill &&
+            NightManager.IsMonsterPackMember(actor) && NightManager.IsMonsterPackMember(target))
+        {
+            return ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Không thể tấn công đồng đội phe Quái vật.");
+        }
         return allowed ? ActionValidationResult.Success() :
             ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, "Không được chọn phe này.");
     }
@@ -66,7 +76,19 @@ public static class AbilityValidator
             return ActionValidationResult.Fail(ActionFailureReason.WrongPhase, "Chỉ có thể dùng kỹ năng trong Night Phase.");
         if (actor.HasEffect(StatusEffectType.Silenced))
             return ActionValidationResult.Fail(ActionFailureReason.Silenced, "Người chơi đang bị Silenced.");
-        if (actor.hasUseNightAction)
+        if (NightManager.IsMonsterPackMember(actor))
+        {
+            var night = NightManager.Instance;
+            if (night != null && night.IsDogSpiritDecisionActive)
+            {
+                if (!NightManager.CanParticipateInDogSpiritDecision(actor, out string decisionReason))
+                    return ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, decisionReason);
+                return ActionValidationResult.Success();
+            }
+            if (night != null && (night.IsMonsterVoteClosed || night.IsMonsterAttackLockedForCurrentNight()))
+                return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Lượt bỏ phiếu của phe Quái vật trong đêm này đã kết thúc.");
+        }
+        else if (actor.hasUseNightAction)
             return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Kỹ năng đã được dùng trong đêm này.");
         return ActionValidationResult.Success();
     }
@@ -80,7 +102,23 @@ public static class AbilityValidator
         if (role == null) return ActionValidationResult.Fail(ActionFailureReason.RoleMissing, "Chưa gán role asset.");
         if (role.abilityType == AbilityType.None) return ActionValidationResult.Fail(ActionFailureReason.NoAbility, "Role không có kỹ năng chủ động.");
         if (phase != role.usablePhase) return ActionValidationResult.Fail(ActionFailureReason.WrongPhase, $"Kỹ năng chỉ dùng trong {role.usablePhase}.");
-        if (uses >= role.maxUsesPerPhase) return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Đã dùng hết lượt kỹ năng trong phase này.");
+        bool isPackKill = role.abilityType == AbilityType.Kill && (role.sharedNightKill || NightManager.IsMonsterPackMember(actor));
+        if (isPackKill)
+        {
+            var night = NightManager.Instance;
+            if (night != null && night.IsDogSpiritDecisionActive)
+            {
+                if (!NightManager.CanParticipateInDogSpiritDecision(actor, out string decisionReason))
+                    return ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, decisionReason);
+                if (target != null && !night.IsValidDogSpiritDecisionTarget(target.playerID, out string targetDecisionReason))
+                    return ActionValidationResult.Fail(ActionFailureReason.FactionForbidden, targetDecisionReason);
+            }
+            else if (night != null && (night.IsMonsterVoteClosed || night.IsMonsterAttackLockedForCurrentNight()))
+            {
+                return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Lượt bỏ phiếu của phe Quái vật trong đêm này đã kết thúc.");
+            }
+        }
+        else if (uses >= role.maxUsesPerPhase) return ActionValidationResult.Fail(ActionFailureReason.AlreadyUsed, "Đã dùng hết lượt kỹ năng trong phase này.");
         // The legacy isSilenced flag also locks movement; only the explicit effect blocks abilities here.
         if (actor.HasEffect(StatusEffectType.Silenced)) return ActionValidationResult.Fail(ActionFailureReason.Silenced, "Người chơi đang bị Silenced.");
         return TargetValidator.Validate(actor, target, role);

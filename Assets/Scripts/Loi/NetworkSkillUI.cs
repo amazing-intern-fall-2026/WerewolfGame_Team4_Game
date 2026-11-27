@@ -63,6 +63,8 @@ public class NetworkSkillUI : MonoBehaviour
     private bool isShaman;
     private bool isHunter;
     private bool isKiller;
+    private bool isWeaverOfFate;
+    private bool weaverHasUsedAbility;
 
     private bool isNight;
     private bool isDiscussion;
@@ -72,11 +74,20 @@ public class NetworkSkillUI : MonoBehaviour
     private bool shamanHasUsedSave;
     private bool shamanHasUsedKill;
     private int simulatedNightNumberForTest = -1;
+    private bool? simulatedLocalPlayerDeadForTest = null;
 
     public bool ShamanHasUsedSave => shamanHasUsedSave;
     public bool ShamanHasUsedKill => shamanHasUsedKill;
     public bool IsDogSpirit => isDogSpirit;
     public bool IsSerpentSpirit => isSerpentSpirit;
+    public bool IsWeaverOfFate => isWeaverOfFate;
+    public bool WeaverHasUsedAbility => weaverHasUsedAbility;
+
+    public void SetWeaverAbilityUsed(bool used)
+    {
+        weaverHasUsedAbility = used;
+        UpdateSkillUI();
+    }
     public GameObject AttackButton => attackButton;
     public GameObject TargetPanel => targetPanel;
     public GameObject SaveButton => saveButton;
@@ -108,7 +119,10 @@ public class NetworkSkillUI : MonoBehaviour
         hasUsedSkill = false;
         shamanHasUsedSave = false;
         shamanHasUsedKill = false;
+        weaverHasUsedAbility = false;
         currentPromptVictimId = -1;
+        simulatedLocalPlayerDeadForTest = null;
+        simulatedNightNumberForTest = -1;
         HideShamanPrompt();
 
         if (targetPanel != null)
@@ -139,6 +153,9 @@ public class NetworkSkillUI : MonoBehaviour
 
         NetworkPlayerAction.OnShamanVictimPromptReceived +=
             OnShamanVictimPromptReceived;
+
+        NetworkPhaseSync.OnNightCycleChangedGlobal -= HandleGlobalNightCycleChanged;
+        NetworkPhaseSync.OnNightCycleChangedGlobal += HandleGlobalNightCycleChanged;
     }
 
     private void OnDisable()
@@ -160,6 +177,13 @@ public class NetworkSkillUI : MonoBehaviour
 
         NetworkPlayerAction.OnShamanVictimPromptReceived -=
             OnShamanVictimPromptReceived;
+
+        NetworkPhaseSync.OnNightCycleChangedGlobal -= HandleGlobalNightCycleChanged;
+    }
+
+    private void HandleGlobalNightCycleChanged(int night)
+    {
+        UpdateSkillUI();
     }
 
     private void OnShamanCharmsChanged(bool usedSave, bool usedKill)
@@ -243,10 +267,23 @@ public class NetworkSkillUI : MonoBehaviour
         if (NetworkRoleSync.LocalInstance != null && NetworkRoleSync.LocalInstance.HasAssignedRole)
         {
             RoleType r = NetworkRoleSync.LocalInstance.LocalRole;
-            bool roleRecognized = isDogSpirit || isSerpentSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller;
-            if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.SerpentSpirit || r == RoleType.Ogre || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer))
+            bool roleRecognized = isDogSpirit || isSerpentSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller || isWeaverOfFate;
+            if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.SerpentSpirit || r == RoleType.Ogre || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer || r == RoleType.WeaverOfFate))
             {
                 OnRoleReceived(r);
+            }
+        }
+        else
+        {
+            var session = Thuong.Online.ThuongOnlineSession.Active;
+            if (session != null && session.HasLocalRole)
+            {
+                RoleType r = session.GetPrivateRole();
+                bool roleRecognized = isDogSpirit || isSerpentSpirit || isWhiteHound || isSeer || isVillageGuardian || isShaman || isHunter || isKiller || isWeaverOfFate;
+                if (!roleRecognized && (r == RoleType.DogSpirit || r == RoleType.SerpentSpirit || r == RoleType.Ogre || r == RoleType.WhiteHound || r == RoleType.WhiteWolf || r == RoleType.Seer || r == RoleType.VillageGuardian || r == RoleType.Shaman || r == RoleType.Hunter || r == RoleType.Killer || r == RoleType.WeaverOfFate))
+                {
+                    OnRoleReceived(r);
+                }
             }
         }
 
@@ -281,6 +318,9 @@ public class NetworkSkillUI : MonoBehaviour
 
         isKiller =
             role == RoleType.Killer;
+
+        isWeaverOfFate =
+            role == RoleType.WeaverOfFate;
 
         hasUsedSkill = false;
         if (NetworkRoleSync.LocalInstance != null)
@@ -356,6 +396,11 @@ public class NetworkSkillUI : MonoBehaviour
 
     private bool IsLocalPlayerDead()
     {
+        if (simulatedLocalPlayerDeadForTest.HasValue)
+        {
+            return simulatedLocalPlayerDeadForTest.Value;
+        }
+
         if (NetworkManager.Singleton == null)
             return false;
 
@@ -379,6 +424,12 @@ public class NetworkSkillUI : MonoBehaviour
                stateSync.State.Value == NetworkPlayerStateType.Disconnected;
     }
 
+    public void SetLocalPlayerDeadForTest(bool isDead)
+    {
+        simulatedLocalPlayerDeadForTest = isDead;
+        UpdateSkillUI();
+    }
+
     public void SetNightNumberForTest(int night)
     {
         simulatedNightNumberForTest = night;
@@ -392,28 +443,7 @@ public class NetworkSkillUI : MonoBehaviour
             return simulatedNightNumberForTest;
         }
 
-        if (phaseSync != null && phaseSync.CurrentNightCycle.Value > 0)
-        {
-            return phaseSync.CurrentNightCycle.Value;
-        }
-
-        if (NightManager.Instance != null && NightManager.Instance.CurrentNightNumber > 0)
-        {
-            return NightManager.Instance.CurrentNightNumber;
-        }
-
-        var session = Thuong.Online.ThuongOnlineSession.Active;
-        if (session != null && session.GetVisibleDay() > 0)
-        {
-            return session.GetVisibleDay();
-        }
-
-        if (GameRoleManager.Instance != null && GameRoleManager.Instance.currentDay > 0)
-        {
-            return GameRoleManager.Instance.currentDay;
-        }
-
-        return 1;
+        return ThuongOnlineSerpentSpiritAdapter.GetAuthoritativeNightNumber();
     }
 
     private int GetLocalPlayerId()
@@ -495,10 +525,23 @@ public class NetworkSkillUI : MonoBehaviour
             !hasUsedSkill &&
             !IsLocalPlayerDead();
 
+        if (isSerpentSpirit)
+        {
+            ThuongOnlineSerpentSpiritAdapter.SyncRoleAbilityUIButtons();
+        }
+
+        bool weaverCanAct =
+            isWeaverOfFate &&
+            isNight &&
+            !weaverHasUsedAbility &&
+            !hasUsedSkill &&
+            !IsLocalPlayerDead();
+
         bool normalSkillAvailable =
             (
                 (canAttackAsDogSpirit && !hasUsedSkill) ||
                 serpentCanAct ||
+                weaverCanAct ||
                 (isSeer && !hasUsedSkill) ||
                 (isVillageGuardian && !hasUsedSkill) ||
                 shamanCanAct ||
@@ -520,9 +563,17 @@ public class NetworkSkillUI : MonoBehaviour
 
         if (attackButton != null)
         {
-            bool attackAvailable = ((canAttackAsDogSpirit && !hasUsedSkill) || serpentCanAct || killerCanAct) &&
+            bool attackAvailable = ((canAttackAsDogSpirit && !hasUsedSkill) || serpentCanAct || killerCanAct || weaverCanAct) &&
                                     isNight && !IsLocalPlayerDead();
             attackButton.SetActive(attackAvailable);
+            if (attackAvailable)
+            {
+                var tmp = attackButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                if (tmp != null)
+                {
+                    tmp.text = isWeaverOfFate ? "DỆT DUYÊN" : isSerpentSpirit ? "CHỌN MỤC TIÊU" : "TẤN CÔNG";
+                }
+            }
         }
 
         if (inspectButton != null)
@@ -583,6 +634,26 @@ public class NetworkSkillUI : MonoBehaviour
 
     public void OnAttackClicked()
     {
+        if (isWeaverOfFate)
+        {
+            if (!isNight)
+            {
+                Debug.LogWarning("SKILL UI | Dệt Duyên chỉ dùng được vào ban đêm.");
+                return;
+            }
+            if (weaverHasUsedAbility || hasUsedSkill)
+            {
+                Debug.LogWarning("SKILL UI | Dệt Duyên chỉ dùng được một lần mỗi ván.");
+                return;
+            }
+            Debug.Log("SKILL UI | WeaverOfFate mở danh sách chọn cặp đôi.");
+            if (NetworkTargetListUI.Instance != null)
+            {
+                NetworkTargetListUI.Instance.ShowPairTargetList();
+            }
+            return;
+        }
+
         int currentNight = GetCurrentNightNumber();
         if (isSerpentSpirit)
         {
@@ -779,6 +850,11 @@ public class NetworkSkillUI : MonoBehaviour
         else if (targetPanel != null)
         {
             targetPanel.SetActive(true);
+            var tlu = targetPanel.GetComponent<NetworkTargetListUI>();
+            if (tlu != null)
+            {
+                tlu.ShowTargetList(subActionId);
+            }
         }
     }
 
@@ -925,23 +1001,26 @@ public class NetworkSkillUI : MonoBehaviour
         if (!isNight)
             return;
 
+        int localId = -1;
+        var session = Thuong.Online.ThuongOnlineSession.Active;
+        if (session != null && session.HasLocalRole)
+        {
+            localId = session.LocalPlayerId;
+        }
+        else if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
+        {
+            localId = (int)NetworkManager.Singleton.LocalClientId;
+        }
+
         currentPromptVictimId = victimId;
         EnsureShamanPromptUI();
 
         if (shamanPromptText != null)
         {
-            int localId = -1;
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
-            {
-                localId = (int)NetworkManager.Singleton.LocalClientId;
-            }
-
-            string victimDisplay = (localId == victimId)
-                ? $"{victimName} (Bản thân)"
-                : victimName;
-
-            shamanPromptText.text =
-                $"<color=#E74C3C>DogSpirit</color> đã cắn <b>{victimDisplay}</b>!\nBạn có muốn dùng <b>Bùa Lợi</b> để cứu không?";
+            bool isSelfAttacked = localId == victimId;
+            shamanPromptText.text = isSelfAttacked
+                ? $"Mục tiêu: <color=#F1C40F><b>{victimName}</b></color>\nBạn đang bị tấn công! Bạn có muốn sử dụng bùa cứu để tự cứu mình không?"
+                : $"Mục tiêu: <color=#F1C40F><b>{victimName}</b></color>\nBạn có muốn sử dụng bùa cứu để cứu người chơi này không?";
         }
 
         if (shamanPromptPanel != null)
@@ -1051,10 +1130,10 @@ public class NetworkSkillUI : MonoBehaviour
         titleRect.sizeDelta = new Vector2(-40, 50);
 
         TMPro.TextMeshProUGUI titleText = titleObj.GetComponent<TMPro.TextMeshProUGUI>();
-        titleText.text = "THÔNG BÁO BÙA LỢI PHÁP SƯ";
+        titleText.text = "CÓ NGƯỜI ĐANG BỊ TẤN CÔNG!";
         titleText.fontSize = 32;
         titleText.fontStyle = TMPro.FontStyles.Bold;
-        titleText.color = new Color(0.95f, 0.77f, 0.25f);
+        titleText.color = new Color(0.95f, 0.25f, 0.25f);
         titleText.alignment = TMPro.TextAlignmentOptions.Center;
 
         // Message
@@ -1122,7 +1201,7 @@ public class NetworkSkillUI : MonoBehaviour
         saveTextRect.offsetMin = Vector2.zero;
         saveTextRect.offsetMax = Vector2.zero;
         TMPro.TextMeshProUGUI saveText = saveTextObj.GetComponent<TMPro.TextMeshProUGUI>();
-        saveText.text = "CỨU MỤC TIÊU";
+        saveText.text = "SỬ DỤNG BÙA CỨU";
         saveText.fontSize = 26;
         saveText.fontStyle = TMPro.FontStyles.Bold;
         saveText.color = Color.white;

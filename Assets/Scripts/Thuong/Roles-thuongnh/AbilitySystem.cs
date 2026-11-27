@@ -45,6 +45,16 @@ public sealed class AbilitySystem : MonoBehaviour
             return ActionValidationResult.Fail(ActionFailureReason.TargetMissing, "Mục tiêu không thuộc trận hiện tại.");
         uses.TryGetValue(actor?.playerID ?? -1, out int used);
         var result = AbilityValidator.Validate(MatchIsRunning, phaseController.currentPhase, actor, target, used);
+        bool isPackKill = result.IsValid && actor?.roleDefinition != null &&
+                          actor.roleDefinition.abilityType == AbilityType.Kill &&
+                          (actor.roleDefinition.sharedNightKill || NightManager.IsMonsterPackMember(actor));
+        if (isPackKill && target != null && nightSystem != null &&
+            !nightSystem.IsDogSpiritDecisionActive &&
+            nightSystem.GetMonsterVotedTarget(actor.playerID) == target.playerID)
+        {
+            return ActionValidationResult.Fail(ActionFailureReason.RepeatedTarget,
+                $"Bạn đã bỏ phiếu cho P{target.playerID + 1:00} rồi.");
+        }
         if (result.IsValid && actor.roleDefinition.forbidConsecutiveNightTarget &&
             lastNightTargets.TryGetValue(actor.playerID, out var previous) &&
             nightSystem.CurrentNightNumber == previous.night + 1 && target.playerID == previous.target)
