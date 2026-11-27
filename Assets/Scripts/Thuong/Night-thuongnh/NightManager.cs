@@ -76,6 +76,7 @@ public class NightManager : MonoBehaviour
     private readonly List<PeekAction> peekActions = new();
     private readonly Dictionary<int, NightAttackEvent> activeNightAttacks = new();
     private readonly HashSet<int> rescuedAttackEventIds = new();
+    private readonly Dictionary<int, int> monsterPackAttackEventIdsByTarget = new();
     private readonly Dictionary<int, WhiteHoundAttackEntry> whiteHoundAttacks = new();
     private int nextActionSequence;
     private int nextAttackEventId;
@@ -181,6 +182,7 @@ public class NightManager : MonoBehaviour
         peekActions.Clear();
         activeNightAttacks.Clear();
         rescuedAttackEventIds.Clear();
+        monsterPackAttackEventIdsByTarget.Clear();
         whiteHoundAttacks.Clear();
         monsterVoteChoices.Clear();
         monsterVoteTallies.Clear();
@@ -573,6 +575,67 @@ public class NightManager : MonoBehaviour
         return eventId;
     }
 
+    private int GetOrRegisterMonsterPackAttackEvent(int victimId, RoleType sourceRole, int attackerId = -1)
+    {
+        if (victimId < 0) return 0;
+
+        if (monsterPackAttackEventIdsByTarget.TryGetValue(victimId, out int existingEventId) && existingEventId > 0)
+        {
+            bool wasActive = activeNightAttacks.ContainsKey(existingEventId);
+            var refreshedEvt = new NightAttackEvent(existingEventId, victimId, DeathCause.Monster, sourceRole, attackerId);
+            activeNightAttacks[existingEventId] = refreshedEvt;
+            if (!wasActive && !rescuedAttackEventIds.Contains(existingEventId))
+            {
+                NightAttackRegistered?.Invoke(refreshedEvt);
+            }
+            return existingEventId;
+        }
+
+        int eventId = RegisterNightAttack(victimId, DeathCause.Monster, sourceRole, attackerId);
+        monsterPackAttackEventIdsByTarget[victimId] = eventId;
+        return eventId;
+    }
+
+    public bool TryFindActiveAttackEventForVictim(int victimId, out int attackEventId)
+    {
+        if (victimId >= 0)
+        {
+            if (monsterAttackEventId > 0 &&
+                activeNightAttacks.TryGetValue(monsterAttackEventId, out var currentMonsterEvt) &&
+                currentMonsterEvt.VictimId == victimId &&
+                !rescuedAttackEventIds.Contains(monsterAttackEventId))
+            {
+                attackEventId = monsterAttackEventId;
+                return true;
+            }
+
+            int latestMatch = 0;
+            foreach (var evt in activeNightAttacks.Values)
+            {
+                if (evt.VictimId != victimId || rescuedAttackEventIds.Contains(evt.EventId))
+                    continue;
+                if (evt.EventId > latestMatch)
+                    latestMatch = evt.EventId;
+            }
+
+            if (latestMatch > 0)
+            {
+                attackEventId = latestMatch;
+                return true;
+            }
+        }
+
+        attackEventId = 0;
+        return false;
+    }
+
+    public bool HasUnrescuedActiveAttackEvent(int attackEventId)
+    {
+        return attackEventId > 0 &&
+               activeNightAttacks.ContainsKey(attackEventId) &&
+               !rescuedAttackEventIds.Contains(attackEventId);
+    }
+
     public bool TryValidateAttackEventForSave(int attackEventId, int victimId, out string error)
     {
         if (attackEventId <= 0 || !activeNightAttacks.TryGetValue(attackEventId, out var evt))
@@ -656,12 +719,15 @@ public class NightManager : MonoBehaviour
         {
             var cause = isMonsterPackKill || (actor != null && actor.faction == FactionType.Monster)
                 ? DeathCause.Monster : DeathCause.Ability;
-            eventId = RegisterNightAttack(target.playerID, cause, role.roleType, actor != null ? actor.playerID : -1);
+            int actorId = actor != null ? actor.playerID : -1;
+            eventId = isMonsterPackKill
+                ? GetOrRegisterMonsterPackAttackEvent(target.playerID, role.roleType, actorId)
+                : RegisterNightAttack(target.playerID, cause, role.roleType, actorId);
             if (isMonsterPackKill)
             {
                 monsterAttackEventId = eventId;
                 packTargetId = target.playerID;
-                monsterSelectorId = actor != null ? actor.playerID : -1;
+                monsterSelectorId = actorId;
                 monsterSourceRole = role.roleType;
                 monsterTargetVersion++;
             }
@@ -688,6 +754,7 @@ public class NightManager : MonoBehaviour
         peekActions.Clear();
         activeNightAttacks.Clear();
         rescuedAttackEventIds.Clear();
+        monsterPackAttackEventIdsByTarget.Clear();
         whiteHoundAttacks.Clear();
         monsterVoteChoices.Clear();
         monsterVoteTallies.Clear();
@@ -765,7 +832,7 @@ public class NightManager : MonoBehaviour
         monsterSelectorId = selectorId;
         monsterSourceRole = sourceRole;
         monsterTargetVersion++;
-        monsterAttackEventId = id >= 0 ? RegisterNightAttack(id, DeathCause.Monster, sourceRole, selectorId) : 0;
+        monsterAttackEventId = id >= 0 ? GetOrRegisterMonsterPackAttackEvent(id, sourceRole, selectorId) : 0;
         MonsterPackTargetChanged?.Invoke(packTargetId, monsterSelectorId, monsterSourceRole, monsterAttackLocked);
     }
 
@@ -1062,7 +1129,7 @@ public class NightManager : MonoBehaviour
         monsterTargetVersion++;
 
         bool useQueued = actor != null && RoleManager.UsesConfiguredAbility(actor) && actor.roleDefinition != null;
-        int eventId = RegisterNightAttack(targetId, DeathCause.Monster, monsterSourceRole, monsterSelectorId);
+        int eventId = GetOrRegisterMonsterPackAttackEvent(targetId, monsterSourceRole, monsterSelectorId);
         monsterAttackEventId = eventId;
         if (useQueued)
         {
@@ -1365,7 +1432,7 @@ public class NightManager : MonoBehaviour
             if (useQueuedAction && effectiveDef != null && representativeActor != null && winningTarget != null)
             {
                 monsterTarget = -1;
-                int eventId = RegisterNightAttack(winningId, DeathCause.Monster, winningSourceRole, representativeVoterId);
+                int eventId = GetOrRegisterMonsterPackAttackEvent(winningId, winningSourceRole, representativeVoterId);
                 monsterAttackEventId = eventId;
                 actions.Add(new QueuedAction
                 {
@@ -1379,7 +1446,7 @@ public class NightManager : MonoBehaviour
             else
             {
                 monsterTarget = winningId;
-                monsterAttackEventId = RegisterNightAttack(winningId, DeathCause.Monster, winningSourceRole, representativeVoterId);
+                monsterAttackEventId = GetOrRegisterMonsterPackAttackEvent(winningId, winningSourceRole, representativeVoterId);
             }
         }
         else
@@ -1600,6 +1667,7 @@ public class NightManager : MonoBehaviour
         peekActions.Clear();
         activeNightAttacks.Clear();
         rescuedAttackEventIds.Clear();
+        monsterPackAttackEventIdsByTarget.Clear();
         bratPeekPending = false;
     }
 

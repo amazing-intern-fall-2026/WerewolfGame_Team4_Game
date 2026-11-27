@@ -1487,19 +1487,54 @@ public class NetworkRoleActionBridge : MonoBehaviour
                     return;
                 }
 
-                // Tiêu hao Bùa Lợi trên ShamanRole & Server tracker
-                shamanRole.UseGoodCharm(targetID);
-                SetShamanSaveUsed(requesterID, true);
+                int activeEventId = 0;
+                if (NightManager.Instance != null &&
+                    NightManager.Instance.TryFindActiveAttackEventForVictim(targetID, out activeEventId))
+                {
+                    if (!NightManager.Instance.TryValidateAttackEventForSave(activeEventId, targetID, out string saveErr))
+                    {
+                        SendResult(requesterClientId, false, saveErr);
+                        return;
+                    }
 
-                // Ghi nhận bảo vệ lên NightManager và PlayerStatus để chặn đòn cắn của Sói
-                NightManager.Instance?.SetProtectedTarget(targetID);
-                target.status ??= new PlayerStatus();
-                target.status.isProtected = true;
+                    if (!shamanRole.ConsumeGoodCharm())
+                    {
+                        SendResult(requesterClientId, false, "Bùa Lợi (Cứu) không khả dụng!");
+                        return;
+                    }
+
+                    SetShamanSaveUsed(requesterID, true);
+                    NightManager.Instance.MarkAttackEventRescued(activeEventId);
+                    requester.hasUseNightAction = true;
+                    GameRoleManager.Instance?.CompleteShamanResponseWindowIfReady();
+                }
+                else
+                {
+                    // Trường hợp Shaman dùng Bùa Lợi chủ động trước khi sự kiện tấn công được đăng ký
+                    shamanRole.UseGoodCharm(targetID);
+                    SetShamanSaveUsed(requesterID, true);
+                    requester.hasUseNightAction = true;
+                    if (StatusEffectSystem.Instance != null)
+                    {
+                        StatusEffectSystem.Instance.ApplyEffect(
+                            target,
+                            StatusEffectType.Protected,
+                            1,
+                            1,
+                            GamePhase.Discussion,
+                            requester);
+                    }
+                    else
+                    {
+                        target.status ??= new PlayerStatus();
+                        target.status.isProtected = true;
+                    }
+                }
 
                 Debug.Log(
                     requesterID == targetID
-                        ? $"ROLE ACTION BRIDGE | Shaman (Player {requesterID + 1}) tự dùng Bùa Lợi cứu bản thân"
-                        : "ROLE ACTION BRIDGE | Shaman dùng Bùa Lợi cứu Player " + (targetID + 1)
+                        ? $"ROLE ACTION BRIDGE | Shaman (Player {requesterID + 1}) tự dùng Bùa Lợi cứu bản thân (EventId={activeEventId})"
+                        : $"ROLE ACTION BRIDGE | Shaman dùng Bùa Lợi cứu Player {targetID + 1} (EventId={activeEventId})"
                 );
 
                 string saveMsg = requesterID == targetID
@@ -1944,8 +1979,10 @@ public class NetworkRoleActionBridge : MonoBehaviour
                 if (networkAction == null)
                     continue;
 
-                Debug.Log($"ROLE ACTION BRIDGE | Gửi thông báo DogSpirit cắn {victimName} (ID {victimId}) riêng cho Shaman Client {clientId}.");
-                networkAction.SendShamanVictimPromptToClient(victimId, victimName, clientId);
+                int activeEventId = 0;
+                NightManager.Instance?.TryFindActiveAttackEventForVictim(victimId, out activeEventId);
+                Debug.Log($"ROLE ACTION BRIDGE | Gửi thông báo DogSpirit cắn {victimName} (ID {victimId}, EventId={activeEventId}) riêng cho Shaman Client {clientId}.");
+                networkAction.SendShamanVictimPromptToClient(victimId, victimName, clientId, activeEventId);
                 notifiedAny = true;
             }
         }

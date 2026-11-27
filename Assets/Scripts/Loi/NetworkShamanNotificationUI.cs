@@ -15,7 +15,7 @@ using UnityEngine.UI;
 /// 1. Chỉ Shaman nhận được thông báo này (quyền riêng tư tuyệt đối).
 /// 2. Shaman ĐƯỢC PHÉP tự cứu bản thân bằng Bùa Cứu nếu vẫn còn lượt sử dụng.
 /// 3. Tiêu đề: "CÓ NGƯỜI ĐANG BỊ TẤN CÔNG!"
-/// 4. Thông tin: Tên người bị tấn công, Avatar nếu có, câu hỏi phù hợp (tự cứu hoặc cứu người khác).
+/// 4. Thông tin: Tên người bị tấn công, câu hỏi phù hợp (tự cứu hoặc cứu người khác).
 /// 5. Hai nút: "SỬ DỤNG BÙA CỨU" và "KHÔNG CỨU".
 /// 6. Event-driven hoàn toàn (KHÔNG Update polling), tự ẩn khi chuyển Phase, reset sạch khi qua trận mới.
 /// </summary>
@@ -29,7 +29,6 @@ public class NetworkShamanNotificationUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI titleText;
     [SerializeField] private TextMeshProUGUI victimNameText;
     [SerializeField] private TextMeshProUGUI messageText;
-    [SerializeField] private Image victimAvatarImage;
     [SerializeField] private Button saveButton;
     [SerializeField] private Button dismissButton;
 
@@ -76,6 +75,9 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         NetworkPlayerAction.OnShamanVictimPromptReceived -= HandleVictimPromptReceived;
         NetworkPlayerAction.OnShamanVictimPromptReceived += HandleVictimPromptReceived;
 
+        NetworkPlayerAction.OnShamanVictimPromptWithEventReceived -= HandleVictimPromptReceived;
+        NetworkPlayerAction.OnShamanVictimPromptWithEventReceived += HandleVictimPromptReceived;
+
         NetworkPhaseSync.OnPhaseChangedGlobal -= HandlePhaseChangedGlobal;
         NetworkPhaseSync.OnPhaseChangedGlobal += HandlePhaseChangedGlobal;
 
@@ -89,6 +91,7 @@ public class NetworkShamanNotificationUI : MonoBehaviour
     private void OnDisable()
     {
         NetworkPlayerAction.OnShamanVictimPromptReceived -= HandleVictimPromptReceived;
+        NetworkPlayerAction.OnShamanVictimPromptWithEventReceived -= HandleVictimPromptReceived;
         NetworkPhaseSync.OnPhaseChangedGlobal -= HandlePhaseChangedGlobal;
         SceneManager.sceneLoaded -= OnSceneLoaded;
 
@@ -297,13 +300,19 @@ public class NetworkShamanNotificationUI : MonoBehaviour
             return;
         }
 
-        // 4. Tránh hiển thị trùng lặp cho cùng một sự kiện tấn công
+        // 4. Không để gói fallback attackEventId == 0 ghi đè attackEventId > 0 hợp lệ của cùng nạn nhân
+        if (attackEventId <= 0 && currentAttackEventId > 0 && currentVictimId == victimId)
+        {
+            return;
+        }
+
+        // 5. Tránh hiển thị trùng lặp cho cùng một sự kiện tấn công
         if (attackEventId > 0 && !shownAttackEventIds.Add(attackEventId))
         {
             return;
         }
 
-        // 5. Hiển thị thông báo (bao gồm cả trường hợp chính Shaman bị tấn công để tự cứu)
+        // 6. Hiển thị thông báo (bao gồm cả trường hợp chính Shaman bị tấn công để tự cứu)
         currentVictimId = victimId;
         currentAttackEventId = attackEventId;
         currentVictimName = victimName;
@@ -344,9 +353,6 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         {
             saveButton.interactable = true;
         }
-
-        // Cập nhật Avatar nạn nhân nếu có
-        UpdateVictimAvatar(victimId);
 
         if (dedicatedCanvasGO != null)
         {
@@ -419,33 +425,6 @@ public class NetworkShamanNotificationUI : MonoBehaviour
     {
         Debug.Log("[NetworkShamanNotificationUI] Shaman đã chọn: KHÔNG CỨU mục tiêu.");
         HidePrompt();
-    }
-
-    private void UpdateVictimAvatar(int victimId)
-    {
-        if (victimAvatarImage == null) return;
-
-        // Thử tìm Avatar của mục tiêu từ RoleInfoDatabase
-        Sprite avatarSprite = RoleInfoDatabase.GetRoleSprite(RoleType.Villager);
-        if (PlayerManager.Instance != null)
-        {
-            var p = PlayerManager.Instance.GetplayerByID(victimId);
-            if (p != null)
-            {
-                Sprite customSprite = RoleInfoDatabase.GetRoleSprite(p.roleType);
-                if (customSprite != null) avatarSprite = customSprite;
-            }
-        }
-
-        if (avatarSprite != null)
-        {
-            victimAvatarImage.sprite = avatarSprite;
-            victimAvatarImage.gameObject.SetActive(true);
-        }
-        else
-        {
-            victimAvatarImage.gameObject.SetActive(false);
-        }
     }
 
     private bool IsLocalPlayerShaman()
@@ -550,7 +529,7 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         promptPanel.transform.SetParent(dedicatedCanvasGO.transform, false);
 
         RectTransform panelRect = promptPanel.GetComponent<RectTransform>();
-        panelRect.sizeDelta = new Vector2(700, 420);
+        panelRect.sizeDelta = new Vector2(700, 350);
         panelRect.anchorMin = new Vector2(0.5f, 0.5f);
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
@@ -580,8 +559,8 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         titleRect.anchorMin = new Vector2(0, 1);
         titleRect.anchorMax = new Vector2(1, 1);
         titleRect.pivot = new Vector2(0.5f, 1);
-        titleRect.anchoredPosition = new Vector2(0, -22);
-        titleRect.sizeDelta = new Vector2(-40, 50);
+        titleRect.anchoredPosition = new Vector2(0, -24);
+        titleRect.sizeDelta = new Vector2(-40, 48);
 
         titleText = titleObj.GetComponent<TextMeshProUGUI>();
         if (uiFont != null) titleText.font = uiFont;
@@ -591,23 +570,12 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         titleText.color = new Color(0.95f, 0.25f, 0.25f); // Đỏ nổi bật
         titleText.alignment = TextAlignmentOptions.Center;
 
-        // Avatar Image (optional placeholder)
-        GameObject avatarObj = new GameObject("VictimAvatar", typeof(RectTransform), typeof(Image));
-        avatarObj.transform.SetParent(promptPanel.transform, false);
-        RectTransform avatarRect = avatarObj.GetComponent<RectTransform>();
-        avatarRect.anchorMin = new Vector2(0.5f, 0.65f);
-        avatarRect.anchorMax = new Vector2(0.5f, 0.65f);
-        avatarRect.pivot = new Vector2(0.5f, 0.5f);
-        avatarRect.sizeDelta = new Vector2(70, 70);
-        avatarRect.anchoredPosition = new Vector2(0, 10);
-        victimAvatarImage = avatarObj.GetComponent<Image>();
-
         // Victim Name Text
         GameObject nameObj = new GameObject("VictimNameText", typeof(RectTransform), typeof(TextMeshProUGUI));
         nameObj.transform.SetParent(promptPanel.transform, false);
         RectTransform nameRect = nameObj.GetComponent<RectTransform>();
-        nameRect.anchorMin = new Vector2(0, 0.46f);
-        nameRect.anchorMax = new Vector2(1, 0.58f);
+        nameRect.anchorMin = new Vector2(0, 0.57f);
+        nameRect.anchorMax = new Vector2(1, 0.74f);
         nameRect.pivot = new Vector2(0.5f, 0.5f);
         nameRect.anchoredPosition = Vector2.zero;
         nameRect.sizeDelta = new Vector2(-60, 0);
@@ -623,8 +591,8 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         GameObject msgObj = new GameObject("MessageText", typeof(RectTransform), typeof(TextMeshProUGUI));
         msgObj.transform.SetParent(promptPanel.transform, false);
         RectTransform msgRect = msgObj.GetComponent<RectTransform>();
-        msgRect.anchorMin = new Vector2(0, 0.32f);
-        msgRect.anchorMax = new Vector2(1, 0.44f);
+        msgRect.anchorMin = new Vector2(0, 0.34f);
+        msgRect.anchorMax = new Vector2(1, 0.55f);
         msgRect.pivot = new Vector2(0.5f, 0.5f);
         msgRect.anchoredPosition = Vector2.zero;
         msgRect.sizeDelta = new Vector2(-60, 0);
@@ -641,10 +609,10 @@ public class NetworkShamanNotificationUI : MonoBehaviour
         GameObject btnContainer = new GameObject("ButtonContainer", typeof(RectTransform));
         btnContainer.transform.SetParent(promptPanel.transform, false);
         RectTransform btnContainerRect = btnContainer.GetComponent<RectTransform>();
-        btnContainerRect.anchorMin = new Vector2(0, 0);
-        btnContainerRect.anchorMax = new Vector2(1, 0.30f);
-        btnContainerRect.pivot = new Vector2(0.5f, 0);
-        btnContainerRect.anchoredPosition = new Vector2(0, 20);
+        btnContainerRect.anchorMin = new Vector2(0, 0.06f);
+        btnContainerRect.anchorMax = new Vector2(1, 0.31f);
+        btnContainerRect.pivot = new Vector2(0.5f, 0.5f);
+        btnContainerRect.anchoredPosition = Vector2.zero;
         btnContainerRect.sizeDelta = new Vector2(-60, 0);
 
         // Nút SỬ DỤNG BÙA CỨU (Xanh lá)

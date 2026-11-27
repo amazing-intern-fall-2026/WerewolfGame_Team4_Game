@@ -1267,7 +1267,7 @@ namespace Thuong.Online
                 baseRole is not ShamanRole shaman)
             { feedback = "Bùa này không khả dụng."; return false; }
 
-            if (good && attackEventId > 0)
+            if (good)
             {
                 if (game == null || game.currentState == GameState.GameOver || game.currentPhase != GamePhase.Night)
                 { feedback = "Chỉ có thể dùng bùa cứu vào ban đêm."; return false; }
@@ -1284,21 +1284,33 @@ namespace Thuong.Online
                 if (target == null || !target.isAlive)
                 { feedback = "Mục tiêu không tồn tại hoặc đã bị loại."; return false; }
 
-                if (NightManager.Instance == null)
-                { feedback = "Chưa có hệ thống xử lý ban đêm."; return false; }
-                if (!NightManager.Instance.TryValidateAttackEventForSave(attackEventId, targetId, out feedback))
-                { return false; }
+                if (attackEventId <= 0 && NightManager.Instance != null &&
+                    NightManager.Instance.TryFindActiveAttackEventForVictim(targetId, out int activeEventId))
+                {
+                    attackEventId = activeEventId;
+                }
 
-                if (!shaman.ConsumeGoodCharm())
-                { feedback = "Bùa lợi không khả dụng."; return false; }
+                if (attackEventId > 0)
+                {
+                    if (NightManager.Instance == null)
+                    { feedback = "Chưa có hệ thống xử lý ban đêm."; return false; }
+                    if (!NightManager.Instance.TryValidateAttackEventForSave(attackEventId, targetId, out feedback))
+                    { return false; }
 
-                NightManager.Instance.MarkAttackEventRescued(attackEventId);
-                actor.hasUseNightAction = true;
-                actor.NotifyChanged();
-                feedback = targetId == actor.playerID
-                    ? "Đã dùng bùa lợi tự cứu bản thân thành công!"
-                    : $"Đã dùng bùa lợi cứu {target.DisplayName} thành công!";
-                return true;
+                    if (!shaman.ConsumeGoodCharm())
+                    { feedback = "Bùa lợi không khả dụng."; return false; }
+
+                    NightManager.Instance.MarkAttackEventRescued(attackEventId);
+                    NetworkRoleActionBridge.SetShamanSaveUsed(actor.playerID, true);
+                    actor.hasUseNightAction = true;
+                    actor.NotifyChanged();
+                    Debug.Log($"[ThuongOnlineSession] Server xác nhận Shaman (Player {actor.playerID + 1}) dùng Bùa Cứu thành công cho {target.DisplayName} (EventId={attackEventId}).");
+                    game.CompleteShamanResponseWindowIfReady();
+                    feedback = targetId == actor.playerID
+                        ? "Đã dùng bùa lợi tự cứu bản thân thành công!"
+                        : $"Đã dùng bùa lợi cứu {target.DisplayName} thành công!";
+                    return true;
+                }
             }
 
             if (!shaman.SelectCharm(good))
